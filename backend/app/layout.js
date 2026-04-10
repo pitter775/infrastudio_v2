@@ -12,6 +12,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
+  metadataBase: new URL('https://infrastudio-v2-backend.vercel.app'),
   title: 'InfraStudio',
   description:
     'Automacao com IA, WhatsApp inteligente e sistemas sob medida para vender mais sem aumentar a operacao manual.',
