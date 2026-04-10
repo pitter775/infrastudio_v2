@@ -10,7 +10,9 @@
     "dev:backend": "npm run dev --workspace backend",
     "dev:frontend": "npm run dev --workspace frontend",
     "mock01": "npm run dev --workspace backend",
-    "localhost": "npm install --workspaces && npm run dev --workspace backend",
+    "localhost": "powershell -ExecutionPolicy Bypass -File ./scripts/localhost.ps1",
+    "localhost:3001": "powershell -ExecutionPolicy Bypass -File ./scripts/localhost.ps1 -Port 3001",
+    "localhost:3002": "powershell -ExecutionPolicy Bypass -File ./scripts/localhost.ps1 -Port 3002",
     "build": "npm run build --workspace backend && npm run build --workspace frontend",
     "build:backend": "npm run build --workspace backend",
     "build:frontend": "npm run build --workspace frontend"

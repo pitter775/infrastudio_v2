@@ -153,6 +153,10 @@ Esses recursos ja fazem parte da stack e devem ser preferidos ao inves de soluco
 
 Na raiz do projeto:
 
+- `npm run install:all` (rodar uma vez no inicio ou quando dependencias mudarem)
+- `npm run localhost`
+- `npm run localhost:3001`
+- `npm run localhost:3002`
 - `npm run build`
 - `npm run build:backend`
 - `npm run build:frontend`
@@ -173,11 +177,29 @@ Para continuar depois e abrir em `http://localhost:3000/mock01`:
 Na raiz:
 
 - `cd C:\Projetos\infrastudio_v2`
+
+Primeira execucao do projeto:
+
+- `cd C:\Projetos\infrastudio_v2`
+- `npm run install:all`
 - `npm run localhost`
+
+Execucoes seguintes:
+
+- `cd C:\Projetos\infrastudio_v2`
+- `npm run localhost`
+
+Fluxo de dev esperado:
+
+- usar `npm run localhost` para subir o backend local
+- usar `npm run localhost:3001` ou `npm run localhost:3002` quando precisar subir em porta alternativa
+- usar `npm run dev:backend` ou `npm run dev:frontend` quando quiser subir apenas um workspace especifico
+- nao rodar instalacao de dependencias em toda inicializacao se nada mudou
 
 Depois abrir:
 
 - `http://localhost:3000/mock01`
+- `http://localhost:3001/mock01` ou `http://localhost:3002/mock01` se usar porta alternativa
 
 ---
 
