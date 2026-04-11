@@ -389,3 +389,180 @@ Se uma tarefa envolver backend:
 - evitar criar estrutura desconectada do workspace
 
 Este documento deve ser tratado como referencia obrigatoria de implementacao.
+
+---
+
+## Realidade atual do v2
+
+Esta secao reflete o estado real implementado no backend v2 e deve ser mantida atualizada durante a migracao.
+
+### Rotas reais do backend
+
+Rotas publicas:
+
+- `/`: landing page real em `backend/app/page.js`
+- `/mock01`: mock legado visual preservado
+
+Rotas do sistema:
+
+- `/app`
+- `/app/projetos`
+- `/app/projetos/[id]`
+- `/admin`
+- `/admin/projetos`
+- `/admin/atendimento`
+- `/admin/usuarios`
+
+APIs atuais:
+
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
+- `GET /api/admin/conversations`
+- `POST /api/admin/conversations/[id]/messages`
+- `GET /api/admin/usuarios`
+- `POST /api/admin/usuarios`
+- `PUT /api/admin/usuarios`
+- `PATCH /api/admin/usuarios/[id]`
+- `DELETE /api/admin/usuarios/[id]`
+- `POST /api/chat`
+
+### Autenticacao atual
+
+O v2 ja usa autenticacao portada do legado:
+
+- JWT assinado com `APP_AUTH_SECRET`
+- cookie HTTP-only `infrastudio-session`
+- validacao de senha com `bcrypt`
+- Supabase usado apenas como banco
+- nao usa Supabase Auth
+- `backend/proxy.js` protege `/admin` e `/api/admin`
+
+Arquivos principais:
+
+- `backend/lib/session.js`
+- `backend/lib/session-token.js`
+- `backend/lib/auth.js`
+- `backend/lib/usuarios.js`
+- `backend/lib/supabase-admin.js`
+- `backend/app/api/auth/login/route.js`
+- `backend/app/api/auth/logout/route.js`
+- `backend/app/api/auth/me/route.js`
+
+### Admin atual
+
+O admin real usa estrutura propria em `backend/components/admin`, seguindo o layout visual do `mock01` sem depender de imports do mock.
+
+Arquivos principais:
+
+- `backend/app/admin/layout.js`
+- `backend/components/admin/layout/shell.js`
+- `backend/components/admin/page-header.js`
+- `backend/components/admin/projects/projects-page.js`
+- `backend/components/admin/projects/project-card.js`
+
+`/admin` redireciona para `/admin/projetos`.
+
+### Usuarios no admin
+
+`/admin/usuarios` possui CRUD real portado do legado para o padrao v2.
+
+Regras atuais:
+
+- apenas usuario com `role = "admin"` pode acessar o CRUD
+- cria usuario em `usuarios`
+- senha inicial usa hash `bcrypt`
+- edita nome, email, senha opcional, status e perfil
+- vincula projetos em `usuarios_projetos`
+- ativa/inativa usuario
+- exclui vinculos em `usuarios_projetos` antes de excluir o usuario
+
+Arquivos principais:
+
+- `backend/components/admin/users/users-page.js`
+- `backend/app/api/admin/usuarios/route.js`
+- `backend/app/api/admin/usuarios/[id]/route.js`
+- `backend/lib/usuarios.js`
+
+### Projetos no admin
+
+`/admin/projetos` lista projetos reais do banco via Supabase.
+`/admin/projetos/[id]` abre o detalhe real do projeto usando o layout do `mock01` como referencia visual, mas com componentes proprios do admin.
+
+Regra atual:
+
+- usuario com `role = "admin"` em `usuarios` ve todos os projetos
+- usuario comum ve apenas projetos vinculados em `usuarios_projetos`
+
+Arquivo principal:
+
+- `backend/lib/projetos.js`
+
+Componentes principais:
+
+- `backend/components/admin/projects/projects-page.js`
+- `backend/components/admin/projects/project-card.js`
+- `backend/components/admin/projects/project-detail-page.js`
+
+Dados carregados no detalhe:
+
+- projeto
+- agente ativo
+- APIs do projeto
+- contagem de canais WhatsApp
+- contagem de widgets de chat
+- contagem de arquivos do agente
+
+Schema de referencia:
+
+- `database/geral-schema.sql`
+
+### Atendimento atual
+
+`/admin/atendimento` ja usa componentes reais em:
+
+- `backend/components/admin/attendance/attendance-page.js`
+- `backend/components/admin/attendance/conversation-list.js`
+- `backend/components/admin/attendance/conversation-feed.js`
+- `backend/components/admin/attendance/conversation-composer.js`
+- `backend/components/admin/attendance/conversation-actions.js`
+- `backend/components/admin/attendance/mock-data.js`
+
+Fluxo atual:
+
+- carrega conversas por `GET /api/admin/conversations`
+- seleciona conversa no frontend
+- envia mensagem por `POST /api/admin/conversations/[id]/messages`
+- chama `POST /api/chat`
+- adiciona a resposta automatica no chat
+
+### Chat atual
+
+`POST /api/chat` chama `backend/lib/chat-adapter.js`.
+
+O adapter usa o pipeline legado:
+
+- `processIncomingChatMessage` de `C:\Projetos\infrastudio\lib\chat-service.ts`
+
+O v2 nao copia o chat-service legado. Ele importa o modulo legado diretamente.
+
+O legado foi ajustado para:
+
+- remover aliases internos `@/lib/...` dentro de `C:\Projetos\infrastudio\lib`
+- aceitar modo isolado quando Supabase/WhatsApp/handoff nao estiverem disponiveis
+
+`backend/next.config.mjs` permite importar codigo do diretorio legado via `outputFileTracingRoot` e `turbopack.root`.
+
+### Variaveis de ambiente
+
+O backend deve rodar com `backend/.env.local`.
+
+Variaveis importantes:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `APP_AUTH_SECRET`
+- `OPENAI_API_KEY`
+
+O codigo legado importado tambem le `process.env` do runtime do backend v2.

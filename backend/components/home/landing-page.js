@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { PremiumHomeChatDemo } from '@/components/home/chat-demo'
+import { LoginModal } from '@/components/home/login-modal'
 import {
   BENEFIT_ITEMS,
   DEMO_FEATURES,
@@ -27,7 +28,7 @@ import {
 } from '@/components/home/data'
 import { cn } from '@/lib/utils'
 
-function HomeNavbar() {
+function HomeNavbar({ onLoginClick }) {
   const navItems = useMemo(
     () => [
       { href: '#planos', label: 'Planos', icon: Sparkles },
@@ -77,12 +78,13 @@ function HomeNavbar() {
             <MessageCircle size={15} />
             {'Solicitar or\u00e7amento'}
           </a>
-          <Link
-            href="/mock01"
+          <button
+            type="button"
+            onClick={onLoginClick}
             className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white lg:inline-flex"
           >
             Entrar
-          </Link>
+          </button>
         </div>
 
         <button
@@ -118,12 +120,16 @@ function HomeNavbar() {
               <MessageCircle size={16} />
               {'Solicitar or\u00e7amento'}
             </a>
-            <Link
-              href="/mock01"
+            <button
+              type="button"
+              onClick={() => {
+                setMobileOpen(false)
+                onLoginClick()
+              }}
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
             >
               Entrar
-            </Link>
+            </button>
           </div>
         </div>
       ) : null}
@@ -309,9 +315,12 @@ function PricingSection() {
 }
 
 export function LandingPage() {
+  const [loginOpen, setLoginOpen] = useState(false)
+
   return (
     <div className="home-shell min-h-screen bg-grid bg-[#040816] text-slate-100">
-      <HomeNavbar />
+      <HomeNavbar onLoginClick={() => setLoginOpen(true)} />
+      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
       <section className="relative overflow-hidden pb-20 pt-32 md:pb-32 md:pt-48">
         <div className="pointer-events-none absolute left-1/2 top-0 h-full w-full max-w-7xl -translate-x-1/2">
           <div className="absolute left-[-10%] top-[-10%] h-[40%] w-[40%] rounded-full bg-blue-600/10 blur-[120px]" />
