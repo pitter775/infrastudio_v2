@@ -4,6 +4,7 @@ import {
   ArrowLeft,
   Bot,
   ChevronDown,
+  Menu,
   MessageSquareText,
   PanelRight,
   Sparkles,
@@ -117,7 +118,7 @@ const boardCards = [
   },
 ]
 
-export function ProjectWorkspaceMock({ project, onBack, onOpenAttendance }) {
+export function ProjectWorkspaceMock({ project, onBack, onOpenAttendance, onOpenMobileMenu }) {
   const [attendanceOpen, setAttendanceOpen] = useState(false)
   const [activeConversationId, setActiveConversationId] = useState(conversations[0].id)
 
@@ -137,9 +138,17 @@ export function ProjectWorkspaceMock({ project, onBack, onOpenAttendance }) {
 
   return (
     <main className="flex min-h-screen flex-1 flex-col">
-      <header className="border-b border-white/5 px-4 py-4 sm:px-6 lg:px-8">
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-[#08111f]/95 px-4 py-4 backdrop-blur sm:px-6 lg:static lg:bg-transparent lg:px-8 lg:backdrop-blur-0">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div className="flex flex-wrap items-start gap-3">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-11 w-11 rounded-2xl border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] hover:text-white lg:hidden"
+              onClick={onOpenMobileMenu}
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
@@ -151,12 +160,12 @@ export function ProjectWorkspaceMock({ project, onBack, onOpenAttendance }) {
 
             <div>
               <div className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Projeto</div>
-              <div className="mt-1 flex flex-wrap items-center gap-4">
+              <div className="mt-1 flex flex-wrap items-center gap-3">
                 <h1 className="text-xl font-semibold text-white sm:text-2xl">{project}</h1>
                 {!attendanceOpen && (
                   <Button
                     variant="ghost"
-                    className="h-10 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 text-cyan-100 hover:bg-cyan-500/15 hover:text-white"
+                    className="h-10 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 text-cyan-100 hover:bg-cyan-500/15 hover:text-white lg:hidden"
                     onClick={handleOpenAttendance}
                   >
                     <MessageSquareText className="mr-2 h-4 w-4" />
@@ -168,7 +177,7 @@ export function ProjectWorkspaceMock({ project, onBack, onOpenAttendance }) {
           </div>
 
           {!attendanceOpen && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="hidden flex-wrap items-center gap-2 lg:flex">
               <Sheet>
                 <SheetTrigger asChild>
                   <Button
@@ -255,7 +264,7 @@ export function ProjectWorkspaceMock({ project, onBack, onOpenAttendance }) {
         </div>
       </header>
 
-      <SimpleBar className="h-[calc(100vh-101px)]">
+      <SimpleBar className="md:h-[calc(100vh-101px)]">
         <section className="px-4 py-6 sm:px-6 lg:px-8">
           {attendanceOpen ? (
             <AttendancePanel
@@ -336,6 +345,92 @@ export function ProjectWorkspaceMock({ project, onBack, onOpenAttendance }) {
                   </Button>
                 </div>
               </div>
+
+              {!attendanceOpen && (
+                <div className="grid gap-4 lg:hidden">
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="h-12 rounded-2xl border border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <Bot className="mr-2 h-4 w-4" />
+                        Agente
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent className="border-white/5 bg-[#08111f] text-slate-200 sm:border-l">
+                      <SheetHeader className="text-center">
+                        <SheetTitle className="text-white">Agente do projeto</SheetTitle>
+                        <SheetDescription>
+                          Parametros mock para tom de voz, canais e prioridade operacional.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="mt-6 space-y-4">
+                        <div className="rounded-[24px] border border-white/5 bg-white/[0.03] p-5 text-center">
+                          <div className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                            Persona
+                          </div>
+                          <div className="mt-2 text-lg font-semibold text-white">
+                            Atendente premium
+                          </div>
+                          <p className="mt-3 text-sm leading-6 text-slate-400">
+                            Responde com clareza, prioriza resolucao rapida e escala humano quando a
+                            conversa sair do script.
+                          </p>
+                        </div>
+                        <div className="rounded-[24px] border border-white/5 bg-white/[0.03] p-5">
+                          <div className="text-center text-xs uppercase tracking-[0.2em] text-slate-500">
+                            Regras
+                          </div>
+                          <ul className="mt-3 space-y-3 text-sm text-slate-300">
+                            <li>Validar nome e contexto antes de enviar anexos.</li>
+                            <li>Priorizar WhatsApp quando houver lead em aberto.</li>
+                            <li>Escalar para humano apos 2 tentativas sem resposta util.</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+
+                  <Sheet>
+                    <SheetTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        className="h-12 rounded-2xl border border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06] hover:text-white"
+                      >
+                        <PanelRight className="mr-2 h-4 w-4" />
+                        Sheets
+                      </Button>
+                    </SheetTrigger>
+                    <SheetContent className="border-white/5 bg-[#08111f] text-slate-200 sm:border-l">
+                      <SheetHeader className="text-center">
+                        <SheetTitle className="text-white">Painel lateral</SheetTitle>
+                        <SheetDescription>
+                          Area reservada para midias, tarefas e atalhos do projeto.
+                        </SheetDescription>
+                      </SheetHeader>
+                      <div className="mt-6 grid gap-4">
+                        {[
+                          'Uploads recentes',
+                          'Checklist de onboarding',
+                          'Historico de aprovacoes',
+                        ].map((title) => (
+                          <div
+                            key={title}
+                            className="rounded-[24px] border border-white/5 bg-white/[0.03] p-5"
+                          >
+                            <div className="text-sm font-semibold text-white">{title}</div>
+                            <p className="mt-2 text-sm leading-6 text-slate-400">
+                              Conteudo mock para validar estrutura, espacamento e comportamento do
+                              sheet.
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </SheetContent>
+                  </Sheet>
+                </div>
+              )}
 
               <div className="rounded-[30px] border border-white/5 bg-white/[0.03] p-5">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

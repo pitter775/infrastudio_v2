@@ -233,6 +233,65 @@ function getDockedCardLayout({ viewportWidth, viewportHeight }) {
   return { left, top, scale, cardWidth, sheetWidth }
 }
 
+function SheetPanelHeader({
+  eyebrow,
+  title,
+  description,
+  statusLabel,
+  statusTone = 'emerald',
+  compactTitle = true,
+}) {
+  const statusClasses =
+    statusTone === 'sky'
+      ? {
+          text: 'text-sky-300',
+          track: 'bg-sky-500/20',
+          thumb: 'bg-sky-300',
+        }
+      : {
+          text: 'text-emerald-300',
+          track: 'bg-emerald-500/20',
+          thumb: 'bg-emerald-300',
+        }
+
+  return (
+    <div className="border-b border-white/5 px-6 py-5">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className={cn('text-xs uppercase tracking-[0.22em]', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
+            {eyebrow}
+          </p>
+          <h2
+            className={cn(
+              'mt-2 font-semibold text-white',
+              compactTitle ? 'text-xl leading-tight' : 'text-[2rem] leading-none',
+            )}
+          >
+            {title}
+          </h2>
+          <p className="mt-2 text-sm text-slate-400">{description}</p>
+        </div>
+
+        {statusLabel ? (
+          <div className="flex items-center gap-3">
+            <span
+              className={cn(
+                'text-xs font-semibold uppercase tracking-[0.18em]',
+                statusClasses.text,
+              )}
+            >
+              {statusLabel}
+            </span>
+            <div className={cn('flex h-7 w-10 items-center rounded-full p-1', statusClasses.track)}>
+              <div className={cn('ml-auto h-5 w-5 rounded-full', statusClasses.thumb)} />
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
 export function ProjectDetailView({ card }) {
   const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [activePanel, setActivePanel] = useState(DEFAULT_PANEL)
@@ -486,29 +545,13 @@ export function ProjectDetailView({ card }) {
               >
                 {selectedPanel?.id === 'apis' ? (
                   <>
-                    <div className="border-b border-white/5 px-6 py-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.22em] text-sky-300">API</p>
-                          <h2 className="mt-2 text-[2rem] font-semibold leading-none text-white">
-                            Nova API
-                          </h2>
-                          <p className="mt-2 text-sm text-slate-400">
-                            Cadastre uma API GET, teste a resposta e escolha os campos ativos,
-                            inclusive os aninhados.
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                            Ativa
-                          </span>
-                          <div className="flex h-7 w-10 items-center rounded-full bg-emerald-500/20 p-1">
-                            <div className="ml-auto h-5 w-5 rounded-full bg-emerald-300" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <SheetPanelHeader
+                      eyebrow="API"
+                      title="Nova API"
+                      description="Cadastre uma API GET, teste a resposta e escolha os campos ativos, inclusive os aninhados."
+                      statusLabel="Ativa"
+                      statusTone="sky"
+                    />
 
                     <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
                       <div className="space-y-5">
@@ -605,12 +648,12 @@ export function ProjectDetailView({ card }) {
                   </>
                 ) : selectedPanel ? (
                   <>
-                    <div className="border-b border-white/5 px-6 py-4">
-                      <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                        Integration Panel
-                      </p>
-                      <h2 className="mt-3 text-xl font-semibold text-white">{sheetHeading}</h2>
-                    </div>
+                    <SheetPanelHeader
+                      eyebrow="Integration Panel"
+                      title={sheetHeading}
+                      description={sheetIntro}
+                      statusLabel={sheetStatus}
+                    />
 
                     <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
                       <div className="space-y-6 text-sm text-slate-300">
@@ -667,28 +710,13 @@ export function ProjectDetailView({ card }) {
                   </>
                 ) : (
                   <>
-                    <div className="border-b border-white/5 px-6 py-5">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <p className="text-xs uppercase tracking-[0.22em] text-sky-300">Agente</p>
-                          <h2 className="mt-2 text-[2rem] font-semibold leading-none text-white">
-                            Editar
-                          </h2>
-                          <p className="mt-2 text-sm text-slate-400">
-                            Defina o agente e selecione quais APIs deste projeto ele pode usar.
-                          </p>
-                        </div>
-
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                            Ativo
-                          </span>
-                          <div className="flex h-7 w-10 items-center rounded-full bg-emerald-500/20 p-1">
-                            <div className="ml-auto h-5 w-5 rounded-full bg-emerald-300" />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                    <SheetPanelHeader
+                      eyebrow="Agente"
+                      title="Editar"
+                      description="Defina o agente e selecione quais APIs deste projeto ele pode usar."
+                      statusLabel="Ativo"
+                      statusTone="sky"
+                    />
 
                     <div className="min-h-0 flex-1 overflow-y-auto">
                       <div className="grid min-h-full grid-cols-1 xl:grid-cols-[1.08fr_0.92fr]">

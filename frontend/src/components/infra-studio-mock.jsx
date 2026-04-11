@@ -1,10 +1,16 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, ChevronRight, Sparkles } from 'lucide-react'
-import { AppSidebar } from '@/components/app-sidebar'
+import { Check, ChevronRight, Menu, Sparkles } from 'lucide-react'
+import { AppSidebar, primaryNav } from '@/components/app-sidebar'
 import { ProjectWorkspaceMock } from '@/components/project-workspace-mock'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 
 const projects = [
   {
@@ -61,6 +67,7 @@ export function InfraStudioMock() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeKey, setActiveKey] = useState('projects')
   const [selectedProject, setSelectedProject] = useState(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   const handleSelectProject = (projectName) => {
     setSelectedProject(projectName)
@@ -81,6 +88,7 @@ export function InfraStudioMock() {
 
   const handleSelectNav = (key) => {
     setActiveKey(key)
+    setMobileMenuOpen(false)
 
     if (key === 'attendance' && selectedProject) {
       setSidebarCollapsed(false)
@@ -91,6 +99,8 @@ export function InfraStudioMock() {
       setSidebarCollapsed(false)
     }
   }
+
+  const showAttendanceButton = selectedProject && activeKey !== 'attendance'
 
   return (
     <div className="min-h-screen bg-[#050b16] text-slate-300">
@@ -107,10 +117,32 @@ export function InfraStudioMock() {
             project={selectedProject}
             onBack={handleBackToProjects}
             onOpenAttendance={handleOpenAttendance}
+            onOpenMobileMenu={() => setMobileMenuOpen(true)}
           />
         ) : (
           <main className="flex min-h-screen flex-1 flex-col">
-            <header className="border-b border-white/5 px-4 py-4 sm:px-6 lg:px-8">
+            <header className="sticky top-0 z-30 border-b border-white/5 bg-[#08111f]/95 px-4 py-4 backdrop-blur sm:px-6 lg:static lg:bg-transparent lg:px-8 lg:backdrop-blur-0">
+              <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-11 w-11 rounded-2xl border border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06] hover:text-white"
+                  onClick={() => setMobileMenuOpen(true)}
+                >
+                  <Menu className="h-4 w-4" />
+                </Button>
+                {showAttendanceButton ? (
+                  <Button
+                    variant="ghost"
+                    className="h-11 rounded-2xl border border-cyan-400/20 bg-cyan-500/10 px-4 text-cyan-100 hover:bg-cyan-500/15 hover:text-white"
+                    onClick={handleOpenAttendance}
+                  >
+                    Atendimento
+                  </Button>
+                ) : (
+                  <div className="h-11" />
+                )}
+              </div>
               <div className="max-w-4xl">
                 <Badge variant="cyan">Workspace</Badge>
                 <h1 className="mt-4 text-3xl font-semibold text-white sm:text-4xl">
@@ -152,6 +184,31 @@ export function InfraStudioMock() {
             </section>
           </main>
         )}
+
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetContent side="left" className="border-white/5 bg-[#08111f] text-slate-200">
+            <SheetHeader>
+              <SheetTitle className="text-white">Menu principal</SheetTitle>
+            </SheetHeader>
+            <div className="mt-6 space-y-2">
+              {primaryNav.map((item) => {
+                const Icon = item.icon
+
+                return (
+                  <Button
+                    key={item.key}
+                    variant="ghost"
+                    className="h-12 w-full justify-start rounded-2xl border border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06] hover:text-white"
+                    onClick={() => handleSelectNav(item.key)}
+                  >
+                    <Icon className="mr-2 h-4 w-4" />
+                    {item.label}
+                  </Button>
+                )
+              })}
+            </div>
+          </SheetContent>
+        </Sheet>
       </div>
     </div>
   )

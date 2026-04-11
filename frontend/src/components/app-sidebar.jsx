@@ -15,7 +15,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const primaryNav = [
+export const primaryNav = [
   { label: 'Projetos', icon: LayoutGrid, key: 'projects' },
   { label: 'Atendimento', icon: MessageSquareText, key: 'attendance' },
 ]

@@ -125,7 +125,7 @@ export function AttendancePanel({
             <p className="mt-1 text-xs text-slate-500">Site e WhatsApp no mesmo feed.</p>
           </div>
 
-          <SimpleBar className="h-[calc(100vh-350px)] min-h-[420px] px-3 py-3">
+          <SimpleBar className="px-3 py-3 md:h-[calc(100vh-350px)] md:min-h-[420px]">
             <div className="space-y-3">
               {conversations.map((conversation) => (
                 <ConversationItem
@@ -185,7 +185,7 @@ export function AttendancePanel({
           </div>
 
           <div className="min-h-0 flex-1 overflow-hidden">
-            <SimpleBar className="h-[calc(100vh-470px)] min-h-[320px] px-4 py-5 sm:px-5">
+            <SimpleBar className="px-4 py-5 sm:px-5 md:h-[calc(100vh-470px)] md:min-h-[320px]">
               <div className="space-y-4">
                 {activeConversation.messages.map((message, index) => (
                   <motion.div
