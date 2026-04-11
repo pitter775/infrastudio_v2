@@ -106,6 +106,9 @@ Rotas atuais observadas:
 - `backend/app/page.js`
 - `backend/app/mock01/page.js`
 - `backend/app/mock01/[slug]/page.js`
+- `backend/app/mock01/dashboard/page.js`
+- `backend/app/mock01/[slug]/dashboard/page.js`
+- `backend/app/mock01/[slug]/atendimento/page.js`
 
 Leitura correta:
 
@@ -192,13 +195,18 @@ Ele ja contem:
 - detalhe de projeto
 - shell visual
 - fluxo de painel lateral
+- dashboard mock
+- tela mock de atendimento
 - componentes reutilizaveis importantes
+- comportamento mobile mais refinado no workspace e nos sheets
 
 Arquivos relevantes:
 
 - `backend/components/mock01/project-card.js`
 - `backend/components/mock01/projects-grid-view.js`
 - `backend/components/mock01/project-detail-view.js`
+- `backend/components/mock01/dashboard-view.js`
+- `backend/components/mock01/attendance-view.js`
 - `backend/components/mock01/layout/shell.js`
 
 Leitura correta:
@@ -207,6 +215,26 @@ Leitura correta:
 - ele deve ser preservado
 - ele deve ser copiado para a estrutura real no momento certo
 - ele nao deve receber regra de negocio real como se fosse rota final
+- ele hoje ja serve tambem como referencia de responsividade mobile e comportamento de sheets
+
+## Evolucao recente do mock01
+
+Nas ultimas iteracoes, o `mock01` recebeu refinamentos visuais e estruturais importantes.
+
+O que existe agora:
+
+- header mobile mais consistente no workspace
+- menu principal acessivel no topo no celular
+- botao de atendimento reposicionado no topo no mobile
+- subtitulos de sheets ocultados no celular quando necessario
+- headers dos sheets mais padronizados entre agente, integracoes e API
+- card do agente no mobile com comportamento proprio, sem drag, sem scroll e com escala menor
+
+Leitura correta:
+
+- o mock01 nao e so uma vitrine estatica
+- ele ja consolida decisoes visuais e de interacao que podem orientar a futura area logada real
+- mesmo assim, continua sendo mock e referencia, nao implementacao final de produto
 
 ## Decisao importante ja registrada
 
