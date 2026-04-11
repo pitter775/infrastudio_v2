@@ -5,9 +5,7 @@ const backendDir = path.dirname(fileURLToPath(import.meta.url))
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  turbopack: {
-    root: backendDir,
-  },
+  outputFileTracingRoot: path.resolve(backendDir, '..'),
 }
 
 export default nextConfig

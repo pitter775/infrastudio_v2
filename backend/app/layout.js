@@ -1,15 +1,4 @@
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+import './globals.css'
 
 export const metadata = {
   metadataBase: new URL('https://infrastudio-v2-backend.vercel.app'),
@@ -46,12 +35,12 @@ export const metadata = {
       'Automacao com IA, WhatsApp inteligente e sistemas sob medida para vender mais sem aumentar a operacao manual.',
     images: ['/compartilhar_novo.png'],
   },
-};
+}
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html lang="pt-BR">
       <body suppressHydrationWarning>{children}</body>
     </html>
-  );
+  )
 }

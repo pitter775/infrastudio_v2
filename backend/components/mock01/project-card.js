@@ -87,10 +87,10 @@ export function ProjectCard({
         dragEndedAtRef.current = Date.now()
       }}
       className={cn(
-        'relative flex flex-col overflow-visible transition-[box-shadow] duration-200 hover:shadow-[0_12px_20px_rgba(0,0,0,0.58)]',
+        'group relative flex flex-col overflow-visible transition-[box-shadow] duration-200',
         isDragging
           ? 'shadow-[0_16px_24px_rgba(0,0,0,0.72)]'
-          : 'shadow-[0_10px_18px_rgba(0,0,0,0.52)]',
+          : 'shadow-none hover:shadow-[0_12px_20px_rgba(0,0,0,0.58)]',
         draggableHeader
           ? 'cursor-grab active:cursor-grabbing'
           : interactive
@@ -104,10 +104,10 @@ export function ProjectCard({
 
       <div
         className={cn(
-          'relative z-30 flex flex-col overflow-hidden rounded-xl border border-white/5 bg-[#0f172a] transition-[box-shadow,border-color] duration-200',
+          'relative z-30 flex flex-col overflow-hidden rounded-xl border border-white/5 bg-[#0b1120] transition-[background-color,box-shadow,border-color] duration-200 group-hover:bg-[#0f172a]',
           active
             ? 'border-violet-400/35 shadow-[0_0_0_1px_rgba(168,85,247,0.16),0_0_24px_rgba(168,85,247,0.18),0_0_56px_rgba(126,34,206,0.12)]'
-            : null,
+            : 'shadow-none group-hover:shadow-[0_0_0_1px_rgba(255,255,255,0.04)]',
         )}
       >
         <div
@@ -115,7 +115,7 @@ export function ProjectCard({
             'pointer-events-none absolute inset-0 rounded-xl transition-opacity duration-200',
             active
               ? 'opacity-100 shadow-[0_0_32px_rgba(168,85,247,0.28),0_0_72px_rgba(126,34,206,0.18)]'
-              : 'opacity-0',
+              : 'opacity-0 group-hover:opacity-100 group-hover:shadow-[0_0_24px_rgba(15,23,42,0.22)]',
           )}
         />
         <div className="border-b border-white/5 p-5">

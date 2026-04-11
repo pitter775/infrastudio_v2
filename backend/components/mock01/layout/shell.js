@@ -1,13 +1,18 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   Bell,
+  ChartColumn,
   ChevronDown,
   EllipsisVertical,
   Menu,
+  MessageSquareText,
+  PanelLeftClose,
+  PanelLeftOpen,
   Settings,
 } from 'lucide-react'
 import { primaryNav, projectCards, resourceNav } from '@/components/mock01/data'
@@ -25,9 +30,43 @@ function isProjectsRoute(pathname) {
   return pathname === '/mock01' || pathname.startsWith('/mock01/')
 }
 
-function SidebarItem({ item }) {
+function getProjectSlug(pathname) {
+  if (!pathname.startsWith('/mock01/')) {
+    return null
+  }
+
+  const [, , slug] = pathname.split('/')
+  if (!slug || slug === 'dashboard') {
+    return null
+  }
+
+  return slug
+}
+
+function isAttendanceRoute(pathname) {
+  return pathname.endsWith('/atendimento')
+}
+
+function isDashboardRoute(pathname) {
+  return pathname.endsWith('/dashboard')
+}
+
+function isItemActive(item, pathname) {
+  if (item.match === 'projects') {
+    return pathname === '/mock01'
+  }
+  if (item.match === 'dashboard') {
+    return isDashboardRoute(pathname)
+  }
+  if (item.match === 'project') {
+    return pathname.startsWith('/mock01/') && !isAttendanceRoute(pathname) && !isDashboardRoute(pathname)
+  }
+  return item.href ? pathname === item.href : !!item.active
+}
+
+function SidebarItem({ item, pathname }) {
   const Icon = item.icon
-  const active = item.href ? isProjectsRoute(item.href) && isProjectsRoute(item.currentPath) : item.active
+  const active = isItemActive(item, pathname)
 
   return (
     <Link
@@ -50,9 +89,9 @@ function SidebarItem({ item }) {
   )
 }
 
-function SidebarItemCollapsed({ item }) {
+function SidebarItemCollapsed({ item, pathname }) {
   const Icon = item.icon
-  const active = item.href ? isProjectsRoute(item.href) && isProjectsRoute(item.currentPath) : item.active
+  const active = isItemActive(item, pathname)
 
   return (
     <Tooltip>
@@ -95,11 +134,16 @@ function SettingsItem() {
 }
 
 function SidebarContent({ isSidebarCollapsed = false, pathname }) {
-  const navItems = primaryNav.map((item) => ({
-    ...item,
-    href: item.label === 'Projects' ? '/mock01' : '#',
-    currentPath: pathname,
-  }))
+  const currentProjectSlug = getProjectSlug(pathname)
+  const navItems = currentProjectSlug
+    ? [
+        { label: 'Projects', icon: primaryNav[0].icon, href: '/mock01', match: 'projects' },
+        { label: 'Dashboard', icon: ChartColumn, href: `/mock01/${currentProjectSlug}/dashboard`, match: 'dashboard' },
+      ]
+    : [
+        { label: 'Projects', icon: primaryNav[0].icon, href: '/mock01', match: 'projects' },
+        { label: 'Dashboard', icon: ChartColumn, href: '/mock01/dashboard', match: 'dashboard' },
+      ]
   const secondaryItems = resourceNav.map((item) => ({ ...item, href: '#', currentPath: pathname }))
 
   return (
@@ -112,9 +156,9 @@ function SidebarContent({ isSidebarCollapsed = false, pathname }) {
         <nav className="space-y-1">
           {navItems.map((item) =>
             isSidebarCollapsed ? (
-              <SidebarItemCollapsed key={item.label} item={item} />
+              <SidebarItemCollapsed key={item.label} item={item} pathname={pathname} />
             ) : (
-              <SidebarItem key={item.label} item={item} />
+              <SidebarItem key={item.label} item={item} pathname={pathname} />
             ),
           )}
         </nav>
@@ -122,9 +166,9 @@ function SidebarContent({ isSidebarCollapsed = false, pathname }) {
         <div className="mt-8 space-y-1">
           {secondaryItems.map((item) =>
             isSidebarCollapsed ? (
-              <SidebarItemCollapsed key={item.label} item={item} />
+              <SidebarItemCollapsed key={item.label} item={item} pathname={pathname} />
             ) : (
-              <SidebarItem key={item.label} item={item} />
+              <SidebarItem key={item.label} item={item} pathname={pathname} />
             ),
           )}
           {isSidebarCollapsed ? (
@@ -159,9 +203,19 @@ function SidebarContent({ isSidebarCollapsed = false, pathname }) {
 
 export function Mock01Shell({ children }) {
   const pathname = usePathname()
-  const isSidebarCollapsed = pathname !== '/mock01'
-  const currentProject = pathname.startsWith('/mock01/')
-    ? projectCards.find((card) => card.slug === pathname.replace('/mock01/', '')) ?? null
+  const attendanceRoute = isAttendanceRoute(pathname)
+  const dashboardRoute = isDashboardRoute(pathname)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
+    pathname !== '/mock01' && !dashboardRoute || attendanceRoute,
+  )
+
+  useEffect(() => {
+    setIsSidebarCollapsed((pathname !== '/mock01' && !dashboardRoute) || attendanceRoute)
+  }, [pathname, attendanceRoute, dashboardRoute])
+
+  const projectSlug = getProjectSlug(pathname)
+  const currentProject = projectSlug
+    ? projectCards.find((card) => card.slug === projectSlug) ?? null
     : null
   const contentBackgroundStyle = currentProject
     ? {
@@ -207,10 +261,37 @@ export function Mock01Shell({ children }) {
                 </div>
 
                 {currentProject ? (
-                  <div className="mr-auto hidden min-w-0 lg:block">
-                    <p className="truncate text-sm font-medium text-white">
+                  <div className="mr-auto hidden min-w-0 items-center gap-3 lg:flex">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg border border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.06] hover:text-white"
+                      onClick={() => setIsSidebarCollapsed((current) => !current)}
+                    >
+                      {isSidebarCollapsed ? (
+                        <PanelLeftOpen className="h-4 w-4" />
+                      ) : (
+                        <PanelLeftClose className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <p className="truncate text-sm font-medium text-slate-100">
                       {currentProject.name}
                     </p>
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="sm"
+                      className={
+                        isAttendanceRoute(pathname)
+                          ? 'rounded-full bg-cyan-500/12 px-3 text-cyan-100 hover:bg-cyan-500/16 hover:text-white'
+                          : 'rounded-full bg-white/[0.03] px-3 text-slate-300 hover:bg-white/[0.08] hover:text-white'
+                      }
+                    >
+                      <Link href={`/mock01/${currentProject.slug}/atendimento`}>
+                        <MessageSquareText className="mr-1.5 h-3.5 w-3.5" />
+                        Atendimento
+                      </Link>
+                    </Button>
                   </div>
                 ) : null}
 
@@ -224,13 +305,28 @@ export function Mock01Shell({ children }) {
               </div>
             </header>
 
-            <div className="flex flex-1 flex-col px-4 pb-4 pt-1 pl-0 lg:min-h-0">
+            <div
+              className={cn(
+                'flex flex-1 flex-col pt-1 pl-0 lg:min-h-0',
+                attendanceRoute ? 'px-4 pb-1' : dashboardRoute ? 'px-4 pb-4' : 'px-4 pb-4',
+              )}
+            >
               <div
-                className="flex flex-1 flex-col overflow-visible rounded-none border-0 lg:min-h-0 lg:overflow-hidden lg:rounded-xl lg:border lg:border-white/5"
+                className="flex flex-1 flex-col overflow-x-hidden overflow-y-visible rounded-none border-0 lg:min-h-0 lg:overflow-hidden lg:rounded-xl lg:border lg:border-white/5"
                 style={contentBackgroundStyle}
               >
-                <div className="overflow-visible lg:flex-1 lg:overflow-y-auto">
-                  <div className="mx-auto max-w-6xl px-8 py-10">{children}</div>
+                <div className={cn('overflow-x-hidden overflow-y-visible lg:flex-1', attendanceRoute ? 'lg:overflow-hidden' : 'lg:overflow-y-auto')}>
+                  <div
+                    className={cn(
+                      attendanceRoute
+                        ? 'h-full px-2 py-2 lg:px-2 lg:py-2'
+                        : dashboardRoute || pathname === '/mock01'
+                          ? 'px-4 py-6 lg:px-4 lg:py-6'
+                          : 'mx-auto max-w-6xl px-8 py-10',
+                    )}
+                  >
+                    {children}
+                  </div>
                 </div>
               </div>
             </div>

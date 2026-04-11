@@ -1,8 +1,10 @@
 'use client'
 
+import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, LayoutGrid, List } from 'lucide-react'
 import { projectCards } from '@/components/mock01/data'
+import { MockPageHeader } from '@/components/mock01/mock-page-header'
 import { ProjectCard } from '@/components/mock01/project-card'
 import { Button } from '@/components/ui/button'
 
@@ -14,14 +16,21 @@ export function ProjectsGridView() {
   }
 
   return (
-    <>
-      <div className="mb-10 flex items-center justify-between">
-        <h1 className="text-3xl font-semibold text-white">Projects</h1>
-        <Button className="rounded-lg bg-[#8b5cf6] px-5 py-2 font-medium text-white hover:bg-violet-600">
+    <motion.div
+      initial={{ opacity: 0, x: 56 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.22, ease: 'easeInOut' }}
+    >
+      <MockPageHeader
+        title="Projects"
+        description="Selecione um projeto para abrir a area operacional e navegar pelos mocks."
+        actions={
+          <Button className="h-8 rounded-lg bg-[#8b5cf6] px-3 text-xs font-medium text-white hover:bg-violet-600">
           <span className="text-lg">+</span>
           <span>New</span>
-        </Button>
-      </div>
+          </Button>
+        }
+      />
 
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
@@ -54,11 +63,13 @@ export function ProjectsGridView() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {projectCards.map((card, index) => (
-          <ProjectCard key={card.slug} card={card} index={index} onSelect={handleProjectSelect} />
+          <div key={card.slug} className="max-w-[360px]">
+            <ProjectCard card={card} index={index} onSelect={handleProjectSelect} />
+          </div>
         ))}
       </div>
-    </>
+    </motion.div>
   )
 }

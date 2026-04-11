@@ -31,7 +31,7 @@ body {
 
 html {
   scrollbar-width: thin;
-  scrollbar-color: #0f2a5c transparent;
+  scrollbar-color: #0f2a5c #080e1d;
 }
 
 body {
@@ -62,7 +62,7 @@ a {
 }
 
 *::-webkit-scrollbar-track {
-  background: transparent;
+  background: #080e1d;
 }
 
 *::-webkit-scrollbar-button {
