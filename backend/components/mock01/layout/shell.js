@@ -9,6 +9,7 @@ import {
   ChartColumn,
   ChevronDown,
   EllipsisVertical,
+  LoaderCircle,
   Menu,
   MessageSquareText,
   PanelLeftClose,
@@ -53,7 +54,7 @@ function isDashboardRoute(pathname) {
 
 function isItemActive(item, pathname) {
   if (item.match === 'projects') {
-    return pathname === '/mock01'
+    return pathname === '/mock01' || (pathname.startsWith('/mock01/') && !isDashboardRoute(pathname))
   }
   if (item.match === 'dashboard') {
     return isDashboardRoute(pathname)
@@ -64,53 +65,67 @@ function isItemActive(item, pathname) {
   return item.href ? pathname === item.href : !!item.active
 }
 
-function SidebarItem({ item, pathname }) {
+function SidebarItem({ item, pathname, pendingHref, onNavigate }) {
   const Icon = item.icon
   const active = isItemActive(item, pathname)
+  const loading = !!pendingHref && item.href === pendingHref
 
   return (
     <Link
       href={item.href || '#'}
+      onClick={() => onNavigate?.(item.href)}
       className={cn(
         'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors duration-200',
         active
           ? 'bg-slate-800/60 text-white'
           : 'text-slate-400 hover:bg-slate-800/40 hover:text-white',
+        loading && 'pointer-events-none',
       )}
     >
-      <Icon
-        className={cn(
-          'h-4 w-4 shrink-0',
-          active ? 'text-[#b084f8]' : 'text-slate-400 group-hover:text-[#6f9aea]',
-        )}
-      />
+      {loading ? (
+        <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-sky-300" />
+      ) : (
+        <Icon
+          className={cn(
+            'h-4 w-4 shrink-0',
+            active ? 'text-[#b084f8]' : 'text-slate-400 group-hover:text-[#6f9aea]',
+          )}
+        />
+      )}
       <span>{item.label}</span>
     </Link>
   )
 }
 
-function SidebarItemCollapsed({ item, pathname }) {
+function SidebarItemCollapsed({ item, pathname, pendingHref, onNavigate }) {
   const Icon = item.icon
   const active = isItemActive(item, pathname)
+  const loading = !!pendingHref && item.href === pendingHref
 
   return (
     <Tooltip>
       <TooltipTrigger asChild>
         <Link
           href={item.href || '#'}
+          onClick={() => onNavigate?.(item.href)}
           className={cn(
             'group flex w-full items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200',
             active
               ? 'bg-slate-800/60 text-white'
               : 'text-slate-400 hover:bg-slate-800/40 hover:text-white',
+            loading && 'pointer-events-none',
           )}
         >
-          <Icon
-            className={cn(
-              'h-4 w-4 shrink-0',
-              active ? 'text-[#b084f8]' : 'text-slate-400 group-hover:text-[#6f9aea]',
-            )}
-          />
+          {loading ? (
+            <LoaderCircle className="h-4 w-4 shrink-0 animate-spin text-sky-300" />
+          ) : (
+            <Icon
+              className={cn(
+                'h-4 w-4 shrink-0',
+                active ? 'text-[#b084f8]' : 'text-slate-400 group-hover:text-[#6f9aea]',
+              )}
+            />
+          )}
         </Link>
       </TooltipTrigger>
       <TooltipContent side="right">{item.label}</TooltipContent>
@@ -133,7 +148,7 @@ function SettingsItem() {
   )
 }
 
-function SidebarContent({ isSidebarCollapsed = false, pathname }) {
+function SidebarContent({ isSidebarCollapsed = false, pathname, pendingHref, onNavigate }) {
   const currentProjectSlug = getProjectSlug(pathname)
   const navItems = currentProjectSlug
     ? [
@@ -156,9 +171,21 @@ function SidebarContent({ isSidebarCollapsed = false, pathname }) {
         <nav className="space-y-1">
           {navItems.map((item) =>
             isSidebarCollapsed ? (
-              <SidebarItemCollapsed key={item.label} item={item} pathname={pathname} />
+              <SidebarItemCollapsed
+                key={item.label}
+                item={item}
+                pathname={pathname}
+                pendingHref={pendingHref}
+                onNavigate={onNavigate}
+              />
             ) : (
-              <SidebarItem key={item.label} item={item} pathname={pathname} />
+              <SidebarItem
+                key={item.label}
+                item={item}
+                pathname={pathname}
+                pendingHref={pendingHref}
+                onNavigate={onNavigate}
+              />
             ),
           )}
         </nav>
@@ -166,13 +193,30 @@ function SidebarContent({ isSidebarCollapsed = false, pathname }) {
         <div className="mt-8 space-y-1">
           {secondaryItems.map((item) =>
             isSidebarCollapsed ? (
-              <SidebarItemCollapsed key={item.label} item={item} pathname={pathname} />
+              <SidebarItemCollapsed
+                key={item.label}
+                item={item}
+                pathname={pathname}
+                pendingHref={pendingHref}
+                onNavigate={onNavigate}
+              />
             ) : (
-              <SidebarItem key={item.label} item={item} pathname={pathname} />
+              <SidebarItem
+                key={item.label}
+                item={item}
+                pathname={pathname}
+                pendingHref={pendingHref}
+                onNavigate={onNavigate}
+              />
             ),
           )}
           {isSidebarCollapsed ? (
-            <SidebarItemCollapsed item={{ label: 'Settings', icon: Settings, href: '#', currentPath: pathname }} />
+            <SidebarItemCollapsed
+              item={{ label: 'Settings', icon: Settings, href: '#', currentPath: pathname }}
+              pathname={pathname}
+              pendingHref={pendingHref}
+              onNavigate={onNavigate}
+            />
           ) : (
             <SettingsItem />
           )}
@@ -208,10 +252,25 @@ export function Mock01Shell({ children }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(
     pathname !== '/mock01' && !dashboardRoute || attendanceRoute,
   )
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [pendingHref, setPendingHref] = useState(null)
 
   useEffect(() => {
     setIsSidebarCollapsed((pathname !== '/mock01' && !dashboardRoute) || attendanceRoute)
   }, [pathname, attendanceRoute, dashboardRoute])
+
+  useEffect(() => {
+    setPendingHref(null)
+    setMobileMenuOpen(false)
+  }, [pathname])
+
+  function handleNavigate(href) {
+    if (!href || href === '#' || href === pathname) {
+      return
+    }
+
+    setPendingHref(href)
+  }
 
   const projectSlug = getProjectSlug(pathname)
   const currentProject = projectSlug
@@ -234,7 +293,12 @@ export function Mock01Shell({ children }) {
             className="hidden shrink-0 py-6 lg:block"
           >
             <div className="flex h-full flex-col justify-between">
-              <SidebarContent isSidebarCollapsed={isSidebarCollapsed} pathname={pathname} />
+              <SidebarContent
+                isSidebarCollapsed={isSidebarCollapsed}
+                pathname={pathname}
+                pendingHref={pendingHref}
+                onNavigate={handleNavigate}
+              />
             </div>
           </motion.aside>
 
@@ -242,7 +306,7 @@ export function Mock01Shell({ children }) {
             <header className="fixed inset-x-0 top-0 z-30 h-12 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-20">
               <div className="flex h-full items-center justify-end">
                 <div className="mr-auto lg:hidden">
-                  <Sheet>
+                  <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                     <SheetTrigger asChild>
                       <Button
                         variant="ghost"
@@ -254,7 +318,11 @@ export function Mock01Shell({ children }) {
                     </SheetTrigger>
                     <SheetContent side="left" className="py-6">
                       <div className="flex h-full flex-col justify-between">
-                        <SidebarContent pathname={pathname} />
+                        <SidebarContent
+                          pathname={pathname}
+                          pendingHref={pendingHref}
+                          onNavigate={handleNavigate}
+                        />
                       </div>
                     </SheetContent>
                   </Sheet>

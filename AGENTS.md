@@ -16,10 +16,180 @@ Se houver conflito entre rapidez de implementacao e padronizacao, a padronizacao
 
 Este projeto esta organizado como um workspace com duas aplicacoes:
 
-- `backend/`: aplicacao Next.js
-- `frontend/`: aplicacao React com Vite
+- `backend/`: aplicacao Next.js com App Router e telas publicadas
+- `frontend/`: aplicacao React com Vite usada como mock SPA
 
 Arquivos de workspace e comandos compartilhados ficam na raiz.
+
+---
+
+## Mapa atual de pastas
+
+Raiz:
+
+- `backend/`: app Next.js principal
+- `frontend/`: app React/Vite
+- `scripts/`: scripts compartilhados do workspace
+- `node_modules/`: dependencias instaladas da raiz
+- `.git/`: controle de versao
+
+Arquivos principais da raiz:
+
+- `AGENTS.md`: regras obrigatorias do projeto
+- `package.json`: workspaces e scripts compartilhados
+- `package-lock.json`: lockfile da raiz
+- `.gitignore`: ignores do workspace
+- `CHECKLIST_EXECUCAO_MIGRACAO.md`: checklist de migracao
+- `PLANO_MIGRACAO_INFRASTUDIO_V2.md`: plano de migracao
+- `REALIDADE_ATUAL_V2.md`: estado atual do v2
+- `REALIDADE_LEGADO_INFRASTUDIO.md`: referencia do legado
+- `backend-dev-3010.log`: log local
+- `backend-dev-3010.err.log`: log local de erro
+
+Backend:
+
+- `backend/app/`: rotas Next.js App Router
+- `backend/app/mock01/`: layout e paginas do mock01
+- `backend/app/mock01/dashboard/`: dashboard geral do mock01
+- `backend/app/mock01/[slug]/`: rotas dinamicas por projeto
+- `backend/app/mock01/[slug]/atendimento/`: atendimento do projeto
+- `backend/app/mock01/[slug]/dashboard/`: dashboard do projeto
+- `backend/components/`: componentes do backend
+- `backend/components/home/`: componentes da landing page
+- `backend/components/mock01/`: componentes das telas mock01
+- `backend/components/mock01/layout/`: shell/layout do mock01
+- `backend/components/ui/`: componentes base do backend
+- `backend/lib/`: utilitarios compartilhados do backend
+- `backend/public/`: assets publicos do Next.js
+- `backend/.next/`: build/cache local gerado pelo Next.js
+- `backend/node_modules/`: dependencias instaladas do backend
+
+Arquivos principais do backend:
+
+- `backend/app/layout.js`: layout raiz
+- `backend/app/page.js`: pagina inicial
+- `backend/app/globals.css`: estilos globais
+- `backend/app/favicon.ico`: favicon
+- `backend/app/page.module.css`: CSS module legado/base
+- `backend/components/home/landing-page.js`: landing page
+- `backend/components/home/chat-demo.js`: demo visual da home
+- `backend/components/home/data.js`: dados da home
+- `backend/components/mock01/data.js`: dados e slugs do mock01
+- `backend/components/mock01/projects-grid-view.js`: grid de projetos
+- `backend/components/mock01/project-detail-view.js`: detalhe de projeto
+- `backend/components/mock01/dashboard-view.js`: dashboard mock01
+- `backend/components/mock01/attendance-view.js`: atendimento mock01
+- `backend/components/mock01/mock-page-header.js`: header das telas mock01
+- `backend/components/mock01/project-card.js`: card de projeto
+- `backend/components/mock01/layout/shell.js`: shell lateral/topo mock01
+- `backend/components/ui/button.js`: botao base
+- `backend/components/ui/sheet.js`: sheet base
+- `backend/components/ui/tooltip.js`: tooltip base
+- `backend/lib/utils.js`: utilitario `cn()`
+- `backend/public/logo.png`: logo
+- `backend/public/compartilhar_novo.png`: imagem de compartilhamento
+- `backend/public/bg_mercadolivre.png`: asset da home
+- `backend/public/bg_sistema.png`: asset da home
+- `backend/public/bg_site.png`: asset da home
+- `backend/public/bg_whatsapp.png`: asset da home
+- `backend/public/file.svg`: asset padrao
+- `backend/public/globe.svg`: asset padrao
+- `backend/public/next.svg`: asset padrao
+- `backend/public/vercel.svg`: asset padrao
+- `backend/public/window.svg`: asset padrao
+- `backend/package.json`: scripts e dependencias do backend
+- `backend/next.config.mjs`: config Next.js
+- `backend/jsconfig.json`: alias/imports
+- `backend/tailwind.config.js`: config Tailwind do backend
+- `backend/postcss.config.mjs`: config PostCSS
+- `backend/eslint.config.mjs`: config ESLint
+- `backend/vercel.json`: config de deploy
+- `backend/README.md`: README do backend
+- `backend/AGENTS.md`: instrucoes locais do backend quando existirem
+- `backend/CLAUDE.md`: instrucoes locais legadas/externas
+
+Frontend:
+
+- `frontend/src/`: codigo fonte do Vite
+- `frontend/src/assets/`: assets importados pelo React
+- `frontend/src/components/`: composicoes e componentes de tela
+- `frontend/src/components/ui/`: componentes base do frontend
+- `frontend/src/lib/`: utilitarios compartilhados do frontend
+- `frontend/public/`: assets publicos do Vite
+- `frontend/dist/`: build local gerado pelo Vite
+- `frontend/node_modules/`: dependencias instaladas do frontend
+
+Arquivos principais do frontend:
+
+- `frontend/src/main.jsx`: entrada React
+- `frontend/src/App.jsx`: componente raiz SPA
+- `frontend/src/index.css`: estilos globais
+- `frontend/src/components/infra-studio-mock.jsx`: mock principal
+- `frontend/src/components/app-sidebar.jsx`: sidebar do mock
+- `frontend/src/components/project-workspace-mock.jsx`: workspace de projeto
+- `frontend/src/components/attendance-panel.jsx`: painel de atendimento
+- `frontend/src/components/ui/avatar.jsx`: avatar base
+- `frontend/src/components/ui/badge.jsx`: badge base
+- `frontend/src/components/ui/button.jsx`: botao base
+- `frontend/src/components/ui/dropdown-menu.jsx`: dropdown base
+- `frontend/src/components/ui/input.jsx`: input base
+- `frontend/src/components/ui/sheet.jsx`: sheet base
+- `frontend/src/components/ui/textarea.jsx`: textarea base
+- `frontend/src/lib/utils.js`: utilitario `cn()`
+- `frontend/src/assets/react.svg`: asset importado
+- `frontend/public/vite.svg`: asset publico
+- `frontend/index.html`: HTML raiz do Vite
+- `frontend/package.json`: scripts e dependencias do frontend
+- `frontend/vite.config.js`: config Vite e alias `@`
+- `frontend/jsconfig.json`: alias/imports
+- `frontend/tailwind.config.js`: config Tailwind do frontend
+- `frontend/postcss.config.js`: config PostCSS
+- `frontend/eslint.config.js`: config ESLint
+- `frontend/components.json`: config de componentes
+- `frontend/README.md`: README do frontend
+
+Scripts:
+
+- `scripts/localhost.ps1`: sobe o backend Next.js em porta local configuravel
+
+Pastas geradas como `.next/`, `dist/` e `node_modules/` nao devem ser editadas manualmente.
+
+---
+
+## Rotas atuais
+
+Backend Next.js:
+
+- `/`: landing page em `backend/app/page.js`
+- `/mock01`: lista/grid de projetos em `backend/app/mock01/page.js`
+- `/mock01/dashboard`: dashboard geral em `backend/app/mock01/dashboard/page.js`
+- `/mock01/[slug]`: detalhe de projeto em `backend/app/mock01/[slug]/page.js`
+- `/mock01/[slug]/dashboard`: dashboard do projeto em `backend/app/mock01/[slug]/dashboard/page.js`
+- `/mock01/[slug]/atendimento`: atendimento do projeto em `backend/app/mock01/[slug]/atendimento/page.js`
+
+Slugs atuais do mock01:
+
+- `equilibramente`
+- `airy-beauty`
+- `pleasant-joy`
+
+URLs dinamicas validas hoje:
+
+- `/mock01/equilibramente`
+- `/mock01/equilibramente/dashboard`
+- `/mock01/equilibramente/atendimento`
+- `/mock01/airy-beauty`
+- `/mock01/airy-beauty/dashboard`
+- `/mock01/airy-beauty/atendimento`
+- `/mock01/pleasant-joy`
+- `/mock01/pleasant-joy/dashboard`
+- `/mock01/pleasant-joy/atendimento`
+
+Frontend Vite:
+
+- `/`: SPA renderizada por `frontend/src/App.jsx`
+
+O frontend nao tem roteador declarado nem rotas internas por URL neste momento.
 
 ---
 

@@ -249,6 +249,7 @@ function SheetPanelHeader({
   statusLabel,
   statusTone = 'emerald',
   compactTitle = true,
+  enabled = true,
 }) {
   const statusClasses =
     statusTone === 'sky'
@@ -265,37 +266,46 @@ function SheetPanelHeader({
 
   return (
     <div className="border-b border-white/5 px-6 py-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="pr-14 sm:pr-0">
-          <p className={cn('text-xs uppercase tracking-[0.22em]', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4 pr-14 sm:pr-0">
+          <div className="min-w-0">
+          <p className={cn('hidden text-xs uppercase tracking-[0.22em] sm:block', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
             {eyebrow}
           </p>
           <h2
             className={cn(
-              'mt-2 font-semibold text-white',
+              'font-semibold text-white sm:mt-2',
               compactTitle ? 'text-xl leading-tight' : 'text-[2rem] leading-none',
             )}
           >
             {title}
           </h2>
-          <p className="mt-2 hidden text-sm text-slate-400 sm:block">{description}</p>
+          </div>
+
+          {statusLabel ? (
+            <div className="flex shrink-0 items-center gap-3">
+              <span
+                className={cn(
+                  'text-xs font-semibold uppercase tracking-[0.18em]',
+                  statusClasses.text,
+                )}
+              >
+                {enabled ? 'Desativar' : 'Ativar'}
+              </span>
+              <div className={cn('flex h-7 w-10 items-center rounded-full p-1', statusClasses.track)}>
+                <div
+                  className={cn(
+                    enabled ? 'ml-auto' : 'mr-auto',
+                    'h-5 w-5 rounded-full',
+                    statusClasses.thumb,
+                  )}
+                />
+              </div>
+            </div>
+          ) : null}
         </div>
 
-        {statusLabel ? (
-          <div className="flex items-center gap-3 pr-14 sm:pr-0">
-            <span
-              className={cn(
-                'text-xs font-semibold uppercase tracking-[0.18em]',
-                statusClasses.text,
-              )}
-            >
-              {statusLabel}
-            </span>
-            <div className={cn('flex h-7 w-10 items-center rounded-full p-1', statusClasses.track)}>
-              <div className={cn('ml-auto h-5 w-5 rounded-full', statusClasses.thumb)} />
-            </div>
-          </div>
-        ) : null}
+        <p className="hidden text-sm text-slate-400 sm:block">{description}</p>
       </div>
     </div>
   )
