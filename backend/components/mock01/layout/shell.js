@@ -238,8 +238,8 @@ export function Mock01Shell({ children }) {
             </div>
           </motion.aside>
 
-          <main className="flex min-h-screen flex-1 flex-col lg:min-h-0">
-            <header className="sticky top-0 z-20 h-12 shrink-0 bg-[#080e1d] px-8">
+          <main className="flex min-h-screen flex-1 flex-col pt-12 lg:min-h-0 lg:pt-0">
+            <header className="fixed inset-x-0 top-0 z-30 h-12 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-20">
               <div className="flex h-full items-center justify-end">
                 <div className="mr-auto lg:hidden">
                   <Sheet>

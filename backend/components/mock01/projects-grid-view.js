@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { ChevronDown, LayoutGrid, List } from 'lucide-react'
@@ -10,8 +11,10 @@ import { Button } from '@/components/ui/button'
 
 export function ProjectsGridView() {
   const router = useRouter()
+  const [loadingProjectSlug, setLoadingProjectSlug] = useState(null)
 
   function handleProjectSelect(projectSlug) {
+    setLoadingProjectSlug(projectSlug)
     router.push(`/mock01/${projectSlug}`)
   }
 
@@ -66,7 +69,12 @@ export function ProjectsGridView() {
       <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
         {projectCards.map((card, index) => (
           <div key={card.slug} className="max-w-[360px]">
-            <ProjectCard card={card} index={index} onSelect={handleProjectSelect} />
+            <ProjectCard
+              card={card}
+              index={index}
+              onSelect={handleProjectSelect}
+              loading={loadingProjectSlug === card.slug}
+            />
           </div>
         ))}
       </div>

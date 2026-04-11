@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { animate, motion, useDragControls, useMotionValue } from 'framer-motion'
-import { GitBranch, Workflow } from 'lucide-react'
+import { GitBranch, LoaderCircle, Workflow } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 function ProjectServiceIcon({ type }) {
@@ -24,6 +24,7 @@ export function ProjectCard({
   onDragStateChange,
   active = false,
   interactive = true,
+  loading = false,
   draggableHeader = false,
   resetDragSignal = 0,
   children,
@@ -47,6 +48,11 @@ export function ProjectCard({
 
   function handleCardClick(event) {
     if (!interactive) {
+      return
+    }
+
+    if (loading) {
+      event.preventDefault()
       return
     }
 
@@ -96,6 +102,7 @@ export function ProjectCard({
           : interactive
             ? 'cursor-pointer'
             : null,
+        loading && 'pointer-events-none',
       )}
       onClick={handleCardClick}
       onPointerDown={draggableHeader ? (event) => dragControls.start(event) : undefined}
@@ -119,7 +126,15 @@ export function ProjectCard({
           )}
         />
         <div className="border-b border-white/5 p-5">
-          <h3 className="font-medium text-white">Agente: {card.name}</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="font-medium text-white">Agente: {card.name}</h3>
+            {loading ? (
+              <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">
+                <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
+                Abrindo
+              </span>
+            ) : null}
+          </div>
         </div>
 
         <div
@@ -129,9 +144,18 @@ export function ProjectCard({
             backgroundSize: '16px 16px',
           }}
         >
-          {card.icons.map((icon, iconIndex) => (
-            <ProjectServiceIcon key={`${card.slug}-${icon}-${iconIndex}`} type={icon} />
-          ))}
+          {loading ? (
+            <div className="flex flex-col items-center gap-3 text-center">
+              <LoaderCircle className="h-7 w-7 animate-spin text-cyan-300" />
+              <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
+                Carregando projeto
+              </div>
+            </div>
+          ) : (
+            card.icons.map((icon, iconIndex) => (
+              <ProjectServiceIcon key={`${card.slug}-${icon}-${iconIndex}`} type={icon} />
+            ))
+          )}
         </div>
 
         <div className="flex items-center justify-between border-t border-white/5 p-4 text-[11px] font-medium text-slate-500">

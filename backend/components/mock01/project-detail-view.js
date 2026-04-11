@@ -221,7 +221,7 @@ function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
 function getMobileCardLayout(viewportWidth, viewportHeight, cardWidth) {
   return {
     left: Math.max((viewportWidth - cardWidth) / 2, 0),
-    top: Math.max((viewportHeight - CARD_ESTIMATED_HEIGHT * MOBILE_CARD_SCALE) / 2 - 24, 84),
+    top: 56,
     scale: MOBILE_CARD_SCALE,
   }
 }
@@ -265,8 +265,8 @@ function SheetPanelHeader({
 
   return (
     <div className="border-b border-white/5 px-6 py-5">
-      <div className="flex items-start justify-between gap-4">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="pr-14 sm:pr-0">
           <p className={cn('text-xs uppercase tracking-[0.22em]', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
             {eyebrow}
           </p>
@@ -278,11 +278,11 @@ function SheetPanelHeader({
           >
             {title}
           </h2>
-          <p className="mt-2 text-sm text-slate-400">{description}</p>
+          <p className="mt-2 hidden text-sm text-slate-400 sm:block">{description}</p>
         </div>
 
         {statusLabel ? (
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 pr-14 sm:pr-0">
             <span
               className={cn(
                 'text-xs font-semibold uppercase tracking-[0.18em]',
