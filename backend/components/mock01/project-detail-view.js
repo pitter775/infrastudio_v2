@@ -28,6 +28,7 @@ const SHEET_MIN_WIDTH = 520
 const SHEET_MAX_WIDTH = 1320
 const CARD_ESTIMATED_HEIGHT = 228
 const CARD_CLOSED_SCALE = 0.88
+const MOBILE_CARD_SCALE = 0.72
 const DEFAULT_PANEL = 'project'
 const SATELLITE_BUTTON_WIDTH = 146
 const SATELLITE_BUTTON_HEIGHT = 52
@@ -217,6 +218,14 @@ function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
   }
 }
 
+function getMobileCardLayout(viewportWidth, viewportHeight, cardWidth) {
+  return {
+    left: Math.max((viewportWidth - cardWidth) / 2, 0),
+    top: Math.max((viewportHeight - CARD_ESTIMATED_HEIGHT * MOBILE_CARD_SCALE) / 2 - 24, 84),
+    scale: MOBILE_CARD_SCALE,
+  }
+}
+
 function getDockedCardLayout({ viewportWidth, viewportHeight }) {
   const sheetWidth = getSheetWidth(viewportWidth)
   const cardWidth = getCardWidth(viewportWidth)
@@ -346,7 +355,15 @@ export function ProjectDetailView({ card }) {
       }),
     [viewportHeight, viewportWidth],
   )
-  const cardLayout = isPanelOpen && !isMobile ? dockedLayout : { ...closedLayout, cardWidth }
+  const mobileLayout = useMemo(
+    () => getMobileCardLayout(viewportWidth, viewportHeight, cardWidth),
+    [cardWidth, viewportHeight, viewportWidth],
+  )
+  const cardLayout = isMobile
+    ? { ...mobileLayout, cardWidth }
+    : isPanelOpen
+      ? dockedLayout
+      : { ...closedLayout, cardWidth }
   const selectedPanel = activePanel === DEFAULT_PANEL
     ? null
     : integrationPanels.find((panel) => panel.id === activePanel)
@@ -367,18 +384,23 @@ export function ProjectDetailView({ card }) {
   const sheetItems = selectedPanel?.items ?? checklist
 
   return (
-    <div className="min-h-full px-8 py-10">
-      <div className="relative flex min-h-[420px] items-start justify-center lg:min-h-full lg:items-center">
+    <div className={cn('min-h-full px-8 py-10', isMobile && 'h-[calc(100dvh-88px)] overflow-hidden px-4 py-6')}>
+      <div
+        className={cn(
+          'relative flex min-h-[420px] items-start justify-center lg:min-h-full lg:items-center',
+          isMobile && 'h-full min-h-0 overflow-hidden',
+        )}
+      >
         <motion.div
           animate={{
             left: cardLayout.left,
             top: cardLayout.top,
-            scale: isPanelOpen && !isMobile ? dockedLayout.scale : CARD_CLOSED_SCALE,
+            scale: cardLayout.scale ?? CARD_CLOSED_SCALE,
           }}
           transition={{ duration: 0.3, ease: 'easeInOut' }}
           className="z-10 w-full origin-center"
           style={{
-            position: isMobile ? 'absolute' : 'fixed',
+            position: isMobile ? 'fixed' : 'fixed',
             width: `${cardWidth}px`,
             maxWidth: `${cardWidth}px`,
           }}
@@ -387,7 +409,7 @@ export function ProjectDetailView({ card }) {
             card={card}
             active={isPanelOpen}
             interactive
-            draggableHeader
+            draggableHeader={!isMobile}
             resetDragSignal={dragResetSignal}
             onDragStateChange={setIsCardDragging}
             onSelect={() => handleOpenPanel(DEFAULT_PANEL)}
