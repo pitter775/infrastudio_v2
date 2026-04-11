@@ -182,3 +182,88 @@ export async function getProjectForUser(identifier, user) {
     return null
   }
 }
+
+function mapLegacyProject(project) {
+  if (!project) {
+    return null
+  }
+
+  return {
+    id: project.id,
+    nome: project.name,
+    slug: project.slug,
+    tipo: project.type,
+    descricao: project.description,
+    status: project.status,
+    isDemo: project.isDemo === true,
+  }
+}
+
+export async function getProjetoById(id) {
+  if (!id) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("projetos")
+      .select(projetoFields)
+      .eq("id", id)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[projetos] failed to get projeto by id", error)
+      }
+      return null
+    }
+
+    return mapLegacyProject(normalizeProject(data))
+  } catch (error) {
+    console.error("[projetos] failed to get projeto by id", error)
+    return null
+  }
+}
+
+export async function getProjetoBySlug(slug) {
+  const value = String(slug || "").trim()
+  if (!value) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("projetos")
+      .select(projetoFields)
+      .eq("slug", value)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[projetos] failed to get projeto by slug", error)
+      }
+      return null
+    }
+
+    return mapLegacyProject(normalizeProject(data))
+  } catch (error) {
+    console.error("[projetos] failed to get projeto by slug", error)
+    return null
+  }
+}
+
+export async function getProjetoByIdentifier(identifier) {
+  const value = String(identifier || "").trim()
+  if (!value) {
+    return null
+  }
+
+  const bySlug = await getProjetoBySlug(value)
+  if (bySlug) {
+    return bySlug
+  }
+
+  return getProjetoById(value)
+}

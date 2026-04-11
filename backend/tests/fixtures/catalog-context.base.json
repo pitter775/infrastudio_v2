@@ -1,0 +1,52 @@
+{
+  "channel": {
+    "kind": "whatsapp"
+  },
+  "memoria": {
+    "mensagem_count": 12
+  },
+  "catalogo": {
+    "ultimaBusca": "jogo de jantar",
+    "snapshotId": "snapshot-1",
+    "snapshotCreatedAt": "2026-04-02T12:00:00.000Z",
+    "snapshotTurnId": 10,
+    "produtoAtual": {
+      "id": "MLB2",
+      "nome": "Jogo de Sopeira Completo",
+      "descricao": "Sopeira amarela com tigelas",
+      "preco": 250,
+      "link": "https://example.com/sopeira",
+      "imagem": "https://example.com/sopeira.jpg",
+      "cardIndex": 1
+    },
+    "ultimosProdutos": [
+      {
+        "id": "MLB1",
+        "nome": "Jogo de Jantar Porcelana",
+        "descricao": "Jogo branco completo",
+        "preco": 2990,
+        "link": "https://example.com/jantar",
+        "imagem": "https://example.com/jantar.jpg",
+        "cardIndex": 0
+      },
+      {
+        "id": "MLB2",
+        "nome": "Jogo de Sopeira Completo",
+        "descricao": "Sopeira amarela com tigelas",
+        "preco": 250,
+        "link": "https://example.com/sopeira",
+        "imagem": "https://example.com/sopeira.jpg",
+        "cardIndex": 1
+      },
+      {
+        "id": "MLB3",
+        "nome": "Jogo de Canecas Cha Floral",
+        "descricao": "Conjunto amarelo floral",
+        "preco": 390,
+        "link": "https://example.com/canecas",
+        "imagem": "https://example.com/canecas.jpg",
+        "cardIndex": 2
+      }
+    ]
+  }
+}

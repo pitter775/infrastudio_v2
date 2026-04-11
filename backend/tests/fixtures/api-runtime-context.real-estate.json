@@ -1,0 +1,26 @@
+{
+  "apis": [
+    {
+      "apiId": "api-imovel-1",
+      "nome": "Dados do imovel",
+      "url": "https://sandbox.exemplo.local/api/imoveis/123",
+      "descricao": "Retorna dados consolidados do imovel para avaliacao comercial e juridica.",
+      "campos": [
+        { "nome": "titulo", "tipo": "string", "valor": "RESIDENCIAL BARAO DO TIETE" },
+        { "nome": "descricao", "tipo": "string", "valor": "Apartamento no terreo do Edificio M, no Condominio Residencial Barao do Tiete, com area util de 46,1183 m2 e area total de 51,887181 m2." },
+        { "nome": "status", "tipo": "string", "valor": "ativo" },
+        { "nome": "data_leilao", "tipo": "string", "valor": "2026-03-27T16:00:00Z" },
+        { "nome": "riscos", "tipo": "string", "valor": "Possivel ocupacao e debitos pendentes" },
+        { "nome": "cartorio", "tipo": "string", "valor": "CRI de Diadema/SP" },
+        { "nome": "matricula", "tipo": "string", "valor": "20.563" },
+        { "nome": "valor_minimo", "tipo": "number", "valor": 118910.05 },
+        { "nome": "roi_estimado", "tipo": "string", "valor": "Moderado, dependendo da regularizacao e saida do ocupante" }
+      ],
+      "resumo": "Imovel ativo com risco de ocupacao e debitos pendentes, matricula 20.563 no CRI de Diadema/SP.",
+      "erro": null,
+      "parametros": [
+        { "nome": "id", "tipo": "string", "obrigatorio": true }
+      ]
+    }
+  ]
+}

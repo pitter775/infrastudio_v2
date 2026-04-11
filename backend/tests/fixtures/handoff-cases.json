@@ -1,0 +1,24 @@
+{
+  "explicitHumanMessage": "quero falar com um atendente humano",
+  "softOfferReply": "Posso te ajudar com mais detalhes por aqui.",
+  "recoveryHistory": [
+    {
+      "role": "assistant",
+      "conteudo": "Nao encontrei isso agora.",
+      "metadata": {
+        "provider": "agent_scoped_recovery"
+      }
+    },
+    {
+      "role": "user",
+      "conteudo": "nao era isso"
+    },
+    {
+      "role": "assistant",
+      "conteudo": "Posso tentar de outro jeito.",
+      "metadata": {
+        "provider": "agent_scoped_recovery"
+      }
+    }
+  ]
+}

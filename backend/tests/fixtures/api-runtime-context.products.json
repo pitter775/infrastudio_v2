@@ -1,0 +1,38 @@
+{
+  "apis": [
+    {
+      "apiId": "api-produtos-1",
+      "nome": "Consulta de produtos internos",
+      "url": "https://sandbox.exemplo.local/api/produtos/{sku}",
+      "descricao": "Retorna disponibilidade, categoria e preco para consulta de produto interno.",
+      "campos": [
+        { "nome": "sku", "tipo": "string", "valor": "SOPEIRA-250-AM" },
+        { "nome": "status", "tipo": "string", "valor": "disponivel" },
+        { "nome": "estoque", "tipo": "number", "valor": 7 },
+        { "nome": "preco", "tipo": "number", "valor": 250 },
+        { "nome": "frete_gratis", "tipo": "boolean", "valor": true }
+      ],
+      "resumo": "Produto SOPEIRA-250-AM disponivel com estoque 7, preco 250 e frete gratis.",
+      "erro": null,
+      "parametros": [
+        { "nome": "sku", "tipo": "string", "obrigatorio": true }
+      ]
+    },
+    {
+      "apiId": "api-pedidos-1",
+      "nome": "Status de pedido",
+      "url": "https://sandbox.exemplo.local/api/pedidos/{codigo}",
+      "descricao": "Consulta o status atual do pedido e os proximos eventos previstos.",
+      "campos": [
+        { "nome": "codigo", "tipo": "string", "valor": "PED-2026-0042" },
+        { "nome": "status", "tipo": "string", "valor": "em separacao" },
+        { "nome": "previsao_envio", "tipo": "string", "valor": "2026-04-04" }
+      ],
+      "resumo": "Pedido PED-2026-0042 em separacao com previsao de envio em 2026-04-04.",
+      "erro": null,
+      "parametros": [
+        { "nome": "codigo", "tipo": "string", "obrigatorio": true }
+      ]
+    }
+  ]
+}

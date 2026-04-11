@@ -1,0 +1,27 @@
+{
+  "origem": "site",
+  "channel": {
+    "kind": "whatsapp",
+    "external_id": "5511999999999"
+  },
+  "whatsapp": {
+    "remetente": "5511999999999",
+    "contactName": "Carlos"
+  },
+  "memoria": {
+    "mensagem_count": 3,
+    "resumo": null
+  },
+  "lead": {
+    "nome": null,
+    "telefone": null,
+    "email": null,
+    "identificado": false
+  },
+  "qualificacao": {
+    "segmento": null,
+    "dor_principal": null,
+    "objetivo": null,
+    "pronto_para_whatsapp": false
+  }
+}

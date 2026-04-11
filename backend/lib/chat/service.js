@@ -1,0 +1,1408 @@
+import { getAgenteAtivo, getAgenteById, getAgenteByIdentifier } from "@/lib/agentes"
+import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
+import { buildChatUsageTelemetry } from "@/lib/chat-usage-metrics"
+import { enrichLeadContext, executeSalesOrchestrator } from "@/lib/chat/orchestrator"
+import { getChatHandoffByChatId, requestHumanHandoff, shouldPauseAssistantForHandoff } from "@/lib/chat-handoffs"
+import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, listChatMessages, updateChatContext, updateChatStats } from "@/lib/chats"
+import { DEFAULT_HOME_WIDGET_SLUG, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
+import { estimateOpenAICostUsd } from "@/lib/openai-pricing"
+import { getProjetoById, getProjetoByIdentifier, listProjectsForUser } from "@/lib/projetos"
+
+function sanitizePhone(phone) {
+  return String(phone || "").replace(/\D/g, "")
+}
+
+function normalizeInboundPhoneCandidate(value) {
+  const raw = String(value || "").trim()
+  if (!raw || raw.includes("@")) {
+    return null
+  }
+
+  const digits = raw.replace(/\D/g, "")
+  if (digits.length < 10 || digits.length > 13) {
+    return null
+  }
+
+  return digits
+}
+
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+export function getWhatsAppContactNameFromContext(context) {
+  if (!isPlainObject(context?.whatsapp)) {
+    return null
+  }
+
+  const value = context.whatsapp.contactName
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function getWhatsAppContactPhoneFromContext(context) {
+  if (!isPlainObject(context?.lead) && !isPlainObject(context?.whatsapp)) {
+    return null
+  }
+
+  const leadPhone = isPlainObject(context?.lead) ? context.lead.telefone : null
+  const normalizedLeadPhone = normalizeInboundPhoneCandidate(typeof leadPhone === "string" ? leadPhone : null)
+  if (normalizedLeadPhone) {
+    return normalizedLeadPhone
+  }
+
+  if (!isPlainObject(context?.whatsapp)) {
+    return null
+  }
+
+  const remotePhone = context.whatsapp.remotePhone
+  const normalizedRemotePhone = normalizeInboundPhoneCandidate(typeof remotePhone === "string" ? remotePhone : null)
+  if (normalizedRemotePhone) {
+    return normalizedRemotePhone
+  }
+
+  const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
+  const rawContactNumber = rawContact?.number
+  const normalizedRawContactNumber = normalizeInboundPhoneCandidate(
+    typeof rawContactNumber === "string" ? rawContactNumber : null
+  )
+  if (normalizedRawContactNumber) {
+    return normalizedRawContactNumber
+  }
+
+  const senderPhone = context.whatsapp.remetente
+  return normalizeInboundPhoneCandidate(typeof senderPhone === "string" ? senderPhone : null)
+}
+
+export function getWhatsAppContactAvatarFromContext(context) {
+  if (!isPlainObject(context?.whatsapp)) {
+    return null
+  }
+
+  const value = context.whatsapp.profilePicUrl
+  if (typeof value === "string" && value.trim()) {
+    return value.trim()
+  }
+
+  const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
+  const fallbackValue = rawContact?.profilePicUrl
+  return typeof fallbackValue === "string" && fallbackValue.trim() ? fallbackValue.trim() : null
+}
+
+export function resolveChatContactSnapshot(context, fallbackExternalIdentifier) {
+  return {
+    contatoNome: getWhatsAppContactNameFromContext(context),
+    contatoTelefone: getWhatsAppContactPhoneFromContext(context) ?? normalizeInboundPhoneCandidate(fallbackExternalIdentifier),
+    contatoAvatarUrl: getWhatsAppContactAvatarFromContext(context),
+  }
+}
+
+export function mergeContext(base, extra) {
+  if (!extra) {
+    return base
+  }
+
+  return {
+    ...base,
+    ...extra,
+  }
+}
+
+export function parseAssetPrice(value) {
+  if (typeof value !== "string") {
+    return null
+  }
+
+  const numeric = value.replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".")
+  const parsed = Number(numeric)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+export function extractRecentMercadoLivreProductsFromAssets(assets) {
+  if (!Array.isArray(assets)) {
+    return []
+  }
+
+  return assets
+    .filter(
+      (asset) =>
+        isPlainObject(asset) &&
+        typeof asset.id === "string" &&
+        (asset.id.startsWith("mercado-livre-") || /^MLB\d+$/i.test(asset.id))
+    )
+    .map((asset, index) => ({
+      id: typeof asset.id === "string" ? asset.id : null,
+      nome: typeof asset.nome === "string" ? asset.nome : null,
+      descricao: typeof asset.descricao === "string" ? asset.descricao : null,
+      preco: parseAssetPrice(asset.descricao),
+      link: typeof asset.targetUrl === "string" ? asset.targetUrl : null,
+      imagem: typeof asset.publicUrl === "string" ? asset.publicUrl : null,
+      cardIndex: index,
+    }))
+    .filter((asset) => asset.nome)
+}
+
+function formatWhatsAppOutboundTextSafe(reply) {
+  return String(reply || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/([.!?])\s+(?=[A-Z0-9*])/g, "$1\n\n")
+    .replace(/\*\*(.+?)\*\*/g, "*$1*")
+    .replace(/__(.+?)__/g, "*$1*")
+    .replace(/^[\-\*]\s+/gm, "- ")
+    .replace(/^(\d+)\)\s+/gm, "$1. ")
+    .replace(/^([A-Za-z\u00C0-\u00FF][A-Za-z\u00C0-\u00FF0-9\s]{1,28}):\s*/gm, (match, label) => {
+      const normalizedLabel = String(label || "").trim().toLowerCase()
+      if (["http", "https", "www"].includes(normalizedLabel)) {
+        return match
+      }
+
+      return `*${String(label || "").trim()}:* `
+    })
+    .replace(/:\s+(?=(?:\d+\.|\*[A-Z0-9]))/g, ":\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+function stripAssistantMetaArtifacts(reply) {
+  let sanitized = String(reply || "")
+
+  const forbiddenPatterns = [
+    /Seu atendimento acontece exclusivamente via WhatsApp[^\n]*?/gi,
+    /Seu atendimento ocorre exclusivamente via WhatsApp[^\n]*?/gi,
+    /de forma natural,\s*simp(?:a|\u00E1)t(?:i|\u00ED)ca e acolhedora[^\n]*?/gi,
+    /de forma natural,\s*simpat(?:i|\u00ED)ca e acolhedora[^\n]*?/gi,
+    /de forma natural[^\n]*?acolhedora[^\n]*?/gi,
+    /como se fosse uma pessoa real atendendo[^\n]*?/gi,
+    /voce esta falando com (uma )?ia[^\n]*?/gi,
+    /minha funcao aqui e te atender[^\n]*?/gi,
+  ]
+
+  for (const pattern of forbiddenPatterns) {
+    sanitized = sanitized.replace(pattern, "")
+  }
+
+  return sanitized
+    .replace(/\s+,/g, ",")
+    .replace(/,\s*,+/g, ", ")
+    .replace(/,\s*\./g, ".")
+    .replace(/\.\s*,/g, ".")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/([.!?])\s+(?=[A-Z0-9*])/g, "$1\n\n")
+    .replace(/^([A-Za-z0-9][A-Za-z0-9\s]{1,28}):\s*/gm, "$1:\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+function stripAssistantMetaReply(reply, channelKind) {
+  const sanitized = stripAssistantMetaArtifacts(reply)
+  return channelKind === "whatsapp" ? formatWhatsAppOutboundTextSafe(sanitized) : sanitized
+}
+
+function preserveStructuredWhitespace(value) {
+  return String(value || "")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]{2,}/g, " ").trimEnd())
+    .join("\n")
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n[ \t]+/g, "\n")
+}
+
+function formatContinuationSummary(rawSummary) {
+  const summaryText = String(rawSummary || "").trim()
+  if (!summaryText) {
+    return ""
+  }
+
+  try {
+    const parsed = JSON.parse(summaryText)
+    const snippets = []
+    const objetivo = typeof parsed.objetivo === "string" ? parsed.objetivo.trim() : ""
+    const proximoPasso = typeof parsed.proximo_passo === "string" ? parsed.proximo_passo.trim() : ""
+    const restricoes = typeof parsed.restricoes === "string" ? parsed.restricoes.trim() : ""
+    const dorPrincipal = typeof parsed.dor_principal === "string" ? parsed.dor_principal.trim() : ""
+
+    if (objetivo) snippets.push(`objetivo: ${objetivo}`)
+    if (dorPrincipal) snippets.push(`dor: ${dorPrincipal}`)
+    if (restricoes) snippets.push(`pontos de atencao: ${restricoes}`)
+    if (proximoPasso) snippets.push(`proximo passo: ${proximoPasso}`)
+
+    const compact = snippets.join(" | ").trim()
+    if (compact) {
+      return compact.slice(0, 280)
+    }
+  } catch {
+    // fallback para texto livre
+  }
+
+  return summaryText.replace(/\s+/g, " ").trim().slice(0, 280)
+}
+
+export function resolveCanonicalWhatsAppExternalIdentifier(input) {
+  const contextPhone = getWhatsAppContactPhoneFromContext(input.context)
+  if (contextPhone) {
+    return contextPhone
+  }
+
+  const normalizedExternal = normalizeInboundPhoneCandidate(input.identificadorExterno)
+  if (normalizedExternal) {
+    return normalizedExternal
+  }
+
+  const normalizedFallback = normalizeInboundPhoneCandidate(input.identificador)
+  if (normalizedFallback) {
+    return normalizedFallback
+  }
+
+  return sanitizePhone(input.identificadorExterno ?? input.identificador)
+}
+
+export function formatWhatsAppHumanOutboundText(reply) {
+  return formatWhatsAppOutboundTextSafe(reply)
+}
+
+export function sanitizeWhatsAppCustomerFacingReply(reply) {
+  let sanitized = stripAssistantMetaArtifacts(reply)
+
+  const promisePatterns = [
+    /\b(?:deixa|deixe)\s+eu\s+(?:ver|verificar|consultar|olhar)\b[^.!?\n]*[.!?]?/gi,
+    /\b(?:eu\s+)?vou\s+(?:ver|verificar|consultar|olhar)\b[^.!?\n]*[.!?]?/gi,
+    /\b(?:eu\s+)?ja\s+(?:vejo|verifico|consulto|olho)\b[^.!?\n]*[.!?]?/gi,
+    /\b(?:posso|consigo)\s+(?:ver|verificar|consultar|olhar)\s+(?:o\s+)?status\b[^.!?\n]*[.!?]?/gi,
+  ]
+
+  for (const pattern of promisePatterns) {
+    sanitized = sanitized.replace(pattern, " ")
+  }
+
+  return preserveStructuredWhitespace(sanitized)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+export function buildWhatsAppMessageSequence(reply, assets, followUpReply) {
+  const messages = []
+  const intro = formatWhatsAppOutboundTextSafe(reply)
+  if (intro) {
+    messages.push(intro)
+  }
+
+  const assetMessages = Array.isArray(assets)
+    ? assets
+        .slice(0, 3)
+        .map((asset, index) => {
+          if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
+            return ""
+          }
+
+          const nome = "nome" in asset ? String(asset.nome || "").trim() : ""
+          const targetUrl = "targetUrl" in asset ? String(asset.targetUrl || "").trim() : ""
+          const whatsappText = "whatsappText" in asset ? String(asset.whatsappText || "").trim() : ""
+          const descricao = "descricao" in asset ? String(asset.descricao || "").trim() : ""
+          const supportText = whatsappText || descricao
+
+          if (!targetUrl && !supportText) {
+            return ""
+          }
+
+          const parts = [formatWhatsAppOutboundTextSafe(`*${index + 1}. ${nome || "Produto"}*`)]
+          if (supportText) {
+            parts.push(formatWhatsAppOutboundTextSafe(supportText))
+          }
+          if (targetUrl) {
+            parts.push(targetUrl)
+          }
+
+          return parts.join("\n").trim()
+        })
+        .filter(Boolean)
+    : []
+
+  if (followUpReply && String(followUpReply).trim()) {
+    messages.push(formatWhatsAppOutboundTextSafe(followUpReply))
+  }
+
+  return [...messages, ...assetMessages]
+}
+
+export function buildSilentChatResult(chatId) {
+  return {
+    chatId: chatId ?? "",
+    reply: "",
+    followUpReply: "",
+    messageSequence: [],
+    assets: [],
+    whatsapp: null,
+  }
+}
+
+export function buildBillingBlockedResult(chatId, message) {
+  return {
+    chatId: chatId ?? "",
+    reply: String(message || "").trim(),
+    followUpReply: "",
+    messageSequence: [],
+    assets: [],
+    whatsapp: null,
+  }
+}
+
+export function buildIsolatedChatResult(body, message) {
+  const chatId =
+    body?.chatId?.trim() ||
+    body?.identificadorExterno?.trim() ||
+    body?.identificador?.trim() ||
+    "isolated-chat"
+  const sanitizedMessage = String(message || "").replace(/\s+/g, " ").trim()
+  const reply = sanitizedMessage
+    ? `Recebi sua mensagem: "${sanitizedMessage}". O chat esta rodando em modo isolado, sem Supabase, WhatsApp ou handoff.`
+    : "O chat esta rodando em modo isolado, sem Supabase, WhatsApp ou handoff."
+
+  return {
+    chatId,
+    reply,
+    followUpReply: "",
+    messageSequence: [],
+    assets: [],
+    whatsapp: null,
+  }
+}
+
+export function isCatalogSearchMessage(message) {
+  const latestNormalizedMessage = String(message || "").toLowerCase()
+  const catalogSignals = ["tem ", "produto", "produtos", "catalogo", "loja", "vende", "procuro", "estou procurando"]
+
+  return catalogSignals.some((signal) => latestNormalizedMessage.includes(signal)) || /^\s*e\s+\S+/i.test(message)
+}
+
+export function isCatalogLoadMoreMessage(message) {
+  const normalized = String(message || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!normalized) {
+    return false
+  }
+
+  if (["mais", "outras", "outros", "mais opcoes", "outras opcoes", "mais modelos", "outros modelos"].includes(normalized)) {
+    return true
+  }
+
+  return [
+    /\btem mais\b/,
+    /\bquero mais\b/,
+    /\bme mostra mais\b/,
+    /\bmostra mais\b/,
+    /\btraz mais\b/,
+    /\bmanda mais\b/,
+    /\bver mais\b/,
+    /\boutras opcoes\b/,
+    /\boutros modelos\b/,
+    /\bmais modelos\b/,
+    /\bmais opcoes\b/,
+  ].some((pattern) => pattern.test(normalized))
+}
+
+export function splitCatalogReplyForWhatsApp(reply, hasAssets) {
+  const normalizedReply = String(reply || "").trim()
+  if (!hasAssets || !normalizedReply) {
+    return {
+      mainReply: normalizedReply,
+      followUpReply: "",
+    }
+  }
+
+  const followUpPatterns = [
+    /Me diga se gostou de algum ou se quer que eu traga mais opcoes parecidas\.?/i,
+    /Me diga se gostou de algum ou se quer que eu traga mais opcoes nesse estilo\.?/i,
+    /Se gostar desse estilo, eu posso te mostrar outras opcoes parecidas tambem\.?/i,
+    /Se gostar desse estilo, eu posso te trazer outras opcoes parecidas tambem\.?/i,
+    /Se quiser, eu tambem posso buscar outras opcoes parecidas ou seguir com este item por aqui\.?/i,
+  ]
+
+  const matchedPattern = followUpPatterns.find((pattern) => pattern.test(normalizedReply))
+  if (!matchedPattern) {
+    return {
+      mainReply: normalizedReply,
+      followUpReply: "",
+    }
+  }
+
+  const followUpReply = normalizedReply.match(matchedPattern)?.[0]?.trim() ?? ""
+  const mainReply = normalizedReply.replace(matchedPattern, "").replace(/\n{3,}/g, "\n\n").trim()
+
+  return {
+    mainReply: mainReply || normalizedReply,
+    followUpReply,
+  }
+}
+
+export function buildContinuationMessage(input) {
+  const resumoLimpo = formatContinuationSummary(input.resumo)
+  const produtoAtual = String(input.produtoAtual || "").trim()
+  const ultimaMensagem = String(input.ultimaMensagem || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 220)
+
+  return [
+    `Ola! Vim do chat do site${input.projetoNome ? ` do projeto ${input.projetoNome}` : ""}.`,
+    input.agenteNome ? `Agente de referencia: ${input.agenteNome}.` : "",
+    produtoAtual ? `Produto em foco: ${produtoAtual}.` : "",
+    resumoLimpo ? `Resumo para continuidade: ${resumoLimpo}` : "",
+    ultimaMensagem ? `Ultima mensagem do cliente: ${ultimaMensagem}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim()
+}
+
+export function normalizeChannelKind(body) {
+  if (typeof body?.canal === "string" && body.canal.trim()) {
+    return body.canal.trim()
+  }
+
+  return isPlainObject(body?.context) &&
+    isPlainObject(body.context.channel) &&
+    typeof body.context.channel.kind === "string"
+    ? body.context.channel.kind.trim()
+    : "web"
+}
+
+export function getAdminTestAgentId(body) {
+  return isPlainObject(body?.context) &&
+    isPlainObject(body.context.admin) &&
+    typeof body.context.admin.agenteId === "string" &&
+    body.context.admin.agenteId.trim()
+    ? body.context.admin.agenteId.trim()
+    : null
+}
+
+export function getAdminTestProjectId(body) {
+  return isPlainObject(body?.context) &&
+    isPlainObject(body.context.admin) &&
+    typeof body.context.admin.projetoId === "string" &&
+    body.context.admin.projetoId.trim()
+    ? body.context.admin.projetoId.trim()
+    : null
+}
+
+export function normalizeInboundAttachments(body) {
+  return Array.isArray(body?.attachments)
+    ? body.attachments
+        .map((attachment) => ({
+          name: attachment.name?.trim() || "arquivo",
+          type: attachment.type?.trim() || "application/octet-stream",
+          dataBase64: attachment.dataBase64?.trim() || "",
+        }))
+        .filter((attachment) => attachment.dataBase64)
+        .slice(0, 5)
+    : []
+}
+
+export function normalizeInboundMessage(body) {
+  return String(body?.message ?? body?.mensagem ?? "")
+    .trim()
+}
+
+export function hasSupabaseServerEnv() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim()
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+
+  return Boolean(url && key)
+}
+
+export function applyAdminTestContextOverrides(body, channelKind) {
+  if (channelKind !== "admin_agent_test") {
+    return body
+  }
+
+  const adminTestAgentId = getAdminTestAgentId(body)
+  const adminTestProjectId = getAdminTestProjectId(body)
+  if (!adminTestAgentId && !adminTestProjectId) {
+    return body
+  }
+
+  return {
+    ...body,
+    agente: adminTestAgentId ?? body.agente,
+    projeto: adminTestProjectId ?? body.projeto,
+  }
+}
+
+export function normalizeExternalIdentifier(body, channelKind) {
+  return channelKind === "whatsapp"
+    ? resolveCanonicalWhatsAppExternalIdentifier({
+        identificadorExterno: body?.identificadorExterno,
+        identificador: body?.identificador,
+        context: isPlainObject(body?.context) ? body.context : null,
+      })
+    : body?.identificadorExterno?.trim() || body?.identificador?.trim() || null
+}
+
+export function buildNextContext(input) {
+  const mergedCurrentContext = mergeContext(input.currentContext, input.extraContext)
+  const enrichedContext = input.enrichLeadContext(
+    mergedCurrentContext,
+    input.history.map((item) => ({ role: item.role, content: item.conteudo })),
+    input.message
+  )
+  const enrichedContextRecord = enrichedContext
+  const nextContext = {
+    ...mergedCurrentContext,
+    ...enrichedContext,
+    canal: input.channelKind,
+    channel: isPlainObject(enrichedContextRecord.channel)
+      ? {
+          ...(isPlainObject(mergedCurrentContext.channel) ? mergedCurrentContext.channel : {}),
+          ...enrichedContextRecord.channel,
+          kind: input.channelKind,
+          external_id: input.normalizedExternalIdentifier,
+        }
+      : {
+          ...(isPlainObject(mergedCurrentContext.channel) ? mergedCurrentContext.channel : {}),
+          kind: input.channelKind,
+          external_id: input.normalizedExternalIdentifier,
+        },
+    ui: {
+      ...(isPlainObject(mergedCurrentContext.ui) ? mergedCurrentContext.ui : {}),
+      ...(isPlainObject(enrichedContextRecord.ui) ? enrichedContextRecord.ui : {}),
+      ...(input.channelKind === "whatsapp"
+        ? {
+            structured_response: false,
+            allow_icons: true,
+          }
+        : {}),
+    },
+    sdk: isPlainObject(enrichedContextRecord.sdk)
+      ? { ...(isPlainObject(mergedCurrentContext.sdk) ? mergedCurrentContext.sdk : {}), ...enrichedContextRecord.sdk }
+      : mergedCurrentContext.sdk,
+    widget: isPlainObject(enrichedContextRecord.widget)
+      ? {
+          ...(isPlainObject(mergedCurrentContext.widget) ? mergedCurrentContext.widget : {}),
+          ...enrichedContextRecord.widget,
+        }
+      : mergedCurrentContext.widget,
+    catalogo: isPlainObject(mergedCurrentContext.catalogo) ? { ...mergedCurrentContext.catalogo } : {},
+  }
+
+  if (!nextContext.lead?.telefone && input.history.length >= 2 && input.history.length < 6) {
+    nextContext.qualificacao = {
+      ...nextContext.qualificacao,
+      pronto_para_whatsapp: false,
+    }
+  }
+
+  if (isCatalogSearchMessage(input.message)) {
+    nextContext.catalogo = {
+      ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
+      ultimaBusca: input.message.trim(),
+      produtoAtual: null,
+      ultimosProdutos: [],
+      snapshotId: null,
+      snapshotCreatedAt: null,
+      snapshotTurnId: null,
+    }
+  }
+
+  return nextContext
+}
+
+export function updateContextFromAiResult(input) {
+  const nextContext = {
+    ...input.nextContext,
+    catalogo: isPlainObject(input.nextContext?.catalogo) ? { ...input.nextContext.catalogo } : {},
+  }
+
+  const recentMercadoLivreProducts = extractRecentMercadoLivreProductsFromAssets(input.ai.assets)
+  if (recentMercadoLivreProducts.length) {
+    const snapshotCreatedAt = new Date().toISOString()
+    const snapshotTurnId = Number(input.historyLengthSource ?? 0)
+    nextContext.catalogo = {
+      ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
+      ultimosProdutos: recentMercadoLivreProducts,
+      snapshotId: `${input.chatId}:${snapshotTurnId}:${snapshotCreatedAt}`,
+      snapshotCreatedAt,
+      snapshotTurnId,
+    }
+  }
+
+  const metadataCatalogProduct =
+    isPlainObject(input.ai.metadata) && "catalogoProdutoAtual" in input.ai.metadata
+      ? input.ai.metadata.catalogoProdutoAtual
+      : null
+
+  if (isPlainObject(metadataCatalogProduct)) {
+    nextContext.catalogo = {
+      ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
+      produtoAtual: metadataCatalogProduct,
+    }
+  }
+
+  return nextContext
+}
+
+export function prepareAiReplyPayload(input) {
+  const splitReply =
+    input.channelKind === "whatsapp"
+      ? null
+      : splitCatalogReplyForWhatsApp(input.ai.reply, Array.isArray(input.ai.assets) && input.ai.assets.length > 0)
+
+  const primaryReplyRaw = splitReply?.mainReply || input.ai.reply
+  const followUpReplyRaw = input.channelKind === "whatsapp" ? "" : splitReply?.followUpReply || ""
+  const primaryReplyBase = stripAssistantMetaReply(primaryReplyRaw, input.channelKind)
+  const followUpReplyBase = stripAssistantMetaReply(followUpReplyRaw, input.channelKind)
+  const primaryReply =
+    input.channelKind === "whatsapp" ? sanitizeWhatsAppCustomerFacingReply(primaryReplyBase) : primaryReplyBase
+  const followUpReply =
+    input.channelKind === "whatsapp" ? sanitizeWhatsAppCustomerFacingReply(followUpReplyBase) : followUpReplyBase
+  const whatsappEmbeddedSequence =
+    input.channelKind === "whatsapp" ? buildWhatsAppMessageSequence(primaryReply, input.ai.assets ?? [], null) : []
+
+  return {
+    primaryReply,
+    followUpReply,
+    whatsappEmbeddedSequence,
+    whatsappEmbeddedMessage: whatsappEmbeddedSequence[0] ?? "",
+    contactSnapshot: resolveChatContactSnapshot(input.nextContext, input.normalizedExternalIdentifier),
+    whatsappContactNameForTitle: getWhatsAppContactNameFromContext(input.nextContext),
+    leadNameForTitle:
+      typeof input.nextContext?.lead?.nome === "string" && input.nextContext.lead.nome.trim()
+        ? input.nextContext.lead.nome.trim()
+        : null,
+  }
+}
+
+export function prepareChatPrelude(body) {
+  const message = normalizeInboundMessage(body)
+  const inboundAttachments = normalizeInboundAttachments(body)
+
+  if (!message && !inboundAttachments.length) {
+    throw new Error("Mensagem obrigatoria.")
+  }
+
+  const channelKind = normalizeChannelKind(body)
+  const effectiveBody = applyAdminTestContextOverrides(body, channelKind)
+  const normalizedExternalIdentifier = normalizeExternalIdentifier(effectiveBody, channelKind)
+
+  if (!hasSupabaseServerEnv()) {
+    return {
+      status: "isolated",
+      message,
+      inboundAttachments,
+      channelKind,
+      effectiveBody,
+      normalizedExternalIdentifier,
+      result: buildIsolatedChatResult(body, message),
+    }
+  }
+
+  return {
+    status: "ready",
+    message,
+    inboundAttachments,
+    channelKind,
+    effectiveBody,
+    normalizedExternalIdentifier,
+    result: null,
+  }
+}
+
+export async function resolveChatChannel(body = {}, deps = {}) {
+  const channelKind = normalizeChannelKind(body)
+  const adminTestAgentId = channelKind === "admin_agent_test" ? getAdminTestAgentId(body) : null
+  const adminTestProjectId = channelKind === "admin_agent_test" ? getAdminTestProjectId(body) : null
+  const projetoIdentifier = adminTestProjectId ?? (typeof body?.projeto === "string" ? body.projeto.trim() : null)
+  const agenteIdentifier = adminTestAgentId ?? (typeof body?.agente === "string" ? body.agente.trim() : null)
+  const getProjeto = deps.getProjetoByIdentifier ?? getProjetoByIdentifier
+  const getAgente = deps.getAgenteByIdentifier ?? getAgenteByIdentifier
+  const getAgenteAtivoResolver = deps.getAgenteAtivo ?? getAgenteAtivo
+  const getWidgetByProjetoAgente = deps.getChatWidgetByProjetoAgente ?? getChatWidgetByProjetoAgente
+  const getWidgetBySlug = deps.getChatWidgetBySlug ?? getChatWidgetBySlug
+  const getProjetoByIdResolver = deps.getProjetoById ?? getProjetoById
+  const getAgenteByIdResolver = deps.getAgenteById ?? getAgenteById
+
+  if (projetoIdentifier) {
+    const projeto = await getProjeto(projetoIdentifier)
+    let agente = agenteIdentifier
+      ? await getAgente(agenteIdentifier, projeto?.id ?? null)
+      : projeto?.id
+        ? await getAgenteAtivoResolver(projeto.id)
+        : null
+
+    if (agente && (!agente.ativo || agente.projetoId !== projeto?.id)) {
+      agente = null
+    }
+
+    const widget = projeto ? await getWidgetByProjetoAgente({ projetoId: projeto.id, agenteId: agente?.id ?? null }) : null
+
+    return {
+      projeto,
+      agente,
+      widget,
+      lockedToAgent: true,
+      channel: {
+        kind: channelKind,
+        projeto: projetoIdentifier,
+        agente: agenteIdentifier,
+        identificador_externo: body?.identificadorExterno?.trim() || null,
+      },
+    }
+  }
+
+  const widgetSlug = typeof body?.widgetSlug === "string" && body.widgetSlug.trim() ? body.widgetSlug.trim() : DEFAULT_HOME_WIDGET_SLUG
+  const widget = await getWidgetBySlug(widgetSlug)
+
+  if (!widget?.projetoId) {
+    return {
+      projeto: null,
+      agente: null,
+      widget: null,
+      lockedToAgent: true,
+      channel: {
+        kind: channelKind,
+        widgetSlug,
+        identificador_externo: body?.identificadorExterno?.trim() || null,
+      },
+    }
+  }
+
+  const projeto = await getProjetoByIdResolver(widget.projetoId)
+  const widgetAgent = widget?.agenteId && projeto ? await getAgenteByIdResolver(widget.agenteId) : null
+  const agente =
+    widgetAgent && widgetAgent.ativo && widgetAgent.projetoId === projeto?.id
+      ? widgetAgent
+      : projeto?.id
+        ? await getAgenteAtivoResolver(projeto.id)
+        : null
+
+  return {
+    projeto,
+    agente,
+    widget,
+    lockedToAgent: true,
+    channel: {
+      kind: channelKind,
+      widgetSlug,
+      identificador_externo: body?.identificadorExterno?.trim() || null,
+    },
+  }
+}
+
+export async function resolveProjectAgent(input = {}) {
+  try {
+    const resolved = await resolveChatChannel(input)
+    if (resolved.projeto || resolved.agente) {
+      return {
+        projeto: resolved.projeto,
+        agente: resolved.agente,
+      }
+    }
+
+    const projetos = await listProjectsForUser({
+      role: "admin",
+      memberships: [],
+    })
+
+    for (const projeto of projetos) {
+      const agente = await getAgenteAtivo(projeto.id)
+
+      if (agente) {
+        return {
+          projeto: {
+            id: projeto.id,
+            nome: projeto.name,
+            slug: projeto.slug,
+            tipo: projeto.type,
+            descricao: projeto.description,
+            status: projeto.status,
+            isDemo: projeto.isDemo === true,
+          },
+          agente,
+        }
+      }
+    }
+  } catch (error) {
+    console.error("CHAT PROJECT/AGENT FALLBACK:", error)
+  }
+
+  return {
+    projeto: null,
+    agente: null,
+  }
+}
+
+export function buildCoreChatRequest(body, resolvedProjectAgent) {
+  return {
+    ...body,
+    ...(resolvedProjectAgent?.projeto?.id ? { projeto: resolvedProjectAgent.projeto.id } : {}),
+    ...(resolvedProjectAgent?.agente?.id ? { agente: resolvedProjectAgent.agente.id } : {}),
+  }
+}
+
+export function buildInitialChatContext(input) {
+  return {
+    ...(isPlainObject(input.extraContext) ? input.extraContext : {}),
+    projeto: input.resolved?.projeto
+      ? {
+          id: input.resolved.projeto.id,
+          nome: input.resolved.projeto.nome ?? null,
+          slug: input.resolved.projeto.slug ?? null,
+        }
+      : null,
+    agente: input.resolved?.agente
+      ? {
+          id: input.resolved.agente.id,
+          nome: input.resolved.agente.nome ?? null,
+          locked: Boolean(input.resolved?.lockedToAgent),
+        }
+      : null,
+    widget: input.resolved?.widget
+      ? {
+          id: input.resolved.widget.id,
+          slug: input.resolved.widget.slug,
+          whatsapp_celular: input.resolved.widget.whatsappCelular ?? "",
+        }
+      : null,
+    channel: {
+      ...(isPlainObject(input.resolved?.channel) ? input.resolved.channel : {}),
+      kind: input.channelKind,
+      external_id: input.normalizedExternalIdentifier,
+    },
+    canal: input.channelKind,
+  }
+}
+
+export function buildFallbackChatTitle(input) {
+  const previewText = input.message || "Midia recebida"
+  const fallbackTitle =
+    input.contactSnapshot?.contatoNome ?? (previewText.length > 60 ? `${previewText.slice(0, 57)}...` : previewText)
+
+  return String(fallbackTitle || "Nova conversa").trim() || "Nova conversa"
+}
+
+export async function ensureActiveChatSession(input, deps = {}) {
+  const findChatByChannel = deps.findActiveChatByChannel ?? findActiveChatByChannel
+  const findWhatsAppChatByPhone = deps.findActiveWhatsAppChatByPhone ?? findActiveWhatsAppChatByPhone
+  const createChatRecord = deps.createChat ?? createChat
+
+  let chat = null
+  if (input.normalizedExternalIdentifier && input.resolved?.projeto?.id) {
+    const preferredAgentId = input.resolved?.agente?.id ?? null
+    chat = await findChatByChannel({
+      projetoId: input.resolved.projeto.id,
+      agenteId: preferredAgentId,
+      canal: input.channelKind,
+      identificadorExterno: input.normalizedExternalIdentifier,
+      channelScopeId: input.channelKind === "whatsapp" ? input.whatsappChannelId ?? null : null,
+    })
+
+    if (!chat && input.channelKind === "whatsapp") {
+      const fallbackPhone = input.contactSnapshot?.contatoTelefone ?? input.normalizedExternalIdentifier
+      if (fallbackPhone) {
+        chat = await findWhatsAppChatByPhone({
+          projetoId: input.resolved.projeto.id,
+          agenteId: preferredAgentId,
+          phone: fallbackPhone,
+          channelScopeId: input.whatsappChannelId ?? null,
+        })
+      }
+    }
+  }
+
+  if (chat) {
+    return {
+      chat,
+      created: false,
+      initialContext: null,
+    }
+  }
+
+  const initialContext = buildInitialChatContext({
+    resolved: input.resolved,
+    extraContext: input.extraContext,
+    channelKind: input.channelKind,
+    normalizedExternalIdentifier: input.normalizedExternalIdentifier,
+  })
+  const createdChat = await createChatRecord({
+    titulo: buildFallbackChatTitle({
+      message: input.message,
+      contactSnapshot: input.contactSnapshot,
+    }),
+    projetoId: input.resolved?.projeto?.id ?? null,
+    agenteId: input.resolved?.agente?.id ?? null,
+    canal: input.channelKind,
+    identificadorExterno: input.normalizedExternalIdentifier,
+    contexto: initialContext,
+    contatoNome: input.contactSnapshot?.contatoNome ?? null,
+    contatoTelefone: input.contactSnapshot?.contatoTelefone ?? null,
+    contatoAvatarUrl: input.contactSnapshot?.contatoAvatarUrl ?? null,
+  })
+
+  return {
+    chat: createdChat,
+    created: true,
+    initialContext,
+  }
+}
+
+export function buildUserMessageMetadata(input) {
+  return {
+    source: input.source?.trim() || (input.channelKind === "whatsapp" ? "whatsapp_bridge" : "site_widget"),
+    ...(Array.isArray(input.attachments) && input.attachments.length ? { attachments: input.attachments } : {}),
+  }
+}
+
+export function buildAssistantMessageMetadata(input) {
+  return {
+    ...(isPlainObject(input.aiMetadata) ? input.aiMetadata : {}),
+    ...(input.usageTelemetry ? { usageTelemetry: input.usageTelemetry } : {}),
+    assets: Array.isArray(input.assets) ? input.assets : [],
+    ...(input.followUpReply ? { followUpReply: true } : {}),
+  }
+}
+
+export async function persistUserTurn(input, deps = {}) {
+  const appendChatMessage = deps.appendMessage ?? appendMessage
+  const userMessage = await appendChatMessage({
+    chatId: input.chatId,
+    role: "user",
+    conteudo: input.message || "Midia recebida pelo WhatsApp.",
+    canal: input.channelKind,
+    identificadorExterno: input.normalizedExternalIdentifier,
+    metadata: buildUserMessageMetadata({
+      source: input.source,
+      channelKind: input.channelKind,
+      attachments: input.attachments,
+    }),
+  })
+
+  if (!userMessage) {
+    throw new Error("Nao foi possivel gravar a mensagem do cliente. Verifique permissoes na tabela `mensagens`.")
+  }
+
+  return userMessage
+}
+
+export async function loadChatHistory(chatId, deps = {}) {
+  const listMessages = deps.listChatMessages ?? listChatMessages
+  return listMessages(chatId)
+}
+
+export async function persistAssistantTurn(input, deps = {}) {
+  const appendChatMessage = deps.appendMessage ?? appendMessage
+  const assistantMessage = await appendChatMessage({
+    chatId: input.chatId,
+    role: "assistant",
+    conteudo: input.content,
+    canal: input.channelKind,
+    identificadorExterno: input.normalizedExternalIdentifier,
+    tokensInput: input.tokensInput ?? null,
+    tokensOutput: input.tokensOutput ?? null,
+    custo: input.custo ?? null,
+    metadata: buildAssistantMessageMetadata({
+      aiMetadata: input.aiMetadata,
+      usageTelemetry: input.usageTelemetry,
+      assets: input.assets,
+      followUpReply: input.followUpReply,
+    }),
+  })
+
+  if (!assistantMessage) {
+    throw new Error("O modelo respondeu, mas nao foi possivel salvar a resposta no banco.")
+  }
+
+  return assistantMessage
+}
+
+export async function persistAssistantState(input, deps = {}) {
+  const saveChatContext = deps.updateChatContext ?? updateChatContext
+  const saveChatStats = deps.updateChatStats ?? updateChatStats
+
+  await saveChatContext(input.chatId, input.nextContext)
+  await saveChatStats({
+    chatId: input.chatId,
+    totalTokensToAdd: Number(input.totalTokensToAdd ?? 0),
+    totalCustoToAdd: Number(input.totalCustoToAdd ?? 0),
+    titulo: input.titulo ?? null,
+    contexto: input.nextContext,
+    identificadorExterno: input.normalizedExternalIdentifier ?? null,
+    contatoNome: input.contactSnapshot?.contatoNome ?? null,
+    contatoTelefone: input.contactSnapshot?.contatoTelefone ?? null,
+    contatoAvatarUrl: input.contactSnapshot?.contatoAvatarUrl ?? null,
+  })
+}
+
+export async function applyBillingGuardrail(input, deps = {}) {
+  const verifyBilling = deps.verificarLimite ?? (async () => null)
+  const billingAccess = input.projetoId ? await verifyBilling(input.projetoId) : null
+
+  if (billingAccess && billingAccess.allowed === false) {
+    return {
+      blocked: true,
+      billingAccess,
+      result: buildBillingBlockedResult(
+        input.chatId,
+        billingAccess.message ??
+          "O limite mensal deste projeto foi atingido. Fale com o administrador para liberar novo ciclo ou ajustar o plano."
+      ),
+    }
+  }
+
+  return {
+    blocked: false,
+    billingAccess,
+    result: null,
+  }
+}
+
+export async function applyHandoffGuardrail(input, deps = {}) {
+  const loadChatHandoff = deps.getChatHandoffByChatId ?? getChatHandoffByChatId
+  const currentHandoff = await loadChatHandoff(input.chatId)
+
+  if (shouldPauseAssistantForHandoff(currentHandoff)) {
+    return {
+      paused: true,
+      handoff: currentHandoff,
+      result: buildSilentChatResult(input.chatId),
+    }
+  }
+
+  return {
+    paused: false,
+    handoff: currentHandoff,
+    result: null,
+  }
+}
+
+export async function requestRuntimeHumanHandoff(input, deps = {}) {
+  const requestHandoff = deps.requestHumanHandoff ?? requestHumanHandoff
+  const acknowledgement = input.channelKind === "whatsapp"
+    ? "Perfeito. Ja acionei um atendente humano para continuar por aqui. Assim que alguem assumir, seguimos neste mesmo WhatsApp."
+    : "Perfeito. Ja acionei um atendente humano para continuar por aqui assim que possivel."
+
+  const handoff = await requestHandoff({
+    chatId: input.chatId,
+    projetoId: input.projetoId,
+    canalWhatsappId: input.canalWhatsappId ?? null,
+    requestedBy: "agent",
+    motivo: input.motivo ?? "Cliente pediu atendimento humano.",
+    metadata: input.metadata ?? {},
+    alertMessage: input.alertMessage ?? null,
+  })
+
+  return {
+    handoff,
+    acknowledgement,
+  }
+}
+
+export function buildUsagePersistencePayload(input) {
+  const provider = typeof input.aiMetadata?.provider === "string" ? input.aiMetadata.provider : null
+  const model = typeof input.aiMetadata?.model === "string" ? input.aiMetadata.model : null
+  const estimatedCostUsd =
+    provider === "openai"
+      ? estimateOpenAICostUsd(input.inputTokens, input.outputTokens, model)
+      : 0
+  const usageTelemetry = buildChatUsageTelemetry({
+    channelKind: input.channelKind,
+    provider,
+    model,
+    routeStage: typeof input.aiMetadata?.routeStage === "string" ? input.aiMetadata.routeStage : null,
+    heuristicStage: typeof input.aiMetadata?.heuristicStage === "string" ? input.aiMetadata.heuristicStage : null,
+    domainStage:
+      typeof input.aiMetadata?.domainStage === "string"
+        ? input.aiMetadata.domainStage
+        : typeof input.aiMetadata?.debugRequest?.domainStage === "string"
+          ? input.aiMetadata.debugRequest.domainStage
+          : null,
+    inputTokens: input.inputTokens,
+    outputTokens: input.outputTokens,
+    estimatedCostUsd,
+  })
+
+  return {
+    estimatedCostUsd,
+    usageTelemetry,
+    usageRecord: {
+      projetoId: input.projetoId,
+      tokens: Number(input.inputTokens ?? 0) + Number(input.outputTokens ?? 0),
+      custo: estimatedCostUsd,
+      details: {
+        tokensInput: Number(input.inputTokens ?? 0),
+        tokensOutput: Number(input.outputTokens ?? 0),
+        usuarioId: input.usuarioId ?? null,
+        origem: usageTelemetry.billingOrigin,
+        referenciaId: input.referenciaId ?? null,
+      },
+    },
+  }
+}
+
+export async function persistUsageRecord(input, deps = {}) {
+  const registerUsage = deps.registrarUso ?? (async () => null)
+  if (!input?.projetoId) {
+    return null
+  }
+
+  return registerUsage(input.projetoId, input.tokens, input.custo, input.details)
+}
+
+export function buildFinalChatResult(input) {
+  return {
+    chatId: input.chatId,
+    reply: input.reply,
+    followUpReply: input.channelKind === "whatsapp" ? "" : input.followUpReply || "",
+    messageSequence: input.channelKind === "whatsapp" ? input.messageSequence ?? [] : [],
+    assets: input.channelKind === "whatsapp" ? [] : input.assets ?? [],
+    whatsapp: input.whatsapp ?? null,
+  }
+}
+
+export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
+  const nextContext = buildNextContext({
+    currentContext: runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
+    extraContext: isPlainObject(runtimeState.prelude.effectiveBody.context) ? runtimeState.prelude.effectiveBody.context : null,
+    history: runtimeState.history,
+    message: runtimeState.prelude.message,
+    channelKind: runtimeState.prelude.channelKind,
+    normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
+    enrichLeadContext,
+  })
+  const updatedContext = updateContextFromAiResult({
+    nextContext,
+    ai: aiResult,
+    chatId: runtimeState.session.chat.id,
+    historyLengthSource: runtimeState.history.length,
+  })
+  const replyPayload = prepareAiReplyPayload({
+    channelKind: runtimeState.prelude.channelKind,
+    ai: aiResult,
+    nextContext: updatedContext,
+    normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
+  })
+  const usagePayload = buildUsagePersistencePayload({
+    projetoId: runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null,
+    usuarioId: runtimeState.session.chat.usuarioId ?? null,
+    referenciaId: null,
+    channelKind: runtimeState.prelude.channelKind,
+    inputTokens: aiResult?.usage?.inputTokens ?? 0,
+    outputTokens: aiResult?.usage?.outputTokens ?? 0,
+    aiMetadata: aiResult?.metadata ?? {},
+  })
+  const assistantMessage = await persistAssistantTurn(
+    {
+      chatId: runtimeState.session.chat.id,
+      content:
+        runtimeState.prelude.channelKind === "whatsapp"
+          ? replyPayload.whatsappEmbeddedMessage || replyPayload.primaryReply
+          : replyPayload.primaryReply,
+      channelKind: runtimeState.prelude.channelKind,
+      normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
+      tokensInput: aiResult?.usage?.inputTokens ?? 0,
+      tokensOutput: aiResult?.usage?.outputTokens ?? 0,
+      custo: usagePayload.estimatedCostUsd,
+      aiMetadata: aiResult?.metadata ?? {},
+      usageTelemetry: usagePayload.usageTelemetry,
+      assets: aiResult?.assets ?? [],
+      followUpReply: false,
+    },
+    options
+  )
+  const usagePayloadWithReference = {
+    ...usagePayload,
+    usageRecord: {
+      ...usagePayload.usageRecord,
+      details: {
+        ...usagePayload.usageRecord.details,
+        referenciaId: assistantMessage.id,
+      },
+    },
+  }
+  await persistAssistantState(
+    {
+      chatId: runtimeState.session.chat.id,
+      nextContext: updatedContext,
+      totalTokensToAdd: usagePayloadWithReference.usageRecord.tokens,
+      totalCustoToAdd: usagePayloadWithReference.estimatedCostUsd,
+      titulo: replyPayload.leadNameForTitle ?? replyPayload.whatsappContactNameForTitle ?? runtimeState.session.chat.titulo,
+      normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
+      contactSnapshot: replyPayload.contactSnapshot,
+    },
+    options
+  )
+  await persistUsageRecord(usagePayloadWithReference.usageRecord, options)
+
+  return buildFinalChatResult({
+    chatId: runtimeState.session.chat.id,
+    channelKind: runtimeState.prelude.channelKind,
+    reply:
+      runtimeState.prelude.channelKind === "whatsapp"
+        ? replyPayload.whatsappEmbeddedMessage || replyPayload.primaryReply
+        : assistantMessage.conteudo ?? replyPayload.primaryReply,
+    followUpReply: replyPayload.followUpReply,
+    messageSequence: replyPayload.whatsappEmbeddedSequence,
+    assets: aiResult?.assets ?? [],
+    whatsapp: null,
+  })
+}
+
+export async function executeV2RuntimePrelude(body, options = {}) {
+  const prelude = prepareChatPrelude(body)
+  if (prelude.status === "isolated") {
+    return {
+      stage: "isolated",
+      prelude,
+      result: prelude.result,
+    }
+  }
+
+  const resolved = options.resolveChatChannel
+    ? await options.resolveChatChannel(prelude.effectiveBody)
+    : options.resolveProjectAgent
+      ? await options.resolveProjectAgent(prelude.effectiveBody)
+      : await resolveChatChannel(prelude.effectiveBody)
+  const extraContext = isPlainObject(prelude.effectiveBody.context) ? prelude.effectiveBody.context : null
+  const contactSnapshot = resolveChatContactSnapshot(extraContext, prelude.normalizedExternalIdentifier)
+  const ensureChatSession = options.ensureActiveChatSession ?? ensureActiveChatSession
+  const uploadAttachmentPayloads = options.uploadChatAttachmentPayloads ?? uploadChatAttachmentPayloads
+  const persistUserTurnStep = options.persistUserTurn ?? persistUserTurn
+  const loadHistoryStep = options.loadChatHistory ?? loadChatHistory
+  const applyHandoffStep = options.applyHandoffGuardrail ?? applyHandoffGuardrail
+  const applyBillingStep = options.applyBillingGuardrail ?? applyBillingGuardrail
+
+  const session = await ensureChatSession(
+    {
+      resolved,
+      channelKind: prelude.channelKind,
+      normalizedExternalIdentifier: prelude.normalizedExternalIdentifier,
+      whatsappChannelId: prelude.effectiveBody.whatsappChannelId ?? null,
+      contactSnapshot,
+      message: prelude.message,
+      extraContext,
+    },
+    options
+  )
+
+  if (!session.chat?.id) {
+    throw new Error("Nao foi possivel iniciar ou localizar a sessao ativa do chat.")
+  }
+
+  const uploadedInboundAttachments =
+    prelude.inboundAttachments.length && session.chat.id
+      ? await uploadAttachmentPayloads({
+          projetoId: session.chat.projetoId ?? resolved?.projeto?.id ?? null,
+          chatId: session.chat.id,
+          attachments: prelude.inboundAttachments,
+        })
+      : []
+
+  await persistUserTurnStep(
+    {
+      chatId: session.chat.id,
+      message: prelude.message,
+      channelKind: prelude.channelKind,
+      normalizedExternalIdentifier: prelude.normalizedExternalIdentifier,
+      source: prelude.effectiveBody.source,
+      attachments: getChatAttachmentsMetadata(uploadedInboundAttachments),
+    },
+    options
+  )
+
+  const handoffState = await applyHandoffStep(
+    {
+      chatId: session.chat.id,
+    },
+    options
+  )
+  if (handoffState.paused) {
+    return {
+      stage: "handoff_paused",
+      prelude,
+      resolved,
+      session,
+      contactSnapshot,
+      uploadedInboundAttachments,
+      handoffState,
+      result: handoffState.result,
+    }
+  }
+
+  const history = await loadHistoryStep(session.chat.id, options)
+  const billingState = await applyBillingStep(
+    {
+      projetoId: session.chat.projetoId ?? resolved?.projeto?.id ?? null,
+      chatId: session.chat.id,
+    },
+    options
+  )
+  if (billingState.blocked) {
+    return {
+      stage: "billing_blocked",
+      prelude,
+      resolved,
+      session,
+      contactSnapshot,
+      uploadedInboundAttachments,
+      handoffState,
+      history,
+      billingState,
+      result: billingState.result,
+    }
+  }
+
+  return {
+    stage: "ready_for_ai",
+    prelude,
+    resolved,
+    session,
+    contactSnapshot,
+    uploadedInboundAttachments,
+    handoffState,
+    history,
+    billingState,
+    result: null,
+  }
+}
+
+export async function processChatRequest(body, options = {}) {
+  const runtimeState = await executeV2RuntimePrelude(body, options)
+  if (runtimeState.result) {
+    return runtimeState.result
+  }
+
+  if (typeof options.executeCore === "function") {
+    return options.executeCore(
+      buildCoreChatRequest(runtimeState.prelude.effectiveBody, runtimeState.resolved),
+      runtimeState
+    )
+  }
+
+  const aiResult = await executeSalesOrchestrator(
+    runtimeState.history.map((item) => ({
+      role: item.role,
+      content: item.conteudo,
+    })),
+    runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
+    options
+  )
+
+  return finalizeV2AiTurn(runtimeState, aiResult, options)
+}
+
+export async function processAdminConversationChat(input) {
+  return processChatRequest({
+    message: input.texto,
+    canal: "web",
+    identificadorExterno: input.conversationId,
+    source: "admin_attendance_v2",
+  })
+}

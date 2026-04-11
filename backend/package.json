@@ -6,7 +6,10 @@
     "dev": "next dev --webpack",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:chat-intelligence": "tsx --tsconfig tsconfig.tests.json tests/chat-intelligence.smoke.ts",
+    "test:chat-intelligence:scenarios": "tsx --tsconfig tsconfig.tests.json tests/chat-intelligence.scenarios.ts",
+    "test:chat-intelligence:full": "npm run test:chat-intelligence && npm run test:chat-intelligence:scenarios"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
@@ -31,6 +34,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.3",
     "postcss": "^8.4.31",
-    "tailwindcss": "^3.4.17"
+    "tailwindcss": "^3.4.17",
+    "tsx": "^4.21.0"
   }
 }

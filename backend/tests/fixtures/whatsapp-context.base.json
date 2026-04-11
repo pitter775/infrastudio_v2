@@ -1,0 +1,72 @@
+{
+  "lead": {
+    "identificado": true,
+    "nome": "Julia Rodrigues",
+    "telefone": "5511978510655"
+  },
+  "whatsapp": {
+    "channelId": "c421f40d-f32c-48db-92af-0c05b124839d",
+    "numeroCanal": "11949506267",
+    "remetente": "270570709065941@lid",
+    "remoteJid": "270570709065941@lid",
+    "remotePhone": "5511978510655",
+    "contactName": "Julia Rodrigues",
+    "pushName": "Julia Rodrigues",
+    "rawContact": {
+      "number": "5511978510655",
+      "pushname": "Julia Rodrigues",
+      "name": "Julia meu amor"
+    }
+  },
+  "channel": {
+    "kind": "whatsapp"
+  },
+  "memoria": {
+    "mensagem_count": 18,
+    "resumo": "{\"objetivo\":\"buscar jogo de jantar\",\"lead\":{\"nome\":\"Julia Rodrigues\"},\"restricoes\":null,\"proximo_passo\":\"entender se gostou de algum dos produtos enviados\"}"
+  },
+  "catalogo": {
+    "ultimaBusca": "jogo de jantar",
+    "snapshotId": "snapshot-whatsapp-1",
+    "snapshotCreatedAt": "2026-04-02T23:00:00.000Z",
+    "snapshotTurnId": 22,
+    "produtoAtual": {
+      "id": "MLB1",
+      "nome": "Jogo de Jantar Porcelana Floral",
+      "descricao": "Conjunto branco floral com filete dourado",
+      "preco": 2990,
+      "link": "https://example.com/jantar",
+      "imagem": "https://example.com/jantar.jpg",
+      "cardIndex": 0
+    },
+    "ultimosProdutos": [
+      {
+        "id": "MLB1",
+        "nome": "Jogo de Jantar Porcelana Floral",
+        "descricao": "Conjunto branco floral com filete dourado",
+        "preco": 2990,
+        "link": "https://example.com/jantar",
+        "imagem": "https://example.com/jantar.jpg",
+        "cardIndex": 0
+      },
+      {
+        "id": "MLB2",
+        "nome": "Jogo de Sopeira Completo",
+        "descricao": "Sopeira amarela com tigelas",
+        "preco": 250,
+        "link": "https://example.com/sopeira",
+        "imagem": "https://example.com/sopeira.jpg",
+        "cardIndex": 1
+      },
+      {
+        "id": "MLB3",
+        "nome": "Jogo de Canecas Cha Floral",
+        "descricao": "Conjunto amarelo floral",
+        "preco": 390,
+        "link": "https://example.com/canecas",
+        "imagem": "https://example.com/canecas.jpg",
+        "cardIndex": 2
+      }
+    ]
+  }
+}
