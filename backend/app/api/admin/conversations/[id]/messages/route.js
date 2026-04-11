@@ -1,6 +1,13 @@
-const conversationMessages = new Map()
+import { appendAdminConversationMessage } from "@/lib/admin-conversations"
+import { getSessionUser } from "@/lib/session"
 
 export async function POST(request, { params }) {
+  const user = await getSessionUser()
+
+  if (!user) {
+    return Response.json({ success: false, error: "Nao autenticado." }, { status: 401 })
+  }
+
   const { id } = await params
   const body = await request.json()
   const texto = String(body.texto ?? "").trim()
@@ -12,18 +19,11 @@ export async function POST(request, { params }) {
     )
   }
 
-  const message = {
-    id: `msg-${id}-${Date.now()}`,
-    autor: "atendente",
-    texto,
-    horario: new Date().toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }),
-  }
+  const message = await appendAdminConversationMessage(id, texto, body.attachments)
 
-  const messages = conversationMessages.get(id) ?? []
-  conversationMessages.set(id, [...messages, message])
+  if (!message) {
+    return Response.json({ success: false, error: "Conversa nao encontrada" }, { status: 404 })
+  }
 
   return Response.json({ success: true, message })
 }

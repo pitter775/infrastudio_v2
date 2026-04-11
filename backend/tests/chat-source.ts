@@ -111,6 +111,19 @@ export {
   buildChatUsageTelemetry,
 } from "@/lib/chat-usage-metrics";
 
+export {
+  buildChatConfigDiagnostics,
+  buildPublicChatRequestDiagnostics,
+  logChatConfigEvent,
+  logPublicChatEvent,
+} from "@/lib/chat/diagnostics";
+
+export {
+  buildChatCorsHeaders,
+  formatPublicChatResult,
+  normalizePublicChatBody,
+} from "@/lib/chat/http";
+
 export { estimateOpenAICostUsd, resolvePricingModel } from "@/lib/openai-pricing";
 
 export {

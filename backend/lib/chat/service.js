@@ -1,9 +1,10 @@
 import { getAgenteAtivo, getAgenteById, getAgenteByIdentifier } from "@/lib/agentes"
+import { loadAgentRuntimeApis } from "@/lib/apis"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
 import { buildChatUsageTelemetry } from "@/lib/chat-usage-metrics"
 import { enrichLeadContext, executeSalesOrchestrator } from "@/lib/chat/orchestrator"
 import { getChatHandoffByChatId, requestHumanHandoff, shouldPauseAssistantForHandoff } from "@/lib/chat-handoffs"
-import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, listChatMessages, updateChatContext, updateChatStats } from "@/lib/chats"
+import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, updateChatContext, updateChatStats } from "@/lib/chats"
 import { DEFAULT_HOME_WIDGET_SLUG, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { estimateOpenAICostUsd } from "@/lib/openai-pricing"
 import { getProjetoById, getProjetoByIdentifier, listProjectsForUser } from "@/lib/projetos"
@@ -508,7 +509,7 @@ export function normalizeInboundAttachments(body) {
 }
 
 export function normalizeInboundMessage(body) {
-  return String(body?.message ?? body?.mensagem ?? "")
+  return String(body?.message ?? body?.mensagem ?? body?.texto ?? "")
     .trim()
 }
 
@@ -890,11 +891,25 @@ export function buildFallbackChatTitle(input) {
 }
 
 export async function ensureActiveChatSession(input, deps = {}) {
+  const loadChatById = deps.getChatById ?? getChatById
   const findChatByChannel = deps.findActiveChatByChannel ?? findActiveChatByChannel
   const findWhatsAppChatByPhone = deps.findActiveWhatsAppChatByPhone ?? findActiveWhatsAppChatByPhone
   const createChatRecord = deps.createChat ?? createChat
 
   let chat = null
+  if (input.chatId) {
+    const existingChat = await loadChatById(input.chatId)
+    const projectMatches = !input.resolved?.projeto?.id || existingChat?.projetoId === input.resolved.projeto.id
+    const agentMatches = !input.resolved?.agente?.id || !existingChat?.agenteId || existingChat.agenteId === input.resolved.agente.id
+    if (existingChat?.status === "ativo" && projectMatches && agentMatches) {
+      return {
+        chat: existingChat,
+        created: false,
+        initialContext: null,
+      }
+    }
+  }
+
   if (input.normalizedExternalIdentifier && input.resolved?.projeto?.id) {
     const preferredAgentId = input.resolved?.agente?.id ?? null
     chat = await findChatByChannel({
@@ -1282,6 +1297,7 @@ export async function executeV2RuntimePrelude(body, options = {}) {
   const session = await ensureChatSession(
     {
       resolved,
+      chatId: prelude.effectiveBody.chatId ?? null,
       channelKind: prelude.channelKind,
       normalizedExternalIdentifier: prelude.normalizedExternalIdentifier,
       whatsappChannelId: prelude.effectiveBody.whatsappChannelId ?? null,
@@ -1386,12 +1402,24 @@ export async function processChatRequest(body, options = {}) {
     )
   }
 
+  const runtimeApis =
+    runtimeState.resolved?.agente?.id && runtimeState.resolved?.projeto?.id
+      ? await (options.loadAgentRuntimeApis ?? loadAgentRuntimeApis)({
+          agenteId: runtimeState.resolved.agente.id,
+          projetoId: runtimeState.resolved.projeto.id,
+        })
+      : []
+  const aiContext = mergeContext(
+    runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
+    runtimeApis.length ? { runtimeApis } : null,
+  )
+
   const aiResult = await executeSalesOrchestrator(
     runtimeState.history.map((item) => ({
       role: item.role,
       content: item.conteudo,
     })),
-    runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
+    aiContext,
     options
   )
 

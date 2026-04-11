@@ -11,6 +11,8 @@ import {
   buildCatalogDecisionFromSemanticIntent,
   buildChatUsageOrigin,
   buildChatUsageTelemetry,
+  buildChatConfigDiagnostics,
+  buildChatCorsHeaders,
   buildContinuationMessage,
   DEFAULT_HOME_WIDGET_SLUG,
   buildFinalChatResult,
@@ -23,9 +25,11 @@ import {
   buildNextContext,
   buildSilentChatResult,
   buildFocusedApiContext,
+  formatPublicChatResult,
   buildHumanHandoffReply,
   buildLeadNameAcknowledgementReply,
   buildProductSearchCandidates,
+  buildPublicChatRequestDiagnostics,
   buildSystemPrompt,
   buildWhatsAppMessageSequence,
   getChatAttachmentsMetadata,
@@ -56,6 +60,7 @@ import {
   normalizeInboundAttachments,
   normalizeInboundMessage,
   normalizeChannelKind,
+  normalizePublicChatBody,
   normalizeWhatsAppLookupPhone,
   parseAssetPrice,
   persistAssistantTurn,
@@ -635,6 +640,85 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "widget publico normaliza contratos e CORS",
+    run: () => {
+      const modernPayload = normalizePublicChatBody({
+        chatId: "chat-1",
+        message: "oi",
+        projeto: "proj",
+        agente: "agent",
+        context: {
+          channel: {
+            kind: "external_widget",
+          },
+        },
+      })
+      const legacyPayload = normalizePublicChatBody({
+        chatId: "chat-2",
+        message: "oi",
+        widgetSlug: "widget-1",
+      })
+      const adminPayload = normalizePublicChatBody({
+        conversationId: "conv-1",
+        texto: "oi",
+      })
+      const headers = buildChatCorsHeaders("https://cliente.example")
+      const result = formatPublicChatResult({
+        chatId: "chat-1",
+        reply: "ola",
+        assets: [{ id: "asset-1" }],
+        whatsapp: { url: "https://wa.me/5511999999999", label: "WhatsApp" },
+      })
+
+      assert.equal(modernPayload.canal, "external_widget")
+      assert.equal(modernPayload.source, "site_widget")
+      assert.equal(legacyPayload.canal, "external_widget")
+      assert.equal(adminPayload.message, "oi")
+      assert.equal(adminPayload.identificadorExterno, "conv-1")
+      assert.equal(headers["Access-Control-Allow-Origin"], "https://cliente.example")
+      assert.equal(result.chatId, "chat-1")
+      assert.equal(result.assets.length, 1)
+      assert.equal(result.whatsapp.url, "https://wa.me/5511999999999")
+    },
+  },
+  {
+    name: "widget publico gera diagnostico sem conteudo da mensagem",
+    run: () => {
+      const diagnostic = buildPublicChatRequestDiagnostics({
+        event: "completed",
+        origin: "https://cliente.example",
+        host: "www.infrastudio.pro",
+        method: "POST",
+        body: {
+          message: "mensagem sensivel",
+          widgetSlug: "nexo_leiloes",
+          projeto: "nexo",
+          agente: "agente-imovel",
+          chatId: "chat-1",
+        },
+        status: 200,
+        chatId: "chat-1",
+        elapsedMs: 123,
+      })
+      const configDiagnostic = buildChatConfigDiagnostics({
+        event: "completed",
+        origin: "https://cliente.example",
+        host: "www.infrastudio.pro",
+        projeto: "nexo",
+        agente: "agente-imovel",
+        status: 200,
+        elapsedMs: 42,
+      })
+
+      assert.equal(diagnostic.widgetSlug, "nexo_leiloes")
+      assert.equal(diagnostic.projeto, "nexo")
+      assert.equal(diagnostic.hasChatId, true)
+      assert.equal("message" in diagnostic, false)
+      assert.equal(configDiagnostic.source, "public_chat_config")
+      assert.equal(configDiagnostic.status, 200)
+    },
+  },
+  {
     name: "service monta request core e controla esqueleto da execucao",
     run: async () => {
       const previousUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -694,6 +778,62 @@ const tests: TestCase[] = [
       assert.equal(result.request.projeto, "proj-10")
       assert.equal(result.request.agente, "agent-10")
       assert.equal(result.prelude.prelude.normalizedExternalIdentifier, "lead-10")
+    },
+  },
+  {
+    name: "service reutiliza chatId enviado pelo widget publico",
+    run: async () => {
+      const result = await processChatRequest(
+        {
+          chatId: "chat-widget-1",
+          message: "oi",
+          projeto: "proj-widget",
+          agente: "agent-widget",
+          canal: "external_widget",
+          source: "site_widget",
+        },
+        {
+          resolveChatChannel: async () => ({
+            projeto: { id: "proj-widget", nome: "Projeto Widget", slug: "proj-widget" },
+            agente: { id: "agent-widget", nome: "Agente Widget" },
+            widget: null,
+            lockedToAgent: true,
+            channel: { kind: "external_widget" },
+          }),
+          getChatById: async (chatId: string) => ({
+            id: chatId,
+            status: "ativo",
+            projetoId: "proj-widget",
+            agenteId: "agent-widget",
+            contexto: {},
+            titulo: "Chat existente",
+          }),
+          createChat: async () => {
+            throw new Error("createChat should not be called")
+          },
+          persistUserTurn: async () => ({ id: "msg-user-widget" }),
+          applyHandoffGuardrail: async () => ({ paused: false, handoff: null, result: null }),
+          loadChatHistory: async () => [{ id: "msg-user-widget", role: "user", conteudo: "oi" }],
+          applyBillingGuardrail: async () => ({ blocked: false, billingAccess: null, result: null }),
+          generateSalesReply: async () => ({
+            reply: "ola pelo widget",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: { provider: "test", model: "test" },
+          }),
+          appendMessage: async (payload: any) => ({
+            id: "msg-assistant-widget",
+            role: "assistant",
+            conteudo: payload.conteudo,
+          }),
+          updateChatContext: async () => null,
+          updateChatStats: async () => null,
+          registrarUso: async () => null,
+        }
+      )
+
+      assert.equal(result.chatId, "chat-widget-1")
+      assert.equal(result.reply, "ola pelo widget")
     },
   },
   {

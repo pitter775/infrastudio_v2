@@ -1,0 +1,36 @@
+▲ Next.js 16.2.3
+- Local:         http://localhost:3010
+- Network:       http://192.168.15.7:3010
+✓ Ready in 285ms
+[public-chat-config] {
+  timestamp: '2026-04-11T21:22:34.156Z',
+  source: 'public_chat_config',
+  event: 'completed',
+  origin: 'https://cliente.example',
+  host: 'localhost:3010',
+  projeto: 'nexo',
+  agente: 'agente-imovel',
+  elapsedMs: 1709,
+  status: 200,
+  error: null
+}
+[public-chat] {
+  timestamp: '2026-04-11T21:22:38.361Z',
+  source: 'public_chat',
+  event: 'completed',
+  origin: 'https://cliente.example',
+  host: 'localhost:3010',
+  method: 'POST',
+  widgetSlug: 'nexo_leiloes',
+  projeto: null,
+  agente: null,
+  canal: 'external_widget',
+  sourceHint: 'site_widget',
+  hasChatId: false,
+  hasConversationId: false,
+  hasAttachments: false,
+  elapsedMs: 4055,
+  status: 200,
+  chatId: '4d455571-dd20-4c98-956f-853b3fa9dc08',
+  error: null
+}

@@ -130,3 +130,52 @@ export async function requestHumanHandoff(input) {
 
   return next || current
 }
+
+export async function claimHumanHandoff(input) {
+  const current =
+    (await ensureChatHandoff({
+      chatId: input.chatId,
+      projetoId: input.projetoId,
+      canalWhatsappId: input.canalWhatsappId ?? null,
+    })) ?? (await getChatHandoffByChatId(input.chatId))
+
+  if (!current) {
+    return null
+  }
+
+  return updateChatHandoffRecord({
+    handoffId: current.id,
+    patch: {
+      status: "human",
+      claimed_by_usuario_id: input.usuarioId ?? null,
+      claimed_at: new Date().toISOString(),
+      released_by_usuario_id: null,
+      released_at: null,
+      metadata: {
+        ...(current.metadata ?? {}),
+        claimedBy: "admin",
+      },
+    },
+  })
+}
+
+export async function releaseHumanHandoff(input) {
+  const current = await getChatHandoffByChatId(input.chatId)
+
+  if (!current) {
+    return null
+  }
+
+  return updateChatHandoffRecord({
+    handoffId: current.id,
+    patch: {
+      status: "bot",
+      released_by_usuario_id: input.usuarioId ?? null,
+      released_at: new Date().toISOString(),
+      metadata: {
+        ...(current.metadata ?? {}),
+        releasedBy: "admin",
+      },
+    },
+  })
+}

@@ -125,14 +125,24 @@ function MessageBubble({ message }) {
           {isAgent ? "Administrador" : "Cliente"}
         </div>
         <div className="mt-3 whitespace-pre-line text-sm leading-6">{message.texto}</div>
+        {message.attachments?.length ? (
+          <div className="mt-3 space-y-1">
+            {message.attachments.map((attachment) => (
+              <div key={`${message.id}-${attachment.name}`} className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300">
+                {attachment.name}
+              </div>
+            ))}
+          </div>
+        ) : null}
         <div className="mt-3 text-xs text-slate-400">{message.horario}</div>
       </div>
     </div>
   )
 }
 
-function Composer({ conversation, onMessageSent, onAssistantReply }) {
+function Composer({ conversation, onMessageSent }) {
   const [texto, setTexto] = useState("")
+  const [attachments, setAttachments] = useState([])
   const [isSending, setIsSending] = useState(false)
 
   async function handleSubmit(event) {
@@ -154,7 +164,10 @@ function Composer({ conversation, onMessageSent, onAssistantReply }) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ texto: nextText }),
+          body: JSON.stringify({
+            texto: nextText,
+            attachments,
+          }),
         }
       )
       const messageData = await messageResponse.json()
@@ -162,22 +175,7 @@ function Composer({ conversation, onMessageSent, onAssistantReply }) {
       if (messageData.success) {
         onMessageSent(conversation.id, messageData.message)
         setTexto("")
-
-        const chatResponse = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            conversationId: conversation.id,
-            texto: nextText,
-          }),
-        })
-        const chatData = await chatResponse.json()
-
-        if (chatData.reply) {
-          onAssistantReply(conversation.id, chatData.reply)
-        }
+        setAttachments([])
       }
     } finally {
       setIsSending(false)
@@ -187,14 +185,21 @@ function Composer({ conversation, onMessageSent, onAssistantReply }) {
   return (
     <div className="border-t border-white/5 px-4 py-3">
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] hover:text-white"
-        >
+        <label className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] hover:text-white">
           <Paperclip className="h-4 w-4" />
-        </Button>
+          <input
+            type="file"
+            multiple
+            className="sr-only"
+            onChange={(event) =>
+              setAttachments(
+                Array.from(event.target.files || [])
+                  .map((file) => ({ name: file.name, type: file.type, size: file.size }))
+                  .slice(0, 5),
+              )
+            }
+          />
+        </label>
         <Button
           type="button"
           variant="ghost"
@@ -218,15 +223,38 @@ function Composer({ conversation, onMessageSent, onAssistantReply }) {
           {isSending ? "Enviando" : "Enviar"}
         </Button>
       </form>
+      {attachments.length ? (
+        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
+          {attachments.map((attachment) => (
+            <span key={attachment.name} className="rounded-lg border border-white/10 px-2 py-1">
+              {attachment.name}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   )
 }
 
-function ChatPanel({ conversation, onMessageSent, onAssistantReply, onCloseMobile }) {
+function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile }) {
   const initials = getInitials(conversation.cliente.nome)
   const lastMessage = getLastMessage(conversation)
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
   const statusLabel = conversation.status === "humano" ? "Humano" : "IA atendendo"
+
+  async function updateHandoff(nextStatus) {
+    const response = await fetch(`/api/admin/conversations/${conversation.id}/handoff`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ status: nextStatus }),
+    })
+
+    if (response.ok) {
+      onStatusChanged(conversation.id, nextStatus === "human" ? "humano" : "ia")
+    }
+  }
 
   return (
     <AnimatePresence mode="wait" initial={false}>
@@ -265,9 +293,22 @@ function ChatPanel({ conversation, onMessageSent, onAssistantReply, onCloseMobil
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <Button className="h-8 rounded-lg bg-transparent px-3 text-[11px] text-emerald-300 shadow-none hover:bg-emerald-500/16 hover:text-white">
+              <Button
+                type="button"
+                onClick={() => updateHandoff("human")}
+                className="h-8 rounded-lg bg-transparent px-3 text-[11px] text-emerald-300 shadow-none hover:bg-emerald-500/16 hover:text-white"
+              >
                 <MessageSquareText className="mr-1.5 h-3.5 w-3.5" />
                 Assumir atendimento
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => updateHandoff("bot")}
+                className="h-8 rounded-lg px-2.5 text-[11px] text-cyan-200 hover:bg-cyan-500/16 hover:text-white"
+              >
+                <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                Liberar IA
               </Button>
               <Button
                 variant="ghost"
@@ -315,7 +356,6 @@ function ChatPanel({ conversation, onMessageSent, onAssistantReply, onCloseMobil
         <Composer
           conversation={conversation}
           onMessageSent={onMessageSent}
-          onAssistantReply={onAssistantReply}
         />
       </motion.div>
     </AnimatePresence>
@@ -334,11 +374,29 @@ export default function AttendancePage() {
       const response = await fetch("/api/admin/conversations")
       const data = await response.json()
 
-      setConversations(data.conversations)
-      setSelectedConversation(data.conversations[0] ?? null)
+      setConversations(data.conversations ?? [])
+      setSelectedConversation(data.conversations?.[0] ?? null)
     }
 
     loadConversations()
+  }, [])
+
+  useEffect(() => {
+    const timer = window.setInterval(async () => {
+      const response = await fetch("/api/admin/conversations")
+      const data = await response.json()
+
+      setConversations(data.conversations ?? [])
+      setSelectedConversation((current) => {
+        if (!current) {
+          return data.conversations?.[0] ?? null
+        }
+
+        return data.conversations?.find((conversation) => conversation.id === current.id) ?? current
+      })
+    }, 10000)
+
+    return () => window.clearInterval(timer)
   }, [])
 
   useEffect(() => {
@@ -409,18 +467,6 @@ export default function AttendancePage() {
     )
   }
 
-  function handleAssistantReply(conversationId, reply) {
-    updateConversation(conversationId, {
-      id: `assistant-${conversationId}-${Date.now()}`,
-      autor: "atendente",
-      texto: reply,
-      horario: new Date().toLocaleTimeString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    })
-  }
-
   function handleConversationSelect(conversation) {
     setSelectedConversation(conversation)
 
@@ -429,10 +475,22 @@ export default function AttendancePage() {
     }
   }
 
+  function updateConversationStatus(conversationId, status) {
+    setConversations((currentConversations) =>
+      currentConversations.map((conversation) =>
+        conversation.id === conversationId ? { ...conversation, status } : conversation
+      )
+    )
+
+    setSelectedConversation((currentConversation) =>
+      currentConversation?.id === conversationId ? { ...currentConversation, status } : currentConversation
+    )
+  }
+
   if (!activeConversation) {
     return (
       <div className="grid h-full min-h-[420px] place-items-center">
-        <p className="text-sm text-slate-500">Carregando conversas...</p>
+        <p className="text-sm text-slate-500">Nenhuma conversa encontrada.</p>
       </div>
     )
   }
@@ -551,7 +609,7 @@ export default function AttendancePage() {
             <ChatPanel
               conversation={activeConversation}
               onMessageSent={updateConversation}
-              onAssistantReply={handleAssistantReply}
+              onStatusChanged={updateConversationStatus}
             />
           </section>
 
@@ -568,7 +626,7 @@ export default function AttendancePage() {
                 <ChatPanel
                   conversation={activeConversation}
                   onMessageSent={updateConversation}
-                  onAssistantReply={handleAssistantReply}
+                  onStatusChanged={updateConversationStatus}
                   onCloseMobile={() => setMobileChatOpen(false)}
                 />
               </motion.section>

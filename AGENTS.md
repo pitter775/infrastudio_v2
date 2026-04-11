@@ -2,456 +2,210 @@
 
 ## Regra principal
 
-Tudo que for criado, alterado ou expandido neste projeto deve seguir obrigatoriamente o padrao de stack, pastas, utilitarios e componentes definidos neste documento.
+Este projeto e o `infrastudio_v2`. Tudo que for criado ou alterado deve seguir a estrutura atual do workspace.
 
-Nao gerar estrutura paralela.
-Nao criar componentes fora do padrao sem necessidade real.
-Nao duplicar logica de UI que ja pode ser resolvida com os componentes base existentes.
-
-Se houver conflito entre rapidez de implementacao e padronizacao, a padronizacao deste projeto vence.
-
----
-
-## Estrutura do projeto
-
-Este projeto esta organizado como um workspace com duas aplicacoes:
-
-- `backend/`: aplicacao Next.js com App Router e telas publicadas
-- `frontend/`: aplicacao React com Vite usada como mock SPA
-
-Arquivos de workspace e comandos compartilhados ficam na raiz.
+Nao criar estrutura paralela.
+Nao duplicar componente ou utilitario existente.
+Nao reintroduzir imports do legado `C:\Projetos\infrastudio`.
+Se houver conflito entre rapidez e padrao do projeto, manter o padrao.
 
 ---
 
-## Mapa atual de pastas
+## Workspace
 
 Raiz:
 
-- `backend/`: app Next.js principal
-- `frontend/`: app React/Vite
-- `scripts/`: scripts compartilhados do workspace
-- `node_modules/`: dependencias instaladas da raiz
-- `.git/`: controle de versao
+- `backend/`: app principal Next.js com App Router.
+- `frontend/`: mock SPA React/Vite.
+- `database/`: referencia e scripts de banco.
+- `scripts/`: scripts locais compartilhados.
 
-Arquivos principais da raiz:
+Pastas geradas nao devem ser editadas manualmente:
 
-- `AGENTS.md`: regras obrigatorias do projeto
-- `package.json`: workspaces e scripts compartilhados
-- `package-lock.json`: lockfile da raiz
-- `.gitignore`: ignores do workspace
-- `CHECKLIST_EXECUCAO_MIGRACAO.md`: checklist de migracao
-- `PLANO_MIGRACAO_INFRASTUDIO_V2.md`: plano de migracao
-- `REALIDADE_ATUAL_V2.md`: estado atual do v2
-- `REALIDADE_LEGADO_INFRASTUDIO.md`: referencia do legado
-- `backend-dev-3010.log`: log local
-- `backend-dev-3010.err.log`: log local de erro
-
-Backend:
-
-- `backend/app/`: rotas Next.js App Router
-- `backend/app/mock01/`: layout e paginas do mock01
-- `backend/app/mock01/dashboard/`: dashboard geral do mock01
-- `backend/app/mock01/[slug]/`: rotas dinamicas por projeto
-- `backend/app/mock01/[slug]/atendimento/`: atendimento do projeto
-- `backend/app/mock01/[slug]/dashboard/`: dashboard do projeto
-- `backend/components/`: componentes do backend
-- `backend/components/home/`: componentes da landing page
-- `backend/components/mock01/`: componentes das telas mock01
-- `backend/components/mock01/layout/`: shell/layout do mock01
-- `backend/components/ui/`: componentes base do backend
-- `backend/lib/`: utilitarios compartilhados do backend
-- `backend/public/`: assets publicos do Next.js
-- `backend/.next/`: build/cache local gerado pelo Next.js
-- `backend/node_modules/`: dependencias instaladas do backend
-
-Arquivos principais do backend:
-
-- `backend/app/layout.js`: layout raiz
-- `backend/app/page.js`: pagina inicial
-- `backend/app/globals.css`: estilos globais
-- `backend/app/favicon.ico`: favicon
-- `backend/app/page.module.css`: CSS module legado/base
-- `backend/components/home/landing-page.js`: landing page
-- `backend/components/home/chat-demo.js`: demo visual da home
-- `backend/components/home/data.js`: dados da home
-- `backend/components/mock01/data.js`: dados e slugs do mock01
-- `backend/components/mock01/projects-grid-view.js`: grid de projetos
-- `backend/components/mock01/project-detail-view.js`: detalhe de projeto
-- `backend/components/mock01/dashboard-view.js`: dashboard mock01
-- `backend/components/mock01/attendance-view.js`: atendimento mock01
-- `backend/components/mock01/mock-page-header.js`: header das telas mock01
-- `backend/components/mock01/project-card.js`: card de projeto
-- `backend/components/mock01/layout/shell.js`: shell lateral/topo mock01
-- `backend/components/ui/button.js`: botao base
-- `backend/components/ui/sheet.js`: sheet base
-- `backend/components/ui/tooltip.js`: tooltip base
-- `backend/lib/utils.js`: utilitario `cn()`
-- `backend/public/logo.png`: logo
-- `backend/public/compartilhar_novo.png`: imagem de compartilhamento
-- `backend/public/bg_mercadolivre.png`: asset da home
-- `backend/public/bg_sistema.png`: asset da home
-- `backend/public/bg_site.png`: asset da home
-- `backend/public/bg_whatsapp.png`: asset da home
-- `backend/public/file.svg`: asset padrao
-- `backend/public/globe.svg`: asset padrao
-- `backend/public/next.svg`: asset padrao
-- `backend/public/vercel.svg`: asset padrao
-- `backend/public/window.svg`: asset padrao
-- `backend/package.json`: scripts e dependencias do backend
-- `backend/next.config.mjs`: config Next.js
-- `backend/jsconfig.json`: alias/imports
-- `backend/tailwind.config.js`: config Tailwind do backend
-- `backend/postcss.config.mjs`: config PostCSS
-- `backend/eslint.config.mjs`: config ESLint
-- `backend/vercel.json`: config de deploy
-- `backend/README.md`: README do backend
-- `backend/AGENTS.md`: instrucoes locais do backend quando existirem
-- `backend/CLAUDE.md`: instrucoes locais legadas/externas
-
-Frontend:
-
-- `frontend/src/`: codigo fonte do Vite
-- `frontend/src/assets/`: assets importados pelo React
-- `frontend/src/components/`: composicoes e componentes de tela
-- `frontend/src/components/ui/`: componentes base do frontend
-- `frontend/src/lib/`: utilitarios compartilhados do frontend
-- `frontend/public/`: assets publicos do Vite
-- `frontend/dist/`: build local gerado pelo Vite
-- `frontend/node_modules/`: dependencias instaladas do frontend
-
-Arquivos principais do frontend:
-
-- `frontend/src/main.jsx`: entrada React
-- `frontend/src/App.jsx`: componente raiz SPA
-- `frontend/src/index.css`: estilos globais
-- `frontend/src/components/infra-studio-mock.jsx`: mock principal
-- `frontend/src/components/app-sidebar.jsx`: sidebar do mock
-- `frontend/src/components/project-workspace-mock.jsx`: workspace de projeto
-- `frontend/src/components/attendance-panel.jsx`: painel de atendimento
-- `frontend/src/components/ui/avatar.jsx`: avatar base
-- `frontend/src/components/ui/badge.jsx`: badge base
-- `frontend/src/components/ui/button.jsx`: botao base
-- `frontend/src/components/ui/dropdown-menu.jsx`: dropdown base
-- `frontend/src/components/ui/input.jsx`: input base
-- `frontend/src/components/ui/sheet.jsx`: sheet base
-- `frontend/src/components/ui/textarea.jsx`: textarea base
-- `frontend/src/lib/utils.js`: utilitario `cn()`
-- `frontend/src/assets/react.svg`: asset importado
-- `frontend/public/vite.svg`: asset publico
-- `frontend/index.html`: HTML raiz do Vite
-- `frontend/package.json`: scripts e dependencias do frontend
-- `frontend/vite.config.js`: config Vite e alias `@`
-- `frontend/jsconfig.json`: alias/imports
-- `frontend/tailwind.config.js`: config Tailwind do frontend
-- `frontend/postcss.config.js`: config PostCSS
-- `frontend/eslint.config.js`: config ESLint
-- `frontend/components.json`: config de componentes
-- `frontend/README.md`: README do frontend
-
-Scripts:
-
-- `scripts/localhost.ps1`: sobe o backend Next.js em porta local configuravel
-
-Pastas geradas como `.next/`, `dist/` e `node_modules/` nao devem ser editadas manualmente.
+- `node_modules/`
+- `.next/`
+- `dist/`
 
 ---
 
-## Rotas atuais
+## Banco de dados
 
-Backend Next.js:
+Referencia do schema:
 
-- `/`: landing page em `backend/app/page.js`
-- `/mock01`: lista/grid de projetos em `backend/app/mock01/page.js`
-- `/mock01/dashboard`: dashboard geral em `backend/app/mock01/dashboard/page.js`
-- `/mock01/[slug]`: detalhe de projeto em `backend/app/mock01/[slug]/page.js`
-- `/mock01/[slug]/dashboard`: dashboard do projeto em `backend/app/mock01/[slug]/dashboard/page.js`
-- `/mock01/[slug]/atendimento`: atendimento do projeto em `backend/app/mock01/[slug]/atendimento/page.js`
+- `database/geral-schema.sql`
 
-Slugs atuais do mock01:
+Regra:
 
-- `equilibramente`
-- `airy-beauty`
-- `pleasant-joy`
-
-URLs dinamicas validas hoje:
-
-- `/mock01/equilibramente`
-- `/mock01/equilibramente/dashboard`
-- `/mock01/equilibramente/atendimento`
-- `/mock01/airy-beauty`
-- `/mock01/airy-beauty/dashboard`
-- `/mock01/airy-beauty/atendimento`
-- `/mock01/pleasant-joy`
-- `/mock01/pleasant-joy/dashboard`
-- `/mock01/pleasant-joy/atendimento`
-
-Frontend Vite:
-
-- `/`: SPA renderizada por `frontend/src/App.jsx`
-
-O frontend nao tem roteador declarado nem rotas internas por URL neste momento.
+- nunca editar `database/geral-schema.sql` diretamente.
+- novos ajustes de banco devem ser criados como SQL em `database/seeder/`.
+- o usuario aplica no banco e depois atualiza o `geral-schema.sql`.
 
 ---
 
 ## Stack oficial
 
-### Backend
+Backend:
 
 - Next.js
 - React
 - App Router
+- Supabase como banco
+- JWT proprio com cookie HTTP-only
 
-### Frontend
+Frontend/mock:
 
 - React
 - Vite
 - Tailwind CSS
 - Radix UI primitives
-- `lucide-react` para icones
-- `clsx` para composicao condicional de classes
-- `tailwind-merge` para resolver conflito de classes Tailwind
-- `class-variance-authority` para variantes de componentes
-- `framer-motion` para animacoes
-- `simplebar-react` para scroll customizado
+- `lucide-react`
+- `framer-motion`
+- `simplebar-react`
+- `clsx`, `tailwind-merge`, `class-variance-authority`
 
 ---
 
-## Regra obrigatoria para UI
-
-Toda interface nova deve ser feita usando a stack e os componentes base ja configurados no projeto.
+## Padroes de UI
 
 Obrigatorio:
 
-- usar `lucide-react` para icones
-- usar `cn()` de `src/lib/utils.js` para combinar classes
-- usar Tailwind CSS para estilizacao
-- usar Radix UI quando houver dropdown, dialog, sheet, menu, overlay ou comportamento acessivel similar
-- reutilizar componentes de `src/components/ui`
+- usar Tailwind CSS.
+- usar `cn()` para compor classes.
+- usar `lucide-react` para icones.
+- reutilizar componentes de `components/ui`.
+- usar Radix para dialog, dropdown, sheet, menu, tooltip e overlays acessiveis.
 
 Evitar:
 
-- SVG manual inline quando um icone do `lucide-react` resolver
-- concatenacao manual de classes quando `cn()` resolver
-- criar estilos fora do fluxo do Tailwind sem motivo tecnico forte
-- criar componente visual duplicado quando ja existir base em `src/components/ui`
+- SVG inline quando `lucide-react` resolver.
+- concatenacao manual de classes quando `cn()` resolver.
+- componentes visuais duplicados.
+- hacks de margem/overflow para corrigir borda ou alinhamento.
+
+Regra de layout:
+
+- header, toolbar e conteudo devem ficar estruturalmente alinhados.
+- containers com borda precisam fechar visualmente nos quatro lados.
+- se uma borda sumir, corrigir container/overflow, nao empurrar elemento.
 
 ---
 
-## Padrao de pastas do frontend
+## Backend
 
-Toda nova implementacao no frontend deve respeitar esta organizacao:
+Pastas principais:
 
-- `src/components/ui/`: componentes base e primitives reutilizaveis
-- `src/components/`: componentes de tela, blocos e composicoes
-- `src/lib/`: funcoes utilitarias, helpers e configuracoes compartilhadas
-- `src/assets/`: assets estaticos usados pela aplicacao
+- `backend/app/`: rotas App Router.
+- `backend/components/`: componentes de tela.
+- `backend/components/ui/`: componentes base.
+- `backend/lib/`: dominio, integrações e utilitarios.
+- `backend/lib/chat/`: pipeline local de inteligencia de chat.
+- `backend/tests/`: harness de testes do chat.
 
-Se o projeto crescer, manter a expansao dentro desse padrao.
+Arquivos importantes:
 
-Exemplo:
-
-- componentes base em `src/components/ui`
-- componentes especificos de feature em `src/components`
-- funcoes como `cn`, formatadores, helpers e config em `src/lib`
-
-Nao criar novas convencoes de pasta sem necessidade real e sem manter consistencia com a stack atual.
-
----
-
-## Componentes base existentes
-
-Os componentes e utilitarios abaixo sao o ponto de partida obrigatorio para novas interfaces:
-
-- `src/lib/utils.js`
-- `src/components/ui/button.jsx`
-- `src/components/ui/dropdown-menu.jsx`
-- `src/components/ui/sheet.jsx`
-
-Antes de criar um novo componente visual, verificar se ele deve nascer em `src/components/ui` como componente base reutilizavel ou em `src/components` como composicao de tela.
+- `backend/app/api/chat/route.js`: endpoint do chat.
+- `backend/lib/chat/service.js`: runtime principal do chat.
+- `backend/lib/chat/orchestrator.js`: executor local/OpenAI.
+- `backend/lib/chats.js`: persistencia de conversas e mensagens.
+- `backend/lib/agentes.js`: agentes.
+- `backend/lib/apis.js`: APIs do projeto e vinculo com agente.
+- `backend/lib/conectores.js`: conectores do projeto.
+- `backend/lib/chat-widgets.js`: widgets publicos de chat.
+- `backend/lib/whatsapp-channels.js`: canais WhatsApp e contrato com worker externo.
+- `backend/lib/admin-conversations.js`: atendimento/admin sobre chats reais.
+- `backend/lib/projetos.js`: projetos.
+- `backend/lib/session.js`, `backend/lib/session-token.js`, `backend/lib/auth.js`: auth.
+- `backend/lib/supabase-admin.js`: Supabase server/admin.
 
 ---
 
-## Alias e imports
+## Chat e inteligencia
 
-Usar alias `@` para imports internos do frontend.
+Estado atual:
 
-Exemplos esperados:
+- o chat do v2 e local-first.
+- nao deve importar codigo de `C:\Projetos\infrastudio`.
+- o fallback para `chat-service.ts` legado foi removido.
+- `backend/next.config.mjs` deve apontar para a raiz do workspace `infrastudio_v2`, nao para `C:\Projetos`.
+- `POST /api/chat` aceita contrato publico dos widgets e contrato interno do admin.
+- `GET /api/chat/config` existe para compatibilidade com `/chat.js`.
+- `/chat.js` e `/chat-widget.js` existem em `backend/public`.
+- CORS/OPTIONS do widget ficam em `backend/lib/chat/http.js`.
+- diagnostico estruturado fica em `backend/lib/chat/diagnostics.js` e nao deve logar conteudo da mensagem.
 
-```jsx
-import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
-```
+Pipeline atual:
 
-Evitar imports relativos longos quando o alias resolver melhor.
+- entrada em `POST /api/chat`.
+- `backend/lib/chat-adapter.js` chama `processChatRequest`.
+- `backend/lib/chat/service.js` resolve canal, projeto, agente, chat, contexto, anexos, handoff, billing e persistencia.
+- `backend/lib/chat/orchestrator.js` executa o nucleo local/OpenAI.
+- helpers do cerebro ficam em `backend/lib/chat/*.js`.
+- APIs vinculadas ao agente sao consultadas no runtime e injetadas no prompt.
 
----
+Modulos locais de inteligencia:
 
-## Estilo de implementacao
+- `api-runtime.js`
+- `catalog-follow-up.js`
+- `handoff-policy.js`
+- `lead-stage.js`
+- `mercado-livre.js`
+- `pipeline-stage.js`
+- `prompt-builders.js`
+- `sales-heuristics.js`
+- `semantic-intent-stage.js`
+- `text-utils.js`
 
-Ao gerar codigo novo neste projeto:
+Dominios importantes que vieram do legado e devem continuar representados no v2:
 
-- priorizar componentes reutilizaveis
-- manter API de componentes simples e previsivel
-- centralizar variantes em `class-variance-authority` quando fizer sentido
-- preferir composicao sobre duplicacao
-- manter consistencia visual entre telas
-- preparar a base para escalabilidade sem inventar estrutura nova desnecessaria
+- projeto
+- agente
+- API
+- conector
+- widget
+- chat
+- mensagem
+- handoff
+- canal de WhatsApp
+- plano
+- billing
+- uso
 
-Regra importante para layout:
+Contrato esperado do chat:
 
-- nao usar margem, hack visual ou deslocamento improvisado para "forcar" borda aparecer
-- quando uma borda de container sumir, corrigir a estrutura do container e do overflow, nao empurrar o elemento
-- nao quebrar alinhamento do header, icones ou toolbar para resolver acabamento visual
-- topo e area de conteudo devem permanecer estruturalmente independentes e alinhados
-- containers com borda devem ter fechamento visual limpo nos quatro lados
+Entrada comum:
 
----
+- `message` ou `mensagem`
+- `projeto`
+- `agente`
+- `context`
+- `widgetSlug`
+- `canal`
+- `identificadorExterno`
+- `identificador`
+- `source`
+- `whatsappChannelId`
+- `attachments`
 
-## Scroll, animacao e interacoes
+Saida comum:
 
-Quando aplicavel:
-
-- usar `simplebar-react` para areas com scroll customizado
-- usar `framer-motion` para transicoes e animacoes
-- usar primitives do Radix para comportamento acessivel de overlays e menus
-
-Esses recursos ja fazem parte da stack e devem ser preferidos ao inves de solucoes improvisadas.
-
----
-
-## Comandos uteis
-
-Na raiz do projeto:
-
-- `npm run install:all` (rodar uma vez no inicio ou quando dependencias mudarem)
-- `npm run localhost`
-- `npm run localhost:3001`
-- `npm run localhost:3002`
-- `npm run build`
-- `npm run build:backend`
-- `npm run build:frontend`
-- `npm run dev:backend`
-- `npm run dev:frontend`
-
-No frontend:
-
-- `npm run lint`
-- `npm run build`
-
----
-
-## Como iniciar e ver o mock01
-
-Para continuar depois e abrir em `http://localhost:3000/mock01`:
-
-Na raiz:
-
-- `cd C:\Projetos\infrastudio_v2`
-
-Primeira execucao do projeto:
-
-- `cd C:\Projetos\infrastudio_v2`
-- `npm run install:all`
-- `npm run localhost`
-
-Execucoes seguintes:
-
-- `cd C:\Projetos\infrastudio_v2`
-- `npm run localhost`
-
-Fluxo de dev esperado:
-
-- usar `npm run localhost` para subir o backend local
-- usar `npm run localhost:3001` ou `npm run localhost:3002` quando precisar subir em porta alternativa
-- usar `npm run dev:backend` ou `npm run dev:frontend` quando quiser subir apenas um workspace especifico
-- nao rodar instalacao de dependencias em toda inicializacao se nada mudou
-
-Depois abrir:
-
-- `http://localhost:3000/mock01`
-- `http://localhost:3001/mock01` ou `http://localhost:3002/mock01` se usar porta alternativa
+- `chatId`
+- `reply`
+- `followUpReply`
+- `messageSequence`
+- `assets`
+- `whatsapp`
 
 ---
 
-## Decisao obrigatoria para qualquer agente ou colaborador
+## Admin real
 
-Qualquer codigo gerado neste projeto deve seguir explicitamente este documento.
+Rotas reais:
 
-Se uma tarefa envolver frontend:
-
-- seguir o padrao de pastas definido aqui
-- usar os componentes e utilitarios da stack atual
-- expandir a biblioteca interna de componentes antes de criar solucoes isoladas
-
-Se uma tarefa envolver backend:
-
-- manter a organizacao do app Next.js existente
-- evitar criar estrutura desconectada do workspace
-
-Este documento deve ser tratado como referencia obrigatoria de implementacao.
-
----
-
-## Realidade atual do v2
-
-Esta secao reflete o estado real implementado no backend v2 e deve ser mantida atualizada durante a migracao.
-
-### Rotas reais do backend
-
-Rotas publicas:
-
-- `/`: landing page real em `backend/app/page.js`
-- `/mock01`: mock legado visual preservado
-
-Rotas do sistema:
-
-- `/app`
-- `/app/projetos`
-- `/app/projetos/[id]`
 - `/admin`
 - `/admin/projetos`
+- `/admin/projetos/[id]`
 - `/admin/atendimento`
 - `/admin/usuarios`
-
-APIs atuais:
-
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
-- `GET /api/auth/me`
-- `GET /api/admin/conversations`
-- `POST /api/admin/conversations/[id]/messages`
-- `GET /api/admin/usuarios`
-- `POST /api/admin/usuarios`
-- `PUT /api/admin/usuarios`
-- `PATCH /api/admin/usuarios/[id]`
-- `DELETE /api/admin/usuarios/[id]`
-- `POST /api/chat`
-
-### Autenticacao atual
-
-O v2 ja usa autenticacao portada do legado:
-
-- JWT assinado com `APP_AUTH_SECRET`
-- cookie HTTP-only `infrastudio-session`
-- validacao de senha com `bcrypt`
-- Supabase usado apenas como banco
-- nao usa Supabase Auth
-- `backend/proxy.js` protege `/admin` e `/api/admin`
-
-Arquivos principais:
-
-- `backend/lib/session.js`
-- `backend/lib/session-token.js`
-- `backend/lib/auth.js`
-- `backend/lib/usuarios.js`
-- `backend/lib/supabase-admin.js`
-- `backend/app/api/auth/login/route.js`
-- `backend/app/api/auth/logout/route.js`
-- `backend/app/api/auth/me/route.js`
-
-### Admin atual
-
-O admin real usa estrutura propria em `backend/components/admin`, seguindo o layout visual do `mock01` sem depender de imports do mock.
 
 Arquivos principais:
 
@@ -460,109 +214,282 @@ Arquivos principais:
 - `backend/components/admin/page-header.js`
 - `backend/components/admin/projects/projects-page.js`
 - `backend/components/admin/projects/project-card.js`
-
-`/admin` redireciona para `/admin/projetos`.
-
-### Usuarios no admin
-
-`/admin/usuarios` possui CRUD real portado do legado para o padrao v2.
-
-Regras atuais:
-
-- apenas usuario com `role = "admin"` pode acessar o CRUD
-- cria usuario em `usuarios`
-- senha inicial usa hash `bcrypt`
-- edita nome, email, senha opcional, status e perfil
-- vincula projetos em `usuarios_projetos`
-- ativa/inativa usuario
-- exclui vinculos em `usuarios_projetos` antes de excluir o usuario
-
-Arquivos principais:
-
-- `backend/components/admin/users/users-page.js`
-- `backend/app/api/admin/usuarios/route.js`
-- `backend/app/api/admin/usuarios/[id]/route.js`
-- `backend/lib/usuarios.js`
-
-### Projetos no admin
-
-`/admin/projetos` lista projetos reais do banco via Supabase.
-`/admin/projetos/[id]` abre o detalhe real do projeto usando o layout do `mock01` como referencia visual, mas com componentes proprios do admin.
-
-Regra atual:
-
-- usuario com `role = "admin"` em `usuarios` ve todos os projetos
-- usuario comum ve apenas projetos vinculados em `usuarios_projetos`
-
-Arquivo principal:
-
-- `backend/lib/projetos.js`
-
-Componentes principais:
-
-- `backend/components/admin/projects/projects-page.js`
-- `backend/components/admin/projects/project-card.js`
 - `backend/components/admin/projects/project-detail-page.js`
-
-Dados carregados no detalhe:
-
-- projeto
-- agente ativo
-- APIs do projeto
-- contagem de canais WhatsApp
-- contagem de widgets de chat
-- contagem de arquivos do agente
-
-Schema de referencia:
-
-- `database/geral-schema.sql`
-
-### Atendimento atual
-
-`/admin/atendimento` ja usa componentes reais em:
-
 - `backend/components/admin/attendance/attendance-page.js`
-- `backend/components/admin/attendance/conversation-list.js`
-- `backend/components/admin/attendance/conversation-feed.js`
-- `backend/components/admin/attendance/conversation-composer.js`
-- `backend/components/admin/attendance/conversation-actions.js`
-- `backend/components/admin/attendance/mock-data.js`
+- `backend/components/admin/users/users-page.js`
+- `backend/app/api/admin/conversations/route.js`
+- `backend/app/api/admin/conversations/[id]/messages/route.js`
+- `backend/app/api/admin/conversations/[id]/handoff/route.js`
 
-Fluxo atual:
+Regras:
 
-- carrega conversas por `GET /api/admin/conversations`
-- seleciona conversa no frontend
-- envia mensagem por `POST /api/admin/conversations/[id]/messages`
-- chama `POST /api/chat`
-- adiciona a resposta automatica no chat
+- `/admin` redireciona para `/admin/projetos`.
+- admin ve todos os projetos.
+- usuario comum ve apenas projetos vinculados.
+- CRUD de usuarios exige `role = "admin"`.
+- `/admin/atendimento` usa chats reais, nao mock.
+- atendimento permite assumir handoff e liberar IA via `chat_handoffs`.
+- atendimento faz polling simples de 10 segundos.
+- anexos manuais do atendimento entram como metadados da mensagem.
 
-### Chat atual
+---
 
-`POST /api/chat` chama `backend/lib/chat-adapter.js`.
+## Auth
 
-O adapter usa o pipeline legado:
+O v2 usa auth propria:
 
-- `processIncomingChatMessage` de `C:\Projetos\infrastudio\lib\chat-service.ts`
+- JWT assinado com `APP_AUTH_SECRET`.
+- cookie HTTP-only `infrastudio-session`.
+- senha com `bcryptjs`.
+- Supabase apenas como banco.
+- nao usa Supabase Auth.
+- `backend/proxy.js` protege `/admin` e `/api/admin`.
 
-O v2 nao copia o chat-service legado. Ele importa o modulo legado diretamente.
+APIs:
 
-O legado foi ajustado para:
+- `POST /api/auth/login`
+- `POST /api/auth/logout`
+- `GET /api/auth/me`
 
-- remover aliases internos `@/lib/...` dentro de `C:\Projetos\infrastudio\lib`
-- aceitar modo isolado quando Supabase/WhatsApp/handoff nao estiverem disponiveis
+---
 
-`backend/next.config.mjs` permite importar codigo do diretorio legado via `outputFileTracingRoot` e `turbopack.root`.
+## Rotas principais
 
-### Variaveis de ambiente
+Publicas:
 
-O backend deve rodar com `backend/.env.local`.
+- `/`
+- `/demo`
+- `/mock01`
+- `/mock01/dashboard`
+- `/mock01/[slug]`
+- `/mock01/[slug]/dashboard`
+- `/mock01/[slug]/atendimento`
 
-Variaveis importantes:
+Sistema:
+
+- `/app`
+- `/app/projetos`
+- `/app/projetos/[id]`
+
+`/app/projetos/[id]` concentra:
+
+- edicao do agente ativo.
+- CRUD de APIs GET.
+- teste de API.
+- vinculo API/agente.
+- listagem de conectores.
+- CRUD de widgets.
+- snippet de instalacao do widget.
+- canais WhatsApp com QR/conectar/desconectar.
+
+Admin:
+
+- `/admin`
+- `/admin/projetos`
+- `/admin/projetos/[id]`
+- `/admin/atendimento`
+- `/admin/usuarios`
+
+APIs:
+
+- `/api/chat`
+- `/api/chat/config`
+- `/api/auth/*`
+- `/api/admin/conversations`
+- `/api/admin/conversations/[id]/handoff`
+- `/api/admin/conversations/[id]/messages`
+- `/api/admin/usuarios`
+- `/api/admin/usuarios/[id]`
+- `/api/app/projetos/[id]/agente`
+- `/api/app/projetos/[id]/agente/apis`
+- `/api/app/projetos/[id]/apis`
+- `/api/app/projetos/[id]/apis/[apiId]`
+- `/api/app/projetos/[id]/apis/[apiId]/test`
+- `/api/app/projetos/[id]/conectores`
+- `/api/app/projetos/[id]/widgets`
+- `/api/app/projetos/[id]/widgets/[widgetId]`
+- `/api/app/projetos/[id]/whatsapp`
+- `/api/app/projetos/[id]/whatsapp/[channelId]/connect`
+- `/api/app/projetos/[id]/whatsapp/[channelId]/disconnect`
+- `/api/app/projetos/[id]/whatsapp/[channelId]/qr`
+- `/api/whatsapp/session`
+- `/api/whatsapp/worker-log`
+
+---
+
+## Frontend Vite
+
+O `frontend/` e mock SPA. Ele nao e o app principal de producao.
+
+Padrao:
+
+- `frontend/src/components/`: composicoes e telas.
+- `frontend/src/components/ui/`: componentes base.
+- `frontend/src/lib/`: helpers.
+- `frontend/src/assets/`: assets importados.
+
+Usar alias `@` para imports internos.
+
+---
+
+## Variaveis de ambiente
+
+Backend usa `backend/.env.local` no desenvolvimento.
+
+Importantes:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `APP_AUTH_SECRET`
 - `OPENAI_API_KEY`
+- `WHATSAPP_WORKER_URL` ou `WHATSAPP_SERVICE_URL`
+- `WHATSAPP_BRIDGE_SECRET`
 
-O codigo legado importado tambem le `process.env` do runtime do backend v2.
+Sem `OPENAI_API_KEY`, o orquestrador local responde com fallback simples, mas sem inteligencia real do modelo.
+
+---
+
+## Comandos
+
+Na raiz:
+
+- `npm run install:all`
+- `npm run localhost`
+- `npm run localhost:3001`
+- `npm run localhost:3002`
+- `npm run dev:backend`
+- `npm run dev:frontend`
+- `npm run build`
+- `npm run build:backend`
+- `npm run build:frontend`
+
+No backend:
+
+- `npm run build`
+- `npm run lint`
+- `npm run test:chat-intelligence`
+- `npm run test:chat-intelligence:scenarios`
+- `npm run test:chat-intelligence:full`
+
+Fluxo comum:
+
+- subir backend: `npm run localhost`
+- abrir: `http://localhost:3000/demo`, `http://localhost:3000/app/projetos` ou `http://localhost:3000/admin`
+
+---
+
+## Validacao antes de finalizar mudanca de chat
+
+Rodar no `backend/`:
+
+- `npm run test:chat-intelligence:full`
+- `npm run build`
+
+Na raiz, tambem pode rodar:
+
+- `npm run test:chat-intelligence:full --workspace backend`
+- `npm run build`
+
+Tambem fazer busca por imports do legado:
+
+- procurar por `../../../infrastudio`
+- procurar por `../../../../infrastudio`
+- procurar por `C:\Projetos\infrastudio\lib`
+
+Resultado esperado:
+
+- zero imports de codigo do legado.
+- testes de chat passando.
+- build passando.
+
+---
+
+## Migracao e prioridades
+
+O legado era fonte de regra de negocio, nao modelo de arquitetura.
+
+Absorver do legado:
+
+- contratos de auth e sessao.
+- regras de papel.
+- projetos, agentes, APIs, conectores e widgets.
+- chat, handoff, billing e telemetria.
+- contrato com o worker WhatsApp.
+- operacao do atendimento.
+
+Nao copiar do legado:
+
+- paginas gigantes como estrutura final.
+- layout antigo como padrao.
+- regra de negocio colada em componente de UI.
+- acoplamento entre tela e dominio.
+
+Ordem recomendada para proximas frentes:
+
+1. publicar o v2 em preview/Vercel quando o usuario fizer a troca da fonte Git.
+2. rodar `scripts/validate-widget-contract.ps1` contra a URL publicada.
+3. validar `nexo_leiloes` e pelo menos mais um widget real.
+4. reduzir TTL e manter legado online para rollback.
+5. so entao trocar `https://www.infrastudio.pro` para o v2.
+6. depois do corte, atacar billing/logs finos/demo avancada se ainda fizer sentido.
+
+Regras:
+
+- migrar funcionamento antes de refinamento visual.
+- migrar por dominio/contrato, nao por copia cega de pagina.
+- `mock01` e referencia visual e laboratorio, nao destino final.
+- o worker `C:\Projetos\whatsapp-service` continua separado; o v2 deve adaptar-se ao contrato dele.
+- demo e importante, mas nao deve contaminar os fluxos reais.
+- criar estrutura nova so quando houver implementacao real para ela.
+
+---
+
+## Realidade atual em 2026-04-11
+
+Concluido localmente:
+
+- dependencia de runtime do legado removida.
+- widgets publicos compativeis.
+- `/app` real com projetos, detalhe, agente, APIs, conectores, widgets e WhatsApp.
+- `/admin/atendimento` real sobre chats/mensagens do banco.
+- `/demo` publica criada e CTA principal da home aponta para ela.
+- `mock01` mantido como laboratorio visual.
+- `CHECKPOINT_CONTINUACAO_V2.md` criado para retomada segura.
+
+Validado:
+
+- `npm run test:chat-intelligence:full --workspace backend` passa com 39 smoke tests e 6 cenarios.
+- `npm run build` passa.
+- busca por dependencia do legado em codigo retorna zero resultado.
+
+Ainda falta do combinado principal:
+
+- usuario publicar/trocar fonte Git na Vercel.
+- validar preview/Vercel com `scripts/validate-widget-contract.ps1`.
+- testar POST real do widget `nexo_leiloes`.
+- validar pelo menos mais um widget real.
+- reduzir TTL do DNS.
+- trocar dominio mantendo legado online para rollback.
+
+Ainda falta importar ou recriar do legado:
+
+- billing/admin financeiro: planos, uso por projeto, limites, custos/tokens e tela admin.
+- logs visuais/diagnostico operacional: tela para erros de chat, widget, OpenAI, API runtime e WhatsApp.
+- demo avancada: usuario/projeto demo temporario, TTL, expiracao e conversao para conta real.
+- pos-corte de dominio: monitoramento fino, contrato final do widget e limpeza de compatibilidade morta.
+- ajustes finos de layout das telas reais apos validacao em producao.
+
+Nao e mais necessario importar do legado para o objetivo principal:
+
+- runtime principal do chat.
+- fallback para `chat-service.ts`.
+- contrato publico basico dos widgets.
+- auth/sessao.
+- projetos, agentes, APIs, conectores, widgets, WhatsApp e atendimento operacional minimo.
+
+Fora do caminho critico:
+
+- billing/admin financeiro.
+- logs visuais avancados.
+- demo com usuario/projeto temporario e TTL.

@@ -1,44 +1,70 @@
-import { handleChat } from "@/lib/chat-adapter"
+import { processChatRequest } from "@/lib/chat/service"
+import { logPublicChatEvent } from "@/lib/chat/diagnostics"
+import { emptyChatOptionsResponse, formatPublicChatResult, jsonChatResponse, normalizePublicChatBody } from "@/lib/chat/http"
+
+export async function OPTIONS(request) {
+  return emptyChatOptionsResponse(request.headers.get("origin"))
+}
 
 export async function POST(request) {
+  const origin = request.headers.get("origin")
+  const host = request.headers.get("host")
+  const startedAt = Date.now()
+
   try {
     const body = await request.json()
-    console.log("CHAT INPUT:", body)
-    console.log("ENV CHECK:", {
-      url: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL,
-      key: process.env.SUPABASE_SERVICE_ROLE_KEY ? "[set]" : undefined,
-    })
+    const normalizedBody = normalizePublicChatBody(body)
 
-    const conversationId = String(body.conversationId ?? "").trim()
-    const texto = String(body.texto ?? "").trim()
-
-    if (!conversationId || !texto) {
-      return Response.json(
-        { error: "conversationId e texto sao obrigatorios" },
-        { status: 400 }
+    const hasAttachments = Array.isArray(normalizedBody.attachments) && normalizedBody.attachments.length > 0
+    if (!normalizedBody.message && !hasAttachments) {
+      logPublicChatEvent({
+        event: "validation_error",
+        origin,
+        host,
+        method: "POST",
+        body: normalizedBody,
+        status: 400,
+        elapsedMs: Date.now() - startedAt,
+        error: "Mensagem obrigatoria.",
+      })
+      return jsonChatResponse(
+        { error: "Mensagem obrigatoria." },
+        { status: 400, origin }
       )
     }
 
-    console.log("CHAMANDO CHAT SERVICE...")
-
-    const result = await handleChat({ conversationId, texto })
-
-    console.log("CHAT OUTPUT:", result)
-
-    return Response.json({
-      reply: result.reply,
+    const result = await processChatRequest(normalizedBody)
+    logPublicChatEvent({
+      event: "completed",
+      origin,
+      host,
+      method: "POST",
+      body: normalizedBody,
+      status: 200,
+      chatId: result.chatId ?? null,
+      elapsedMs: Date.now() - startedAt,
     })
+    return jsonChatResponse(formatPublicChatResult(result), { status: 200, origin })
   } catch (error) {
     console.error("CHAT ERROR:", error)
+    logPublicChatEvent({
+      event: "failed",
+      origin,
+      host,
+      method: "POST",
+      status: 500,
+      elapsedMs: Date.now() - startedAt,
+      error: error instanceof Error ? error.message : "Erro interno no chat",
+    })
 
-    return Response.json(
+    return jsonChatResponse(
       {
         error:
           error instanceof Error
             ? error.message
             : "Erro interno no chat",
       },
-      { status: 500 }
+      { status: 500, origin }
     )
   }
 }

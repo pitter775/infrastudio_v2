@@ -362,7 +362,7 @@ export function LandingPage() {
             className="flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
             <Link
-              href="/mock01"
+              href="/demo"
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-300/40 bg-cyan-400/12 px-8 py-4 font-medium text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_28px_rgba(34,211,238,0.22),0_0_60px_rgba(59,130,246,0.18)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-200/50 hover:bg-cyan-400/18"
             >
               <Sparkles size={18} className="animate-pulse text-cyan-200" />

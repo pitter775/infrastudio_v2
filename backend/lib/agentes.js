@@ -2,6 +2,9 @@ import "server-only"
 
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
+const agenteFields =
+  "id, slug, nome, descricao, prompt_base, configuracoes, ativo, projeto_id, modelo_id, created_at"
+
 function mapAgent(row) {
   return {
     id: row.id,
@@ -19,6 +22,24 @@ function mapAgent(row) {
   }
 }
 
+function userCanAccessProject(user, projectId) {
+  if (user?.role === "admin") {
+    return true
+  }
+
+  return user?.memberships?.some((item) => item.projetoId === projectId) ?? false
+}
+
+function normalizeAgentUpdate(input) {
+  return {
+    nome: String(input.nome || "").trim(),
+    descricao: String(input.descricao || "").trim(),
+    prompt_base: String(input.promptBase || "").trim(),
+    ativo: input.ativo === false ? false : true,
+    updated_at: new Date().toISOString(),
+  }
+}
+
 export async function getAgenteAtivo(projetoId) {
   if (!projetoId) {
     return null
@@ -28,7 +49,7 @@ export async function getAgenteAtivo(projetoId) {
     const supabase = getSupabaseAdminClient()
     const { data, error } = await supabase
       .from("agentes")
-      .select("id, slug, nome, descricao, prompt_base, configuracoes, ativo, projeto_id, modelo_id, created_at")
+      .select(agenteFields)
       .eq("projeto_id", projetoId)
       .eq("ativo", true)
       .order("updated_at", { ascending: false, nullsFirst: false })
@@ -59,7 +80,7 @@ export async function getAgenteById(id) {
     const supabase = getSupabaseAdminClient()
     const { data, error } = await supabase
       .from("agentes")
-      .select("id, slug, nome, descricao, prompt_base, configuracoes, ativo, projeto_id, modelo_id, created_at")
+      .select(agenteFields)
       .eq("id", id)
       .maybeSingle()
 
@@ -87,7 +108,7 @@ export async function getAgenteByIdentifier(identifier, projetoId) {
     const supabase = getSupabaseAdminClient()
     let slugQuery = supabase
       .from("agentes")
-      .select("id, slug, nome, descricao, prompt_base, configuracoes, ativo, projeto_id, modelo_id, created_at")
+      .select(agenteFields)
       .eq("slug", value)
       .limit(1)
 
@@ -115,6 +136,55 @@ export async function getAgenteByIdentifier(identifier, projetoId) {
     return byId
   } catch (error) {
     console.error("[agentes] failed to get agent by identifier", error)
+    return null
+  }
+}
+
+export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao, promptBase, ativo }, user) {
+  if (!agenteId || !projetoId || !userCanAccessProject(user, projetoId)) {
+    return null
+  }
+
+  const payload = normalizeAgentUpdate({ nome, descricao, promptBase, ativo })
+
+  if (!payload.nome || !payload.prompt_base) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+
+    if (payload.ativo) {
+      const { error: deactivateError } = await supabase
+        .from("agentes")
+        .update({ ativo: false, updated_at: payload.updated_at })
+        .eq("projeto_id", projetoId)
+        .neq("id", agenteId)
+
+      if (deactivateError) {
+        console.error("[agentes] failed to deactivate sibling agents", deactivateError)
+        return null
+      }
+    }
+
+    const { data, error } = await supabase
+      .from("agentes")
+      .update(payload)
+      .eq("id", agenteId)
+      .eq("projeto_id", projetoId)
+      .select(agenteFields)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[agentes] failed to update agent", error)
+      }
+      return null
+    }
+
+    return mapAgent(data)
+  } catch (error) {
+    console.error("[agentes] failed to update agent", error)
     return null
   }
 }

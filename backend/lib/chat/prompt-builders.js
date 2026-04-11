@@ -2,7 +2,30 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
   const name = agent.nome || agent.name || "Assistente"
   const projetoNome = context?.projeto?.nome || context?.projetoNome
   const base = agent.promptBase || agent.prompt || agent.descricao || "Atenda com clareza, objetividade e foco no contexto do cliente."
-  return [`Voce e ${name}.`, projetoNome ? `Projeto: ${projetoNome}.` : "", base, structured ? "Responda em formato estruturado quando fizer sentido." : ""]
+  const apiContext = Array.isArray(context?.runtimeApis) && context.runtimeApis.length
+    ? [
+        "Dados externos consultados agora:",
+        ...context.runtimeApis.map((api) =>
+          [
+            `API: ${api.nome}`,
+            api.descricao ? `Descricao: ${api.descricao}` : "",
+            `Status: ${api.status}`,
+            `Resposta: ${String(api.preview || "").slice(0, 1200)}`,
+          ]
+            .filter(Boolean)
+            .join("\n"),
+        ),
+        "Use estes dados quando forem relevantes e diga que nao encontrou informacao se eles nao responderem a pergunta.",
+      ].join("\n\n")
+    : ""
+
+  return [
+    `Voce e ${name}.`,
+    projetoNome ? `Projeto: ${projetoNome}.` : "",
+    base,
+    apiContext,
+    structured ? "Responda em formato estruturado quando fizer sentido." : "",
+  ]
     .filter(Boolean)
     .join("\n")
 }
