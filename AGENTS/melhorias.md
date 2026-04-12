@@ -1,5 +1,198 @@
 # Melhorias
 
+
+# Prompt Codex — Regras e Melhorias InfraStudio
+
+## 🎯 Objetivo
+
+Organizar instruções claras para o Codex executar sem se perder.
+
+---
+
+## ⚠️ REGRAS GERAIS (NUNCA QUEBRAR)
+
+* Projeto: `infrastudio_v2`
+* NÃO criar estrutura paralela
+* NÃO duplicar componentes
+* NÃO importar nada do legado direto
+* SEMPRE reaproveitar o que já existe
+* Código simples, direto e funcional
+* Alterar somente o necessário
+
+---
+
+## 🐞 BUGS
+
+### 1. Arrastar do chat
+
+* NÃO aplicar drag no container inteiro
+* Aplicar drag APENAS no cabeçalho do chat
+
+### 2. Chat de teste sem widget
+
+Problema atual:
+
+```
+Chat publico sem projeto/agente valido
+```
+
+Solução:
+
+* Ao criar um agente
+* Criar automaticamente um `chatWidget` padrão
+* Garantir que sempre exista um widget válido
+
+---
+
+## 🚀 CRIAÇÃO DE AGENTES (FLUXO CORRETO)
+
+### ⚠️ Importante
+
+Se o projeto NÃO tiver agente:
+
+### Passo 1 — Modal inicial
+
+* Abrir modal
+* Perguntar:
+
+  * Sobre o negócio
+  * URL do site (opcional)
+
+### Passo 2 — Criação automática
+
+Ao salvar:
+
+* Criar agente automaticamente
+* Criar chatWidget padrão
+* Buscar dados da URL (se existir)
+* salva o logotipo encontrado na url 
+* Gerar resumo com base em:
+
+  * conteúdo da URL
+  * texto digitado pelo usuário
+
+### Passo 3 — Fluxo de tela
+
+* Fechar modal automaticamente
+* Abrir tela padrão de agente (fluxo atual)
+
+---
+
+## 🧠 MELHORIA DO RESUMO (IA)
+
+Problema:
+
+* Resumo atual superficial
+
+Melhoria:
+
+* Tornar mais completo
+* Incluir:
+
+  * Contato
+  * Pessoas
+  * Informações institucionais
+
+### UX
+
+* Adicionar ícones
+* Melhorar visual para facilitar entendimento
+* Mostrar ao usuário como melhorar o texto
+
+---
+
+## 📍 AJUSTES DE UI
+
+* Mover botão "Histórico" para segunda posição
+* "Observabilidade":
+
+  * adicionar tag: "Em desenvolvimento"
+
+---
+
+## 📲 WHATSAPP (AGENTE PRODUTO)
+
+### Objetivo
+
+Reaproveitar inteligência do legado
+
+---
+
+### 1. Base
+
+* Analisar legado
+* Extrair lógica funcional
+* Adaptar para padrão atual (v2)
+
+---
+
+### 2. Estrutura do Sheet WhatsApp
+
+Manter apenas estas abas:
+
+#### 1. Conectar
+
+* Passos de conexão
+* QR Code
+
+#### 2. Atendentes
+
+* CRUD completo
+* Lista de atendentes
+
+#### 3. Tutorial
+
+* Guia de uso
+
+---
+
+### 3. Regras
+
+* NÃO copiar código direto
+* Recriar no padrão atual
+* Reaproveitar lógica
+* Melhorar UX onde possível
+
+---
+
+## 🧠 RESUMO FINAL
+
+* Resolver bugs do chat
+* Melhorar fluxo de criação de agentes
+* Tornar IA mais completa
+* Ajustar UI
+* Evoluir WhatsApp com base no legado
+
+---
+
+## 🎯 INSTRUÇÃO FINAL PARA O CODEX
+
+```
+Siga todas as regras acima.
+
+Prioridade:
+1. Corrigir bugs
+2. Ajustar fluxo de criação de agente
+3. Melhorar resumo com IA
+4. Ajustar UI
+5. Evoluir módulo WhatsApp
+
+Sempre:
+- Usar código existente
+- Não reinventar
+- Não criar estrutura nova desnecessária
+- Manter padrão do projeto
+```
+
+---
+
+**Status:** pronto para execução no Codex 🚀
+
+
+============================================================================================================================================
+
+
+
 ## Ja adiantado
 
 1. Versionamento de agente
@@ -178,10 +371,208 @@ Ainda cabe melhorar:
 
 
 
-deixa o nome agente primeiro e o botao liga e desliga depois
 
-o bloco onde escreve o comportamento do agente tem que ser mais largo do que o block da direita 
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-instala o ReactQuill from 'react-quill'
 
-e coloca ele ai para o usuario ter uma liberdade maior para editar o texto 
+
+
+# Guia Único — Deploy Monorepo InfraStudio (Vercel + Codex)
+
+## 🎯 Objetivo
+
+Ter um fluxo simples e previsível onde:
+
+* você altera código → `git push`
+* Vercel faz deploy automático
+* frontend e backend ficam independentes
+* Codex ajuda só no código (não no deploy)
+
+---
+
+## 🧱 Estrutura do Projeto
+
+```
+/backend   → API (Node)
+/frontend  → Next.js (UI)
+```
+
+---
+
+## ☁️ Configuração na Vercel (PASSO A PASSO)
+
+### 1) Criar DOIS projetos na Vercel (mesmo repo)
+
+#### 🔹 Projeto 1 — Backend
+
+* Nome: `infrastudio-backend`
+* Repo: `pitter775/infrastudio_v2`
+* Root Directory: `backend`
+* Framework Preset: `Other`
+
+#### 🔹 Projeto 2 — Frontend
+
+* Nome: `infrastudio-frontend`
+* Repo: `pitter775/infrastudio_v2`
+* Root Directory: `frontend`
+* Framework Preset: `Next.js`
+
+---
+
+### 2) Ajuste de dependências (React 19 x react-quill)
+
+Criar arquivo:
+
+```
+/frontend/vercel.json
+```
+
+Conteúdo:
+
+```json
+{
+  "installCommand": "npm install --legacy-peer-deps"
+}
+```
+
+> Isso evita erro de peer deps no build.
+
+---
+
+### 3) Variáveis de Ambiente (exemplo)
+
+No projeto **frontend**:
+
+* `NEXT_PUBLIC_API_URL=https://<url-do-backend>`
+
+No projeto **backend**:
+
+* variáveis internas que sua API precisar (se houver)
+
+---
+
+## 🚀 Fluxo de Deploy (o que acontece na prática)
+
+### 👨‍💻 Você (VSCode)
+
+```bash
+git add .
+git commit -m "feat: ajuste no chat"
+git push
+```
+
+### ☁️ Vercel (automático)
+
+* Detecta o push
+* Dispara **2 builds independentes**:
+
+#### 📦 Backend
+
+* entra em `/backend`
+* `npm install`
+* build (se existir)
+* publica API
+
+#### 🌐 Frontend
+
+* entra em `/frontend`
+* `npm install --legacy-peer-deps`
+* `next build`
+* publica UI
+
+> Mesmo com 1 push, são 2 deploys separados.
+
+---
+
+## 🔗 Integração Frontend ↔ Backend
+
+No frontend (exemplo):
+
+```ts
+fetch(`${process.env.NEXT_PUBLIC_API_URL}/chat`, {
+  method: 'POST',
+  body: JSON.stringify({ mensagem: 'teste' })
+})
+```
+
+---
+
+## 🤖 Papel do Codex
+
+* Gera/edita código (frontend e backend)
+* Mantém padrão do projeto
+* NÃO configura Vercel
+* NÃO decide deploy
+
+---
+
+## 🧾 Prompt Padrão para o Codex
+
+Use sempre que for pedir mudanças grandes:
+
+```
+Você está trabalhando no projeto infrastudio_v2.
+
+Contexto:
+- Monorepo com duas pastas:
+  /backend (API Node)
+  /frontend (Next.js)
+- Não criar estrutura paralela
+- Não duplicar componentes
+- Não importar nada do legado C:\Projetos\infrastudio
+
+Objetivo:
+[DESCREVA AQUI O QUE QUER FAZER]
+
+Regras:
+- Se for UI → alterar apenas /frontend
+- Se for lógica/API → alterar apenas /backend
+- Se precisar comunicação → usar NEXT_PUBLIC_API_URL no frontend
+- Código simples, direto e funcional
+- Evitar libs desnecessárias
+- Manter padrão já existente no projeto
+
+Entrega:
+- Código pronto para commit
+- Sem explicações longas
+```
+
+---
+
+## ⚠️ Problemas Comuns (e solução)
+
+### ❌ "No Next.js version detected"
+
+➡ Root Directory errado (não está em `frontend`)
+
+### ❌ `ERESOLVE unable to resolve dependency tree`
+
+➡ usar `--legacy-peer-deps` no frontend
+
+### ❌ Build rodando no lugar errado
+
+➡ revisar Root Directory na Vercel
+
+---
+
+## 🧠 Resumo
+
+* 1 repo → 2 projetos na Vercel
+* cada projeto aponta para uma pasta
+* `git push` → múltiplos deploys
+* frontend e backend independentes
+* Codex só cuida do código
+
+---
+
+## ✅ Checklist Rápido
+
+* [ ] Projeto backend criado (root: backend)
+* [ ] Projeto frontend criado (root: frontend)
+* [ ] `/frontend/vercel.json` com legacy-peer-deps
+* [ ] `NEXT_PUBLIC_API_URL` configurado
+* [ ] Teste de deploy com `git push`
+
+---
+
+**Status:** pronto para uso 🚀

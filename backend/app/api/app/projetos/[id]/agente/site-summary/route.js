@@ -105,6 +105,58 @@ function extractParagraphs(html) {
     .slice(0, 20)
 }
 
+function uniqueValues(values, limit = 8) {
+  return [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, limit)
+}
+
+function extractContactInfo(html) {
+  const text = stripTags(html)
+  const emails = uniqueValues(text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [], 6)
+  const phones = uniqueValues(
+    text.match(/(?:\+?55\s?)?(?:\(?\d{2}\)?\s?)?(?:9\s?)?\d{4}[-.\s]?\d{4}/g) || [],
+    6,
+  )
+  const whatsappLinks = uniqueValues(
+    [...html.matchAll(/href=["']([^"']*(?:wa\.me|api\.whatsapp\.com|web\.whatsapp\.com)[^"']*)["']/gi)].map((match) =>
+      stripTags(match[1]),
+    ),
+    4,
+  )
+
+  return { emails, phones, whatsappLinks }
+}
+
+function extractUsefulLinks(html, baseUrl) {
+  const links = []
+  const patterns = [
+    { kind: "instagram", test: /instagram\.com/i },
+    { kind: "linkedin", test: /linkedin\.com/i },
+    { kind: "facebook", test: /facebook\.com/i },
+    { kind: "youtube", test: /youtube\.com|youtu\.be/i },
+    { kind: "contato", test: /contato|contact|atendimento|suporte/i },
+    { kind: "sobre", test: /sobre|empresa|quem-somos|about/i },
+  ]
+
+  for (const match of html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href = String(match[1] || "").trim()
+    const label = stripTags(match[2])
+    let url = ""
+
+    try {
+      url = new URL(href, baseUrl).toString()
+    } catch {
+      continue
+    }
+
+    const kind = patterns.find((pattern) => pattern.test.test(`${url} ${label}`))?.kind
+    if (kind) {
+      links.push(`${kind}: ${label || url} (${url})`)
+    }
+  }
+
+  return uniqueValues(links, 10)
+}
+
 function extractKeywords(text) {
   const counts = new Map()
   const normalized = stripTags(text)
@@ -123,12 +175,16 @@ function extractKeywords(text) {
     .map(([word]) => word)
 }
 
-function buildSiteDigest({ url, title, description, headings, paragraphs, keywords }) {
+function buildSiteDigest({ url, title, description, headings, paragraphs, keywords, contacts, usefulLinks }) {
   return [
     `URL: ${url}`,
     title ? `Titulo: ${title}` : null,
     description ? `Descricao meta: ${description}` : null,
     keywords.length ? `Palavras-chave: ${keywords.join(", ")}` : null,
+    contacts.emails.length ? `Emails encontrados: ${contacts.emails.join(", ")}` : null,
+    contacts.phones.length ? `Telefones encontrados: ${contacts.phones.join(", ")}` : null,
+    contacts.whatsappLinks.length ? `Links de WhatsApp: ${contacts.whatsappLinks.join(", ")}` : null,
+    usefulLinks.length ? `Links institucionais e sociais:\n- ${usefulLinks.join("\n- ")}` : null,
     headings.length ? `Headings:\n- ${headings.join("\n- ")}` : null,
     paragraphs.length ? `Paragrafos relevantes:\n- ${paragraphs.join("\n- ")}` : null,
   ]
@@ -158,7 +214,7 @@ async function generateSummaryWithOpenAI(siteDigest) {
             {
               type: "input_text",
               text:
-                "Voce recebe informacoes extraidas do site de um cliente. Gere um texto curto em portugues para somar ao prompt de um agente comercial. Responda em formato util para prompt, com foco em: empresa, servicos/produtos, tom, publico, diferenciais, palavras importantes e cuidados. Nao invente fatos. Se algo estiver incerto, diga que deve ser confirmado. Estruture com bullets curtos.",
+                "Voce recebe informacoes extraidas do site de um cliente. Gere um texto em portugues para somar ao prompt de um agente comercial. Responda em formato util para prompt, com secoes curtas: empresa, produtos/servicos, publico, diferenciais, contato, pessoas/equipe se houver, informacoes institucionais, tom recomendado, palavras importantes, limites/cuidados e perguntas boas para qualificar. Nao invente fatos. Se algo estiver incerto, diga que deve ser confirmado.",
             },
           ],
         },
@@ -260,7 +316,7 @@ export async function POST(request, context) {
 
   let parsedUrl
   try {
-    parsedUrl = new URL(rawUrl)
+    parsedUrl = new URL(/^https?:\/\//i.test(rawUrl) ? rawUrl : `https://${rawUrl}`)
   } catch {
     return NextResponse.json({ error: "URL invalida." }, { status: 400 })
   }
@@ -293,6 +349,8 @@ export async function POST(request, context) {
     const headings = extractHeadings(html)
     const paragraphs = extractParagraphs(html)
     const keywords = extractKeywords(`${title} ${description} ${headings.join(" ")} ${paragraphs.join(" ")}`)
+    const contacts = extractContactInfo(html)
+    const usefulLinks = extractUsefulLinks(html, parsedUrl)
     const siteDigest = buildSiteDigest({
       url: parsedUrl.toString(),
       title,
@@ -300,6 +358,8 @@ export async function POST(request, context) {
       headings,
       paragraphs,
       keywords,
+      contacts,
+      usefulLinks,
     })
 
     const aiResult = await generateSummaryWithOpenAI(siteDigest)
@@ -325,6 +385,8 @@ export async function POST(request, context) {
           title,
           logoUrl,
           description,
+          contacts,
+          usefulLinks,
         },
         usage: {
           inputTokens: aiResult.inputTokens,

@@ -534,6 +534,11 @@ function SheetInternalTabs({ tabs, activeTab, onChange }) {
             >
               {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
               {tab.label}
+              {tab.badge ? (
+                <span className="rounded-lg border border-amber-300/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
+                  {tab.badge}
+                </span>
+              ) : null}
             </button>
           )
         })}
@@ -584,10 +589,10 @@ function ProjectPanel({ project }) {
   const [activeAgentTab, setActiveAgentTab] = useState('edit')
   const agentTabs = [
     { id: 'edit', label: 'Editar agente', icon: Wand2 },
+    { id: 'history', label: 'Historico', icon: History },
     { id: 'json', label: 'Ver JSON', icon: Files },
     { id: 'connections', label: 'Conexoes', icon: PlugZap },
-    { id: 'history', label: 'Historico', icon: History },
-    { id: 'observability', label: 'Observabilidade', icon: MessageSquare },
+    { id: 'observability', label: 'Observabilidade', icon: MessageSquare, badge: 'Em desenvolvimento' },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
   const hasUnsavedChanges =

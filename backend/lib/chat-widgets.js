@@ -43,6 +43,28 @@ function slugify(value) {
     .slice(0, 60)
 }
 
+async function buildUniqueWidgetSlug(supabase, value) {
+  const baseSlug = slugify(value) || "chat"
+  let slug = baseSlug
+  let index = 2
+
+  while (true) {
+    const { data, error } = await supabase.from("chat_widgets").select("id").eq("slug", slug).limit(1)
+
+    if (error) {
+      console.error("[chat-widgets] failed to validate slug", error)
+      return slug
+    }
+
+    if (!data?.length) {
+      return slug
+    }
+
+    slug = `${baseSlug}-${index}`
+    index += 1
+  }
+}
+
 function normalizeWidgetInput(input, project) {
   const nome = String(input.nome || input.name || "").trim()
   const slug = slugify(input.slug || nome)
@@ -203,6 +225,64 @@ export async function createChatWidgetForUser(project, input, user) {
   } catch (error) {
     console.error("[chat-widgets] failed to create widget", error)
     return { widget: null, error: "Nao foi possivel criar o widget." }
+  }
+}
+
+export async function ensureDefaultChatWidgetForAgent(project, agent, user) {
+  if (!project?.id || !agent?.id || !userCanAccessProject(user, project.id)) {
+    return { widget: null, error: "Acesso negado." }
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data: existing, error: existingError } = await supabase
+      .from("chat_widgets")
+      .select(selectFields)
+      .eq("projeto_id", project.id)
+      .eq("agente_id", agent.id)
+      .eq("ativo", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (existing) {
+      return { widget: mapChatWidget(existing), error: null }
+    }
+
+    if (existingError) {
+      console.error("[chat-widgets] failed to load default widget", existingError)
+    }
+
+    const slug = await buildUniqueWidgetSlug(supabase, `${project.slug || project.name}-chat`)
+    const { data, error } = await supabase
+      .from("chat_widgets")
+      .insert({
+        nome: `${project.name || "Projeto"} Chat`,
+        slug,
+        projeto_id: project.id,
+        agente_id: agent.id,
+        dominio: "",
+        whatsapp_celular: "",
+        tema: "dark",
+        cor_primaria: "#2563eb",
+        fundo_transparente: true,
+        ativo: true,
+        updated_at: new Date().toISOString(),
+      })
+      .select(selectFields)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[chat-widgets] failed to create default widget", error)
+      }
+      return { widget: null, error: "Nao foi possivel criar o widget padrao." }
+    }
+
+    return { widget: mapChatWidget(data), error: null }
+  } catch (error) {
+    console.error("[chat-widgets] failed to ensure default widget", error)
+    return { widget: null, error: "Nao foi possivel criar o widget padrao." }
   }
 }
 

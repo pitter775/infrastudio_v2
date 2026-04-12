@@ -25,3 +25,4 @@ Regras minimas que nunca mudam:
 - nao reintroduzir imports do legado `C:\Projetos\infrastudio`
 - novos ajustes de banco entram em `database/seeder/`, nunca em `database/geral-schema.sql`
 - so fazer push se o usuario pedir
+- remover de [AGENTS/melhorias.md] o que foi concluido

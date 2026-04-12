@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
-import { listAgentVersionsForUser, restoreAgentVersionForUser, updateAgenteForUser } from "@/lib/agentes"
+import { createDefaultAgenteForUser, listAgentVersionsForUser, restoreAgentVersionForUser, updateAgenteForUser } from "@/lib/agentes"
+import { ensureDefaultChatWidgetForAgent } from "@/lib/chat-widgets"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 
@@ -84,11 +85,45 @@ export async function POST(request, context) {
   const { id } = await context.params
   const project = await getProjectForUser(id, user)
 
-  if (!project?.agent?.id) {
-    return NextResponse.json({ error: "Agente nao encontrado." }, { status: 404 })
+  if (!project) {
+    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
   }
 
   const body = await request.json()
+
+  if (body.action === "create_agent") {
+    if (project.agent?.id) {
+      const { widget } = await ensureDefaultChatWidgetForAgent(project, project.agent, user)
+      return NextResponse.json({ agent: project.agent, widget }, { status: 200 })
+    }
+
+    const agent = await createDefaultAgenteForUser(
+      {
+        projetoId: project.id,
+        projectName: project.name,
+        nome: body.nome || `${project.name} Assistente`,
+        descricao: body.businessContext,
+        businessContext: body.businessContext,
+      },
+      user,
+    )
+
+    if (!agent) {
+      return NextResponse.json({ error: "Nao foi possivel criar o agente." }, { status: 500 })
+    }
+
+    const { widget, error } = await ensureDefaultChatWidgetForAgent(project, agent, user)
+
+    if (error) {
+      return NextResponse.json({ error, agent }, { status: 500 })
+    }
+
+    return NextResponse.json({ agent, widget }, { status: 201 })
+  }
+
+  if (!project?.agent?.id) {
+    return NextResponse.json({ error: "Agente nao encontrado." }, { status: 404 })
+  }
 
   if (body.action !== "restore_version" || !body.versionId) {
     return NextResponse.json({ error: "Acao invalida." }, { status: 400 })

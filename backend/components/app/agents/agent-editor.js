@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bot, History, MessageSquareText, RotateCcw, Save } from "lucide-react"
+import { Bot, History, Link2, MessageSquareText, RotateCcw, Save, Sparkles } from "lucide-react"
 
 import { AgentSimulator } from "@/components/app/agents/agent-simulator"
 import { Button } from "@/components/ui/button"
@@ -23,6 +23,9 @@ export function AgentEditor({ project }) {
   const [saving, setSaving] = useState(false)
   const [restoringId, setRestoringId] = useState("")
   const [testOpen, setTestOpen] = useState(false)
+  const [setupBusinessContext, setSetupBusinessContext] = useState("")
+  const [setupSiteUrl, setSetupSiteUrl] = useState("")
+  const [creatingAgent, setCreatingAgent] = useState(false)
 
   function applyAgentState(nextAgent) {
     setName(nextAgent?.nome || nextAgent?.name || "")
@@ -130,18 +133,142 @@ export function AgentEditor({ project }) {
     }
   }
 
+  async function handleCreateAgent(event) {
+    event.preventDefault()
+
+    if (!setupBusinessContext.trim()) {
+      setStatus({ type: "error", message: "Conte um pouco sobre o negocio para criar o agente." })
+      return
+    }
+
+    setCreatingAgent(true)
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      const createResponse = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "create_agent",
+          businessContext: setupBusinessContext,
+        }),
+      })
+      const createData = await createResponse.json().catch(() => ({}))
+
+      if (!createResponse.ok) {
+        throw new Error(createData.error || "Nao foi possivel criar o agente.")
+      }
+
+      const createdAgent = createData.agent
+
+      if (setupSiteUrl.trim() && createdAgent?.id) {
+        const summaryResponse = await fetch(`/api/app/projetos/${projectIdentifier}/agente/site-summary`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ url: setupSiteUrl.trim() }),
+        })
+        const summaryData = await summaryResponse.json().catch(() => ({}))
+
+        if (summaryResponse.ok && summaryData.summary) {
+          const mergedPrompt = [createdAgent.promptBase || createdAgent.prompt || "", "Resumo do site:", summaryData.summary]
+            .filter(Boolean)
+            .join("\n\n")
+
+          await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              agenteId: createdAgent.id,
+              nome: createdAgent.nome || createdAgent.name || `${project.name} Assistente`,
+              descricao: createdAgent.descricao || createdAgent.description || setupBusinessContext,
+              promptBase: mergedPrompt,
+              runtimeConfig: createdAgent.runtimeConfig ?? null,
+              ativo: true,
+            }),
+          })
+        }
+      }
+
+      setStatus({ type: "success", message: "Agente e widget padrao criados." })
+      router.refresh()
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setCreatingAgent(false)
+    }
+  }
+
   if (!agent) {
     return (
-      <section className="rounded-lg border border-dashed border-zinc-300 bg-white p-5">
-        <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-600">
-            <Bot className="h-5 w-5" />
+      <section className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-950 text-white">
+              <Bot className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-zinc-950">Criar agente</h2>
+              <p className="text-sm text-zinc-600">Informe o negocio e, se tiver, a URL do site.</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-semibold text-zinc-950">Agente ativo</h2>
-            <p className="text-sm text-zinc-600">Nenhum agente ativo encontrado para este projeto.</p>
+          <div className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-600">
+            <Sparkles className="h-3.5 w-3.5" />
+            Cria widget padrao junto
           </div>
         </div>
+
+        <form className="mt-5 space-y-4" onSubmit={handleCreateAgent}>
+          <label className="block">
+            <span className="text-sm font-medium text-zinc-700">Sobre o negocio</span>
+            <textarea
+              value={setupBusinessContext}
+              onChange={(event) => setSetupBusinessContext(event.target.value)}
+              placeholder="O que vende, para quem atende, diferenciais, limites e tom desejado."
+              className="mt-1 min-h-28 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+              required
+            />
+          </label>
+
+          <label className="block">
+            <span className="text-sm font-medium text-zinc-700">URL do site opcional</span>
+            <div className="mt-1 flex items-center gap-2 rounded-lg border border-zinc-300 bg-white px-3 focus-within:border-zinc-950 focus-within:ring-2 focus-within:ring-zinc-950/10">
+              <Link2 className="h-4 w-4 text-zinc-400" />
+              <input
+                value={setupSiteUrl}
+                onChange={(event) => setSetupSiteUrl(event.target.value)}
+                placeholder="https://cliente.com.br"
+                className="h-10 min-w-0 flex-1 bg-transparent text-sm outline-none"
+              />
+            </div>
+            <p className="mt-2 text-xs text-zinc-500">Se informado, o sistema tenta capturar resumo e logo do site.</p>
+          </label>
+
+          {status.message ? (
+            <p
+              className={cn(
+                "rounded-lg border px-3 py-2 text-sm",
+                status.type === "success"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-red-200 bg-red-50 text-red-700",
+              )}
+            >
+              {status.message}
+            </p>
+          ) : null}
+
+          <div className="flex justify-end">
+            <Button type="submit" disabled={creatingAgent} className="gap-2">
+              <Save className="h-4 w-4" />
+              {creatingAgent ? "Criando..." : "Criar agente"}
+            </Button>
+          </div>
+        </form>
       </section>
     )
   }
@@ -192,6 +319,11 @@ export function AgentEditor({ project }) {
             className="mt-1 min-h-48 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
             required
           />
+          <div className="mt-2 grid gap-2 text-xs text-zinc-500 sm:grid-cols-3">
+            <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">Inclua produtos, limites e tom.</span>
+            <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">Diga quando deve pedir humano.</span>
+            <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">Evite dados que nao pode prometer.</span>
+          </div>
         </label>
 
         <label className="block">

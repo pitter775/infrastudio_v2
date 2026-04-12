@@ -100,6 +100,66 @@ function normalizeAgentUpdate(input) {
   }
 }
 
+function slugifyAgent(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+}
+
+async function buildUniqueAgentSlug(supabase, name, projectId) {
+  const baseSlug = slugifyAgent(name) || "agente"
+  let slug = baseSlug
+  let index = 2
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("agentes")
+      .select("id")
+      .eq("projeto_id", projectId)
+      .eq("slug", slug)
+      .limit(1)
+
+    if (error) {
+      console.error("[agentes] failed to validate slug", error)
+      return slug
+    }
+
+    if (!data?.length) {
+      return slug
+    }
+
+    slug = `${baseSlug}-${index}`
+    index += 1
+  }
+}
+
+function buildDefaultPrompt({ projectName, businessContext }) {
+  const context = String(businessContext || "").trim()
+
+  return [
+    `Voce e o agente de atendimento comercial de ${projectName || "este projeto"}.`,
+    "",
+    "Objetivo:",
+    "- entender a necessidade do visitante",
+    "- responder com clareza e objetividade",
+    "- qualificar o lead sem pedir dados cedo demais",
+    "- conduzir para o proximo passo quando fizer sentido",
+    "",
+    "Regras:",
+    "- nao invente informacoes",
+    "- se faltar dado importante, diga que precisa confirmar",
+    "- mantenha tom consultivo, direto e humano",
+    "- evite prometer preco, prazo ou disponibilidade sem fonte confiavel",
+    context ? `\nContexto informado pelo usuario:\n${context}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
 async function getNextAgentVersionNumber(supabase, agenteId) {
   const { data, error } = await supabase
     .from("agente_versoes")
@@ -273,6 +333,62 @@ export async function getAgenteByIdentifier(identifier, projetoId) {
     return byId
   } catch (error) {
     console.error("[agentes] failed to get agent by identifier", error)
+    return null
+  }
+}
+
+export async function createDefaultAgenteForUser({ projetoId, projectName, nome, descricao, businessContext }, user) {
+  if (!projetoId || !userCanAccessProject(user, projetoId)) {
+    return null
+  }
+
+  const agentName = String(nome || projectName || "Agente comercial").trim()
+  const promptBase = buildDefaultPrompt({
+    projectName: projectName || agentName,
+    businessContext: businessContext || descricao,
+  })
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const slug = await buildUniqueAgentSlug(supabase, agentName, projetoId)
+    const now = new Date().toISOString()
+
+    const { error: deactivateError } = await supabase
+      .from("agentes")
+      .update({ ativo: false, updated_at: now })
+      .eq("projeto_id", projetoId)
+
+    if (deactivateError) {
+      console.error("[agentes] failed to deactivate agents before create", deactivateError)
+      return null
+    }
+
+    const { data, error } = await supabase
+      .from("agentes")
+      .insert({
+        projeto_id: projetoId,
+        nome: agentName,
+        slug,
+        descricao: String(descricao || businessContext || "").trim(),
+        prompt_base: promptBase,
+        configuracoes: {},
+        ativo: true,
+        created_at: now,
+        updated_at: now,
+      })
+      .select(agenteFields)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[agentes] failed to create default agent", error)
+      }
+      return null
+    }
+
+    return mapAgent(data)
+  } catch (error) {
+    console.error("[agentes] failed to create default agent", error)
     return null
   }
 }
