@@ -1,4 +1,11 @@
 (function () {
+  var globalApi = window.InfraChatWidget || {
+    instances: {},
+    destroy: function () {},
+    destroyAll: function () {},
+  };
+  window.InfraChatWidget = globalApi;
+
   function ready(fn) {
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fn, { once: true });
@@ -24,15 +31,50 @@
     var theme = script.getAttribute("data-theme") === "light" ? "light" : "dark";
     var accent = script.getAttribute("data-accent") || "#64748b";
     var transparent = script.getAttribute("data-transparent") !== "false";
+    var cleanup = [];
     var storageKey = null;
     var chatId = null;
     var messages = [];
     var open = false;
     var loading = false;
 
+    if (globalApi.instances[widgetSlug] && typeof globalApi.instances[widgetSlug].destroy === "function") {
+      globalApi.instances[widgetSlug].destroy();
+    }
+
     var host = document.createElement("div");
     host.id = "infrastudio-chat-widget-root-" + widgetSlug;
     document.body.appendChild(host);
+
+    function addCleanup(fn) {
+      cleanup.push(fn);
+    }
+
+    function addListener(target, eventName, handler, options) {
+      target.addEventListener(eventName, handler, options);
+      addCleanup(function () {
+        target.removeEventListener(eventName, handler, options);
+      });
+    }
+
+    function destroy() {
+      cleanup.slice().reverse().forEach(function (dispose) {
+        try {
+          dispose();
+        } catch (error) {
+          console.warn("[InfraStudio Chat] failed to cleanup widget.", error);
+        }
+      });
+      cleanup = [];
+
+      if (host.parentNode) {
+        host.parentNode.removeChild(host);
+      }
+
+      if (globalApi.instances[widgetSlug] && globalApi.instances[widgetSlug].destroy === destroy) {
+        delete globalApi.instances[widgetSlug];
+      }
+    }
 
     var shadow = host.attachShadow({ mode: "open" });
 
@@ -582,11 +624,11 @@
       }
     }
 
-    triggerButton.addEventListener("click", function () {
+    addListener(triggerButton, "click", function () {
       setOpen(!open);
     });
 
-    window.addEventListener("infrastudio-chat:open", function (event) {
+    addListener(window, "infrastudio-chat:open", function (event) {
       var requestedWidget = event && event.detail ? event.detail.widgetSlug : null;
       if (requestedWidget && requestedWidget !== widgetSlug) {
         return;
@@ -595,11 +637,11 @@
       setOpen(true);
     });
 
-    closeButton.addEventListener("click", function () {
+    addListener(closeButton, "click", function () {
       setOpen(false);
     });
 
-    resetButton.addEventListener("click", function () {
+    addListener(resetButton, "click", function () {
       chatId = null;
       messages = [];
       input.value = "";
@@ -609,28 +651,49 @@
       input.focus();
     });
 
-    input.addEventListener("input", autoResizeInput);
-    input.addEventListener("keydown", function (event) {
+    addListener(input, "input", autoResizeInput);
+    addListener(input, "keydown", function (event) {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
         void sendMessage(input.value);
       }
     });
 
-    form.addEventListener("submit", function (event) {
+    addListener(form, "submit", function (event) {
       event.preventDefault();
       void sendMessage(input.value);
     });
 
-    window.addEventListener("resize", syncViewportMetrics);
+    addListener(window, "resize", syncViewportMetrics);
     if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", syncViewportMetrics);
-      window.visualViewport.addEventListener("scroll", syncViewportMetrics);
+      addListener(window.visualViewport, "resize", syncViewportMetrics);
+      addListener(window.visualViewport, "scroll", syncViewportMetrics);
     }
 
     updateLauncherVisual();
     syncViewportMetrics();
     autoResizeInput();
     renderMessages();
+
+    globalApi.instances[widgetSlug] = {
+      destroy: destroy,
+    };
+    globalApi.destroy = function (slug) {
+      var key = String(slug || "").trim();
+      if (!key) {
+        return false;
+      }
+      var instance = globalApi.instances[key];
+      if (!instance || typeof instance.destroy !== "function") {
+        return false;
+      }
+      instance.destroy();
+      return true;
+    };
+    globalApi.destroyAll = function () {
+      Object.keys(globalApi.instances).forEach(function (key) {
+        globalApi.destroy(key);
+      });
+    };
   });
 })();

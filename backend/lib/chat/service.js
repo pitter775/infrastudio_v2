@@ -2,7 +2,14 @@ import { getAgenteAtivo, getAgenteById, getAgenteByIdentifier } from "@/lib/agen
 import { loadAgentRuntimeApis } from "@/lib/apis"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
 import { buildChatUsageTelemetry } from "@/lib/chat-usage-metrics"
+import {
+  appendOptionalHumanOffer,
+  buildHumanHandoffReply,
+  classifyHumanEscalationNeed,
+  isHumanHandoffIntent,
+} from "@/lib/chat/handoff-policy"
 import { enrichLeadContext, executeSalesOrchestrator } from "@/lib/chat/orchestrator"
+import { shouldRefreshSummary, summarizeConversation } from "@/lib/chat/summary-stage"
 import { getChatHandoffByChatId, requestHumanHandoff, shouldPauseAssistantForHandoff } from "@/lib/chat-handoffs"
 import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, updateChatContext, updateChatStats } from "@/lib/chats"
 import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
@@ -752,25 +759,20 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   const agenteIdentifier = adminTestAgentId ?? (typeof body?.agente === "string" ? body.agente.trim() : null)
   const getProjeto = deps.getProjetoByIdentifier ?? getProjetoByIdentifier
   const getAgente = deps.getAgenteByIdentifier ?? getAgenteByIdentifier
-  const getAgenteAtivoResolver = deps.getAgenteAtivo ?? getAgenteAtivo
-  const getWidgetByProjetoAgente = deps.getChatWidgetByProjetoAgente ?? getChatWidgetByProjetoAgente
   const getWidgetBySlug = deps.getChatWidgetBySlug ?? getChatWidgetBySlug
+  const getWidgetByProjetoAgente = deps.getChatWidgetByProjetoAgente ?? getChatWidgetByProjetoAgente
   const getProjetoByIdResolver = deps.getProjetoById ?? getProjetoById
   const getAgenteByIdResolver = deps.getAgenteById ?? getAgenteById
 
   if (projetoIdentifier) {
     const projeto = await getProjeto(projetoIdentifier)
-    let agente = agenteIdentifier
-      ? await getAgente(agenteIdentifier, projeto?.id ?? null)
-      : projeto?.id
-        ? await getAgenteAtivoResolver(projeto.id)
-        : null
+    let agente = agenteIdentifier ? await getAgente(agenteIdentifier, projeto?.id ?? null) : null
 
     if (agente && (!agente.ativo || agente.projetoId !== projeto?.id)) {
       agente = null
     }
 
-    const widget = projeto ? await getWidgetByProjetoAgente({ projetoId: projeto.id, agenteId: agente?.id ?? null }) : null
+    const widget = projeto?.id && agente?.id ? await getWidgetByProjetoAgente({ projetoId: projeto.id, agenteId: agente.id }) : null
 
     return {
       projeto,
@@ -803,7 +805,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
 
   const widget = await getWidgetBySlug(widgetSlug)
 
-  if (!widget?.projetoId) {
+  if (!widget?.projetoId || !widget?.agenteId || widget.ativo === false) {
     return {
       projeto: null,
       agente: null,
@@ -818,13 +820,8 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   }
 
   const projeto = await getProjetoByIdResolver(widget.projetoId)
-  const widgetAgent = widget?.agenteId && projeto ? await getAgenteByIdResolver(widget.agenteId) : null
-  const agente =
-    widgetAgent && widgetAgent.ativo && widgetAgent.projetoId === projeto?.id
-      ? widgetAgent
-      : projeto?.id
-        ? await getAgenteAtivoResolver(projeto.id)
-        : null
+  const widgetAgent = projeto ? await getAgenteByIdResolver(widget.agenteId) : null
+  const agente = widgetAgent && widgetAgent.ativo && widgetAgent.projetoId === projeto?.id ? widgetAgent : null
 
   return {
     projeto,
@@ -878,6 +875,11 @@ export function buildInitialChatContext(input) {
       ? {
           id: input.resolved.agente.id,
           nome: input.resolved.agente.nome ?? null,
+          slug: input.resolved.agente.slug ?? null,
+          descricao: input.resolved.agente.descricao ?? null,
+          promptBase: input.resolved.agente.promptBase ?? null,
+          configuracoes: input.resolved.agente.configuracoes ?? {},
+          runtimeConfig: input.resolved.agente.runtimeConfig ?? null,
           locked: Boolean(input.resolved?.lockedToAgent),
         }
       : null,
@@ -1197,19 +1199,34 @@ export function buildFinalChatResult(input) {
   }
 }
 
-function attachRuntimeDiagnostics(result, runtimeState) {
+function attachRuntimeDiagnostics(result, runtimeState, extra = {}) {
   return {
     ...result,
     diagnostics: {
       projetoId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
       agenteId: runtimeState?.resolved?.agente?.id ?? runtimeState?.session?.chat?.agenteId ?? null,
+      agenteNome: runtimeState?.resolved?.agente?.nome ?? null,
       widgetSlug: runtimeState?.resolved?.widget?.slug ?? null,
       channelKind: runtimeState?.prelude?.channelKind ?? null,
+      provider: extra.aiResult?.metadata?.provider ?? null,
+      model: extra.aiResult?.metadata?.model ?? null,
+      routeStage: extra.aiResult?.metadata?.routeStage ?? null,
+      domainStage: extra.aiResult?.metadata?.domainStage ?? null,
+      heuristicStage: extra.aiResult?.metadata?.heuristicStage ?? null,
+      inputTokens: extra.aiResult?.usage?.inputTokens ?? null,
+      outputTokens: extra.aiResult?.usage?.outputTokens ?? null,
+      runtimeApiCount: Array.isArray(extra.runtimeApis) ? extra.runtimeApis.length : null,
+      runtimeApiCacheHits: Array.isArray(extra.runtimeApis)
+        ? extra.runtimeApis.filter((api) => api?.cache?.hit === true).length
+        : null,
     },
   }
 }
 
 export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
+  const persistAssistantTurnStep = options.persistAssistantTurn ?? persistAssistantTurn
+  const persistAssistantStateStep = options.persistAssistantState ?? persistAssistantState
+  const persistUsageRecordStep = options.persistUsageRecord ?? persistUsageRecord
   const nextContext = buildNextContext({
     currentContext: runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
     extraContext: isPlainObject(runtimeState.prelude.effectiveBody.context) ? runtimeState.prelude.effectiveBody.context : null,
@@ -1225,6 +1242,33 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     chatId: runtimeState.session.chat.id,
     historyLengthSource: runtimeState.history.length,
   })
+  const messageCount = Number(updatedContext?.memoria?.mensagem_count ?? runtimeState.history.length + 1)
+  if (shouldRefreshSummary(messageCount)) {
+    const historyForSummary = [
+      ...runtimeState.history.map((item) => ({
+        role: item.role,
+        content: item.conteudo,
+      })),
+      {
+        role: "assistant",
+        content: String(aiResult?.reply ?? ""),
+      },
+    ]
+
+    updatedContext.memoria = {
+      ...(isPlainObject(updatedContext.memoria) ? updatedContext.memoria : {}),
+      mensagem_count: messageCount,
+      resumo: await summarizeConversation(
+        historyForSummary,
+        isPlainObject(updatedContext.memoria) ? updatedContext.memoria.resumo ?? null : null
+      ),
+    }
+  } else {
+    updatedContext.memoria = {
+      ...(isPlainObject(updatedContext.memoria) ? updatedContext.memoria : {}),
+      mensagem_count: messageCount,
+    }
+  }
   const replyPayload = prepareAiReplyPayload({
     channelKind: runtimeState.prelude.channelKind,
     ai: aiResult,
@@ -1240,7 +1284,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     outputTokens: aiResult?.usage?.outputTokens ?? 0,
     aiMetadata: aiResult?.metadata ?? {},
   })
-  const assistantMessage = await persistAssistantTurn(
+  const assistantMessage = await persistAssistantTurnStep(
     {
       chatId: runtimeState.session.chat.id,
       content:
@@ -1269,7 +1313,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
       },
     },
   }
-  await persistAssistantState(
+  await persistAssistantStateStep(
     {
       chatId: runtimeState.session.chat.id,
       nextContext: updatedContext,
@@ -1281,7 +1325,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     },
     options
   )
-  await persistUsageRecord(usagePayloadWithReference.usageRecord, options)
+  await persistUsageRecordStep(usagePayloadWithReference.usageRecord, options)
 
   return buildFinalChatResult({
     chatId: runtimeState.session.chat.id,
@@ -1295,6 +1339,82 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     assets: aiResult?.assets ?? [],
     whatsapp: null,
   })
+}
+
+export async function applyAiHumanEscalation(runtimeState, aiResult, options = {}) {
+  const explicitHumanHandoffRequested = isHumanHandoffIntent(runtimeState.prelude.message)
+  const aiHumanEscalationDecision = explicitHumanHandoffRequested
+    ? {
+        decision: "request_handoff",
+        reason: "Cliente pediu atendimento humano explicitamente.",
+      }
+    : await classifyHumanEscalationNeed({
+        projetoId: runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null,
+        channelKind: runtimeState.prelude.channelKind,
+        message: runtimeState.prelude.message,
+        aiReply: String(aiResult?.reply ?? ""),
+        aiMetadata: aiResult?.metadata ?? {},
+        context: runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
+        history: runtimeState.history,
+      })
+
+  if (
+    aiHumanEscalationDecision?.decision === "offer_handoff" &&
+    !explicitHumanHandoffRequested &&
+    String(aiResult?.reply ?? "").trim()
+  ) {
+    return {
+      aiResult: {
+        ...aiResult,
+        reply: appendOptionalHumanOffer(aiResult.reply, runtimeState.prelude.channelKind),
+      },
+      handoffDecision: aiHumanEscalationDecision,
+      handoffRequested: false,
+      handoff: null,
+    }
+  }
+
+  const shouldRequestHandoff =
+    explicitHumanHandoffRequested || aiHumanEscalationDecision?.decision === "request_handoff"
+
+  if (!shouldRequestHandoff || !runtimeState.session.chat.projetoId) {
+    return {
+      aiResult,
+      handoffDecision: aiHumanEscalationDecision,
+      handoffRequested: false,
+      handoff: null,
+    }
+  }
+
+  const handoffResponse = await (options.requestRuntimeHumanHandoff ?? requestRuntimeHumanHandoff)(
+    {
+      chatId: runtimeState.session.chat.id,
+      projetoId: runtimeState.session.chat.projetoId,
+      canalWhatsappId: getChatWhatsAppChannelId(runtimeState.session.chat, runtimeState.prelude.effectiveBody),
+      channelKind: runtimeState.prelude.channelKind,
+      motivo: explicitHumanHandoffRequested
+        ? "Cliente pediu atendimento humano explicitamente."
+        : aiHumanEscalationDecision?.reason ?? "Escalada humana solicitada pelo runtime.",
+      metadata: {
+        trigger: explicitHumanHandoffRequested ? "message_intent" : "classified_runtime",
+        escalationDecision: aiHumanEscalationDecision?.decision ?? null,
+        escalationReason: aiHumanEscalationDecision?.reason ?? null,
+      },
+      alertMessage: null,
+    },
+    options
+  )
+
+  return {
+    aiResult: {
+      ...aiResult,
+      reply: buildHumanHandoffReply(runtimeState.prelude.channelKind),
+      assets: [],
+    },
+    handoffDecision: aiHumanEscalationDecision,
+    handoffRequested: true,
+    handoff: handoffResponse?.handoff ?? null,
+  }
 }
 
 export async function executeV2RuntimePrelude(body, options = {}) {
@@ -1312,6 +1432,11 @@ export async function executeV2RuntimePrelude(body, options = {}) {
     : options.resolveProjectAgent
       ? await options.resolveProjectAgent(prelude.effectiveBody)
       : await resolveChatChannel(prelude.effectiveBody)
+
+  if (!resolved?.projeto?.id || !resolved?.agente?.id) {
+    throw new Error("Chat publico sem projeto/agente valido. Revise a configuracao do widget ou do embed.")
+  }
+
   const extraContext = isPlainObject(prelude.effectiveBody.context) ? prelude.effectiveBody.context : null
   const contactSnapshot = resolveChatContactSnapshot(extraContext, prelude.normalizedExternalIdentifier)
   const ensureChatSession = options.ensureActiveChatSession ?? ensureActiveChatSession
@@ -1499,26 +1624,31 @@ export async function processChatRequest(body, options = {}) {
       options
     )
 
+    const escalationState = await applyAiHumanEscalation(runtimeState, aiResult, options)
+    const effectiveAiResult = escalationState.aiResult ?? aiResult
+
     await recordChatRuntimeEvent(runtimeState, {
-      type: aiResult?.metadata?.provider === "openai" ? "openai_event" : "chat_runtime_event",
-      origin: aiResult?.metadata?.provider === "openai" ? "openai" : "chat_runtime",
+      type: effectiveAiResult?.metadata?.provider === "openai" ? "openai_event" : "chat_runtime_event",
+      origin: effectiveAiResult?.metadata?.provider === "openai" ? "openai" : "chat_runtime",
       level: "info",
       description:
-        aiResult?.metadata?.provider === "openai"
+        effectiveAiResult?.metadata?.provider === "openai"
           ? "Resposta gerada via OpenAI."
           : "Resposta gerada pelo runtime local.",
       payload: {
-        provider: aiResult?.metadata?.provider ?? null,
-        model: aiResult?.metadata?.model ?? null,
-        routeStage: aiResult?.metadata?.routeStage ?? null,
-        heuristicStage: aiResult?.metadata?.heuristicStage ?? null,
-        domainStage: aiResult?.metadata?.domainStage ?? null,
-        inputTokens: aiResult?.usage?.inputTokens ?? 0,
-        outputTokens: aiResult?.usage?.outputTokens ?? 0,
+        provider: effectiveAiResult?.metadata?.provider ?? null,
+        model: effectiveAiResult?.metadata?.model ?? null,
+        routeStage: effectiveAiResult?.metadata?.routeStage ?? null,
+        heuristicStage: effectiveAiResult?.metadata?.heuristicStage ?? null,
+        domainStage: effectiveAiResult?.metadata?.domainStage ?? null,
+        inputTokens: effectiveAiResult?.usage?.inputTokens ?? 0,
+        outputTokens: effectiveAiResult?.usage?.outputTokens ?? 0,
+        handoffDecision: escalationState?.handoffDecision?.decision ?? null,
+        handoffRequested: escalationState?.handoffRequested ?? false,
       },
     })
 
-    const finalResult = await finalizeV2AiTurn(runtimeState, aiResult, options)
+    const finalResult = await finalizeV2AiTurn(runtimeState, effectiveAiResult, options)
 
     await recordChatRuntimeEvent(runtimeState, {
       type: "chat_runtime_event",
@@ -1531,7 +1661,7 @@ export async function processChatRequest(body, options = {}) {
       },
     })
 
-    return attachRuntimeDiagnostics(finalResult, runtimeState)
+    return attachRuntimeDiagnostics(finalResult, runtimeState, { aiResult: escalationState.aiResult, runtimeApis })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Falha interna no runtime do chat."
     const lowered = message.toLowerCase()

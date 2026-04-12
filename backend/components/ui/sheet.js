@@ -42,6 +42,7 @@ function SheetContent({
   children,
   side = 'left',
   showOverlay = true,
+  showCloseButton = true,
   closeOnInteractOutside = true,
   closeOnEscapeKeyDown = true,
   ...props
@@ -72,10 +73,12 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetClose className="absolute right-4 top-4 rounded-md p-1 text-slate-500 transition-colors hover:text-white focus:outline-none">
-          <X className="h-4 w-4" />
-          <span className="sr-only">Fechar menu</span>
-        </SheetClose>
+        {showCloseButton ? (
+          <SheetClose className="absolute right-4 top-4 rounded-md p-1 text-slate-500 transition-colors hover:text-white focus:outline-none">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar menu</span>
+          </SheetClose>
+        ) : null}
       </DialogPrimitive.Content>
     </SheetPortal>
   )

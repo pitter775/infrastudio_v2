@@ -47,8 +47,9 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
   const isAdmin = user?.role === 'admin'
 
   function handleProjectSelect(project) {
-    setLoadingProjectSlug(project.slug)
-    router.push(`/admin/projetos/${project.slug}`)
+    const projectIdentifier = project.routeKey || project.slug || project.id
+    setLoadingProjectSlug(projectIdentifier)
+    router.push(`/admin/projetos/${projectIdentifier}`)
   }
 
   async function refreshProjects() {
@@ -181,7 +182,7 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                 index={index}
                 onSelect={handleProjectSelect}
                 onEdit={isAdmin ? handleEditProject : undefined}
-                loading={loadingProjectSlug === project.slug}
+                loading={loadingProjectSlug === (project.routeKey || project.slug || project.id)}
               />
             </div>
           ))}

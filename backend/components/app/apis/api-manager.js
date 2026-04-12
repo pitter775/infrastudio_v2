@@ -1,10 +1,85 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CheckCircle2, FlaskConical, Pencil, PlugZap, Plus, XCircle } from "lucide-react"
+import { CheckCircle2, FlaskConical, History, Pencil, PlugZap, Plus, RotateCcw, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+
+const pricingApiConfigTemplate = {
+  http: {
+    headers: {
+      "x-api-key": "SUBSTITUA_PELO_TOKEN",
+    },
+  },
+  runtime: {
+    factual: true,
+    cacheTtlSeconds: 300,
+    responsePath: "data",
+    previewPath: "summary",
+    fields: [
+      {
+        nome: "site_institucional_valor",
+        tipo: "string",
+        descricao: "Faixa de valor do site institucional",
+        path: "precos.site_institucional.faixa",
+      },
+      {
+        nome: "site_institucional_prazo",
+        tipo: "string",
+        descricao: "Prazo medio do site institucional",
+        path: "precos.site_institucional.prazo",
+      },
+      {
+        nome: "chat_widget_valor",
+        tipo: "string",
+        descricao: "Preco do chat widget com IA",
+        path: "precos.chat_widget.faixa",
+      },
+      {
+        nome: "chat_widget_observacao",
+        tipo: "string",
+        descricao: "Observacao comercial do chat widget",
+        path: "precos.chat_widget.observacao",
+      },
+      {
+        nome: "sistema_ia_valor",
+        tipo: "string",
+        descricao: "Faixa de valor de sistema com IA",
+        path: "precos.sistema_ia.faixa",
+      },
+      {
+        nome: "sistema_ia_prazo",
+        tipo: "string",
+        descricao: "Prazo medio de sistema com IA",
+        path: "precos.sistema_ia.prazo",
+      },
+    ],
+  },
+}
+
+const pricingApiResponseExample = {
+  data: {
+    summary: "Sites a partir de R$300. Widget de IA a partir de R$50 de adesao + R$20/mes.",
+    precos: {
+      site_institucional: {
+        faixa: "R$300 a R$1000",
+        prazo: "3 a 7 dias",
+      },
+      chat_widget: {
+        faixa: "R$50 de adesao + R$20/mes",
+        observacao: "Instalacao em poucos minutos",
+      },
+      sistema_ia: {
+        faixa: "R$500 a R$2000",
+        prazo: "Sob escopo",
+      },
+    },
+  },
+}
+
+const pricingApiConfigTemplateText = JSON.stringify(pricingApiConfigTemplate, null, 2)
+const pricingApiResponseExampleText = JSON.stringify(pricingApiResponseExample, null, 2)
 
 const emptyForm = {
   id: null,
@@ -12,6 +87,7 @@ const emptyForm = {
   url: "",
   description: "",
   active: true,
+  configText: "{}",
 }
 
 function normalizeInitialApi(api) {
@@ -22,17 +98,21 @@ function normalizeInitialApi(api) {
     description: api.description || "",
     active: api.active !== false,
     method: api.method || "GET",
+    configText: JSON.stringify(api.config || {}, null, 2),
+    versions: Array.isArray(api.versions) ? api.versions : [],
   }
 }
 
 export function ApiManager({ project }) {
-  const endpoint = `/api/app/projetos/${project.slug || project.id}/apis`
+  const projectIdentifier = project.routeKey || project.slug || project.id
+  const endpoint = `/api/app/projetos/${projectIdentifier}/apis`
   const [apis, setApis] = useState(() => (project.apis || []).map(normalizeInitialApi))
   const [linkedApiIds, setLinkedApiIds] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testingId, setTestingId] = useState(null)
+  const [restoringVersionId, setRestoringVersionId] = useState(null)
   const [savingLinks, setSavingLinks] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const [status, setStatus] = useState({ type: "idle", message: "" })
@@ -77,6 +157,7 @@ export function ApiManager({ project }) {
       url: api.url,
       description: api.description || "",
       active: api.active !== false,
+      configText: api.configText || "{}",
     })
     setStatus({ type: "idle", message: "" })
     setTestResult(null)
@@ -93,6 +174,13 @@ export function ApiManager({ project }) {
     setStatus({ type: "idle", message: "" })
 
     try {
+      let parsedConfig = {}
+      try {
+        parsedConfig = form.configText?.trim() ? JSON.parse(form.configText) : {}
+      } catch {
+        throw new Error("JSON de configuracoes invalido.")
+      }
+
       const url = editing ? `${endpoint}/${form.id}` : endpoint
       const response = await fetch(url, {
         method: editing ? "PUT" : "POST",
@@ -105,6 +193,7 @@ export function ApiManager({ project }) {
           descricao: form.description,
           ativo: form.active,
           metodo: "GET",
+          configuracoes: parsedConfig,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -153,6 +242,56 @@ export function ApiManager({ project }) {
     }
   }
 
+  async function restoreApiVersion(api, versionId) {
+    if (!api?.id || !versionId || restoringVersionId) {
+      return
+    }
+
+    const confirmed = window.confirm("Restaurar esta versao da API? O estado atual sera salvo no historico antes do rollback.")
+    if (!confirmed) {
+      return
+    }
+
+    setRestoringVersionId(versionId)
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      const response = await fetch(`${endpoint}/${api.id}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "restore_version",
+          versionId,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || "Nao foi possivel restaurar a API.")
+      }
+
+      const restored = normalizeInitialApi(data.api)
+      setApis((current) => current.map((item) => (item.id === restored.id ? restored : item)))
+      if (form.id === restored.id) {
+        setForm({
+          id: restored.id,
+          name: restored.name,
+          url: restored.url,
+          description: restored.description || "",
+          active: restored.active !== false,
+          configText: restored.configText || "{}",
+        })
+      }
+      setStatus({ type: "success", message: "Versao da API restaurada." })
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setRestoringVersionId(null)
+    }
+  }
+
   function toggleApiLink(apiId) {
     setLinkedApiIds((current) =>
       current.includes(apiId) ? current.filter((item) => item !== apiId) : [...current, apiId],
@@ -164,7 +303,7 @@ export function ApiManager({ project }) {
     setStatus({ type: "idle", message: "" })
 
     try {
-      const response = await fetch(`/api/app/projetos/${project.slug || project.id}/agente/apis`, {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente/apis`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -184,6 +323,14 @@ export function ApiManager({ project }) {
     } finally {
       setSavingLinks(false)
     }
+  }
+
+  function applyPricingTemplate() {
+    setForm((current) => ({
+      ...current,
+      configText: pricingApiConfigTemplateText,
+    }))
+    setStatus({ type: "idle", message: "" })
   }
 
   return (
@@ -235,6 +382,33 @@ export function ApiManager({ project }) {
             className="mt-1 min-h-16 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
           />
         </label>
+
+        <div className="grid gap-3 lg:grid-cols-2">
+          <label className="block">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm font-medium text-zinc-700">Configuracoes JSON</span>
+              <Button type="button" variant="outline" size="sm" onClick={applyPricingTemplate}>
+                Usar modelo de valores
+              </Button>
+            </div>
+            <textarea
+              value={form.configText}
+              onChange={(event) => updateForm("configText", event.target.value)}
+              className="mt-1 min-h-64 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+              spellCheck={false}
+            />
+          </label>
+
+          <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-3">
+            <p className="text-sm font-medium text-zinc-800">Exemplo para API de valores</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              A URL deve responder JSON. O runtime usa `responsePath`, `previewPath` e `fields.path`.
+            </p>
+            <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-100">
+              {pricingApiResponseExampleText}
+            </pre>
+          </div>
+        </div>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <label className="flex items-center gap-3 text-sm text-zinc-700">
@@ -306,6 +480,39 @@ export function ApiManager({ project }) {
                       Vinculada ao agente
                     </label>
                   ) : null}
+                  {api.versions.length ? (
+                    <div className="mt-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3">
+                      <div className="flex items-center gap-2 text-xs font-semibold text-zinc-600">
+                        <History className="h-3.5 w-3.5" />
+                        Historico de versoes
+                      </div>
+                      <div className="mt-2 space-y-2">
+                        {api.versions.slice(0, 3).map((version) => (
+                          <div key={version.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-zinc-200 bg-white px-2.5 py-2">
+                            <div className="min-w-0">
+                              <p className="truncate text-xs font-medium text-zinc-800">
+                                v{version.versionNumber} - {version.name}
+                              </p>
+                              <p className="truncate text-[11px] text-zinc-500">
+                                {new Date(version.createdAt).toLocaleString("pt-BR")} - {version.source === "rollback" ? "rollback" : "salvamento"}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="h-8 gap-1.5 px-2 text-xs"
+                              disabled={Boolean(restoringVersionId)}
+                              onClick={() => restoreApiVersion(api, version.id)}
+                            >
+                              <RotateCcw className="h-3.5 w-3.5" />
+                              {restoringVersionId === version.id ? "Restaurando..." : "Rollback"}
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
                 <div className="flex flex-wrap items-center gap-2 lg:justify-end">
                   <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => testApi(api)}>
@@ -352,6 +559,19 @@ export function ApiManager({ project }) {
           </div>
           {testResult.durationMs !== null && testResult.durationMs !== undefined ? (
             <p className="mt-2 text-xs text-zinc-500">{testResult.durationMs}ms</p>
+          ) : null}
+          {Array.isArray(testResult.fields) && testResult.fields.length ? (
+            <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Campos extraidos</p>
+              <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                {testResult.fields.map((field) => (
+                  <div key={`${field.nome}-${field.valor}`} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
+                    <p className="text-xs font-medium text-zinc-700">{field.nome}</p>
+                    <p className="mt-1 text-xs text-zinc-500">{String(field.valor)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : null}
           <pre className="mt-3 max-h-56 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-100">
             {testResult.preview || "Sem corpo de resposta."}

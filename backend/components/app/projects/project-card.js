@@ -14,10 +14,11 @@ const statusLabels = {
 export function AppProjectCard({ project }) {
   const status = String(project.status || "ativo").toLowerCase()
   const active = status === "ativo"
+  const projectIdentifier = project.routeKey || project.slug || project.id
 
   return (
     <Link
-      href={`/app/projetos/${project.slug || project.id}`}
+      href={`/app/projetos/${projectIdentifier}`}
       className="group block rounded-lg border border-zinc-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md"
     >
       <div className="flex items-start justify-between gap-4">

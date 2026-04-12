@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 export function WhatsAppManager({ project }) {
-  const endpoint = `/api/app/projetos/${project.slug || project.id}/whatsapp`
+  const projectIdentifier = project.routeKey || project.slug || project.id
+  const endpoint = `/api/app/projetos/${projectIdentifier}/whatsapp`
   const [channels, setChannels] = useState([])
   const [number, setNumber] = useState("")
   const [loading, setLoading] = useState(true)

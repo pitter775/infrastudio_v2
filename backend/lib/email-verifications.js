@@ -9,6 +9,7 @@ const EMAIL_VERIFICATION_TTL_HOURS = 24
 
 function getAppUrl() {
   return (
+    process.env.APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_APP_URL?.trim() ||
     process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
     "http://localhost:3000"

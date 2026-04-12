@@ -15,7 +15,47 @@ function mapRoleToAutor(role) {
   return role === "assistant" ? "atendente" : role === "system" ? "sistema" : "cliente"
 }
 
-function mapMessage(message) {
+export function buildAiObservability(metadata = {}, message = {}) {
+  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) {
+    return null
+  }
+
+  const provider = typeof metadata.provider === "string" ? metadata.provider : null
+  const routeStage = typeof metadata.routeStage === "string" ? metadata.routeStage : null
+  const heuristicStage = typeof metadata.heuristicStage === "string" ? metadata.heuristicStage : null
+  const domainStage = typeof metadata.domainStage === "string" ? metadata.domainStage : null
+  const usageTelemetry =
+    metadata.usageTelemetry && typeof metadata.usageTelemetry === "object" && !Array.isArray(metadata.usageTelemetry)
+      ? metadata.usageTelemetry
+      : null
+
+  if (!provider && !routeStage && !heuristicStage && !domainStage && !usageTelemetry) {
+    return null
+  }
+
+  return {
+    provider,
+    model: typeof metadata.model === "string" ? metadata.model : null,
+    agenteId: metadata.agenteId ?? null,
+    agenteNome: metadata.agenteNome ?? null,
+    routeStage,
+    heuristicStage,
+    domainStage,
+    catalogoProdutoAtual: metadata.catalogoProdutoAtual ?? null,
+    usage: {
+      inputTokens: message.tokensInput ?? usageTelemetry?.inputTokens ?? null,
+      outputTokens: message.tokensOutput ?? usageTelemetry?.outputTokens ?? null,
+      totalTokens: usageTelemetry?.totalTokens ?? null,
+      estimatedCostUsd: message.custo ?? usageTelemetry?.estimatedCostUsd ?? null,
+      billingOrigin: usageTelemetry?.billingOrigin ?? null,
+    },
+    assetsCount: Array.isArray(metadata.assets) ? metadata.assets.length : 0,
+    followUpReply: metadata.followUpReply === true,
+  }
+}
+
+export function mapAdminConversationMessage(message) {
+  const observability = message.role === "assistant" ? buildAiObservability(message.metadata, message) : null
   return {
     id: message.id,
     autor: mapRoleToAutor(message.role),
@@ -23,12 +63,13 @@ function mapMessage(message) {
     horario: formatTime(message.createdAt),
     createdAt: message.createdAt,
     attachments: Array.isArray(message.metadata?.attachments) ? message.metadata.attachments : [],
+    observability,
   }
 }
 
 async function loadMessagesForChat(chatId) {
   const messages = await listChatMessages(chatId)
-  return messages.map(mapMessage)
+  return messages.map(mapAdminConversationMessage)
 }
 
 async function loadHandoff(chat) {
@@ -47,6 +88,7 @@ export async function listAdminConversations() {
       .select(
         "id, titulo, contato_nome, contato_telefone, contato_avatar_url, status, created_at, updated_at, total_tokens, total_custo, agente_id, usuario_id, projeto_id, canal, identificador_externo, contexto",
       )
+      .neq("canal", "admin_agent_test")
       .order("updated_at", { ascending: false, nullsFirst: false })
       .limit(50)
 
@@ -119,5 +161,5 @@ export async function appendAdminConversationMessage(chatId, texto, attachments 
     },
   })
 
-  return message ? mapMessage(message) : null
+  return message ? mapAdminConversationMessage(message) : null
 }

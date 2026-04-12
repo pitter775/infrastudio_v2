@@ -1,5 +1,7 @@
 import "server-only"
 
+import { listAgentVersionsForUser } from "@/lib/agentes"
+import { listAgentApiIdsForUser } from "@/lib/apis"
 import { getProjectBillingSnapshot } from "@/lib/billing"
 import { createLogEntry } from "@/lib/logs"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
@@ -8,14 +10,23 @@ const projetoFields =
   "id, nome, tipo, descricao, status, slug, configuracoes, created_at, updated_at, is_demo, owner_user_id, owner:usuarios!projetos_owner_user_id_fkey(id, nome, email, avatar_url)"
 
 function normalizeProject(row) {
+  const slug = row.slug?.trim() || row.id
+  const brand =
+    row.configuracoes?.brand && typeof row.configuracoes.brand === "object" && !Array.isArray(row.configuracoes.brand)
+      ? row.configuracoes.brand
+      : {}
+
   return {
     id: row.id,
     name: row.nome?.trim() || "Projeto sem nome",
-    slug: row.slug?.trim() || row.id,
+    slug,
+    routeKey: buildProjectRouteKey({ id: row.id, slug }),
     type: row.tipo?.trim() || "Projeto",
     description: row.descricao?.trim() || "Sem descricao cadastrada.",
     status: row.status?.trim() || "ativo",
     isDemo: Boolean(row.is_demo),
+    logoUrl: typeof brand.logoUrl === "string" ? brand.logoUrl.trim() : "",
+    siteUrl: typeof brand.siteUrl === "string" ? brand.siteUrl.trim() : "",
     owner: row.owner
       ? {
           id: row.owner.id,
@@ -37,6 +48,11 @@ function slugifyProjectName(value) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60)
+}
+
+function buildProjectRouteKey(project) {
+  const slug = slugifyProjectName(project?.slug || "") || "projeto"
+  return `${slug}--${project?.id}`
 }
 
 async function buildUniqueProjectSlug(supabase, name, currentProjectId = null) {
@@ -71,6 +87,31 @@ function isUuid(value) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
     value,
   )
+}
+
+function extractProjectLookup(identifier) {
+  const value = String(identifier || "").trim()
+
+  if (!value) {
+    return { id: null, slug: null }
+  }
+
+  if (isUuid(value)) {
+    return { id: value, slug: null }
+  }
+
+  const uuidMatch = value.match(
+    /([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i,
+  )
+
+  if (uuidMatch) {
+    return {
+      id: uuidMatch[1],
+      slug: value.slice(0, uuidMatch.index).replace(/-+$/, "") || null,
+    }
+  }
+
+  return { id: null, slug: value }
 }
 
 function userCanAccessProject(user, projectId) {
@@ -120,7 +161,7 @@ async function listProjectApis(supabase, projectId) {
 async function getActiveAgent(supabase, projectId) {
   const { data, error } = await supabase
     .from("agentes")
-    .select("id, nome, descricao, prompt_base, ativo, slug")
+    .select("id, nome, descricao, prompt_base, ativo, slug, configuracoes")
     .eq("projeto_id", projectId)
     .eq("ativo", true)
     .order("updated_at", { ascending: false, nullsFirst: false })
@@ -143,6 +184,120 @@ async function getActiveAgent(supabase, projectId) {
     prompt: data.prompt_base || "",
     active: data.ativo !== false,
     slug: data.slug || data.id,
+    configuracoes: data.configuracoes && typeof data.configuracoes === "object" ? data.configuracoes : {},
+    logoUrl:
+      data.configuracoes?.brand && typeof data.configuracoes.brand.logoUrl === "string"
+        ? data.configuracoes.brand.logoUrl.trim()
+        : "",
+    siteUrl:
+      data.configuracoes?.brand && typeof data.configuracoes.brand.siteUrl === "string"
+        ? data.configuracoes.brand.siteUrl.trim()
+        : "",
+    runtimeConfig:
+      data.configuracoes?.runtimeConfig && typeof data.configuracoes.runtimeConfig === "object"
+        ? data.configuracoes.runtimeConfig
+        : null,
+  }
+}
+
+async function countAgentScopedRows(supabase, table, projectId, agenteId) {
+  if (!projectId || !agenteId) {
+    return 0
+  }
+
+  const { count, error } = await supabase
+    .from(table)
+    .select("id", { count: "exact", head: true })
+    .eq("projeto_id", projectId)
+    .eq("agente_id", agenteId)
+
+  if (error) {
+    console.error(`[projetos] failed to count scoped ${table}`, error)
+    return 0
+  }
+
+  return count ?? 0
+}
+
+async function countMercadoLivreConnectors(supabase, projectId, agenteId = null) {
+  if (!projectId) {
+    return 0
+  }
+
+  let query = supabase
+    .from("conectores")
+    .select("id, slug, tipo, nome, ativo, agente_id")
+    .eq("projeto_id", projectId)
+    .eq("ativo", true)
+
+  if (agenteId) {
+    query = query.or(`agente_id.eq.${agenteId},agente_id.is.null`)
+  }
+
+  const { data, error } = await query
+
+  if (error) {
+    console.error("[projetos] failed to count mercado livre connectors", error)
+    return 0
+  }
+
+  return (data ?? []).filter((connector) => {
+    const value = `${connector.slug || ""} ${connector.tipo || ""} ${connector.nome || ""}`.toLowerCase()
+    return value.includes("mercado") || value.includes("ml")
+  }).length
+}
+
+async function buildAgentDirectConnections({ supabase, projectId, agent, apiCount, whatsappCount, widgetCount }) {
+  if (!agent?.id) {
+    return {
+      apis: apiCount ?? 0,
+      whatsapp: whatsappCount ?? 0,
+      chatWidget: widgetCount ?? 0,
+      mercadoLivre: 0,
+    }
+  }
+
+  const [linkedApiIds, scopedWidgetCount, mercadoLivreCount] = await Promise.all([
+    listAgentApiIdsForUser(agent.id, projectId, { role: "admin" }),
+    countAgentScopedRows(supabase, "chat_widgets", projectId, agent.id),
+    countMercadoLivreConnectors(supabase, projectId, agent.id),
+  ])
+
+  return {
+    apis: linkedApiIds.length,
+    whatsapp: whatsappCount ?? 0,
+    chatWidget: scopedWidgetCount,
+    mercadoLivre: mercadoLivreCount,
+  }
+}
+
+async function enrichProjectSummary(supabase, project, user) {
+  const [agent, apiCount, whatsappCount, widgetCount] = await Promise.all([
+    getActiveAgent(supabase, project.id),
+    safeCount(supabase, "apis", project.id),
+    safeCount(supabase, "canais_whatsapp", project.id),
+    safeCount(supabase, "chat_widgets", project.id),
+  ])
+
+  const directConnections = await buildAgentDirectConnections({
+    supabase,
+    projectId: project.id,
+    agent,
+    apiCount,
+    whatsappCount,
+    widgetCount,
+  })
+
+  return {
+    ...project,
+    agent,
+    logoUrl: project.logoUrl || agent?.logoUrl || "",
+    integrations: {
+      apis: apiCount,
+      whatsapp: whatsappCount,
+      chatWidget: widgetCount,
+    },
+    directConnections,
   }
 }
 
@@ -175,7 +330,7 @@ export async function listProjectsForUser(user) {
       return []
     }
 
-    return data.map(normalizeProject)
+    return Promise.all(data.map((row) => enrichProjectSummary(supabase, normalizeProject(row), user)))
   } catch (error) {
     console.error("[projetos] failed to list projects", error)
     return []
@@ -487,9 +642,10 @@ export async function getProjectForUser(identifier, user) {
 
   try {
     const supabase = getSupabaseAdminClient()
+    const lookup = extractProjectLookup(identifier)
     let query = supabase.from("projetos").select(projetoFields)
 
-    query = isUuid(identifier) ? query.eq("id", identifier) : query.eq("slug", identifier)
+    query = lookup.id ? query.eq("id", lookup.id) : query.eq("slug", lookup.slug)
 
     const { data, error } = await query.maybeSingle()
 
@@ -512,10 +668,19 @@ export async function getProjectForUser(identifier, user) {
       safeCount(supabase, "agente_arquivos", project.id),
       getProjectBillingSnapshot(project.id, { supabase }),
     ])
+    const agentVersions = agent?.id ? await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user) : []
+    const directConnections = await buildAgentDirectConnections({
+      supabase,
+      projectId: project.id,
+      agent,
+      apiCount,
+      whatsappCount,
+      widgetCount,
+    })
 
     return {
       ...project,
-      agent,
+      agent: agent ? { ...agent, versions: agentVersions } : null,
       apis,
       billing,
       integrations: {
@@ -524,6 +689,7 @@ export async function getProjectForUser(identifier, user) {
         chatWidget: widgetCount,
         files: fileCount,
       },
+      directConnections,
     }
   } catch (error) {
     console.error("[projetos] failed to get project details", error)
@@ -540,6 +706,7 @@ function mapLegacyProject(project) {
     id: project.id,
     nome: project.name,
     slug: project.slug,
+    routeKey: project.routeKey,
     tipo: project.type,
     descricao: project.description,
     status: project.status,

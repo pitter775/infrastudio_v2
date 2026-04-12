@@ -60,7 +60,7 @@ export function AppProjectDetailPage({ project }) {
               Workspace operacional
             </div>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-300">
-              Edite o agente, revise integracoes, acompanhe billing e mantenha o projeto pronto para publicacao sem depender do `mock01`.
+              Edite o agente, revise integracoes, acompanhe billing e mantenha o projeto pronto para publicacao.
             </p>
           </div>
 

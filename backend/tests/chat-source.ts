@@ -23,6 +23,8 @@ export {
 
 export { buildSystemPrompt } from "@/lib/chat/prompt-builders";
 
+export { executeSalesOrchestrator } from "@/lib/chat/orchestrator";
+
 export { resolveConversationPipelineStageState } from "@/lib/chat/pipeline-stage";
 
 export {
@@ -92,6 +94,11 @@ export {
   getChatWidgetByProjetoAgente,
   getChatWidgetBySlug,
 } from "@/lib/chat-widgets";
+
+export {
+  buildAiObservability,
+  mapAdminConversationMessage,
+} from "@/lib/admin-conversations";
 
 export {
   getChatHandoffByChatId,

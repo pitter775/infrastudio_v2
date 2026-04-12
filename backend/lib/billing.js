@@ -25,6 +25,29 @@ function toIsoDate(value) {
   return value ? new Date(value).toISOString() : null
 }
 
+function isOptionalMissingRowError(error) {
+  if (!error) {
+    return false
+  }
+
+  if (error.code === "PGRST116") {
+    return true
+  }
+
+  return !error.message && !error.details && !error.hint
+}
+
+function warnOptionalBillingLoad(label, error) {
+  if (!error || isOptionalMissingRowError(error)) {
+    return
+  }
+
+  console.warn(`[billing] failed to load ${label}`, {
+    code: error.code ?? null,
+    message: error.message ?? String(error),
+  })
+}
+
 export function mapBillingPlan(row) {
   if (!row) {
     return null
@@ -237,15 +260,9 @@ export async function getProjectBillingSnapshot(projectId, deps = {}) {
       return null
     }
 
-    if (projectPlanResult.error && projectPlanResult.error.code !== "PGRST116") {
-      console.error("[billing] failed to load project billing config", projectPlanResult.error)
-    }
-    if (subscriptionResult.error && subscriptionResult.error.code !== "PGRST116") {
-      console.error("[billing] failed to load subscription", subscriptionResult.error)
-    }
-    if (cycleResult.error && cycleResult.error.code !== "PGRST116") {
-      console.error("[billing] failed to load usage cycle", cycleResult.error)
-    }
+    warnOptionalBillingLoad("project billing config", projectPlanResult.error)
+    warnOptionalBillingLoad("subscription", subscriptionResult.error)
+    warnOptionalBillingLoad("usage cycle", cycleResult.error)
     if (topUpsResult.error) {
       console.error("[billing] failed to load top-up tokens", topUpsResult.error)
     }

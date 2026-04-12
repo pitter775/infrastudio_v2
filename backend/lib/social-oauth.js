@@ -14,7 +14,13 @@ function getAppAuthSecret() {
 }
 
 function getAppUrl(origin) {
-  return origin?.trim() || process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000"
+  return (
+    origin?.trim() ||
+    process.env.APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    "http://localhost:3000"
+  )
 }
 
 function assertProvider(provider) {

@@ -11,6 +11,7 @@ function isMercadoLivre(connector) {
 }
 
 export function ConnectorList({ project }) {
+  const projectIdentifier = project.routeKey || project.slug || project.id
   const [connectors, setConnectors] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -20,7 +21,7 @@ export function ConnectorList({ project }) {
     async function loadConnectors() {
       setLoading(true)
       try {
-        const response = await fetch(`/api/app/projetos/${project.slug || project.id}/conectores`)
+        const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores`)
         const data = await response.json()
 
         if (active && response.ok) {
@@ -38,7 +39,7 @@ export function ConnectorList({ project }) {
     return () => {
       active = false
     }
-  }, [project.id, project.slug])
+  }, [project.id, project.slug, project.routeKey, projectIdentifier])
 
   return (
     <section className="mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">

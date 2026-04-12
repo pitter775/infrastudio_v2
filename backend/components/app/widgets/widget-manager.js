@@ -63,7 +63,8 @@ function buildPreviewUrl(project, widget) {
 }
 
 export function WidgetManager({ project }) {
-  const endpoint = `/api/app/projetos/${project.slug || project.id}/widgets`
+  const projectIdentifier = project.routeKey || project.slug || project.id
+  const endpoint = `/api/app/projetos/${projectIdentifier}/widgets`
   const [widgets, setWidgets] = useState([])
   const [form, setForm] = useState(emptyForm)
   const [loading, setLoading] = useState(true)

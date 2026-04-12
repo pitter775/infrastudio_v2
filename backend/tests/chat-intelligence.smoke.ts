@@ -6,6 +6,7 @@ import {
   applyBillingGuardrail,
   applyHandoffGuardrail,
   buildApiFallbackReply,
+  buildAiObservability,
   buildAssistantMessageMetadata,
   buildBillingSnapshot,
   buildBillingBlockedResult,
@@ -39,6 +40,7 @@ import {
   decideCatalogFollowUpHeuristically,
   enrichLeadContext,
   ensureActiveChatSession,
+  executeSalesOrchestrator,
   executeV2RuntimePrelude,
   extractRecentMercadoLivreProductsFromAssets,
   extractChatContactSnapshot,
@@ -91,6 +93,7 @@ import {
   mapChat,
   mapBillingPlan,
   mapFeedbackMessageRow,
+  mapAdminConversationMessage,
   mapMensagem,
   mapLogRow,
   requestRuntimeHumanHandoff,
@@ -123,6 +126,48 @@ const handoffFixture = loadHandoffFixture();
 const whatsappContextFixture = loadWhatsAppContextFixture();
 
 const tests: TestCase[] = [
+  {
+    name: "observabilidade de ia resume metadata da mensagem",
+    run: () => {
+      const metadata = {
+        provider: "api_runtime",
+        model: "heuristic",
+        agenteId: "agent-1",
+        agenteNome: "Agente",
+        routeStage: "sales",
+        heuristicStage: "api_runtime",
+        domainStage: "api_runtime",
+        usageTelemetry: {
+          inputTokens: 0,
+          outputTokens: 0,
+          totalTokens: 0,
+          estimatedCostUsd: 0,
+          billingOrigin: "chat:web:api_runtime:sales:api_runtime",
+        },
+        assets: [{ id: "asset-1" }],
+      }
+      const observability = buildAiObservability(metadata, {
+        tokensInput: 3,
+        tokensOutput: 5,
+        custo: 0.001,
+      })
+      const mapped = mapAdminConversationMessage({
+        id: "msg-ai",
+        role: "assistant",
+        conteudo: "Status: enviado",
+        metadata,
+        tokensInput: 3,
+        tokensOutput: 5,
+        custo: 0.001,
+        createdAt: "2026-04-12T12:00:00.000Z",
+      })
+
+      assert.equal(observability?.provider, "api_runtime")
+      assert.equal(observability?.usage.inputTokens, 3)
+      assert.equal(mapped.observability?.heuristicStage, "api_runtime")
+      assert.equal(mapped.observability?.assetsCount, 1)
+    },
+  },
   {
     name: "feedback resume mensagens e prioriza pendencias",
     run: () => {
@@ -511,6 +556,239 @@ const tests: TestCase[] = [
 
       assert.doesNotMatch(prompt, /Voce e o agente comercial inicial da InfraStudio/i);
       assert.doesNotMatch(prompt, /Foque em automacao, IA, integracoes, sistemas sob medida/i);
+    },
+  },
+  {
+    name: "prompt bloqueia whatsapp sem numero cadastrado",
+    run: () => {
+      const prompt = buildSystemPrompt(
+        {
+          id: "agent-no-whatsapp",
+          nome: "Agente Site",
+          promptBase: "Leve o cliente para o WhatsApp quando houver interesse.",
+        } as never,
+        {
+          widget: { slug: "site", whatsapp_celular: "" },
+          channel: { kind: "web" },
+        } as never,
+        false
+      )
+
+      assert.match(prompt, /WhatsApp nao disponivel/i)
+    },
+  },
+  {
+    name: "prompt usa numero cadastrado no cta de whatsapp",
+    run: () => {
+      const prompt = buildSystemPrompt(
+        {
+          id: "agent-with-whatsapp",
+          nome: "Agente Site",
+          promptBase: "Leve o cliente para o WhatsApp quando houver interesse.",
+          runtimeConfig: {
+            sales: {
+              cta: "Chame no WhatsApp para fechar.",
+            },
+          },
+        } as never,
+        {
+          widget: { slug: "site", whatsapp_celular: "5511999999999" },
+          channel: { kind: "web" },
+        } as never,
+        false
+      )
+
+      assert.match(prompt, /5511999999999/)
+      assert.match(prompt, /nunca use placeholder/i)
+    },
+  },
+  {
+    name: "orquestrador falha fechado sem configuracao valida de agente",
+    run: async () => {
+      await assert.rejects(
+        () =>
+          executeSalesOrchestrator(
+            [{ role: "user", content: "oi" }] as never,
+            {
+              agente: {
+                id: "agent-closed",
+                nome: "Infra",
+                promptBase: "",
+              },
+            } as never
+          ),
+        /Agente do chat sem configuracao valida de prompt/i
+      );
+    },
+  },
+  {
+    name: "orquestrador usa api runtime factual antes do modelo",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me passa a data do leilao" }] as never,
+        {
+          agente: {
+            id: "agent-api",
+            nome: "Nexo Leiloes",
+            promptBase: "Atenda com precisao.",
+          },
+          runtimeApis: apiRealEstateFixture.apis,
+        } as never
+      );
+
+      assert.equal(result.metadata.provider, "api_runtime");
+      assert.match(result.reply, /27\/03\/2026/);
+      assert.equal(result.usage.inputTokens, 0);
+    },
+  },
+  {
+    name: "orquestrador respeita produto recente em foco",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "gostei da sopeira que mandou" }] as never,
+        {
+          agente: {
+            id: "agent-catalog",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          catalogo: catalogContext.catalogo,
+        } as never
+      );
+
+      assert.equal(result.metadata.provider, "local_heuristic");
+      assert.match(result.reply, /vamos seguir com/i);
+      assert.match(result.reply, /Sopeira/i);
+    },
+  },
+  {
+    name: "orquestrador nao captura lead cedo quando pergunta sobre servico",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "oi, voce faz site?" }] as never,
+        {
+          agente: {
+            id: "agent-service",
+            nome: "InfraStudio",
+            promptBase: "Voce vende sites, sistemas com IA, automacoes, integracoes e atendimento inteligente. Explique de forma objetiva e comercial.",
+            runtimeConfig: {
+              leadCapture: {
+                deferOnQuestions: true,
+                respectCatalogBoundary: false,
+              },
+            },
+          },
+        } as never,
+        {
+          generateSalesReply: async () => ({
+            reply: "Sim. Criamos sites profissionais e tambem sistemas com IA, automacoes e integracoes sob medida.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: {
+              provider: "openai",
+              model: "test",
+              agenteId: "agent-service",
+              agenteNome: "InfraStudio",
+              routeStage: "sales",
+              heuristicStage: null,
+              domainStage: "general",
+            },
+          }),
+        }
+      );
+
+      assert.doesNotMatch(result.reply, /Como posso te chamar/i);
+      assert.match(result.reply, /sites profissionais/i);
+    },
+  },
+  {
+    name: "orquestrador so direciona para whatsapp quando widget tem numero",
+    run: async () => {
+      const baseContext = {
+        agente: {
+          id: "agent-service",
+          nome: "InfraStudio",
+          promptBase: "Voce vende sites, sistemas com IA, automacoes, integracoes e atendimento inteligente.",
+          runtimeConfig: {
+            pricingCatalog: {
+              enabled: true,
+              items: [
+                {
+                  slug: "site",
+                  name: "Criacao de site",
+                  matchAny: ["site"],
+                  priceLabel: "R$300 a R$1000",
+                },
+                {
+                  slug: "chat",
+                  name: "Chat com IA",
+                  matchAny: ["chat"],
+                  priceLabel: "R$50 de adesao + R$20/mes",
+                },
+              ],
+              ctaMultiple: "Te direciono no WhatsApp para alinharmos os detalhes finais.",
+            },
+          },
+        },
+        ui: { structured_response: false },
+      }
+
+      const withoutNumber = await executeSalesOrchestrator(
+        [{ role: "user", content: "quanto custa um site com chat?" }] as never,
+        {
+          ...baseContext,
+          widget: { slug: "site", whatsapp_celular: "" },
+        } as never
+      )
+      const withNumber = await executeSalesOrchestrator(
+        [{ role: "user", content: "quanto custa um site com chat?" }] as never,
+        {
+          ...baseContext,
+          widget: { slug: "site", whatsapp_celular: "5511999999999" },
+        } as never
+      )
+
+      assert.match(withoutNumber.reply, /R\$300 a R\$1000/i)
+      assert.doesNotMatch(withoutNumber.reply, /WhatsApp/i)
+      assert.match(withNumber.reply, /WhatsApp/i)
+    },
+  },
+  {
+    name: "orquestrador nao aplica heuristica comercial da infrastudio em agente de cliente",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "quanto custa?" }] as never,
+        {
+          agente: {
+            id: "agent-client",
+            nome: "Loja Cliente",
+            promptBase: "Voce atende uma loja de produtos artesanais.",
+          },
+          projeto: {
+            nome: "Loja Cliente",
+            slug: "loja-cliente",
+          },
+        } as never,
+        {
+          generateSalesReply: async () => ({
+            reply: "Depende do produto que voce quer avaliar.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: {
+              provider: "openai",
+              model: "test",
+              agenteId: "agent-client",
+              agenteNome: "Loja Cliente",
+              routeStage: "sales",
+              heuristicStage: null,
+              domainStage: "general",
+            },
+          }),
+        }
+      );
+
+      assert.doesNotMatch(result.reply, /Criacao de site|Sistema com IA|WhatsApp/i);
+      assert.match(result.reply, /Depende do produto/i);
     },
   },
   {

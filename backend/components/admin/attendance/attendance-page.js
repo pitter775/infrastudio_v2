@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import {
   Globe,
   ImagePlus,
+  Info,
   KanbanSquare,
   LayoutGrid,
   ListTodo,
@@ -110,6 +111,8 @@ function ConversationItem({ conversation, active, onClick }) {
 
 function MessageBubble({ message }) {
   const isAgent = message.autor === "atendente"
+  const [showAiTrace, setShowAiTrace] = useState(false)
+  const trace = message.observability
 
   return (
     <div className={cn("flex", isAgent ? "justify-end" : "justify-start")}>
@@ -125,6 +128,59 @@ function MessageBubble({ message }) {
           {isAgent ? "Administrador" : "Cliente"}
         </div>
         <div className="mt-3 whitespace-pre-line text-sm leading-6">{message.texto}</div>
+        {trace ? (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={() => setShowAiTrace((value) => !value)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300 hover:bg-white/[0.08] hover:text-white"
+            >
+              <Info className="h-3 w-3" />
+              IA trace
+            </button>
+
+            {showAiTrace ? (
+              <div className="mt-2 rounded-xl border border-white/10 bg-black/20 p-3 text-[11px] leading-5 text-slate-300">
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <div>
+                    <span className="text-slate-500">Provider</span>
+                    <div className="font-medium text-white">{trace.provider || "n/a"}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Modelo</span>
+                    <div className="font-medium text-white">{trace.model || "n/a"}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Dominio</span>
+                    <div className="font-medium text-white">{trace.domainStage || "n/a"}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Heuristica</span>
+                    <div className="font-medium text-white">{trace.heuristicStage || "modelo"}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Tokens</span>
+                    <div className="font-medium text-white">
+                      {(trace.usage?.inputTokens ?? 0) + (trace.usage?.outputTokens ?? 0)}
+                    </div>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">Custo</span>
+                    <div className="font-medium text-white">
+                      US$ {Number(trace.usage?.estimatedCostUsd ?? 0).toFixed(6)}
+                    </div>
+                  </div>
+                </div>
+                {trace.agenteNome || trace.assetsCount ? (
+                  <div className="mt-2 border-t border-white/10 pt-2 text-slate-400">
+                    {trace.agenteNome ? `Agente: ${trace.agenteNome}` : ""}
+                    {trace.assetsCount ? `${trace.agenteNome ? " · " : ""}Assets: ${trace.assetsCount}` : ""}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {message.attachments?.length ? (
           <div className="mt-3 space-y-1">
             {message.attachments.map((attachment) => (

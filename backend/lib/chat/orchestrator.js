@@ -1,16 +1,115 @@
-import { enrichLeadContext } from "@/lib/chat/lead-stage"
-import { buildSystemPrompt } from "@/lib/chat/prompt-builders"
+import { buildApiFallbackReply, buildFocusedApiContext } from "@/lib/chat/api-runtime"
+import {
+  decideCatalogFollowUpHeuristically,
+  hasRecentCatalogSnapshot,
+  resolveCatalogReferenceHeuristicReply,
+} from "@/lib/chat/catalog-follow-up"
+import { buildLeadNameAcknowledgementReply, enrichLeadContext, extractName, isLikelyLeadNameReply } from "@/lib/chat/lead-stage"
+import {
+  resolveMercadoLivreFlowState,
+  resolveMercadoLivreHeuristicReply,
+  resolveMercadoLivreHeuristicState,
+} from "@/lib/chat/mercado-livre"
+import {
+  buildAgentAssetInstruction,
+  buildAnalyticalReplyInstruction,
+  buildChannelReplyInstruction,
+  buildRuntimePrompt,
+  buildStructuredReplyInstruction,
+  buildSystemPrompt,
+  prefersStructuredReply,
+} from "@/lib/chat/prompt-builders"
+import { resolveConversationPipelineStageState } from "@/lib/chat/pipeline-stage"
+import {
+  buildCatalogPricingReply,
+  buildProductSearchCandidates,
+  isGreetingOrAckMessage,
+  isOutOfScopeForCatalog,
+  maybeAskForLeadIdentification,
+  shouldContinueProductSearch,
+  shouldSearchProducts,
+} from "@/lib/chat/sales-heuristics"
+import { normalizeText } from "@/lib/chat/text-utils"
 
-const simulatedAgent = {
-  name: "Assistente InfraStudio",
-  prompt:
-    "Voce e um assistente de vendas simpatico, direto e util. Sempre responda o usuario de forma clara e objetiva.",
-}
-
-export const USE_ORCHESTRATOR = false
+export const USE_ORCHESTRATOR = true
 
 function mapMessageRole(autor) {
   return autor === "atendente" ? "assistant" : "user"
+}
+
+function hasFactualApiSignal(message) {
+  return /\b(status|pedido|data|previsao|prazo|valor|estoque|codigo)\b/i.test(String(message || ""))
+}
+
+function getAgentRuntimeConfig(context = {}) {
+  const runtimeConfig = context?.agente?.runtimeConfig ?? context?.agente?.configuracoes?.runtimeConfig ?? null
+  return runtimeConfig && typeof runtimeConfig === "object" && !Array.isArray(runtimeConfig) ? runtimeConfig : null
+}
+
+function isCommercialCapabilityMessage(message) {
+  return /\b(site|sites|sistema|sistemas|ia|automacao|automação|whatsapp|integra(c|ç)(a|ã)o|painel|como funciona|faz|fazer|cria|criar|desenvolve|desenvolver)\b/i.test(
+    String(message || "")
+  )
+}
+
+function buildConversationMemory(context = {}) {
+  const snippets = []
+  const resumo = String(context?.memoria?.resumo || "").trim()
+  const currentProduct = context?.catalogo?.produtoAtual?.nome
+  const latestSearch = context?.catalogo?.ultimaBusca
+
+  if (resumo) snippets.push(`Resumo de continuidade: ${resumo}`)
+  if (currentProduct) snippets.push(`Produto em foco: ${currentProduct}`)
+  if (latestSearch) snippets.push(`Busca recente do cliente: ${latestSearch}`)
+
+  return snippets.join("\n")
+}
+
+function buildFocusedApiInstructions(focusedApiContext) {
+  if (!focusedApiContext?.fields?.length) {
+    return ""
+  }
+
+  return [
+    "Campos de API diretamente relacionados ao pedido atual:",
+    ...focusedApiContext.fields.slice(0, 8).map((field) => `${field.apiNome} > ${field.nome}: ${field.valor}`),
+  ].join("\n")
+}
+
+function buildSelectedProductInstructions(product) {
+  if (!product?.nome) {
+    return ""
+  }
+
+  return [
+    `Produto atualmente em foco: ${product.nome}.`,
+    product.descricao ? `Contexto do produto: ${product.descricao}` : "",
+    product.preco != null ? `Preco conhecido: ${product.preco}.` : "",
+    product.link ? `Link conhecido: ${product.link}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
+function buildHeuristicReplyResult(reply, metadata = {}) {
+  return {
+    reply,
+    assets: [],
+    usage: {
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+    metadata: {
+      provider: metadata.provider ?? "local_heuristic",
+      model: metadata.model ?? "heuristic",
+      agenteId: metadata.agenteId ?? null,
+      agenteNome: metadata.agenteNome ?? null,
+      routeStage: metadata.routeStage ?? "sales",
+      heuristicStage: metadata.heuristicStage ?? null,
+      domainStage: metadata.domainStage ?? "general",
+      catalogoProdutoAtual: metadata.catalogoProdutoAtual ?? null,
+    },
+  }
 }
 
 export function buildConversationHistory(conversation, texto) {
@@ -21,10 +120,6 @@ export function buildConversationHistory(conversation, texto) {
   }))
 
   return [
-    {
-      role: "system",
-      content: simulatedAgent.prompt,
-    },
     ...history,
     {
       role: "user",
@@ -38,31 +133,191 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     return options.generateSalesReply(history, context)
   }
 
-  const latestUserMessage = [...(history ?? [])].reverse().find((item) => item.role === "user")?.content ?? ""
   const openAiKey = process.env.OPENAI_API_KEY?.trim()
   const model = process.env.OPENAI_CHAT_MODEL?.trim() || "gpt-4o-mini"
+  const agentName = context?.agente?.nome?.trim() || ""
+  const agentPromptBase = context?.agente?.promptBase?.trim() || context?.agente?.descricao?.trim() || ""
+  const latestUserMessage = [...(history ?? [])].reverse().find((item) => item.role === "user")?.content ?? ""
+  const runtimeApis = Array.isArray(context?.runtimeApis) ? context.runtimeApis : []
+  const runtimeConfig = getAgentRuntimeConfig(context)
+  const structuredResponse = prefersStructuredReply(context)
+  const focusedApiContext = buildFocusedApiContext(latestUserMessage, runtimeApis)
+  const hasFocusedApiContext = focusedApiContext.fields.length > 0
+  const catalogFollowUpDecision =
+    hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual
+      ? decideCatalogFollowUpHeuristically(latestUserMessage, context, {
+          buildProductSearchCandidates,
+          shouldSearchProducts,
+        })
+      : null
+  const catalogReferenceReply = resolveCatalogReferenceHeuristicReply(catalogFollowUpDecision)
+  const mercadoLivreFlowState = resolveMercadoLivreFlowState({
+    latestUserMessage,
+    context,
+    catalogFollowUpDecision,
+    detectProductSearch: (message) =>
+      shouldContinueProductSearch(history, message, context, {
+        isGreetingOrAckMessage,
+      }),
+    buildProductSearchCandidates,
+  })
+  const mercadoLivreState = await resolveMercadoLivreHeuristicState({
+    context,
+    currentCatalogProduct: mercadoLivreFlowState.currentCatalogProduct,
+    referencedCatalogProducts: mercadoLivreFlowState.referencedCatalogProducts,
+  })
+  const mercadoLivreReply = resolveMercadoLivreHeuristicReply(mercadoLivreState)
+  const leadNameReplyDetected = isLikelyLeadNameReply(latestUserMessage, history, { extractName })
+  const extractedLeadName = leadNameReplyDetected ? extractName(latestUserMessage) : null
+  const leadNameAcknowledgementReply =
+    leadNameReplyDetected && extractedLeadName ? buildLeadNameAcknowledgementReply(extractedLeadName, true) : null
+  const currentCatalogProduct = mercadoLivreFlowState.currentCatalogProduct ?? context?.catalogo?.produtoAtual ?? null
+  const catalogPricingReply = runtimeConfig?.pricingCatalog?.enabled
+    ? buildCatalogPricingReply(history, context, {
+        normalizeText,
+        prefersStructuredReply,
+        runtimeConfig,
+      })
+    : buildCatalogPricingReply(currentCatalogProduct)
+  const shouldDeferLeadCapture =
+    Boolean(runtimeConfig?.leadCapture?.deferOnQuestions) &&
+    (isCommercialCapabilityMessage(latestUserMessage) || /\?/.test(String(latestUserMessage || "")))
+  const leadIdentificationReply =
+    !leadNameReplyDetected && !shouldDeferLeadCapture
+      ? maybeAskForLeadIdentification(context, history, latestUserMessage, {
+          normalizeText,
+          runtimeConfig,
+          isOutOfScopeForCatalog: (conversationHistory) =>
+            runtimeConfig?.leadCapture?.respectCatalogBoundary ? isOutOfScopeForCatalog(conversationHistory, { normalizeText }) : true,
+          isWhatsAppChannel: (runtimeContext) =>
+            String(runtimeContext?.channel?.kind ?? runtimeContext?.canal ?? "").toLowerCase() === "whatsapp",
+          isGreetingOrAckMessage: (message) => isGreetingOrAckMessage(message, { normalizeText }),
+        })
+      : null
+  const pipelineState = resolveConversationPipelineStageState({
+    hasFocusedApiContext,
+    hasCurrentCatalogContext: Boolean(currentCatalogProduct),
+    hasMercadoLivreContext: Boolean(mercadoLivreReply),
+    hasCatalogReferenceHeuristicReply: Boolean(catalogReferenceReply),
+    hasMercadoLivreHeuristicReply: Boolean(mercadoLivreReply),
+    leadIdentificationReply,
+    catalogPricingReply,
+    hasValidAgent: Boolean(context?.agente?.id && agentName && agentPromptBase),
+    hasOpenAiKey: Boolean(openAiKey),
+  })
+  const heuristicMetadata = {
+    agenteId: context?.agente?.id ?? null,
+    agenteNome: context?.agente?.nome ?? null,
+    routeStage: "sales",
+    domainStage: pipelineState.conversationDomainStage,
+    catalogoProdutoAtual: currentCatalogProduct ?? null,
+  }
 
-  if (!openAiKey) {
-    return {
-      reply: latestUserMessage
-        ? `Recebi sua mensagem: "${latestUserMessage}". Como posso te ajudar com isso?`
-        : "Como posso te ajudar?",
-      assets: [],
-      usage: {
-        inputTokens: 0,
-        outputTokens: 0,
-      },
-      metadata: {
-        provider: "local_fallback",
-        model: "local",
-        agenteId: context?.agente?.id ?? null,
-        agenteNome: context?.agente?.nome ?? null,
-        routeStage: "local",
-        heuristicStage: "fallback",
-        domainStage: "general",
-      },
+  if (!context?.agente?.id || !agentName || !agentPromptBase) {
+    throw new Error("Agente do chat sem configuracao valida de prompt.")
+  }
+
+  if (leadNameAcknowledgementReply) {
+    return buildHeuristicReplyResult(leadNameAcknowledgementReply, {
+      ...heuristicMetadata,
+      heuristicStage: "lead_name_acknowledgement",
+    })
+  }
+
+  if (hasFocusedApiContext && hasFactualApiSignal(latestUserMessage)) {
+    const apiReply = buildApiFallbackReply(latestUserMessage, runtimeApis)
+    if (apiReply) {
+      return buildHeuristicReplyResult(apiReply, {
+        ...heuristicMetadata,
+        heuristicStage: "api_runtime",
+        domainStage: "api_runtime",
+        provider: "api_runtime",
+      })
     }
   }
+
+  if (
+    catalogFollowUpDecision?.kind === "recent_product_reference_ambiguous" &&
+    Array.isArray(catalogFollowUpDecision.matchedProducts) &&
+    catalogFollowUpDecision.matchedProducts.length > 1
+  ) {
+    const productNames = catalogFollowUpDecision.matchedProducts
+      .slice(0, 3)
+      .map((item) => item?.nome)
+      .filter(Boolean)
+
+    if (productNames.length) {
+      return buildHeuristicReplyResult(`Encontrei mais de um item com esse perfil: ${productNames.join(", ")}. Me diga qual deles voce quer seguir.`, {
+        ...heuristicMetadata,
+        heuristicStage: "catalog_reference_ambiguous",
+        domainStage: "catalog",
+      })
+    }
+  }
+
+  if (catalogReferenceReply) {
+    return buildHeuristicReplyResult(catalogReferenceReply, {
+      ...heuristicMetadata,
+      heuristicStage: "catalog_reference",
+      domainStage: "catalog",
+    })
+  }
+
+  if (catalogPricingReply && /\b(preco|valor|quanto|custa)\b/i.test(latestUserMessage)) {
+    return buildHeuristicReplyResult(catalogPricingReply, {
+      ...heuristicMetadata,
+      heuristicStage: "catalog_pricing",
+      domainStage: "catalog",
+    })
+  }
+
+  if (mercadoLivreReply && /\b(gostei|esse|essa|detalhe|detalhes|link|garantia|frete|estoque|serve|combina)\b/i.test(latestUserMessage)) {
+    return buildHeuristicReplyResult(mercadoLivreReply, {
+      ...heuristicMetadata,
+      heuristicStage: "mercado_livre",
+      domainStage: "catalog",
+    })
+  }
+
+  if (leadIdentificationReply && !isGreetingOrAckMessage(latestUserMessage)) {
+    return buildHeuristicReplyResult(leadIdentificationReply, {
+      ...heuristicMetadata,
+      heuristicStage: "lead_capture",
+      domainStage: pipelineState.conversationDomainStage,
+    })
+  }
+
+  if (!openAiKey) {
+    throw new Error("OPENAI_API_KEY nao configurada para executar o agente do chat.")
+  }
+
+  const systemPrompt = [
+    buildSystemPrompt(
+      {
+        nome: agentName,
+        promptBase: agentPromptBase,
+      },
+      context,
+      structuredResponse
+    ),
+    buildRuntimePrompt(
+      {
+        nome: agentName,
+        promptBase: agentPromptBase,
+      },
+      context,
+      { structuredResponse }
+    ),
+    buildChannelReplyInstruction(context?.channel?.kind ?? context?.canal ?? "web"),
+    buildAnalyticalReplyInstruction(),
+    structuredResponse ? buildStructuredReplyInstruction() : "",
+    buildAgentAssetInstruction(Array.isArray(context?.agente?.arquivos) ? context.agente.arquivos : []),
+    buildConversationMemory(context),
+    buildFocusedApiInstructions(focusedApiContext),
+    buildSelectedProductInstructions(currentCatalogProduct),
+  ]
+    .filter(Boolean)
+    .join("\n\n")
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -75,13 +330,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       input: [
         {
           role: "system",
-          content: buildSystemPrompt(
-            {
-              nome: context?.agente?.nome ?? simulatedAgent.name,
-              promptBase: simulatedAgent.prompt,
-            },
-            context
-          ),
+          content: systemPrompt,
         },
         ...(history ?? []).slice(-12).map((item) => ({
           role: item.role === "assistant" ? "assistant" : "user",
@@ -100,7 +349,11 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const reply =
     payload.output_text ??
     payload.output?.flatMap((item) => item.content ?? [])?.find((item) => item.type === "output_text")?.text ??
-    "Nao consegui gerar uma resposta agora."
+    ""
+
+  if (!String(reply || "").trim()) {
+    throw new Error("OpenAI nao retornou texto util para o agente do chat.")
+  }
 
   return {
     reply,
@@ -115,8 +368,9 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       agenteId: context?.agente?.id ?? null,
       agenteNome: context?.agente?.nome ?? null,
       routeStage: "sales",
-      heuristicStage: null,
-      domainStage: "general",
+      heuristicStage: pipelineState.heuristicIntentStage ?? null,
+      domainStage: pipelineState.conversationDomainStage ?? "general",
+      catalogoProdutoAtual: currentCatalogProduct ?? null,
     },
   }
 }

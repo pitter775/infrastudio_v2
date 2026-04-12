@@ -10,17 +10,27 @@ export const INFRASTUDIO_HOME_WIDGET_SLUG = "infrastudio-home"
 
 export async function getInfraStudioHomeChatConfig() {
   const widget = await getChatWidgetBySlug(INFRASTUDIO_HOME_WIDGET_SLUG)
-  const projetoId = widget?.projetoId || INFRASTUDIO_HOME_PROJECT_ID
-  const projeto = await getProjetoById(projetoId)
+
+  if (!widget?.projetoId || !widget?.agenteId || widget.slug !== INFRASTUDIO_HOME_WIDGET_SLUG) {
+    return null
+  }
+
+  const projeto = await getProjetoById(widget.projetoId)
 
   if (!projeto?.id) {
     return null
   }
 
-  const agente = await getAgenteById(widget?.agenteId || INFRASTUDIO_HOME_AGENT_ID)
+  const agente = await getAgenteById(widget.agenteId)
   const agenteIdentifier = agente?.id || null
 
-  if (!agenteIdentifier || agente.projetoId !== projeto.id || !agente.ativo) {
+  if (
+    projeto.id !== INFRASTUDIO_HOME_PROJECT_ID ||
+    !agenteIdentifier ||
+    agente.id !== INFRASTUDIO_HOME_AGENT_ID ||
+    agente.projetoId !== projeto.id ||
+    !agente.ativo
+  ) {
     return null
   }
 
@@ -28,5 +38,9 @@ export async function getInfraStudioHomeChatConfig() {
     projeto: projeto.id,
     agente: agenteIdentifier,
     widget: widget?.slug || INFRASTUDIO_HOME_WIDGET_SLUG,
+    title: widget?.nome || "Chat",
+    theme: widget?.tema || "dark",
+    accent: widget?.corPrimaria || "#2563eb",
+    transparent: widget?.fundoTransparente !== false,
   }
 }

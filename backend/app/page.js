@@ -1,6 +1,5 @@
-import Script from "next/script"
-
 import { LandingPage } from '@/components/home/landing-page'
+import { HomeChatWidgetLoader } from "@/components/home/home-chat-widget-loader"
 import { getInfraStudioHomeChatConfig } from "@/lib/infrastudio-home"
 import { getSessionUser } from "@/lib/session"
 
@@ -13,16 +12,7 @@ export default async function Home() {
   return (
     <>
       <LandingPage currentUser={currentUser} />
-      {chatConfig ? (
-        <Script
-          id="infrastudio-home-chat"
-          src="/chat.js"
-          strategy="afterInteractive"
-          data-projeto={chatConfig.projeto}
-          data-agente={chatConfig.agente}
-          data-widget={chatConfig.widget}
-        />
-      ) : null}
+      {chatConfig ? <HomeChatWidgetLoader config={chatConfig} /> : null}
     </>
   )
 }

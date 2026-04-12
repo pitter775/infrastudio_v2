@@ -159,6 +159,59 @@ a {
   animation-play-state: running;
 }
 
+.infra-rich-editor:empty::before {
+  content: attr(data-placeholder);
+  color: #64748b;
+  pointer-events: none;
+}
+
+.agent-simulator-message p + p,
+.agent-simulator-message ul + p,
+.agent-simulator-message p + ul,
+.agent-simulator-message ul + ul,
+.agent-simulator-message h1 + p,
+.agent-simulator-message h2 + p,
+.agent-simulator-message h3 + p,
+.agent-simulator-message h1 + ul,
+.agent-simulator-message h2 + ul,
+.agent-simulator-message h3 + ul {
+  margin-top: 0.85rem;
+}
+
+.agent-simulator-message ul {
+  padding-left: 1.1rem;
+}
+
+.agent-simulator-message li + li {
+  margin-top: 0.35rem;
+}
+
+.agent-simulator-message h1,
+.agent-simulator-message h2,
+.agent-simulator-message h3 {
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.agent-simulator-message h1 {
+  font-size: 1.05rem;
+}
+
+.agent-simulator-message h2 {
+  font-size: 1rem;
+}
+
+.agent-simulator-message h3 {
+  font-size: 0.95rem;
+}
+
+.agent-simulator-message code {
+  border-radius: 0.375rem;
+  background: rgba(15, 23, 42, 0.08);
+  padding: 0.1rem 0.35rem;
+  font-size: 0.85em;
+}
+
 @keyframes tech-marquee {
   from {
     transform: translateX(0);

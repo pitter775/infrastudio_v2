@@ -68,6 +68,50 @@ function getSortValue(entry, key) {
   }
 }
 
+function getLabObservability(entry) {
+  const payload = entry?.payload && typeof entry.payload === "object" ? entry.payload : {}
+  const trace = payload.observability && typeof payload.observability === "object" ? payload.observability : null
+  const diagnostics = payload.diagnostics && typeof payload.diagnostics === "object" ? payload.diagnostics : {}
+
+  return {
+    provider: trace?.provider || diagnostics.provider || null,
+    model: trace?.model || diagnostics.model || null,
+    domainStage: trace?.domainStage || diagnostics.domainStage || null,
+    heuristicStage: trace?.heuristicStage || diagnostics.heuristicStage || null,
+    routeStage: trace?.routeStage || diagnostics.routeStage || null,
+    inputTokens: trace?.usage?.inputTokens ?? diagnostics.inputTokens ?? null,
+    outputTokens: trace?.usage?.outputTokens ?? diagnostics.outputTokens ?? null,
+    cost: trace?.usage?.estimatedCostUsd ?? diagnostics.custo ?? null,
+    matchedExpectedAgent: payload.matchedExpectedAgent,
+    matchedExpectedProject: payload.matchedExpectedProject,
+  }
+}
+
+function AiTraceDetails({ entry }) {
+  const trace = getLabObservability(entry)
+  const hasTrace = trace.provider || trace.domainStage || trace.heuristicStage || trace.routeStage
+
+  if (!hasTrace) {
+    return null
+  }
+
+  return (
+    <div className="mt-2 rounded-xl border border-sky-400/10 bg-sky-500/5 p-3">
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-sky-300">
+        IA trace
+      </div>
+      <div className="grid gap-2 text-xs text-slate-400 sm:grid-cols-2">
+        <div>provider: <span className="text-slate-200">{trace.provider || "n/a"}</span></div>
+        <div>modelo: <span className="text-slate-200">{trace.model || "n/a"}</span></div>
+        <div>dominio: <span className="text-slate-200">{trace.domainStage || "n/a"}</span></div>
+        <div>heuristica: <span className="text-slate-200">{trace.heuristicStage || "modelo"}</span></div>
+        <div>tokens: <span className="text-slate-200">{Number(trace.inputTokens ?? 0) + Number(trace.outputTokens ?? 0)}</span></div>
+        <div>custo: <span className="text-slate-200">US$ {Number(trace.cost ?? 0).toFixed(6)}</span></div>
+      </div>
+    </div>
+  )
+}
+
 function SortHeader({ label, sortKey, sort, onSort }) {
   const active = sort.key === sortKey
 
@@ -408,6 +452,14 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
                         {entry.payload?.widgetSlug ? <div>widget: {entry.payload.widgetSlug}</div> : null}
                         {entry.payload?.agente ? <div>agente: {entry.payload.agente}</div> : null}
                         {entry.payload?.chatId ? <div>chatId: {entry.payload.chatId}</div> : null}
+                        {entry.payload?.caseId ? <div>cenario: {entry.payload.caseId}</div> : null}
+                        {entry.payload?.matchedExpectedAgent != null ? (
+                          <div>agente esperado: {entry.payload.matchedExpectedAgent ? "ok" : "falhou"}</div>
+                        ) : null}
+                        {entry.payload?.matchedExpectedProject != null ? (
+                          <div>projeto esperado: {entry.payload.matchedExpectedProject ? "ok" : "falhou"}</div>
+                        ) : null}
+                        <AiTraceDetails entry={entry} />
                         {entry.payload?.errorSource ? <div>erro: {entry.payload.errorSource}</div> : null}
                         {entry.payload?.error ? <div>mensagem: {entry.payload.error}</div> : null}
                         {entry.payload?.elapsedMs != null ? <div>tempo: {entry.payload.elapsedMs} ms</div> : null}

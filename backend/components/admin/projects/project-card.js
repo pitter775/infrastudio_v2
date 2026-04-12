@@ -2,19 +2,114 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { animate, motion, useDragControls, useMotionValue } from 'framer-motion'
-import { GitBranch, LoaderCircle, Pencil, Workflow } from 'lucide-react'
+import { LoaderCircle, MessageSquare, MessageSquareText, PackageSearch, Pencil, PlugZap, Store } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+const integrationIconMap = {
+  apis: {
+    icon: PlugZap,
+    className: 'text-sky-300',
+    label: 'APIs',
+  },
+  whatsapp: {
+    icon: MessageSquare,
+    className: 'text-emerald-300',
+    label: 'WhatsApp',
+  },
+  chatWidget: {
+    icon: PackageSearch,
+    className: 'text-sky-300',
+    label: 'Chat widget',
+  },
+  mercadoLivre: {
+    icon: Store,
+    className: 'text-amber-300',
+    label: 'Mercado Livre',
+  },
+}
+
 function ProjectServiceIcon({ type }) {
+  const config = integrationIconMap[type] || integrationIconMap.apis
+  const Icon = config.icon
+
   return (
-    <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/5 bg-slate-900">
-      {type === 'workflow' ? (
-        <Workflow className="h-6 w-6 text-blue-400" />
-      ) : (
-        <GitBranch className="h-6 w-6 text-white" />
-      )}
+    <div className="flex min-w-[54px] flex-col items-center gap-1 text-center">
+      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/5 bg-slate-900">
+        <Icon className={cn('h-5 w-5', config.className)} />
+      </div>
+      <span className="max-w-[60px] text-[9px] font-medium leading-3 text-slate-500">
+        {config.label}
+      </span>
     </div>
   )
+}
+
+function TinyAvatar({ src, fallback }) {
+  if (!src) {
+    return null
+  }
+
+  return (
+    <span
+      className="inline-flex h-5 w-5 shrink-0 overflow-hidden rounded-full border border-white/10 bg-slate-800 align-middle"
+      style={{
+        backgroundImage: `url(${src})`,
+        backgroundPosition: 'center',
+        backgroundSize: 'cover',
+      }}
+      aria-hidden="true"
+    >
+      {fallback ? <span className="sr-only">{fallback}</span> : null}
+    </span>
+  )
+}
+
+function resolveEntityAvatar(project) {
+  const explicitLogo = project.logoUrl || project.agent?.logoUrl || ''
+  if (explicitLogo) {
+    return explicitLogo
+  }
+
+  const siteUrl = project.siteUrl || project.agent?.siteUrl || ''
+  if (!siteUrl) {
+    return ''
+  }
+
+  try {
+    return new URL('/favicon.ico', siteUrl).toString()
+  } catch {
+    return ''
+  }
+}
+
+function getProjectServiceIcons(project) {
+  const icons = []
+  const integrations = project.directConnections || project.integrations || {}
+
+  if (
+    (project.apis?.length || 0) > 0 ||
+    Number(integrations.apis || 0) > 0
+  ) {
+    icons.push('apis')
+  }
+
+  if (Number(integrations.whatsapp || 0) > 0) {
+    icons.push('whatsapp')
+  }
+
+  if (Number(integrations.chatWidget || 0) > 0) {
+    icons.push('chatWidget')
+  }
+
+  if (Number(integrations.mercadoLivre || 0) > 0) {
+    icons.push('mercadoLivre')
+  }
+
+  if (!icons.length) {
+    icons.push('apis')
+  }
+
+  return icons.slice(0, 4)
 }
 
 function getStatusLabel(status) {
@@ -38,9 +133,11 @@ function getOwnerInitials(owner) {
 
 export function AdminProjectCard({
   project,
+  serviceIcons,
   index = 0,
   onSelect,
   onEdit,
+  onTestAgent,
   loading = false,
   active = false,
   interactive = true,
@@ -49,7 +146,8 @@ export function AdminProjectCard({
   onDragStateChange,
   children,
 }) {
-  const icons = project.isDemo ? ['workflow', 'branch'] : ['branch', 'workflow']
+  const icons = Array.isArray(serviceIcons) && serviceIcons.length ? serviceIcons : getProjectServiceIcons(project)
+  const projectAvatarUrl = resolveEntityAvatar(project)
   const dragControls = useDragControls()
   const isDraggingRef = useRef(false)
   const dragEndedAtRef = useRef(0)
@@ -129,7 +227,10 @@ export function AdminProjectCard({
       >
         <div className="border-b border-white/5 p-5">
           <div className="flex items-center justify-between gap-3">
-            <h3 className="truncate font-medium text-white">{project.name}</h3>
+            <div className="flex min-w-0 items-center gap-2">
+              <TinyAvatar src={projectAvatarUrl} fallback={project.name} />
+              <h3 className="truncate font-medium text-white">{project.name}</h3>
+            </div>
             {loading ? (
               <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">
                 <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
@@ -155,20 +256,24 @@ export function AdminProjectCard({
         >
           {project.owner ? (
             <div className="pointer-events-none absolute left-2 top-2 z-10 flex max-w-[150px] items-center gap-1.5 rounded-full border border-white/5 bg-[#0b1120]/85 px-2 py-1 text-[10px] font-medium text-slate-400 backdrop-blur">
-              <span
-                className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[9px] font-semibold uppercase text-slate-200"
-                style={
-                  project.owner.avatarUrl
-                    ? {
-                        backgroundImage: `url(${project.owner.avatarUrl})`,
-                        backgroundPosition: 'center',
-                        backgroundSize: 'cover',
-                      }
-                    : undefined
-                }
-              >
-                {project.owner.avatarUrl ? null : getOwnerInitials(project.owner)}
-              </span>
+              {projectAvatarUrl ? (
+                <TinyAvatar src={projectAvatarUrl} fallback={project.name} />
+              ) : (
+                <span
+                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[9px] font-semibold uppercase text-slate-200"
+                  style={
+                    project.owner.avatarUrl
+                      ? {
+                          backgroundImage: `url(${project.owner.avatarUrl})`,
+                          backgroundPosition: 'center',
+                          backgroundSize: 'cover',
+                        }
+                      : undefined
+                  }
+                >
+                  {project.owner.avatarUrl ? null : getOwnerInitials(project.owner)}
+                </span>
+              )}
               <span className="truncate">{project.owner.name}</span>
             </div>
           ) : null}
@@ -186,7 +291,7 @@ export function AdminProjectCard({
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-white/5 p-4 text-[11px] font-medium text-slate-500">
+        <div className="flex items-center justify-between gap-3 border-t border-white/5 p-4 text-[11px] font-medium text-slate-500">
           <div className="flex min-w-0 items-center gap-1.5">
             <span
               className={cn(
@@ -196,20 +301,37 @@ export function AdminProjectCard({
             />
             <span className="truncate">{getStatusLabel(project.status)}</span>
           </div>
-          {onEdit ? (
-            <button
-              type="button"
-              onClick={(event) => {
-                event.preventDefault()
-                event.stopPropagation()
-                onEdit(project)
-              }}
-              className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-400 transition-colors hover:border-amber-400/25 hover:bg-amber-500/10 hover:text-amber-100"
-              title="Editar projeto"
-            >
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            {onTestAgent ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onTestAgent(project)
+                }}
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-sky-400/25 bg-sky-500/10 px-3 text-[11px] font-semibold text-sky-100 transition-colors hover:border-sky-300/45 hover:bg-sky-500/20"
+                title="Testar agente"
+              >
+                <MessageSquareText className="h-3.5 w-3.5" />
+                Testar
+              </button>
+            ) : null}
+            {onEdit ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+                  onEdit(project)
+                }}
+                className="flex h-7 w-7 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] text-slate-400 transition-colors hover:border-amber-400/25 hover:bg-amber-500/10 hover:text-amber-100"
+                title="Editar projeto"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </motion.article>

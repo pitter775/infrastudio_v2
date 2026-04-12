@@ -32,6 +32,25 @@ CREATE TABLE public.agente_arquivos (
   CONSTRAINT agente_arquivos_projeto_agente_fkey FOREIGN KEY (agente_id) REFERENCES public.agentes(projeto_id),
   CONSTRAINT agente_arquivos_projeto_agente_fkey FOREIGN KEY (projeto_id) REFERENCES public.agentes(projeto_id)
 );
+CREATE TABLE public.agente_versoes (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  agente_id uuid NOT NULL,
+  projeto_id uuid NOT NULL,
+  version_number integer NOT NULL,
+  nome character varying,
+  descricao text,
+  prompt_base text,
+  configuracoes jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true,
+  source character varying NOT NULL DEFAULT 'manual_update'::character varying,
+  note text,
+  created_by uuid,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT agente_versoes_pkey PRIMARY KEY (id),
+  CONSTRAINT agente_versoes_agente_id_fkey FOREIGN KEY (agente_id) REFERENCES public.agentes(id),
+  CONSTRAINT agente_versoes_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT agente_versoes_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id)
+);
 CREATE TABLE public.agentes (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   projeto_id uuid,
@@ -57,6 +76,26 @@ CREATE TABLE public.api_campos (
   created_at timestamp without time zone NOT NULL DEFAULT now(),
   CONSTRAINT api_campos_pkey PRIMARY KEY (id),
   CONSTRAINT api_campos_api_id_fkey FOREIGN KEY (api_id) REFERENCES public.apis(id)
+);
+CREATE TABLE public.api_versoes (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  api_id uuid NOT NULL,
+  projeto_id uuid NOT NULL,
+  version_number integer NOT NULL,
+  nome character varying,
+  url text,
+  metodo character varying DEFAULT 'GET'::character varying,
+  descricao text,
+  configuracoes jsonb NOT NULL DEFAULT '{}'::jsonb,
+  ativo boolean NOT NULL DEFAULT true,
+  source text NOT NULL DEFAULT 'manual_update'::text,
+  note text,
+  created_by uuid,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT api_versoes_pkey PRIMARY KEY (id),
+  CONSTRAINT api_versoes_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.usuarios(id),
+  CONSTRAINT api_versoes_api_id_fkey FOREIGN KEY (api_id) REFERENCES public.apis(id),
+  CONSTRAINT api_versoes_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
 );
 CREATE TABLE public.apis (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
@@ -331,6 +370,8 @@ CREATE TABLE public.projetos (
   modelo_id uuid,
   owner_user_id uuid,
   is_demo boolean NOT NULL DEFAULT false,
+  demo_expires_at timestamp without time zone,
+  demo_status character varying,
   CONSTRAINT projetos_pkey PRIMARY KEY (id),
   CONSTRAINT projetos_modelo_id_fkey FOREIGN KEY (modelo_id) REFERENCES public.modelos(id),
   CONSTRAINT projetos_owner_user_id_fkey FOREIGN KEY (owner_user_id) REFERENCES public.usuarios(id)

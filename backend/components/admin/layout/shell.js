@@ -182,7 +182,7 @@ export function AdminShell({ user, children }) {
   const pathname = usePathname()
   const attendanceRoute = pathname.startsWith('/admin/atendimento')
   const projectDetailRoute = pathname.startsWith('/admin/projetos/')
-  const [collapsed, setCollapsed] = useState(attendanceRoute)
+  const [collapsed, setCollapsed] = useState(attendanceRoute || projectDetailRoute)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [pendingHref, setPendingHref] = useState(null)
   const contentBackgroundStyle = projectDetailRoute
@@ -193,10 +193,10 @@ export function AdminShell({ user, children }) {
     : undefined
 
   useEffect(() => {
-    setCollapsed(attendanceRoute)
+    setCollapsed(attendanceRoute || projectDetailRoute)
     setMobileOpen(false)
     setPendingHref(null)
-  }, [attendanceRoute, pathname])
+  }, [attendanceRoute, pathname, projectDetailRoute])
 
   function handleNavigate(href) {
     if (!href || href === pathname) {
@@ -221,6 +221,14 @@ export function AdminShell({ user, children }) {
       window.removeEventListener('admin-project-sheet-toggle', handleProjectSheetToggle)
     }
   }, [projectDetailRoute])
+
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('admin-sidebar-state-change', {
+        detail: { collapsed },
+      }),
+    )
+  }, [collapsed])
 
   return (
     <TooltipProvider>

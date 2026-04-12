@@ -5,14 +5,31 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 const agenteFields =
   "id, slug, nome, descricao, prompt_base, configuracoes, ativo, projeto_id, modelo_id, created_at"
 
+const agenteVersionFields =
+  "id, agente_id, projeto_id, version_number, nome, descricao, prompt_base, configuracoes, ativo, source, note, created_by, created_at"
+
+function normalizeAgentConfigurations(configuracoes) {
+  return configuracoes && typeof configuracoes === "object" && !Array.isArray(configuracoes) ? { ...configuracoes } : {}
+}
+
 function mapAgent(row) {
+  const configuracoes = normalizeAgentConfigurations(row.configuracoes)
+  const brand = configuracoes.brand && typeof configuracoes.brand === "object" && !Array.isArray(configuracoes.brand)
+    ? configuracoes.brand
+    : {}
   return {
     id: row.id,
     nome: row.nome?.trim() || "Agente sem nome",
     slug: row.slug?.trim() || null,
     descricao: row.descricao?.trim() || "",
     promptBase: row.prompt_base?.trim() || "",
-    configuracoes: row.configuracoes ?? null,
+    configuracoes,
+    logoUrl: typeof brand.logoUrl === "string" ? brand.logoUrl.trim() : "",
+    siteUrl: typeof brand.siteUrl === "string" ? brand.siteUrl.trim() : "",
+    runtimeConfig:
+      configuracoes.runtimeConfig && typeof configuracoes.runtimeConfig === "object" && !Array.isArray(configuracoes.runtimeConfig)
+        ? { ...configuracoes.runtimeConfig }
+        : null,
     ativo: row.ativo !== false,
     projetoId: row.projeto_id ?? null,
     modeloId: row.modelo_id ?? null,
@@ -20,6 +37,43 @@ function mapAgent(row) {
     arquivos: [],
     createdAt: row.created_at ?? new Date().toISOString(),
   }
+}
+
+function mapAgentVersion(row) {
+  const configuracoes = normalizeAgentConfigurations(row.configuracoes)
+  const brand = configuracoes.brand && typeof configuracoes.brand === "object" && !Array.isArray(configuracoes.brand)
+    ? configuracoes.brand
+    : {}
+  return {
+    id: row.id,
+    agenteId: row.agente_id,
+    projetoId: row.projeto_id,
+    versionNumber: row.version_number,
+    nome: row.nome?.trim() || "Agente sem nome",
+    descricao: row.descricao?.trim() || "",
+    promptBase: row.prompt_base || "",
+    configuracoes,
+    logoUrl: typeof brand.logoUrl === "string" ? brand.logoUrl.trim() : "",
+    siteUrl: typeof brand.siteUrl === "string" ? brand.siteUrl.trim() : "",
+    runtimeConfig:
+      configuracoes.runtimeConfig && typeof configuracoes.runtimeConfig === "object" && !Array.isArray(configuracoes.runtimeConfig)
+        ? { ...configuracoes.runtimeConfig }
+        : null,
+    ativo: row.ativo !== false,
+    source: row.source || "manual_update",
+    note: row.note || "",
+    createdBy: row.created_by ?? null,
+    createdAt: row.created_at ?? new Date().toISOString(),
+  }
+}
+
+function isMissingAgentVersionTableError(error) {
+  const message = String(error?.message || error || "")
+  return error?.code === "42P01" || error?.code === "PGRST205" || /agente_versoes/i.test(message)
+}
+
+function isAgentVersionAccessError(error) {
+  return error?.code === "42501"
 }
 
 function userCanAccessProject(user, projectId) {
@@ -31,12 +85,95 @@ function userCanAccessProject(user, projectId) {
 }
 
 function normalizeAgentUpdate(input) {
+  const configuracoes = normalizeAgentConfigurations(input.configuracoes)
+  if (input.runtimeConfig && typeof input.runtimeConfig === "object" && !Array.isArray(input.runtimeConfig)) {
+    configuracoes.runtimeConfig = input.runtimeConfig
+  }
+
   return {
     nome: String(input.nome || "").trim(),
     descricao: String(input.descricao || "").trim(),
     prompt_base: String(input.promptBase || "").trim(),
+    configuracoes,
     ativo: input.ativo === false ? false : true,
     updated_at: new Date().toISOString(),
+  }
+}
+
+async function getNextAgentVersionNumber(supabase, agenteId) {
+  const { data, error } = await supabase
+    .from("agente_versoes")
+    .select("version_number")
+    .eq("agente_id", agenteId)
+    .order("version_number", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return Number(data?.version_number ?? 0) + 1
+}
+
+async function createAgentVersionSnapshot(supabase, agentRow, input = {}) {
+  if (!agentRow?.id || !agentRow?.projeto_id) {
+    return null
+  }
+
+  const versionNumber = await getNextAgentVersionNumber(supabase, agentRow.id)
+  const { data, error } = await supabase
+    .from("agente_versoes")
+    .insert({
+      agente_id: agentRow.id,
+      projeto_id: agentRow.projeto_id,
+      version_number: versionNumber,
+      nome: agentRow.nome ?? null,
+      descricao: agentRow.descricao ?? null,
+      prompt_base: agentRow.prompt_base ?? null,
+      configuracoes: normalizeAgentConfigurations(agentRow.configuracoes),
+      ativo: agentRow.ativo !== false,
+      source: input.source || "manual_update",
+      note: input.note || null,
+      created_by: input.userId ?? null,
+    })
+    .select(agenteVersionFields)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data ? mapAgentVersion(data) : null
+}
+
+export async function listAgentVersionsForUser({ agenteId, projetoId, limit = 12 }, user) {
+  if (!agenteId || !projetoId || !userCanAccessProject(user, projetoId)) {
+    return []
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("agente_versoes")
+      .select(agenteVersionFields)
+      .eq("agente_id", agenteId)
+      .eq("projeto_id", projetoId)
+      .order("version_number", { ascending: false })
+      .limit(Math.min(Math.max(Number(limit) || 12, 1), 50))
+
+    if (error) {
+      if (isMissingAgentVersionTableError(error) || isAgentVersionAccessError(error)) {
+        return []
+      }
+      console.error("[agentes] failed to list agent versions", error)
+      return []
+    }
+
+    return (data ?? []).map(mapAgentVersion)
+  } catch (error) {
+    console.error("[agentes] failed to list agent versions", error)
+    return []
   }
 }
 
@@ -140,12 +277,12 @@ export async function getAgenteByIdentifier(identifier, projetoId) {
   }
 }
 
-export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao, promptBase, ativo }, user) {
+export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao, promptBase, ativo, runtimeConfig, configuracoes }, user) {
   if (!agenteId || !projetoId || !userCanAccessProject(user, projetoId)) {
     return null
   }
 
-  const payload = normalizeAgentUpdate({ nome, descricao, promptBase, ativo })
+  const payload = normalizeAgentUpdate({ nome, descricao, promptBase, ativo, runtimeConfig, configuracoes })
 
   if (!payload.nome || !payload.prompt_base) {
     return null
@@ -153,6 +290,36 @@ export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao
 
   try {
     const supabase = getSupabaseAdminClient()
+    const { data: currentAgent, error: currentAgentError } = await supabase
+      .from("agentes")
+      .select(agenteFields)
+      .eq("id", agenteId)
+      .eq("projeto_id", projetoId)
+      .maybeSingle()
+
+    if (currentAgentError || !currentAgent) {
+      if (currentAgentError) {
+        console.error("[agentes] failed to read agent before update", currentAgentError)
+      }
+      return null
+    }
+
+    try {
+      await createAgentVersionSnapshot(supabase, currentAgent, {
+        source: "manual_update",
+        note: "Snapshot antes de salvar alteracoes do agente.",
+        userId: user?.id ?? null,
+      })
+    } catch (versionError) {
+      if (isMissingAgentVersionTableError(versionError)) {
+        console.warn("[agentes] agent versioning table not available; update will continue")
+      } else if (isAgentVersionAccessError(versionError)) {
+        console.warn("[agentes] agent versioning table access denied; update will continue")
+      } else {
+        console.error("[agentes] failed to create agent version", versionError)
+        return null
+      }
+    }
 
     if (payload.ativo) {
       const { error: deactivateError } = await supabase
@@ -185,6 +352,131 @@ export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao
     return mapAgent(data)
   } catch (error) {
     console.error("[agentes] failed to update agent", error)
+    return null
+  }
+}
+
+export async function restoreAgentVersionForUser({ agenteId, projetoId, versionId }, user) {
+  if (!agenteId || !projetoId || !versionId || !userCanAccessProject(user, projetoId)) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const [{ data: currentAgent, error: currentAgentError }, { data: version, error: versionError }] = await Promise.all([
+      supabase.from("agentes").select(agenteFields).eq("id", agenteId).eq("projeto_id", projetoId).maybeSingle(),
+      supabase
+        .from("agente_versoes")
+        .select(agenteVersionFields)
+        .eq("id", versionId)
+        .eq("agente_id", agenteId)
+        .eq("projeto_id", projetoId)
+        .maybeSingle(),
+    ])
+
+    if (currentAgentError || versionError || !currentAgent || !version) {
+      if (currentAgentError) console.error("[agentes] failed to read agent before restore", currentAgentError)
+      if (versionError) console.error("[agentes] failed to read agent version", versionError)
+      return null
+    }
+
+    try {
+      await createAgentVersionSnapshot(supabase, currentAgent, {
+        source: "rollback",
+        note: `Snapshot antes de restaurar versao ${version.version_number}.`,
+        userId: user?.id ?? null,
+      })
+    } catch (snapshotError) {
+      console.error("[agentes] failed to create rollback snapshot", snapshotError)
+      return null
+    }
+
+    const { data, error } = await supabase
+      .from("agentes")
+      .update({
+        nome: version.nome,
+        descricao: version.descricao,
+        prompt_base: version.prompt_base,
+        configuracoes: normalizeAgentConfigurations(version.configuracoes),
+        ativo: version.ativo !== false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", agenteId)
+      .eq("projeto_id", projetoId)
+      .select(agenteFields)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[agentes] failed to restore agent version", error)
+      }
+      return null
+    }
+
+    return mapAgent(data)
+  } catch (error) {
+    console.error("[agentes] failed to restore agent version", error)
+    return null
+  }
+}
+
+export async function updateAgentBrandingForUser({ agenteId, projetoId, siteUrl, logoUrl }, user) {
+  if (!agenteId || !projetoId || !userCanAccessProject(user, projetoId)) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data: currentAgent, error: currentAgentError } = await supabase
+      .from("agentes")
+      .select(agenteFields)
+      .eq("id", agenteId)
+      .eq("projeto_id", projetoId)
+      .maybeSingle()
+
+    if (currentAgentError || !currentAgent) {
+      if (currentAgentError) {
+        console.error("[agentes] failed to read agent before branding update", currentAgentError)
+      }
+      return null
+    }
+
+    const currentConfig = normalizeAgentConfigurations(currentAgent.configuracoes)
+    const currentBrand =
+      currentConfig.brand && typeof currentConfig.brand === "object" && !Array.isArray(currentConfig.brand)
+        ? currentConfig.brand
+        : {}
+
+    const nextConfig = {
+      ...currentConfig,
+      brand: {
+        ...currentBrand,
+        siteUrl: String(siteUrl || "").trim(),
+        logoUrl: String(logoUrl || "").trim(),
+      },
+    }
+
+    const { data, error } = await supabase
+      .from("agentes")
+      .update({
+        configuracoes: nextConfig,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", agenteId)
+      .eq("projeto_id", projetoId)
+      .select(agenteFields)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[agentes] failed to update agent branding", error)
+      }
+      return null
+    }
+
+    return mapAgent(data)
+  } catch (error) {
+    console.error("[agentes] failed to update agent branding", error)
     return null
   }
 }
