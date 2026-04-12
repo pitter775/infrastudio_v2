@@ -33,6 +33,84 @@ export async function signInWithProjectAuth(email, password) {
   }
 }
 
+export async function registerWithProjectAuth(input) {
+  try {
+    const response = await fetch("/api/auth/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(input),
+    })
+    const payload = await response.json()
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: payload.error ?? "Nao foi possivel concluir seu cadastro agora.",
+        message: null,
+      }
+    }
+
+    return {
+      ok: true,
+      error: null,
+      message: payload.message ?? "Conta criada. Voce ja pode entrar.",
+    }
+  } catch (error) {
+    console.error("[auth] register request failed", error)
+
+    return {
+      ok: false,
+      error: "Nao foi possivel concluir seu cadastro agora.",
+      message: null,
+    }
+  }
+}
+
+export async function signInWithSocialProvider(provider) {
+  if (!["google", "github", "facebook"].includes(provider)) {
+    return { ok: false, error: "Provider social invalido." }
+  }
+
+  window.location.href = `/api/auth/oauth/start?provider=${encodeURIComponent(provider)}`
+  return { ok: true, error: null }
+}
+
+export async function resendVerificationEmail(email) {
+  try {
+    const response = await fetch("/api/auth/resend-verification", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    })
+    const payload = await response.json()
+
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: payload.error ?? "Nao foi possivel reenviar a confirmacao agora.",
+        message: null,
+      }
+    }
+
+    return {
+      ok: true,
+      error: null,
+      message: payload.message ?? "Conta liberada para login.",
+    }
+  } catch (error) {
+    console.error("[auth] resend verification request failed", error)
+    return {
+      ok: false,
+      error: "Nao foi possivel reenviar a confirmacao agora.",
+      message: null,
+    }
+  }
+}
+
 export async function getCurrentProjectUser() {
   try {
     const response = await fetch("/api/auth/me", {

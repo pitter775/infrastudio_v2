@@ -5,9 +5,10 @@ import { buildChatUsageTelemetry } from "@/lib/chat-usage-metrics"
 import { enrichLeadContext, executeSalesOrchestrator } from "@/lib/chat/orchestrator"
 import { getChatHandoffByChatId, requestHumanHandoff, shouldPauseAssistantForHandoff } from "@/lib/chat-handoffs"
 import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, updateChatContext, updateChatStats } from "@/lib/chats"
-import { DEFAULT_HOME_WIDGET_SLUG, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
+import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
+import { createLogEntry } from "@/lib/logs"
 import { estimateOpenAICostUsd } from "@/lib/openai-pricing"
-import { getProjetoById, getProjetoByIdentifier, listProjectsForUser } from "@/lib/projetos"
+import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
 
 function sanitizePhone(phone) {
   return String(phone || "").replace(/\D/g, "")
@@ -29,6 +30,32 @@ function normalizeInboundPhoneCandidate(value) {
 
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function buildRuntimeLogContext(runtimeState, extra = {}) {
+  return {
+    projetoId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
+    agenteId: runtimeState?.resolved?.agente?.id ?? runtimeState?.session?.chat?.agenteId ?? null,
+    projectSlug: runtimeState?.resolved?.projeto?.slug ?? null,
+    agentName: runtimeState?.resolved?.agente?.nome ?? null,
+    widgetSlug: runtimeState?.resolved?.widget?.slug ?? null,
+    channelKind: runtimeState?.prelude?.channelKind ?? null,
+    chatId: runtimeState?.session?.chat?.id ?? null,
+    stage: runtimeState?.stage ?? null,
+    ...extra,
+  }
+}
+
+async function recordChatRuntimeEvent(runtimeState, input = {}) {
+  const payload = buildRuntimeLogContext(runtimeState, input.payload ?? {})
+  return createLogEntry({
+    projectId: payload.projetoId,
+    type: input.type ?? "chat_runtime_event",
+    origin: input.origin ?? "chat_runtime",
+    level: input.level ?? "info",
+    description: input.description ?? "Evento interno do runtime do chat.",
+    payload,
+  })
 }
 
 export function getWhatsAppContactNameFromContext(context) {
@@ -759,7 +786,21 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     }
   }
 
-  const widgetSlug = typeof body?.widgetSlug === "string" && body.widgetSlug.trim() ? body.widgetSlug.trim() : DEFAULT_HOME_WIDGET_SLUG
+  const widgetSlug = typeof body?.widgetSlug === "string" && body.widgetSlug.trim() ? body.widgetSlug.trim() : null
+  if (!widgetSlug) {
+    return {
+      projeto: null,
+      agente: null,
+      widget: null,
+      lockedToAgent: true,
+      channel: {
+        kind: channelKind,
+        widgetSlug: null,
+        identificador_externo: body?.identificadorExterno?.trim() || null,
+      },
+    }
+  }
+
   const widget = await getWidgetBySlug(widgetSlug)
 
   if (!widget?.projetoId) {
@@ -801,35 +842,9 @@ export async function resolveChatChannel(body = {}, deps = {}) {
 export async function resolveProjectAgent(input = {}) {
   try {
     const resolved = await resolveChatChannel(input)
-    if (resolved.projeto || resolved.agente) {
-      return {
-        projeto: resolved.projeto,
-        agente: resolved.agente,
-      }
-    }
-
-    const projetos = await listProjectsForUser({
-      role: "admin",
-      memberships: [],
-    })
-
-    for (const projeto of projetos) {
-      const agente = await getAgenteAtivo(projeto.id)
-
-      if (agente) {
-        return {
-          projeto: {
-            id: projeto.id,
-            nome: projeto.name,
-            slug: projeto.slug,
-            tipo: projeto.type,
-            descricao: projeto.description,
-            status: projeto.status,
-            isDemo: projeto.isDemo === true,
-          },
-          agente,
-        }
-      }
+    return {
+      projeto: resolved.projeto,
+      agente: resolved.agente,
     }
   } catch (error) {
     console.error("CHAT PROJECT/AGENT FALLBACK:", error)
@@ -1182,6 +1197,18 @@ export function buildFinalChatResult(input) {
   }
 }
 
+function attachRuntimeDiagnostics(result, runtimeState) {
+  return {
+    ...result,
+    diagnostics: {
+      projetoId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
+      agenteId: runtimeState?.resolved?.agente?.id ?? runtimeState?.session?.chat?.agenteId ?? null,
+      widgetSlug: runtimeState?.resolved?.widget?.slug ?? null,
+      channelKind: runtimeState?.prelude?.channelKind ?? null,
+    },
+  }
+}
+
 export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
   const nextContext = buildNextContext({
     currentContext: runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
@@ -1340,6 +1367,23 @@ export async function executeV2RuntimePrelude(body, options = {}) {
     options
   )
   if (handoffState.paused) {
+    await recordChatRuntimeEvent(
+      {
+        stage: "handoff_paused",
+        prelude,
+        resolved,
+        session,
+      },
+      {
+        type: "chat_handoff_event",
+        origin: "chat_runtime",
+        level: "warn",
+        description: "Assistente pausado por handoff humano ativo.",
+        payload: {
+          handoffStatus: handoffState.handoff?.status ?? null,
+        },
+      },
+    )
     return {
       stage: "handoff_paused",
       prelude,
@@ -1361,6 +1405,24 @@ export async function executeV2RuntimePrelude(body, options = {}) {
     options
   )
   if (billingState.blocked) {
+    await recordChatRuntimeEvent(
+      {
+        stage: "billing_blocked",
+        prelude,
+        resolved,
+        session,
+      },
+      {
+        type: "billing_event",
+        origin: "chat_runtime",
+        level: "warn",
+        description: "Atendimento bloqueado por limite do projeto.",
+        payload: {
+          billingAllowed: false,
+          billingCode: billingState.billingAccess?.code ?? null,
+        },
+      },
+    )
     return {
       stage: "billing_blocked",
       prelude,
@@ -1392,7 +1454,7 @@ export async function executeV2RuntimePrelude(body, options = {}) {
 export async function processChatRequest(body, options = {}) {
   const runtimeState = await executeV2RuntimePrelude(body, options)
   if (runtimeState.result) {
-    return runtimeState.result
+    return attachRuntimeDiagnostics(runtimeState.result, runtimeState)
   }
 
   if (typeof options.executeCore === "function") {
@@ -1402,28 +1464,99 @@ export async function processChatRequest(body, options = {}) {
     )
   }
 
-  const runtimeApis =
-    runtimeState.resolved?.agente?.id && runtimeState.resolved?.projeto?.id
-      ? await (options.loadAgentRuntimeApis ?? loadAgentRuntimeApis)({
-          agenteId: runtimeState.resolved.agente.id,
-          projetoId: runtimeState.resolved.projeto.id,
-        })
-      : []
-  const aiContext = mergeContext(
-    runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
-    runtimeApis.length ? { runtimeApis } : null,
-  )
+  try {
+    const runtimeApis =
+      runtimeState.resolved?.agente?.id && runtimeState.resolved?.projeto?.id
+        ? await (options.loadAgentRuntimeApis ?? loadAgentRuntimeApis)({
+            agenteId: runtimeState.resolved.agente.id,
+            projetoId: runtimeState.resolved.projeto.id,
+          })
+        : []
 
-  const aiResult = await executeSalesOrchestrator(
-    runtimeState.history.map((item) => ({
-      role: item.role,
-      content: item.conteudo,
-    })),
-    aiContext,
-    options
-  )
+    if (runtimeState.resolved?.agente?.id || runtimeState.resolved?.projeto?.id) {
+      await recordChatRuntimeEvent(runtimeState, {
+        type: "api_runtime_event",
+        origin: "chat_runtime",
+        level: "info",
+        description: "APIs do agente carregadas para o runtime.",
+        payload: {
+          apiCount: Array.isArray(runtimeApis) ? runtimeApis.length : 0,
+        },
+      })
+    }
 
-  return finalizeV2AiTurn(runtimeState, aiResult, options)
+    const aiContext = mergeContext(
+      runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
+      runtimeApis.length ? { runtimeApis } : null,
+    )
+
+    const aiResult = await executeSalesOrchestrator(
+      runtimeState.history.map((item) => ({
+        role: item.role,
+        content: item.conteudo,
+      })),
+      aiContext,
+      options
+    )
+
+    await recordChatRuntimeEvent(runtimeState, {
+      type: aiResult?.metadata?.provider === "openai" ? "openai_event" : "chat_runtime_event",
+      origin: aiResult?.metadata?.provider === "openai" ? "openai" : "chat_runtime",
+      level: "info",
+      description:
+        aiResult?.metadata?.provider === "openai"
+          ? "Resposta gerada via OpenAI."
+          : "Resposta gerada pelo runtime local.",
+      payload: {
+        provider: aiResult?.metadata?.provider ?? null,
+        model: aiResult?.metadata?.model ?? null,
+        routeStage: aiResult?.metadata?.routeStage ?? null,
+        heuristicStage: aiResult?.metadata?.heuristicStage ?? null,
+        domainStage: aiResult?.metadata?.domainStage ?? null,
+        inputTokens: aiResult?.usage?.inputTokens ?? 0,
+        outputTokens: aiResult?.usage?.outputTokens ?? 0,
+      },
+    })
+
+    const finalResult = await finalizeV2AiTurn(runtimeState, aiResult, options)
+
+    await recordChatRuntimeEvent(runtimeState, {
+      type: "chat_runtime_event",
+      origin: "chat_runtime",
+      level: "info",
+      description: "Turno da assistente persistido com sucesso.",
+      payload: {
+        finalReplyHasAssets: Array.isArray(finalResult.assets) && finalResult.assets.length > 0,
+        messageSequenceCount: Array.isArray(finalResult.messageSequence) ? finalResult.messageSequence.length : 0,
+      },
+    })
+
+    return attachRuntimeDiagnostics(finalResult, runtimeState)
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Falha interna no runtime do chat."
+    const lowered = message.toLowerCase()
+
+    await recordChatRuntimeEvent(runtimeState, {
+      type:
+        lowered.includes("openai")
+          ? "openai_error"
+          : lowered.includes("api")
+            ? "api_runtime_error"
+            : "chat_runtime_error",
+      origin: lowered.includes("openai") ? "openai" : "chat_runtime",
+      level: "error",
+      description: message,
+      payload: {
+        errorSource: lowered.includes("openai")
+          ? "openai"
+          : lowered.includes("api")
+            ? "api_runtime"
+            : "runtime",
+      },
+    })
+
+    throw error
+  }
 }
 
 export async function processAdminConversationChat(input) {

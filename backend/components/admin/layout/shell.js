@@ -5,17 +5,21 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
+  Bot,
   Bell,
+  CreditCard,
   ChartColumn,
   ChevronLeft,
   ChevronRight,
   EllipsisVertical,
+  FlaskConical,
+  House,
   LayoutGrid,
   LoaderCircle,
   LogOut,
   Menu,
+  MessageSquareQuote,
   MessageSquareText,
-  Settings,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -29,10 +33,14 @@ import {
 import { cn } from '@/lib/utils'
 
 const navItems = [
+  { label: 'Dashboard', icon: ChartColumn, href: '/admin/dashboard' },
   { label: 'Projetos', icon: LayoutGrid, href: '/admin/projetos' },
   { label: 'Atendimento', icon: MessageSquareText, href: '/admin/atendimento' },
+  { label: 'Feedback', icon: MessageSquareQuote, href: '/admin/feedback', adminOnly: true },
+  { label: 'Adriana', icon: Bot, href: '/admin/adriana', adminOnly: true },
   { label: 'Usuarios', icon: Users, href: '/admin/usuarios' },
-  { label: 'Dashboard', icon: ChartColumn, href: '/admin' },
+  { label: 'Billing', icon: CreditCard, href: '/admin/billing' },
+  { label: 'Laboratorio', icon: FlaskConical, href: '/admin/laboratorio' },
 ]
 
 function isItemActive(item, pathname) {
@@ -89,6 +97,7 @@ function SidebarItem({ item, pathname, collapsed, pendingHref, onNavigate }) {
 
 function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavigate }) {
   const userInitial = user?.name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || 'U'
+  const availableNavItems = navItems.filter((item) => !item.adminOnly || user?.role === "admin")
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -98,13 +107,22 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
   return (
     <>
       <div className="px-4">
-        <div className={cn('mb-10 flex items-center gap-2 px-3', collapsed && 'justify-center px-0')}>
-          <div className="h-5 w-5 rounded-sm bg-blue-500" />
-          {collapsed ? null : <span className="text-sm font-semibold text-white">InfraStudio</span>}
-        </div>
+      <div className={cn('mb-10 flex items-center gap-2 px-3', collapsed && 'justify-center px-0')}>
+  <img 
+    src="/logo.png" 
+    alt="InfraStudio Logo"
+    className="h-5 w-5 object-contain"
+  />
+
+  {collapsed ? null : (
+    <span className="text-sm font-semibold text-white">
+      InfraStudio
+    </span>
+  )}
+</div>
 
         <nav className="space-y-1">
-          {navItems.map((item) => (
+          {availableNavItems.map((item) => (
             <SidebarItem
               key={item.href}
               item={item}
@@ -117,13 +135,6 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
         </nav>
 
         <div className="mt-8 space-y-1">
-          <SidebarItem
-            item={{ label: 'Configuracoes', icon: Settings, href: '/admin' }}
-            pathname={pathname}
-            collapsed={collapsed}
-            pendingHref={pendingHref}
-            onNavigate={onNavigate}
-          />
           <button
             type="button"
             onClick={handleLogout}
@@ -276,13 +287,26 @@ export function AdminShell({ user, children }) {
                   </Button>
                 </div>
 
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-slate-500 shadow-none hover:bg-transparent hover:text-white"
-                >
-                  <Bell className="h-5 w-5" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="icon"
+                    className="text-slate-500 shadow-none hover:bg-transparent hover:text-white"
+                  >
+                    <Link href="/" aria-label="Voltar para a home publica">
+                      <House className="h-5 w-5" />
+                    </Link>
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-slate-500 shadow-none hover:bg-transparent hover:text-white"
+                  >
+                    <Bell className="h-5 w-5" />
+                  </Button>
+                </div>
               </div>
             </header>
 

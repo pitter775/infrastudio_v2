@@ -39,7 +39,7 @@ function buildIntegrationPanels(project) {
       id: 'apis',
       label: 'APIs',
       icon: PlugZap,
-      colorClassName: 'violet',
+      colorClassName: 'sky',
       mobilePosition: { x: 190, y: 312 },
       desktopPosition: { x: 230, y: 316 },
       cardAnchor: { x: 168, y: CARD_ESTIMATED_HEIGHT },
@@ -121,12 +121,11 @@ function getPanelAccentClasses(colorClassName) {
         button: 'border-sky-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
         icon: 'text-sky-300',
       }
-    case 'violet':
     default:
       return {
-        connector: 'border-violet-400/80',
-        button: 'border-violet-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(168,85,247,0.24),0_0_44px_rgba(126,34,206,0.16)]',
-        icon: 'text-violet-300',
+        connector: 'border-sky-400/80',
+        button: 'border-sky-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
+        icon: 'text-sky-300',
       }
   }
 }
@@ -411,7 +410,7 @@ function IntegrationPanel({ panel, sheetItems }) {
   return (
     <>
       <SheetPanelHeader
-        eyebrow="Integration Panel"
+        eyebrow="Painel de integracao"
         title={panel.title}
         description={panel.description}
         statusLabel={panel.statusLabel}
@@ -427,7 +426,7 @@ function IntegrationPanel({ panel, sheetItems }) {
 
           <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Connected modules
+              Modulos conectados
             </div>
             <div className="mt-4 space-y-3">
               {sheetItems.map((item) => (

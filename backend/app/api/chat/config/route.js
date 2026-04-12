@@ -1,7 +1,7 @@
 import { getAgenteByIdentifier } from "@/lib/agentes"
-import { logChatConfigEvent } from "@/lib/chat/diagnostics"
+import { recordChatConfigEvent } from "@/lib/chat/diagnostics"
 import { emptyChatOptionsResponse, jsonChatResponse } from "@/lib/chat/http"
-import { getChatWidgetByProjetoAgente } from "@/lib/chat-widgets"
+import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { getProjetoByIdentifier } from "@/lib/projetos"
 
 export async function OPTIONS(request) {
@@ -17,9 +17,10 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const projetoIdentifier = searchParams.get("projeto")?.trim() || ""
     const agenteIdentifier = searchParams.get("agente")?.trim() || ""
+    const widgetSlug = searchParams.get("widgetSlug")?.trim() || searchParams.get("widget")?.trim() || ""
 
     if (!projetoIdentifier) {
-      logChatConfigEvent({
+      await recordChatConfigEvent({
         event: "validation_error",
         origin,
         host,
@@ -32,7 +33,7 @@ export async function GET(request) {
 
     const projeto = await getProjetoByIdentifier(projetoIdentifier)
     if (!projeto) {
-      logChatConfigEvent({
+      await recordChatConfigEvent({
         event: "not_found",
         origin,
         host,
@@ -53,10 +54,11 @@ export async function GET(request) {
     }
 
     if (!agente) {
-      logChatConfigEvent({
+      await recordChatConfigEvent({
         event: "not_found",
         origin,
         host,
+        projectId: projeto.id,
         projeto: projetoIdentifier,
         agente: agenteIdentifier || null,
         status: 404,
@@ -75,17 +77,24 @@ export async function GET(request) {
       )
     }
 
-    const widget = await getChatWidgetByProjetoAgente({
-      projetoId: projeto.id,
-      agenteId: agente.id,
-    })
+    const requestedWidget = widgetSlug ? await getChatWidgetBySlug(widgetSlug) : null
+    const widget =
+      requestedWidget?.projetoId === projeto.id && requestedWidget?.agenteId === agente.id
+        ? requestedWidget
+        : await getChatWidgetByProjetoAgente({
+            projetoId: projeto.id,
+            agenteId: agente.id,
+          })
 
-    logChatConfigEvent({
+    await recordChatConfigEvent({
       event: "completed",
       origin,
       host,
+      projectId: projeto.id,
+      agentId: agente.id,
       projeto: projetoIdentifier,
       agente: agenteIdentifier || null,
+      widgetSlug: widgetSlug || null,
       status: 200,
       elapsedMs: Date.now() - startedAt,
     })
@@ -114,7 +123,7 @@ export async function GET(request) {
     )
   } catch (error) {
     console.error("[chat-config] failed to resolve chat config", error)
-    logChatConfigEvent({
+    await recordChatConfigEvent({
       event: "failed",
       origin,
       host,

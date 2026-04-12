@@ -176,10 +176,10 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
               setForm(emptyForm)
               setFeedback(null)
             }}
-            className="h-8 rounded-lg bg-[#8b5cf6] px-3 text-xs font-medium text-white hover:bg-violet-600"
+            className="h-8 rounded-lg bg-emerald-500 px-3 text-xs font-medium text-slate-950 hover:bg-emerald-400"
           >
             <Plus className="mr-1.5 h-3.5 w-3.5" />
-            New
+            Novo
           </Button>
         }
       />
@@ -384,7 +384,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
                                   projectName(projects, membership.projetoId)
                                 )
                                 .join(", ")
-                            : "Sem vinculo"}
+                            : "Sem projetos"}
                         </div>
                       </td>
                       <td className="px-5 py-4">

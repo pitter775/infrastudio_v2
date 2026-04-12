@@ -7,14 +7,16 @@ import {
   applyHandoffGuardrail,
   buildApiFallbackReply,
   buildAssistantMessageMetadata,
+  buildBillingSnapshot,
   buildBillingBlockedResult,
   buildCatalogDecisionFromSemanticIntent,
   buildChatUsageOrigin,
   buildChatUsageTelemetry,
   buildChatConfigDiagnostics,
+  buildLogSearchText,
   buildChatCorsHeaders,
   buildContinuationMessage,
-  DEFAULT_HOME_WIDGET_SLUG,
+  buildFeedbackRecord,
   buildFinalChatResult,
   buildFallbackChatTitle,
   buildInitialChatContext,
@@ -43,6 +45,7 @@ import {
   finalizeV2AiTurn,
   findChatByChannelScope,
   findChatByWhatsAppPhone,
+  filterAdminLogs,
   getAdminTestAgentId,
   getChatContext,
   getAdminTestProjectId,
@@ -60,6 +63,7 @@ import {
   normalizeInboundAttachments,
   normalizeInboundMessage,
   normalizeChannelKind,
+  normalizeLogLevel,
   normalizePublicChatBody,
   normalizeWhatsAppLookupPhone,
   parseAssetPrice,
@@ -85,10 +89,14 @@ import {
   updateContextFromAiResult,
   uploadChatAttachmentPayloads,
   mapChat,
+  mapBillingPlan,
+  mapFeedbackMessageRow,
   mapMensagem,
+  mapLogRow,
   requestRuntimeHumanHandoff,
   estimateOpenAICostUsd,
   resolvePricingModel,
+  sortFeedbacks,
 } from "@/tests/chat-source";
 import {
   createFixtureSearchDeps,
@@ -115,6 +123,184 @@ const handoffFixture = loadHandoffFixture();
 const whatsappContextFixture = loadWhatsAppContextFixture();
 
 const tests: TestCase[] = [
+  {
+    name: "feedback resume mensagens e prioriza pendencias",
+    run: () => {
+      const mensagens = [
+        mapFeedbackMessageRow({
+          id: "msg-1",
+          feedback_id: "fb-1",
+          usuario_id: "user-1",
+          remetente_tipo: "usuario",
+          mensagem: "Preciso de ajuda",
+          lida_pelo_admin: false,
+          lida_pelo_usuario: true,
+          created_at: "2026-04-11T09:00:00.000Z",
+          updated_at: "2026-04-11T09:00:00.000Z",
+        } as never),
+      ];
+
+      const aberto = buildFeedbackRecord(
+        {
+          id: "fb-1",
+          usuario_id: "user-1",
+          projeto_id: "proj-1",
+          assunto: "Dificuldade no widget",
+          categoria: "duvida",
+          status: "novo",
+          admin_visualizado: false,
+          usuario_visualizado: true,
+          closed_at: null,
+          created_at: "2026-04-11T08:00:00.000Z",
+          updated_at: "2026-04-11T09:00:00.000Z",
+          usuarios: { id: "user-1", nome: "Julia", email: "julia@example.com" },
+          projetos: { id: "proj-1", nome: "Nexo" },
+        } as never,
+        mensagens as never,
+      );
+
+      const fechado = buildFeedbackRecord(
+        {
+          id: "fb-2",
+          usuario_id: "user-2",
+          projeto_id: null,
+          assunto: "Fechado",
+          categoria: "sugestao",
+          status: "fechado",
+          admin_visualizado: true,
+          usuario_visualizado: true,
+          closed_at: "2026-04-11T07:00:00.000Z",
+          created_at: "2026-04-11T06:00:00.000Z",
+          updated_at: "2026-04-11T07:00:00.000Z",
+          usuarios: { id: "user-2", nome: "Carlos", email: "carlos@example.com" },
+          projetos: null,
+        } as never,
+        [] as never,
+      );
+
+      const ordered = sortFeedbacks([fechado, aberto] as never, "pendentes");
+
+      assert.equal(aberto.totalMensagens, 1);
+      assert.equal(aberto.possuiMensagemNaoLidaAdmin, true);
+      assert.equal(ordered[0]?.id, "fb-1");
+    },
+  },
+  {
+    name: "laboratorio normaliza e filtra logs administrativos",
+    run: () => {
+      const entries = [
+        mapLogRow({
+          id: "log-1",
+          projeto_id: "proj-1",
+          tipo: "chat_error",
+          origem: "public_chat",
+          descricao: "OpenAI retornou 500",
+          payload: {
+            level: "error",
+            projeto: "nexo",
+            agente: "agente-imovel",
+            widgetSlug: "nexo_leiloes",
+            error: "OpenAI retornou 500",
+          },
+          created_at: "2026-04-11T10:00:00.000Z",
+        } as never),
+        mapLogRow({
+          id: "log-2",
+          projeto_id: "proj-2",
+          tipo: "whatsapp_event",
+          origem: "whatsapp_worker",
+          descricao: "Sessao conectada",
+          payload: {
+            level: "info",
+            projeto: "atelier",
+            chatId: "chat-2",
+          },
+          created_at: "2026-04-11T10:01:00.000Z",
+        } as never),
+      ]
+
+      const filteredByProject = filterAdminLogs(entries as never, { projectId: "proj-1" })
+      const filteredBySearch = filterAdminLogs(entries as never, { search: "nexo_leiloes" })
+      const searchText = buildLogSearchText(entries[0])
+
+      assert.equal(normalizeLogLevel("ERROR"), "error")
+      assert.equal(filteredByProject.length, 1)
+      assert.equal(filteredBySearch.length, 1)
+      assert.match(searchText, /openai retornou 500/i)
+    },
+  },
+  {
+    name: "billing resume plano, ciclo e bloqueio do projeto",
+    run: () => {
+      const plan = mapBillingPlan({
+        id: "plan-1",
+        nome: "Profissional",
+        descricao: "Plano mensal",
+        preco_mensal: 99,
+        limite_tokens_input_mensal: 1000,
+        limite_tokens_output_mensal: 500,
+        limite_tokens_total_mensal: 1500,
+        limite_custo_mensal: 25,
+        max_agentes: 3,
+        max_apis: 10,
+        max_whatsapp: 2,
+        ativo: true,
+        permitir_excedente: true,
+        custo_token_excedente: 0.0002,
+        is_free: false,
+      } as never)
+
+      const snapshot = buildBillingSnapshot({
+        project: {
+          modo_cobranca: "plano",
+        },
+        plan,
+        projectPlan: {
+          id: "cfg-1",
+          plano_id: "plan-1",
+          nome_plano: "Profissional",
+          modelo_referencia: "gpt-4o-mini",
+          limite_tokens_total_mensal: 2000,
+          limite_custo_mensal: 30,
+          auto_bloquear: true,
+          bloqueado: false,
+          bloqueado_motivo: null,
+          observacoes: "ok",
+        },
+        currentCycle: {
+          id: "cycle-1",
+          data_inicio: "2026-04-01T00:00:00.000Z",
+          data_fim: "2026-04-30T23:59:59.000Z",
+          tokens_input: 400,
+          tokens_output: 600,
+          custo_total: 12,
+          fechado: false,
+          bloqueado: false,
+          alerta_80: false,
+          alerta_100: false,
+          excedente_tokens: 0,
+          excedente_custo: 0,
+          limite_tokens_total: 2000,
+          limite_custo: 30,
+        },
+        subscription: {
+          id: "sub-1",
+          status: "ativo",
+          data_inicio: "2026-04-01T00:00:00.000Z",
+          data_fim: null,
+          renovar_automatico: true,
+        },
+        topUps: [{ tokens: 300, custo: 5 }],
+      })
+
+      assert.equal(plan.name, "Profissional")
+      assert.equal(snapshot.projectPlan.planName, "Profissional")
+      assert.equal(snapshot.currentCycle.usage.totalTokens, 1000)
+      assert.equal(snapshot.currentCycle.usagePercent.totalTokens, 50)
+      assert.equal(snapshot.topUps.totalTokens, 300)
+      assert.equal(snapshot.status.blocked, false)
+    },
+  },
   {
     name: "catalogo resolve item recente e segura ambiguidade",
     run: () => {
@@ -985,7 +1171,7 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "service resolve canal local com projeto explicito e fallback de widget",
+    name: "service resolve canal local com projeto explicito e sem fallback padrao de widget",
     run: async () => {
       const explicit = await resolveChatChannel(
         {
@@ -1031,7 +1217,7 @@ const tests: TestCase[] = [
       assert.equal(explicit.lockedToAgent, true)
       assert.equal(fallback.projeto, null)
       assert.equal(fallback.agente, null)
-      assert.equal(fallback.channel.widgetSlug, DEFAULT_HOME_WIDGET_SLUG)
+      assert.equal(fallback.channel.widgetSlug, null)
     },
   },
   {

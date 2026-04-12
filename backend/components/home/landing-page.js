@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   ArrowRight,
@@ -12,7 +13,7 @@ import {
   Smartphone,
   Sparkles,
 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { PremiumHomeChatDemo } from '@/components/home/chat-demo'
 import { LoginModal } from '@/components/home/login-modal'
 import {
@@ -23,12 +24,12 @@ import {
   NICHE_ITEMS,
   SERVICE_ITEMS,
   TECH_STACK,
-  USE_CASE_ITEMS,
   WHATSAPP_NUMBER,
 } from '@/components/home/data'
 import { cn } from '@/lib/utils'
 
-function HomeNavbar({ onLoginClick }) {
+function HomeNavbar({ currentUser, onLoginClick }) {
+  const dashboardHref = currentUser?.role === 'admin' ? '/admin/dashboard' : '/app/projetos'
   const navItems = useMemo(
     () => [
       { href: '#planos', label: 'Planos', icon: Sparkles },
@@ -44,14 +45,11 @@ function HomeNavbar({ onLoginClick }) {
     <nav className="fixed top-0 z-50 w-full border-b border-white/5 bg-slate-950/82 py-4 shadow-[0_12px_50px_rgba(2,6,23,0.42)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <div className="relative h-14 w-14 overflow-hidden p-1">
+          <div className="relative h-12 w-12 overflow-hidden p-1">
             <img src="/logo.png" alt="InfraStudio Logo" className="h-full w-full object-contain" />
           </div>
           <div>
-            <span className="block text-2xl font-bold tracking-tight text-white">InfraStudio</span>
-            <span className="hidden text-xs uppercase tracking-[0.11em] text-slate-500 sm:block">
-              Smart Systems Lab
-            </span>
+            <span className="block font-bold tracking-tight text-white">InfraStudio</span>
           </div>
         </Link>
 
@@ -78,13 +76,22 @@ function HomeNavbar({ onLoginClick }) {
             <MessageCircle size={15} />
             {'Solicitar or\u00e7amento'}
           </a>
-          <button
-            type="button"
-            onClick={onLoginClick}
-            className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white lg:inline-flex"
-          >
-            Entrar
-          </button>
+          {currentUser ? (
+            <Link
+              href={dashboardHref}
+              className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white lg:inline-flex"
+            >
+              Abrir painel
+            </Link>
+          ) : (
+            <button
+              type="button"
+              onClick={onLoginClick}
+              className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white lg:inline-flex"
+            >
+              Entrar
+            </button>
+          )}
         </div>
 
         <button
@@ -120,16 +127,26 @@ function HomeNavbar({ onLoginClick }) {
               <MessageCircle size={16} />
               {'Solicitar or\u00e7amento'}
             </a>
-            <button
-              type="button"
-              onClick={() => {
-                setMobileOpen(false)
-                onLoginClick()
-              }}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              Entrar
-            </button>
+            {currentUser ? (
+              <Link
+                href={dashboardHref}
+                onClick={() => setMobileOpen(false)}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                Abrir painel
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false)
+                  onLoginClick()
+                }}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                Entrar
+              </button>
+            )}
           </div>
         </div>
       ) : null}
@@ -151,45 +168,6 @@ function ServiceCard({ icon: Icon, title, description, delay }) {
       </div>
       <h3 className="mb-3 text-xl font-semibold text-slate-100/88">{title}</h3>
       <p className="text-sm leading-relaxed text-slate-400">{description}</p>
-    </motion.div>
-  )
-}
-
-function UseCaseCard({
-  icon: Icon,
-  title,
-  description,
-  salesPitch,
-  delay,
-  backgroundImage,
-  backgroundPosition,
-}) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay }}
-      className="group relative min-h-[520px] overflow-hidden rounded-[28px] bg-transparent transition-all duration-300 ease-out hover:-translate-y-1"
-    >
-      <div
-        className="absolute inset-0 scale-[1.06] bg-cover bg-no-repeat blur-[2px] saturate-[0.96] transition-all duration-500 ease-out group-hover:scale-[1.1] group-hover:brightness-110"
-        style={{ backgroundImage: `url(${backgroundImage})`, backgroundPosition }}
-      />
-
-      <div className="relative z-10 flex h-full flex-col justify-between p-7">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/15 bg-black/18 text-[#f8fafc] backdrop-blur-xl transition-transform duration-300 group-hover:scale-[1.04]">
-          <Icon size={24} />
-        </div>
-
-        <div className="max-w-[18rem] rounded-3xl bg-black/12 p-5 backdrop-blur-xl">
-          <h3 className="mb-3 text-[1.9rem] font-semibold leading-tight tracking-[-0.04em] text-white">
-            {title}
-          </h3>
-          <p className="text-sm leading-7 text-white/92">{description}</p>
-          <p className="mt-4 text-sm font-medium leading-6 text-white">{salesPitch}</p>
-        </div>
-      </div>
     </motion.div>
   )
 }
@@ -314,13 +292,31 @@ function PricingSection() {
   )
 }
 
-export function LandingPage() {
+export function LandingPage({ currentUser = null }) {
   const [loginOpen, setLoginOpen] = useState(false)
+  const searchParams = useSearchParams()
+  const authNotice = searchParams.get('auth_notice')
+  const authNoticeMessage =
+    authNotice === 'email_verified'
+      ? 'Email confirmado. Voce ja pode entrar.'
+      : authNotice === 'email_expired'
+        ? 'Seu link de confirmacao expirou. Reenvie a confirmacao.'
+        : authNotice === 'email_already_verified'
+          ? 'Este email ja foi confirmado. Voce ja pode entrar.'
+          : authNotice === 'email_invalid'
+            ? 'Link de confirmacao invalido. Reenvie a confirmacao.'
+            : ''
+
+  useEffect(() => {
+    if (authNoticeMessage) {
+      setLoginOpen(true)
+    }
+  }, [authNoticeMessage])
 
   return (
     <div className="home-shell min-h-screen bg-grid bg-[#040816] text-slate-100">
-      <HomeNavbar onLoginClick={() => setLoginOpen(true)} />
-      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} />
+      <HomeNavbar currentUser={currentUser} onLoginClick={() => setLoginOpen(true)} />
+      <LoginModal open={loginOpen} onOpenChange={setLoginOpen} initialNotice={authNoticeMessage} />
       <section className="relative overflow-hidden pb-20 pt-32 md:pb-32 md:pt-48">
         <div className="pointer-events-none absolute left-1/2 top-0 h-full w-full max-w-7xl -translate-x-1/2">
           <div className="absolute left-[-10%] top-[-10%] h-[40%] w-[40%] rounded-full bg-blue-600/10 blur-[120px]" />
@@ -361,13 +357,14 @@ export function LandingPage() {
             transition={{ delay: 0.3 }}
             className="flex flex-col items-center justify-center gap-4 sm:flex-row"
           >
-            <Link
-              href="/demo"
+            <button
+              type="button"
+              onClick={() => setLoginOpen(true)}
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-300/40 bg-cyan-400/12 px-8 py-4 font-medium text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_28px_rgba(34,211,238,0.22),0_0_60px_rgba(59,130,246,0.18)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-200/50 hover:bg-cyan-400/18"
             >
               <Sparkles size={18} className="animate-pulse text-cyan-200" />
               Testar agora sem cadastro
-            </Link>
+            </button>
             <a
               href={`https://wa.me/${WHATSAPP_NUMBER}`}
               target="_blank"
@@ -428,23 +425,6 @@ export function LandingPage() {
             <div className="flex w-full justify-center lg:w-1/2 lg:justify-end">
               <PremiumHomeChatDemo />
             </div>
-          </div>
-        </div>
-      </section>
-      <section id="onde-usar" className="py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-20 text-center">
-            <h2 className="mb-4 text-3xl font-semibold tracking-[-0.03em] text-slate-100/88 md:text-[2.35rem]">
-              {'Onde voc\u00ea pode usar'}
-            </h2>
-            <p className="text-slate-400">
-              {'O mesmo atendente pode trabalhar em canais diferentes sem mudar a opera\u00e7\u00e3o.'}
-            </p>
-          </div>
-          <div className="grid grid-cols-1 gap-8 md:grid-cols-2 xl:grid-cols-4">
-            {USE_CASE_ITEMS.map((item) => (
-              <UseCaseCard key={item.title} {...item} />
-            ))}
           </div>
         </div>
       </section>

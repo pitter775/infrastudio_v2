@@ -1,9 +1,11 @@
 import "server-only"
 
+import { getProjectBillingSnapshot } from "@/lib/billing"
+import { createLogEntry } from "@/lib/logs"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const projetoFields =
-  "id, nome, tipo, descricao, status, slug, configuracoes, created_at, updated_at, is_demo"
+  "id, nome, tipo, descricao, status, slug, configuracoes, created_at, updated_at, is_demo, owner_user_id, owner:usuarios!projetos_owner_user_id_fkey(id, nome, email, avatar_url)"
 
 function normalizeProject(row) {
   return {
@@ -14,8 +16,54 @@ function normalizeProject(row) {
     description: row.descricao?.trim() || "Sem descricao cadastrada.",
     status: row.status?.trim() || "ativo",
     isDemo: Boolean(row.is_demo),
+    owner: row.owner
+      ? {
+          id: row.owner.id,
+          name: row.owner.nome?.trim() || row.owner.email?.trim() || "Usuario",
+          email: row.owner.email?.trim() || "",
+          avatarUrl: row.owner.avatar_url || null,
+        }
+      : null,
     updatedAt: row.updated_at,
     createdAt: row.created_at,
+  }
+}
+
+function slugifyProjectName(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60)
+}
+
+async function buildUniqueProjectSlug(supabase, name, currentProjectId = null) {
+  const baseSlug = slugifyProjectName(name) || "projeto"
+  let slug = baseSlug
+  let index = 2
+
+  while (true) {
+    let query = supabase.from("projetos").select("id").eq("slug", slug).limit(1)
+
+    if (currentProjectId) {
+      query = query.neq("id", currentProjectId)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error("[projetos] failed to validate slug", error)
+      return slug
+    }
+
+    if (!data?.length) {
+      return slug
+    }
+
+    slug = `${baseSlug}-${index}`
+    index += 1
   }
 }
 
@@ -134,6 +182,304 @@ export async function listProjectsForUser(user) {
   }
 }
 
+function sanitizeProjectPayload(input) {
+  return {
+    nome: String(input.nome || "").trim(),
+    tipo: String(input.tipo || "Projeto").trim() || "Projeto",
+    descricao: String(input.descricao || "").trim() || null,
+    status: input.status === "inativo" ? "inativo" : "ativo",
+    updated_at: new Date().toISOString(),
+  }
+}
+
+export async function createProject(input, user) {
+  const payload = sanitizeProjectPayload(input)
+
+  if (!payload.nome) {
+    return null
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const slug = await buildUniqueProjectSlug(supabase, input.slug || payload.nome)
+  const { data, error } = await supabase
+    .from("projetos")
+    .insert({
+      ...payload,
+      slug,
+      configuracoes: {},
+      owner_user_id: user?.id ?? null,
+      is_demo: false,
+      created_at: new Date().toISOString(),
+    })
+    .select(projetoFields)
+    .single()
+
+  if (error || !data) {
+    console.error("[projetos] failed to create project", error)
+    return null
+  }
+
+  return normalizeProject(data)
+}
+
+export async function updateProject(input) {
+  if (!input.id) {
+    return null
+  }
+
+  const payload = sanitizeProjectPayload(input)
+
+  if (!payload.nome) {
+    return null
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const slug = await buildUniqueProjectSlug(supabase, input.slug || payload.nome, input.id)
+  const { data, error } = await supabase
+    .from("projetos")
+    .update({ ...payload, slug })
+    .eq("id", input.id)
+    .select(projetoFields)
+    .single()
+
+  if (error || !data) {
+    console.error("[projetos] failed to update project", error)
+    return null
+  }
+
+  return normalizeProject(data)
+}
+
+async function deleteRowsByProject(supabase, table, projectId) {
+  const { error } = await supabase.from(table).delete().eq("projeto_id", projectId)
+
+  if (error) {
+    console.error(`[projetos] failed to delete ${table}`, error)
+    return { ok: false, error: `Falha ao limpar ${table}.` }
+  }
+
+  return { ok: true }
+}
+
+async function logProjectDeleteFailure({ supabase, projectId, projectName, step, error }) {
+  const appErrorCode = `PROJECT_DELETE_${String(step || "UNKNOWN").toUpperCase()}`
+
+  await createLogEntry(
+    {
+      projectId,
+      type: "project_delete_error",
+      origin: "admin_projects",
+      level: "error",
+      description: `[${appErrorCode}] Falha ao excluir projeto: ${step}.`,
+      payload: {
+        appErrorCode,
+        projectId,
+        projectName,
+        step,
+        error: error?.message ?? String(error || ""),
+        errorCode: error?.code ?? null,
+        errorDetails: error?.details ?? null,
+        errorHint: error?.hint ?? null,
+      },
+    },
+    { supabase },
+  )
+}
+
+async function failProjectDelete(context, userMessage) {
+  await logProjectDeleteFailure(context)
+  const code = `PROJECT_DELETE_${String(context.step || "UNKNOWN").toUpperCase()}`
+  return { ok: false, error: userMessage, code }
+}
+
+async function readProjectRelatedIds(supabase, projectId) {
+  const [agentsResult, apisResult, chatsResult] = await Promise.all([
+    supabase.from("agentes").select("id").eq("projeto_id", projectId),
+    supabase.from("apis").select("id").eq("projeto_id", projectId),
+    supabase.from("chats").select("id").eq("projeto_id", projectId),
+  ])
+
+  return {
+    agentIds: (agentsResult.data ?? []).map((item) => item.id),
+    apiIds: (apisResult.data ?? []).map((item) => item.id),
+    chatIds: (chatsResult.data ?? []).map((item) => item.id),
+  }
+}
+
+async function deleteFeedbackMessagesForProject(supabase, projectId) {
+  let offset = 0
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("feedbacks")
+      .select("id")
+      .eq("projeto_id", projectId)
+      .range(offset, offset + 499)
+
+    if (error) {
+      return { ok: false, error }
+    }
+
+    const ids = (data ?? []).map((item) => item.id).filter(Boolean)
+
+    if (!ids.length) {
+      return { ok: true }
+    }
+
+    const { error: deleteError } = await supabase.from("feedback_mensagens").delete().in("feedback_id", ids)
+
+    if (deleteError) {
+      return { ok: false, error: deleteError }
+    }
+
+    if (ids.length < 500) {
+      return { ok: true }
+    }
+
+    offset += 500
+  }
+}
+
+export async function deleteProject(projectId, confirmationName) {
+  if (!projectId) {
+    return { ok: false, error: "Projeto invalido." }
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const { data: project, error: projectError } = await supabase
+    .from("projetos")
+    .select("id, nome")
+    .eq("id", projectId)
+    .maybeSingle()
+
+  if (projectError || !project) {
+    if (projectError) {
+      console.error("[projetos] failed to read project before delete", projectError)
+    }
+    return { ok: false, error: "Projeto nao encontrado." }
+  }
+
+  if (String(confirmationName || "").trim() !== String(project.nome || "").trim()) {
+    return { ok: false, error: "Nome digitado diferente do nome do projeto." }
+  }
+
+  const { agentIds, apiIds, chatIds } = await readProjectRelatedIds(supabase, projectId)
+  const feedbackMessagesResult = await deleteFeedbackMessagesForProject(supabase, projectId)
+
+  if (!feedbackMessagesResult.ok) {
+    console.error("[projetos] failed to delete feedback messages", feedbackMessagesResult.error)
+    return failProjectDelete(
+      {
+        supabase,
+        projectId,
+        projectName: project.nome,
+        step: "feedback_mensagens",
+        error: feedbackMessagesResult.error,
+      },
+      "Falha ao limpar mensagens de feedback.",
+    )
+  }
+
+  if (chatIds.length > 0) {
+    const { error } = await supabase.from("mensagens").delete().in("chat_id", chatIds)
+    if (error) {
+      console.error("[projetos] failed to delete messages", error)
+      return failProjectDelete(
+        { supabase, projectId, projectName: project.nome, step: "mensagens", error },
+        "Falha ao limpar mensagens.",
+      )
+    }
+  }
+
+  if (apiIds.length > 0) {
+    const { error: fieldsError } = await supabase.from("api_campos").delete().in("api_id", apiIds)
+    if (fieldsError) {
+      console.error("[projetos] failed to delete api fields", fieldsError)
+      return failProjectDelete(
+        { supabase, projectId, projectName: project.nome, step: "api_campos", error: fieldsError },
+        "Falha ao limpar campos de APIs.",
+      )
+    }
+
+    const { error: linksError } = await supabase.from("agente_api").delete().in("api_id", apiIds)
+    if (linksError) {
+      console.error("[projetos] failed to delete agent api links by api", linksError)
+      return failProjectDelete(
+        { supabase, projectId, projectName: project.nome, step: "agente_api", error: linksError },
+        "Falha ao limpar vinculos de APIs.",
+      )
+    }
+  }
+
+  if (agentIds.length > 0) {
+    const { error } = await supabase.from("agente_api").delete().in("agente_id", agentIds)
+    if (error) {
+      console.error("[projetos] failed to delete agent api links by agent", error)
+      return failProjectDelete(
+        { supabase, projectId, projectName: project.nome, step: "agente_api", error },
+        "Falha ao limpar vinculos do agente.",
+      )
+    }
+  }
+
+  const projectTables = [
+    "chat_handoff_eventos",
+    "chat_handoffs",
+    "whatsapp_handoff_contatos",
+    "chat_widgets",
+    "canais_whatsapp",
+    "chats",
+    "feedbacks",
+    "logs",
+    "segredos",
+    "tokens_avulsos",
+    "usuarios_limites_ia",
+    "usuarios_projetos",
+    "projetos_planos",
+    "projetos_assinaturas",
+    "projetos_ciclos_uso",
+    "agente_arquivos",
+    "conectores",
+    "apis",
+    "agentes",
+  ]
+
+  for (const table of projectTables) {
+    const result = await deleteRowsByProject(supabase, table, projectId)
+    if (!result.ok) {
+      return failProjectDelete(
+        { supabase, projectId, projectName: project.nome, step: table, error: result.error },
+        result.error,
+      )
+    }
+  }
+
+  const { error: usageError } = await supabase
+    .from("consumos")
+    .update({ projeto_id: null })
+    .eq("projeto_id", projectId)
+
+  if (usageError) {
+    console.error("[projetos] failed to detach usage records", usageError)
+    return failProjectDelete(
+      { supabase, projectId, projectName: project.nome, step: "consumos", error: usageError },
+      "Falha ao preservar historico de tokens usados.",
+    )
+  }
+
+  const { error } = await supabase.from("projetos").delete().eq("id", projectId)
+
+  if (error) {
+    console.error("[projetos] failed to delete project", error)
+    return failProjectDelete(
+      { supabase, projectId, projectName: project.nome, step: "projetos", error },
+      "Falha ao excluir o projeto.",
+    )
+  }
+
+  return { ok: true }
+}
+
 export async function getProjectForUser(identifier, user) {
   if (!identifier || !user) {
     return null
@@ -157,19 +503,21 @@ export async function getProjectForUser(identifier, user) {
     }
 
     const project = normalizeProject(data)
-    const [agent, apis, apiCount, whatsappCount, widgetCount, fileCount] = await Promise.all([
+    const [agent, apis, apiCount, whatsappCount, widgetCount, fileCount, billing] = await Promise.all([
       getActiveAgent(supabase, project.id),
       listProjectApis(supabase, project.id),
       safeCount(supabase, "apis", project.id),
       safeCount(supabase, "canais_whatsapp", project.id),
       safeCount(supabase, "chat_widgets", project.id),
       safeCount(supabase, "agente_arquivos", project.id),
+      getProjectBillingSnapshot(project.id, { supabase }),
     ])
 
     return {
       ...project,
       agent,
       apis,
+      billing,
       integrations: {
         apis: apiCount,
         whatsapp: whatsappCount,

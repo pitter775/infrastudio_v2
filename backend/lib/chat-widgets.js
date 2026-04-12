@@ -2,14 +2,13 @@ import "server-only"
 
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
-export const DEFAULT_HOME_WIDGET_SLUG = "infrastudio-home"
 export const PUBLIC_WIDGET_DOMAIN = "https://www.infrastudio.pro"
 
 function mapChatWidget(row) {
   return {
     id: row.id,
     nome: row.nome?.trim() || "Widget sem nome",
-    slug: row.slug?.trim() || DEFAULT_HOME_WIDGET_SLUG,
+    slug: row.slug?.trim() || row.id,
     projetoId: row.projeto_id ?? null,
     agenteId: row.agente_id ?? null,
     dominio: row.dominio?.trim() || "",

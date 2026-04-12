@@ -1,6 +1,24 @@
 import { processChatRequest } from "@/lib/chat/service"
-import { logPublicChatEvent } from "@/lib/chat/diagnostics"
+import { recordPublicChatEvent } from "@/lib/chat/diagnostics"
 import { emptyChatOptionsResponse, formatPublicChatResult, jsonChatResponse, normalizePublicChatBody } from "@/lib/chat/http"
+
+function inferChatFailureOrigin(error) {
+  const message = String(error?.message || "").toLowerCase()
+
+  if (message.includes("openai")) {
+    return "openai"
+  }
+
+  if (message.includes("mensagem do cliente") || message.includes("salvar a resposta") || message.includes("banco")) {
+    return "persistence"
+  }
+
+  if (message.includes("billing") || message.includes("limite")) {
+    return "billing"
+  }
+
+  return "runtime"
+}
 
 export async function OPTIONS(request) {
   return emptyChatOptionsResponse(request.headers.get("origin"))
@@ -17,7 +35,7 @@ export async function POST(request) {
 
     const hasAttachments = Array.isArray(normalizedBody.attachments) && normalizedBody.attachments.length > 0
     if (!normalizedBody.message && !hasAttachments) {
-      logPublicChatEvent({
+      await recordPublicChatEvent({
         event: "validation_error",
         origin,
         host,
@@ -34,20 +52,22 @@ export async function POST(request) {
     }
 
     const result = await processChatRequest(normalizedBody)
-    logPublicChatEvent({
+    await recordPublicChatEvent({
       event: "completed",
       origin,
       host,
       method: "POST",
       body: normalizedBody,
       status: 200,
+      projectId: result?.diagnostics?.projetoId ?? null,
       chatId: result.chatId ?? null,
       elapsedMs: Date.now() - startedAt,
+      errorSource: null,
     })
     return jsonChatResponse(formatPublicChatResult(result), { status: 200, origin })
   } catch (error) {
     console.error("CHAT ERROR:", error)
-    logPublicChatEvent({
+    await recordPublicChatEvent({
       event: "failed",
       origin,
       host,
@@ -55,6 +75,7 @@ export async function POST(request) {
       status: 500,
       elapsedMs: Date.now() - startedAt,
       error: error instanceof Error ? error.message : "Erro interno no chat",
+      errorSource: inferChatFailureOrigin(error),
     })
 
     return jsonChatResponse(

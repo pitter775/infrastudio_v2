@@ -89,7 +89,6 @@ export {
 } from "@/lib/chat/service";
 
 export {
-  DEFAULT_HOME_WIDGET_SLUG,
   getChatWidgetByProjetoAgente,
   getChatWidgetBySlug,
 } from "@/lib/chat-widgets";
@@ -116,7 +115,27 @@ export {
   buildPublicChatRequestDiagnostics,
   logChatConfigEvent,
   logPublicChatEvent,
+  recordChatConfigEvent,
+  recordPublicChatEvent,
 } from "@/lib/chat/diagnostics";
+
+export {
+  buildLogSearchText,
+  filterAdminLogs,
+  mapLogRow,
+  normalizeLogLevel,
+} from "@/lib/logs";
+
+export {
+  buildBillingSnapshot,
+  mapBillingPlan,
+} from "@/lib/billing";
+
+export {
+  buildFeedbackRecord,
+  mapFeedbackMessageRow,
+  sortFeedbacks,
+} from "@/lib/feedbacks";
 
 export {
   buildChatCorsHeaders,

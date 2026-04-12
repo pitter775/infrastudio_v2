@@ -1,95 +1,490 @@
 'use client'
 
 import * as Dialog from '@radix-ui/react-dialog'
-import { Loader2, X } from 'lucide-react'
-import { useState } from 'react'
-import { Button } from '@/components/ui/button'
-import { signInWithProjectAuth } from '@/lib/auth'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowRight, Loader2, Lock, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  registerWithProjectAuth,
+  resendVerificationEmail,
+  signInWithProjectAuth,
+  signInWithSocialProvider,
+} from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
-export function LoginModal({ open, onOpenChange }) {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+const fieldClassName =
+  'h-12 w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm text-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400'
 
-  async function handleSubmit(event) {
-    event.preventDefault()
+const socialButtonClassName =
+  'inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60'
 
-    if (loading) {
+function GoogleIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.73 1.22 9.24 3.6l6.91-6.91C35.64 2.2 30.23 0 24 0 14.82 0 6.86 5.48 2.69 13.44l8.06 6.26C12.54 13.12 17.83 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.1 24.55c0-1.63-.15-3.2-.43-4.71H24v9h12.5c-.54 2.9-2.2 5.36-4.7 7.02l7.2 5.6C43.94 37.36 46.1 31.45 46.1 24.55z" />
+      <path fill="#FBBC05" d="M10.75 28.7a14.5 14.5 0 0 1 0-9.4l-8.06-6.26A23.93 23.93 0 0 0 0 24c0 3.8.91 7.38 2.69 10.44l8.06-6.26z" />
+      <path fill="#34A853" d="M24 48c6.23 0 11.46-2.06 15.28-5.6l-7.2-5.6c-2 1.35-4.55 2.14-8.08 2.14-6.17 0-11.46-3.62-13.25-8.7l-8.06 6.26C6.86 42.52 14.82 48 24 48z" />
+    </svg>
+  )
+}
+
+function GithubIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="currentColor"
+        d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.88-1.36-3.88-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.69.08-.69 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.33.95.1-.74.4-1.24.73-1.52-2.55-.29-5.23-1.28-5.23-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.47.11-3.06 0 0 .97-.31 3.19 1.18a11.1 11.1 0 0 1 5.8 0c2.22-1.49 3.19-1.18 3.19-1.18.62 1.59.23 2.77.11 3.06.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.39-5.25 5.67.41.35.78 1.04.78 2.09v3.1c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"
+      />
+    </svg>
+  )
+}
+
+function FacebookIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#1877F2"
+        d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.03 4.39 11.03 10.13 11.93v-8.44H7.08v-3.5h3.05V9.41c0-3.03 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.88v2.26h3.32l-.53 3.5h-2.79V24C19.61 23.1 24 18.1 24 12.07Z"
+      />
+    </svg>
+  )
+}
+
+function InstagramIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <defs>
+        <linearGradient id="instagram-gradient-v2" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#F58529" />
+          <stop offset="30%" stopColor="#FEDA77" />
+          <stop offset="60%" stopColor="#DD2A7B" />
+          <stop offset="85%" stopColor="#8134AF" />
+          <stop offset="100%" stopColor="#515BD4" />
+        </linearGradient>
+      </defs>
+      <path
+        fill="url(#instagram-gradient-v2)"
+        d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2Zm0 1.8A3.95 3.95 0 0 0 3.8 7.75v8.5a3.95 3.95 0 0 0 3.95 3.95h8.5a3.95 3.95 0 0 0 3.95-3.95v-8.5a3.95 3.95 0 0 0-3.95-3.95h-8.5Zm8.95 1.35a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 1.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Z"
+      />
+    </svg>
+  )
+}
+
+function Field({ label, id, type, value, onChange, placeholder, autoComplete, inputRef }) {
+  return (
+    <label htmlFor={id} className="block space-y-2">
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</span>
+      <input
+        ref={inputRef}
+        id={id}
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={fieldClassName}
+        placeholder={placeholder}
+        autoComplete={autoComplete}
+      />
+    </label>
+  )
+}
+
+function Feedback({ type, children }) {
+  if (!children) {
+    return null
+  }
+
+  return (
+    <div
+      className={cn(
+        'rounded-lg border px-4 py-3 text-sm',
+        type === 'error'
+          ? 'border-rose-500/20 bg-rose-500/10 text-rose-200'
+          : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200',
+      )}
+    >
+      {children}
+    </div>
+  )
+}
+
+function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
+  const providers = [
+    { id: 'google', label: 'Google', icon: GoogleIcon },
+    { id: 'github', label: 'GitHub', icon: GithubIcon },
+    { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
+    { id: 'instagram', label: 'Instagram', icon: InstagramIcon },
+  ]
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm font-medium text-slate-300">Continuar com</p>
+      <div className="grid grid-cols-2 gap-3">
+        {providers.map((provider) => {
+          const Icon = provider.icon
+          const loading = socialLoadingProvider === provider.id
+
+          return (
+            <button
+              key={provider.id}
+              type="button"
+              onClick={() => onSocialLogin(provider.id)}
+              disabled={socialLoadingProvider !== null}
+              className={socialButtonClassName}
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+              <span className="truncate">{provider.label}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      {dividerText ? (
+        <div className="flex items-center gap-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+          <span className="h-px flex-1 bg-white/10" />
+          <span>{dividerText}</span>
+          <span className="h-px flex-1 bg-white/10" />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
+  const [mode, setMode] = useState('login')
+  const [loginEmail, setLoginEmail] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [loginError, setLoginError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [loginLoading, setLoginLoading] = useState(false)
+
+  const [name, setName] = useState('')
+  const [registerEmail, setRegisterEmail] = useState('')
+  const [registerPassword, setRegisterPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [registerError, setRegisterError] = useState('')
+  const [registerLoading, setRegisterLoading] = useState(false)
+
+  const [socialLoadingProvider, setSocialLoadingProvider] = useState(null)
+  const [resendingVerification, setResendingVerification] = useState(false)
+  const loginEmailRef = useRef(null)
+  const nameRef = useRef(null)
+
+  useEffect(() => {
+    if (!open) {
+      setMode('login')
+      setLoginError('')
+      setRegisterError('')
+      setNotice('')
+      setLoginLoading(false)
+      setRegisterLoading(false)
+      setSocialLoadingProvider(null)
+      setResendingVerification(false)
+    }
+  }, [open])
+
+  useEffect(() => {
+    if (open && initialNotice) {
+      setMode('login')
+      setLoginError('')
+      setRegisterError('')
+      setNotice(initialNotice)
+    }
+  }, [initialNotice, open])
+
+  useEffect(() => {
+    if (!open) {
       return
     }
 
-    setLoading(true)
-    setError('')
+    const timer = window.setTimeout(() => {
+      if (mode === 'login') {
+        loginEmailRef.current?.focus()
+      } else {
+        nameRef.current?.focus()
+      }
+    }, 180)
 
-    const result = await signInWithProjectAuth(email, password)
+    return () => window.clearTimeout(timer)
+  }, [mode, open])
+
+  function goToRegister() {
+    setMode('cadastro')
+    setLoginError('')
+    setNotice('')
+  }
+
+  function goToLogin() {
+    setMode('login')
+    setRegisterError('')
+  }
+
+  async function handleLoginSubmit(event) {
+    event.preventDefault()
+    if (loginLoading) {
+      return
+    }
+
+    setLoginLoading(true)
+    setLoginError('')
+    setNotice('')
+
+    const result = await signInWithProjectAuth(loginEmail, loginPassword)
 
     if (result.user) {
-      window.location.href = '/admin'
+      window.location.href = result.user.role === 'admin' ? '/admin/dashboard' : '/app/projetos'
       return
     }
 
-    setError(result.error ?? 'Nao foi possivel entrar agora.')
-    setLoading(false)
+    setLoginError(result.error ?? 'Nao foi possivel entrar agora.')
+    setLoginLoading(false)
+  }
+
+  async function handleRegisterSubmit(event) {
+    event.preventDefault()
+    if (registerLoading) {
+      return
+    }
+
+    setRegisterError('')
+
+    if (!name.trim() || !registerEmail.trim() || !registerPassword || !confirmPassword) {
+      setRegisterError('Preencha nome, email, senha e confirmacao.')
+      return
+    }
+
+    if (registerPassword.length < 6) {
+      setRegisterError('A senha precisa ter pelo menos 6 caracteres.')
+      return
+    }
+
+    if (registerPassword !== confirmPassword) {
+      setRegisterError('A confirmacao de senha nao confere.')
+      return
+    }
+
+    setRegisterLoading(true)
+    const result = await registerWithProjectAuth({
+      nome: name,
+      email: registerEmail,
+      senha: registerPassword,
+      confirmarSenha: confirmPassword,
+    })
+
+    if (!result.ok) {
+      setRegisterError(result.error ?? 'Nao foi possivel concluir seu cadastro agora.')
+      setRegisterLoading(false)
+      return
+    }
+
+    setName('')
+    setRegisterEmail('')
+    setRegisterPassword('')
+    setConfirmPassword('')
+    setLoginEmail(registerEmail)
+    setNotice(result.message ?? 'Conta criada. Voce ja pode entrar.')
+    setRegisterLoading(false)
+    setMode('login')
+  }
+
+  async function handleSocialLogin(provider) {
+    if (provider === 'instagram') {
+      const message = 'Instagram ainda nao esta disponivel no login social.'
+      if (mode === 'login') {
+        setLoginError(message)
+      } else {
+        setRegisterError(message)
+      }
+      return
+    }
+
+    setLoginError('')
+    setRegisterError('')
+    setNotice('')
+    setSocialLoadingProvider(provider)
+
+    const result = await signInWithSocialProvider(provider)
+    if (!result.ok) {
+      if (mode === 'login') {
+        setLoginError(result.error ?? 'Nao foi possivel iniciar o login social.')
+      } else {
+        setRegisterError(result.error ?? 'Nao foi possivel iniciar o login social.')
+      }
+      setSocialLoadingProvider(null)
+    }
+  }
+
+  async function handleResendVerification() {
+    if (!loginEmail.trim()) {
+      setLoginError('Informe seu email para reenviar a confirmacao.')
+      return
+    }
+
+    setLoginError('')
+    setNotice('')
+    setResendingVerification(true)
+
+    const result = await resendVerificationEmail(loginEmail)
+    if (!result.ok) {
+      setLoginError(result.error ?? 'Nao foi possivel reenviar a confirmacao agora.')
+      setResendingVerification(false)
+      return
+    }
+
+    setNotice(result.message ?? 'Conta liberada para login.')
+    setResendingVerification(false)
   }
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[90] bg-black/70 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-lg border border-white/10 bg-[#07111f] p-6 text-white shadow-2xl">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <Dialog.Title className="text-xl font-semibold">Entrar</Dialog.Title>
-              <Dialog.Description className="mt-2 text-sm text-slate-400">
-                Acesse sua area administrativa.
-              </Dialog.Description>
-            </div>
+        <Dialog.Overlay className="fixed inset-0 z-[90] bg-slate-950/80 backdrop-blur-sm" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#0f172a]/95 text-white shadow-2xl shadow-black/40">
+          <Dialog.Close className="absolute right-4 top-4 z-10 rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:bg-white/10 hover:text-white">
+            <X className="h-4 w-4" />
+          </Dialog.Close>
 
-            <Dialog.Close className="rounded-lg p-2 text-slate-400 transition hover:bg-white/10 hover:text-white">
-              <X className="h-4 w-4" />
-            </Dialog.Close>
+          <div className="border-b border-white/10 bg-white/5 px-6 py-5">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-blue-300">
+              <Lock className="h-3.5 w-3.5" />
+              {mode === 'login' ? 'Acesso rapido' : 'Criar conta'}
+            </div>
+            <Dialog.Title className="pr-10 text-2xl font-semibold text-white">
+              {mode === 'login' ? 'Acesse sua conta' : 'Crie sua conta'}
+            </Dialog.Title>
+            <Dialog.Description className="mt-2 text-sm leading-relaxed text-slate-400">
+              {mode === 'login' ? 'Entre para gerenciar seus projetos.' : 'Crie seu acesso e comece pelo projeto inicial.'}
+            </Dialog.Description>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
-            <label className="block space-y-2">
-              <span className="text-sm font-medium text-slate-200">Email</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                className={cn(
-                  'h-11 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-white',
-                  'placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400',
+          <div className="px-6 py-6">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={mode}
+                initial={{ opacity: 0, y: 14, filter: 'blur(4px)' }}
+                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                exit={{ opacity: 0, y: -10, filter: 'blur(3px)' }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {mode === 'login' ? (
+                  <form onSubmit={handleLoginSubmit} className="space-y-4">
+                    <Field
+                      label="Email"
+                      id="auth-login-email"
+                      type="email"
+                      value={loginEmail}
+                      onChange={setLoginEmail}
+                      placeholder="voce@empresa.com"
+                      autoComplete="email"
+                      inputRef={loginEmailRef}
+                    />
+                    <Field
+                      label="Senha"
+                      id="auth-login-password"
+                      type="password"
+                      value={loginPassword}
+                      onChange={setLoginPassword}
+                      placeholder="Digite sua senha"
+                      autoComplete="current-password"
+                    />
+
+                    <Feedback type="error">{loginError}</Feedback>
+                    <Feedback type="notice">{notice}</Feedback>
+
+                    <button
+                      type="submit"
+                      disabled={loginLoading}
+                      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 px-5 font-semibold text-white transition hover:from-blue-500 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {loginLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {loginLoading ? 'Entrando...' : 'Entrar'}
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+
+                    <div className="flex items-center justify-between gap-3 text-sm">
+                      <button type="button" onClick={goToRegister} className="font-medium text-cyan-200 transition hover:text-cyan-100">
+                        Criar conta
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={resendingVerification}
+                        className="font-medium text-slate-400 transition hover:text-slate-200 disabled:opacity-60"
+                      >
+                        {resendingVerification ? 'Reenviando...' : 'Reenviar confirmacao'}
+                      </button>
+                    </div>
+
+                    <div className="border-t border-white/10 pt-4">
+                      <SocialButtons socialLoadingProvider={socialLoadingProvider} onSocialLogin={handleSocialLogin} />
+                    </div>
+                  </form>
+                ) : (
+                  <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                    <SocialButtons
+                      socialLoadingProvider={socialLoadingProvider}
+                      onSocialLogin={handleSocialLogin}
+                      dividerText="ou cadastre com email"
+                    />
+
+                    <Field
+                      label="Nome"
+                      id="auth-register-name"
+                      type="text"
+                      value={name}
+                      onChange={setName}
+                      placeholder="Seu nome"
+                      autoComplete="name"
+                      inputRef={nameRef}
+                    />
+                    <Field
+                      label="Email"
+                      id="auth-register-email"
+                      type="email"
+                      value={registerEmail}
+                      onChange={setRegisterEmail}
+                      placeholder="voce@empresa.com"
+                      autoComplete="email"
+                    />
+                    <Field
+                      label="Senha"
+                      id="auth-register-password"
+                      type="password"
+                      value={registerPassword}
+                      onChange={setRegisterPassword}
+                      placeholder="Minimo 6 caracteres"
+                      autoComplete="new-password"
+                    />
+                    <Field
+                      label="Confirmar senha"
+                      id="auth-register-password-confirm"
+                      type="password"
+                      value={confirmPassword}
+                      onChange={setConfirmPassword}
+                      placeholder="Repita a senha"
+                      autoComplete="new-password"
+                    />
+
+                    <Feedback type="error">{registerError}</Feedback>
+
+                    <button
+                      type="submit"
+                      disabled={registerLoading}
+                      className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-cyan-500 px-5 font-semibold text-white transition hover:from-blue-500 hover:to-cyan-400 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {registerLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {registerLoading ? 'Criando...' : 'Criar conta'}
+                      <ArrowRight className="h-4 w-4" />
+                    </button>
+
+                    <button type="button" onClick={goToLogin} className="text-sm font-medium text-cyan-200 transition hover:text-cyan-100">
+                      Voltar para login
+                    </button>
+                  </form>
                 )}
-                placeholder="seu@email.com"
-                autoComplete="email"
-              />
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-medium text-slate-200">Senha</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                className={cn(
-                  'h-11 w-full rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm text-white',
-                  'placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400',
-                )}
-                placeholder="Sua senha"
-                autoComplete="current-password"
-              />
-            </label>
-
-            {error ? <p className="text-sm text-red-300">{error}</p> : null}
-
-            <Button type="submit" disabled={loading} className="w-full gap-2">
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Entrar
-            </Button>
-          </form>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

@@ -61,6 +61,63 @@ export async function findUsuarioWithPasswordByEmail(email) {
   return data
 }
 
+export async function findUsuarioByProvider(provider, providerId) {
+  const supabase = getSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select(usuarioSelectFields)
+    .eq("provider", provider)
+    .eq("provider_id", providerId)
+    .maybeSingle()
+
+  if (error) {
+    console.error("[usuarios] failed to find usuario by provider", error)
+    return null
+  }
+
+  return data ? mapUsuarioToAppUser(data) : null
+}
+
+export async function updateUsuarioProviderAndVerification(input) {
+  const supabase = getSupabaseAdminClient()
+  const { error } = await supabase
+    .from("usuarios")
+    .update({
+      provider: input.provider,
+      provider_id: input.providerId,
+      email_verificado: input.emailVerificado === true,
+      ativo: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.usuarioId)
+
+  if (error) {
+    console.error("[usuarios] failed to update usuario provider", error)
+    return false
+  }
+
+  return true
+}
+
+export async function verifyUsuarioEmailByEmail(email) {
+  const supabase = getSupabaseAdminClient()
+  const { error } = await supabase
+    .from("usuarios")
+    .update({
+      email_verificado: true,
+      ativo: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("email", email)
+
+  if (error) {
+    console.error("[usuarios] failed to verify usuario email", error)
+    return false
+  }
+
+  return true
+}
+
 export async function touchUsuarioLogin(usuarioId) {
   const supabase = getSupabaseAdminClient()
   const { error } = await supabase

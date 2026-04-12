@@ -82,6 +82,7 @@
     return {
       projeto: (script.getAttribute("data-projeto") || "").trim() || null,
       agente: (script.getAttribute("data-agente") || "").trim() || null,
+      widgetSlug: (script.getAttribute("data-widget") || script.getAttribute("data-widget-slug") || "").trim() || null,
       apiBase: (script.getAttribute("data-api-base") || new URL(script.src, window.location.href).origin).trim(),
     };
   }
@@ -166,6 +167,7 @@
     return JSON.stringify({
       projeto: config.projeto || null,
       agente: config.agente || null,
+      widgetSlug: config.widgetSlug || null,
       apiBase: config.apiBase || null,
       sessionKey: readScopeIdentifier(context, ["sessionKey", "session.key", "channel.sessionKey"]),
       tenant: readScopeIdentifier(context, ["tenant.id", "tenant.slug", "tenantId"]),
@@ -999,6 +1001,9 @@
         projeto: instance.config.projeto,
         agente: instance.config.agente,
       });
+      if (instance.config.widgetSlug) {
+        params.set("widgetSlug", instance.config.widgetSlug);
+      }
       var response = await fetch(instance.config.apiBase + "/api/chat/config?" + params.toString(), {
         method: "GET",
         signal: controller.signal,
@@ -1056,6 +1061,7 @@
           message: trimmed,
           projeto: instance.config.projeto,
           agente: instance.config.agente,
+          widgetSlug: instance.config.widgetSlug || undefined,
           context: mergeDeep(instance.state.context, {
             channel: mergeDeep({ kind: "external_widget" }, instance.state.context.channel || {}),
             ui: mergeDeep({ structured_response: true, allow_icons: true }, instance.state.context.ui || {}),
@@ -1108,6 +1114,7 @@
     return {
       projeto: typeof config.projeto === "string" && config.projeto.trim() ? config.projeto.trim() : defaults.projeto,
       agente: typeof config.agente === "string" && config.agente.trim() ? config.agente.trim() : defaults.agente,
+      widgetSlug: typeof config.widgetSlug === "string" && config.widgetSlug.trim() ? config.widgetSlug.trim() : defaults.widgetSlug,
       apiBase: typeof config.apiBase === "string" && config.apiBase.trim() ? config.apiBase.trim() : defaults.apiBase,
       context: isRecord(config.context) ? clone(config.context) : {},
       ui: isRecord(config.ui) ? clone(config.ui) : {},
@@ -1372,6 +1379,23 @@
     }
   }
 
+  function ready(fn) {
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", fn, { once: true });
+      return;
+    }
+
+    fn();
+  }
+
+  function mountScriptDefaults() {
+    if (runtime.instance || !defaults.projeto || !defaults.agente) {
+      return;
+    }
+
+    mount({});
+  }
+
   window.InfraChat = {
     __queue: queue,
     mount: function (config) {
@@ -1418,4 +1442,5 @@
   };
 
   flushQueue();
+  ready(mountScriptDefaults);
 })();

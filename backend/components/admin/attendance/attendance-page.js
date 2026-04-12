@@ -24,7 +24,7 @@ const attendanceNav = [
   { label: "Atendimento", icon: MessageSquareText, active: true },
   { label: "Dashboard", icon: LayoutGrid, active: false },
   { label: "Leads", icon: ListTodo, active: false },
-  { label: "CRM Kanbam", icon: KanbanSquare, active: false },
+  { label: "CRM Kanban", icon: KanbanSquare, active: false },
 ]
 
 const conversationFilters = [
@@ -368,14 +368,27 @@ export default function AttendancePage() {
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [activeFilter, setActiveFilter] = useState("all")
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(null)
 
   useEffect(() => {
     async function loadConversations() {
-      const response = await fetch("/api/admin/conversations")
-      const data = await response.json()
+      try {
+        setLoadError(null)
+        const response = await fetch("/api/admin/conversations")
+        const data = await response.json()
 
-      setConversations(data.conversations ?? [])
-      setSelectedConversation(data.conversations?.[0] ?? null)
+        if (!response.ok) {
+          throw new Error(data.error || "Nao foi possivel carregar as conversas.")
+        }
+
+        setConversations(data.conversations ?? [])
+        setSelectedConversation(data.conversations?.[0] ?? null)
+      } catch (error) {
+        setLoadError(error.message || "Nao foi possivel carregar as conversas.")
+      } finally {
+        setLoading(false)
+      }
     }
 
     loadConversations()
@@ -383,17 +396,26 @@ export default function AttendancePage() {
 
   useEffect(() => {
     const timer = window.setInterval(async () => {
-      const response = await fetch("/api/admin/conversations")
-      const data = await response.json()
+      try {
+        const response = await fetch("/api/admin/conversations")
+        const data = await response.json()
 
-      setConversations(data.conversations ?? [])
-      setSelectedConversation((current) => {
-        if (!current) {
-          return data.conversations?.[0] ?? null
+        if (!response.ok) {
+          throw new Error(data.error || "Nao foi possivel atualizar as conversas.")
         }
 
-        return data.conversations?.find((conversation) => conversation.id === current.id) ?? current
-      })
+        setLoadError(null)
+        setConversations(data.conversations ?? [])
+        setSelectedConversation((current) => {
+          if (!current) {
+            return data.conversations?.[0] ?? null
+          }
+
+          return data.conversations?.find((conversation) => conversation.id === current.id) ?? current
+        })
+      } catch (error) {
+        setLoadError(error.message || "Nao foi possivel atualizar as conversas.")
+      }
     }, 10000)
 
     return () => window.clearInterval(timer)
@@ -487,10 +509,26 @@ export default function AttendancePage() {
     )
   }
 
+  if (loading) {
+    return (
+      <div className="grid h-full min-h-[420px] place-items-center">
+        <p className="text-sm text-slate-500">Carregando conversas reais...</p>
+      </div>
+    )
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-6 text-sm text-rose-100">
+        {loadError}
+      </div>
+    )
+  }
+
   if (!activeConversation) {
     return (
       <div className="grid h-full min-h-[420px] place-items-center">
-        <p className="text-sm text-slate-500">Nenhuma conversa encontrada.</p>
+        <p className="text-sm text-slate-500">Nenhuma conversa ativa encontrada.</p>
       </div>
     )
   }
