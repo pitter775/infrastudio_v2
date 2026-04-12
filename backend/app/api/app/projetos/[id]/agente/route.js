@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { createDefaultAgenteForUser, listAgentVersionsForUser, restoreAgentVersionForUser, updateAgenteForUser } from "@/lib/agentes"
 import { ensureDefaultChatWidgetForAgent } from "@/lib/chat-widgets"
+import { validateJsonObjectConfig } from "@/lib/json-validation"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 
@@ -53,6 +54,16 @@ export async function PATCH(request, context) {
     )
   }
 
+  const runtimeValidation = validateJsonObjectConfig(body.runtimeConfig, "runtimeConfig")
+  if (!runtimeValidation.ok) {
+    return NextResponse.json({ error: runtimeValidation.error }, { status: 400 })
+  }
+
+  const configValidation = validateJsonObjectConfig(body.configuracoes, "configuracoes")
+  if (!configValidation.ok) {
+    return NextResponse.json({ error: configValidation.error }, { status: 400 })
+  }
+
   const agent = await updateAgenteForUser(
     {
       agenteId: body.agenteId,
@@ -61,7 +72,8 @@ export async function PATCH(request, context) {
       descricao: body.descricao,
       promptBase: body.promptBase,
       ativo: body.ativo,
-      runtimeConfig: body.runtimeConfig,
+      runtimeConfig: runtimeValidation.value,
+      configuracoes: configValidation.value,
     },
     user,
   )
@@ -71,8 +83,9 @@ export async function PATCH(request, context) {
   }
 
   const versions = await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user)
+  const { widget } = await ensureDefaultChatWidgetForAgent(project, agent, user)
 
-  return NextResponse.json({ agent: { ...agent, versions }, versions }, { status: 200 })
+  return NextResponse.json({ agent: { ...agent, versions }, versions, widget }, { status: 200 })
 }
 
 export async function POST(request, context) {

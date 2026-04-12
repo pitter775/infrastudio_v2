@@ -177,8 +177,11 @@ export function ApiManager({ project }) {
       let parsedConfig = {}
       try {
         parsedConfig = form.configText?.trim() ? JSON.parse(form.configText) : {}
+        if (!parsedConfig || typeof parsedConfig !== "object" || Array.isArray(parsedConfig)) {
+          throw new Error()
+        }
       } catch {
-        throw new Error("JSON de configuracoes invalido.")
+        throw new Error("Configuracoes precisam ser um objeto JSON valido.")
       }
 
       const url = editing ? `${endpoint}/${form.id}` : endpoint

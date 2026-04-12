@@ -1,5 +1,6 @@
 import "server-only"
 
+import { validateJsonObjectConfig } from "@/lib/json-validation"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const apiFields =
@@ -243,6 +244,12 @@ function normalizeApiInput(input) {
     return { error: "O schema atual permite apenas metodo GET." }
   }
 
+  const config = input.configuracoes ?? input.config ?? {}
+  const configValidation = validateJsonObjectConfig(config, "configuracoes")
+  if (!configValidation.ok) {
+    return { error: configValidation.error }
+  }
+
   return {
     payload: {
       nome: name,
@@ -250,12 +257,7 @@ function normalizeApiInput(input) {
       metodo: method,
       descricao: String(input.descricao || input.description || "").trim(),
       ativo: input.ativo === false || input.active === false ? false : true,
-      configuracoes:
-        input.configuracoes && typeof input.configuracoes === "object"
-          ? input.configuracoes
-          : input.config && typeof input.config === "object"
-            ? input.config
-            : {},
+      configuracoes: configValidation.value ?? {},
       updated_at: new Date().toISOString(),
     },
   }

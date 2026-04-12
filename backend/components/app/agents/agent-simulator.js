@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { motion } from "framer-motion"
+import { motion, useDragControls } from "framer-motion"
 import { Info, LoaderCircle, SendHorizonal, Trash2, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -122,6 +122,7 @@ function AgentTestMessage({ message }) {
 }
 
 export function AgentSimulator({ project, agent = project?.agent, open, onOpenChange }) {
+  const dragControls = useDragControls()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState("")
   const [sending, setSending] = useState(false)
@@ -166,14 +167,14 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
         },
         body: JSON.stringify({
           message,
-          canal: "external_widget",
-          source: "site_widget",
+          canal: "admin_agent_test",
+          source: "agent_simulator",
           projeto: projectIdentifier,
           agente: agentIdentifier,
           identificadorExterno: `admin-widget-simulator:${project.id}:${agent.id}:${sessionId}`,
           context: {
             channel: {
-              kind: "external_widget",
+              kind: "admin_agent_test",
             },
             admin: {
               projetoId: project.id,
@@ -222,17 +223,22 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
   return (
     <motion.div
       drag
+      dragControls={dragControls}
+      dragListener={false}
       dragMomentum={false}
       dragElastic={0.08}
       initial={false}
       className="fixed bottom-5 right-5 z-[80] flex h-[620px] max-h-[calc(100vh-40px)] w-[420px] max-w-[calc(100vw-40px)] flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-2xl"
     >
-      <div className="flex cursor-grab items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 active:cursor-grabbing">
+      <div
+        className="flex cursor-grab items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 active:cursor-grabbing"
+        onPointerDown={(event) => dragControls.start(event)}
+      >
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-zinc-950">Teste do agente</h3>
           <p className="mt-0.5 truncate text-xs text-zinc-500">Runtime real efemero com APIs vinculadas.</p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1" onPointerDown={(event) => event.stopPropagation()}>
           <Button
             type="button"
             variant="ghost"

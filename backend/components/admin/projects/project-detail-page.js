@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
+import { EditorContent, useEditor } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
 import {
   ChevronRight,
   Files,
@@ -15,6 +17,9 @@ import {
   Wand2,
 } from 'lucide-react'
 import { AgentSimulator } from '@/components/app/agents/agent-simulator'
+import { ApiManager } from '@/components/app/apis/api-manager'
+import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
+import { WidgetManager } from '@/components/app/widgets/widget-manager'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
 import { Button } from '@/components/ui/button'
 import { HorizontalDragScroll } from '@/components/ui/horizontal-drag-scroll'
@@ -116,29 +121,66 @@ function richTextToPlainText(value) {
 }
 
 function AgentRichEditor({ value, onChange, placeholder }) {
-  function runCommand(command) {
-    if (typeof document === 'undefined') {
+  const editor = useEditor({
+    extensions: [StarterKit],
+    content: value || '',
+    immediatelyRender: false,
+    editorProps: {
+      attributes: {
+        class: 'infra-rich-editor min-h-[420px] px-4 py-4 text-sm leading-7 text-slate-200 outline-none',
+        'data-placeholder': placeholder || '',
+      },
+    },
+    onUpdate({ editor: currentEditor }) {
+      onChange(currentEditor.getHTML())
+    },
+  })
+
+  useEffect(() => {
+    if (!editor || editor.isFocused) {
       return
     }
 
-    document.execCommand(command)
-  }
+    const nextValue = value || ''
+    if (nextValue !== editor.getHTML()) {
+      editor.commands.setContent(nextValue, { emitUpdate: false })
+    }
+  }, [editor, value])
+
+  const toolbarItems = [
+    {
+      label: 'B',
+      name: 'bold',
+      className: 'font-bold',
+      onClick: () => editor?.chain().focus().toggleBold().run(),
+    },
+    {
+      label: 'I',
+      name: 'italic',
+      className: 'italic',
+      onClick: () => editor?.chain().focus().toggleItalic().run(),
+    },
+    {
+      label: 'Lista',
+      name: 'bulletList',
+      className: '',
+      onClick: () => editor?.chain().focus().toggleBulletList().run(),
+    },
+  ]
 
   return (
     <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a1020]">
       <div className="flex flex-wrap gap-2 border-b border-white/10 bg-[#0d1528] px-3 py-3">
-        {[
-          { label: 'B', command: 'bold', className: 'font-bold' },
-          { label: 'I', command: 'italic', className: 'italic' },
-          { label: 'U', command: 'underline', className: 'underline' },
-          { label: 'Lista', command: 'insertUnorderedList', className: '' },
-        ].map((item) => (
+        {toolbarItems.map((item) => (
           <button
-            key={item.command}
+            key={item.name}
             type="button"
-            onClick={() => runCommand(item.command)}
+            onClick={item.onClick}
+            disabled={!editor}
             className={cn(
               'inline-flex h-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.03] px-3 text-xs text-slate-200 transition hover:bg-white/[0.06]',
+              editor?.isActive(item.name) ? 'border-cyan-300/40 bg-cyan-300/10 text-cyan-100' : '',
+              !editor ? 'cursor-not-allowed opacity-50' : '',
               item.className,
             )}
           >
@@ -147,14 +189,7 @@ function AgentRichEditor({ value, onChange, placeholder }) {
         ))}
       </div>
 
-      <div
-        contentEditable
-        suppressContentEditableWarning
-        onInput={(event) => onChange(event.currentTarget.innerHTML)}
-        dangerouslySetInnerHTML={{ __html: value || '' }}
-        data-placeholder={placeholder}
-        className="infra-rich-editor min-h-[420px] px-4 py-4 text-sm leading-7 text-slate-200 outline-none"
-      />
+      <EditorContent editor={editor} />
     </div>
   )
 }
@@ -578,6 +613,7 @@ function ProjectPanel({ project }) {
   const [restoringId, setRestoringId] = useState('')
   const [savingActive, setSavingActive] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
+  const [creatingAgent, setCreatingAgent] = useState(false)
   const [generatingSiteSummary, setGeneratingSiteSummary] = useState(false)
   const [agentName, setAgentName] = useState(initialAgentName)
   const [siteUrl, setSiteUrl] = useState(initialSiteUrl)
@@ -608,6 +644,41 @@ function ProjectPanel({ project }) {
     setPromptValue(plainTextToEditorHtml(initialPrompt))
     setEditorStatus({ type: 'idle', message: '' })
   }, [initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
+
+  async function handleCreateAgent() {
+    if (agent?.id || creatingAgent) {
+      return
+    }
+
+    setCreatingAgent(true)
+    setEditorStatus({ type: 'idle', message: '' })
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'create_agent',
+          nome: agentName.trim() || `${project.name} Assistente`,
+          businessContext: normalizedPrompt || project.description || project.name,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Nao foi possivel criar o agente.')
+      }
+
+      setEditorStatus({ type: 'success', message: 'Agente e chat widget criados.' })
+      router.refresh()
+    } catch (error) {
+      setEditorStatus({ type: 'error', message: error.message })
+    } finally {
+      setCreatingAgent(false)
+    }
+  }
 
   async function handleToggleAgentActive() {
     if (!agent?.id || savingActive) {
@@ -824,6 +895,23 @@ function ProjectPanel({ project }) {
       <div className="min-h-0 flex-1 overflow-y-auto">
         {activeAgentTab === 'edit' ? (
         <div className="min-h-full px-6 py-5">
+          {!agent?.id ? (
+            <div className="mb-5 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
+              <div className="text-sm font-medium text-sky-100">Projeto sem agente ativo.</div>
+              <div className="mt-1 text-sm leading-6 text-slate-400">
+                Crie o agente inicial e o chat widget padrao automaticamente.
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={creatingAgent}
+                onClick={handleCreateAgent}
+                className="mt-4 h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {creatingAgent ? 'Criando...' : 'Criar agente + widget'}
+              </Button>
+            </div>
+          ) : null}
           <div>
             <div className="space-y-5">
                 <div>
@@ -1087,10 +1175,66 @@ function buildIntegrationTabs(panelId) {
   ]
 }
 
-function IntegrationPanel({ panel, sheetItems }) {
+function ManagerFrame({ children }) {
+  return (
+    <div className="manager-frame rounded-2xl bg-slate-100 p-1 text-zinc-950">
+      {children}
+    </div>
+  )
+}
+
+function MercadoLivrePanel({ project }) {
+  const activeCount = project.directConnections?.mercadoLivre ?? 0
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-5">
+        <div className="text-sm font-medium text-white">Mercado Livre</div>
+        <div className="mt-2 text-sm leading-6 text-slate-400">
+          Integracao preparada para catalogo, pedidos e perguntas vinculadas ao agente.
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          {[
+            ['Conectores ativos', activeCount],
+            ['Catalogo', 'Pronto para vinculo'],
+            ['Perguntas', 'Fila do agente'],
+          ].map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</div>
+              <div className="mt-2 text-sm font-medium text-slate-100">{value}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      <PlaceholderPanel
+        title="Fluxo v2"
+        description="Base visual portada para evoluir autenticacao, catalogo, pedidos e respostas do Mercado Livre sem depender do legado."
+        items={['OAuth Mercado Livre', 'Produtos', 'Pedidos', 'Perguntas do comprador']}
+      />
+    </div>
+  )
+}
+
+function IntegrationPanel({ panel, sheetItems, project }) {
   const tabs = useMemo(() => buildIntegrationTabs(panel.id), [panel.id])
   const [activeTab, setActiveTab] = useState(tabs[0]?.id || 'overview')
   const [enabled, setEnabled] = useState(true)
+  const realPanel =
+    panel.id === 'apis' ? (
+      <ManagerFrame>
+        <ApiManager project={project} />
+      </ManagerFrame>
+    ) : panel.id === 'whatsapp' ? (
+      <ManagerFrame>
+        <WhatsAppManager project={project} />
+      </ManagerFrame>
+    ) : panel.id === 'chat-widget' ? (
+      <ManagerFrame>
+        <WidgetManager project={project} />
+      </ManagerFrame>
+    ) : panel.id === 'mercado-livre' ? (
+      <MercadoLivrePanel project={project} />
+    ) : null
 
   return (
     <>
@@ -1102,6 +1246,9 @@ function IntegrationPanel({ panel, sheetItems }) {
       <SheetInternalTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        {realPanel ? (
+          realPanel
+        ) : (
         <div className="space-y-6 text-sm text-slate-300">
           <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Status</div>
@@ -1129,6 +1276,7 @@ function IntegrationPanel({ panel, sheetItems }) {
             </div>
           </div>
         </div>
+        )}
       </div>
     </>
   )
@@ -1452,7 +1600,7 @@ export function AdminProjectDetailPage({ project }) {
                 className="flex h-full min-h-0 flex-col"
               >
                 {selectedPanel ? (
-                  <IntegrationPanel panel={selectedPanel} sheetItems={sheetItems} />
+                  <IntegrationPanel panel={selectedPanel} sheetItems={sheetItems} project={project} />
                 ) : (
                   <ProjectPanel project={project} />
                 )}

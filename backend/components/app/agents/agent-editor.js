@@ -50,6 +50,9 @@ export function AgentEditor({ project }) {
       let parsedRuntimeConfig = null
       if (runtimeConfig.trim()) {
         parsedRuntimeConfig = JSON.parse(runtimeConfig)
+        if (!parsedRuntimeConfig || typeof parsedRuntimeConfig !== "object" || Array.isArray(parsedRuntimeConfig)) {
+          throw new Error("Runtime config precisa ser um objeto JSON.")
+        }
       }
 
       const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {

@@ -462,14 +462,22 @@ async function readProjectRelatedIds(supabase, projectId) {
 }
 
 async function deleteFeedbackMessagesForProject(supabase, projectId) {
-  let offset = 0
+  const feedbackIds = []
 
   while (true) {
-    const { data, error } = await supabase
+    const lastId = feedbackIds.at(-1)
+    let query = supabase
       .from("feedbacks")
       .select("id")
       .eq("projeto_id", projectId)
-      .range(offset, offset + 499)
+      .order("id", { ascending: true })
+      .limit(200)
+
+    if (lastId) {
+      query = query.gt("id", lastId)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       return { ok: false, error }
@@ -477,22 +485,39 @@ async function deleteFeedbackMessagesForProject(supabase, projectId) {
 
     const ids = (data ?? []).map((item) => item.id).filter(Boolean)
 
-    if (!ids.length) {
-      return { ok: true }
+    feedbackIds.push(...ids)
+
+    if (ids.length < 200) {
+      break
     }
-
-    const { error: deleteError } = await supabase.from("feedback_mensagens").delete().in("feedback_id", ids)
-
-    if (deleteError) {
-      return { ok: false, error: deleteError }
-    }
-
-    if (ids.length < 500) {
-      return { ok: true }
-    }
-
-    offset += 500
   }
+
+  for (let index = 0; index < feedbackIds.length; index += 50) {
+    const ids = feedbackIds.slice(index, index + 50)
+
+    if (!ids.length) {
+      continue
+    }
+
+    const { error } = await supabase.from("feedback_mensagens").delete().in("feedback_id", ids)
+
+    if (error) {
+      const message = String(error?.message || "")
+      const missingFeedbackMessagesTable =
+        error?.code === "42P01" ||
+        error?.code === "PGRST205" ||
+        /feedback_mensagens/i.test(message) && /does not exist|not found|could not find|relation/i.test(message)
+
+      if (missingFeedbackMessagesTable) {
+        console.warn("[projetos] feedback_mensagens table not available; continuing project delete")
+        return { ok: true }
+      }
+
+      return { ok: false, error }
+    }
+  }
+
+  return { ok: true }
 }
 
 export async function deleteProject(projectId, confirmationName) {
