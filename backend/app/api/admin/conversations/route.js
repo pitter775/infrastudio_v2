@@ -8,6 +8,6 @@ export async function GET() {
     return Response.json({ error: "Nao autenticado." }, { status: 401 })
   }
 
-  const conversations = await listAdminConversations()
+  const conversations = await listAdminConversations(user)
   return Response.json({ conversations })
 }

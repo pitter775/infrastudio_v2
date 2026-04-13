@@ -9,7 +9,6 @@ import {
   BriefcaseBusiness,
   CheckCircle2,
   Menu,
-  MessageCircle,
   Smartphone,
   Sparkles,
 } from 'lucide-react'
@@ -29,7 +28,7 @@ import {
 import { cn } from '@/lib/utils'
 
 function HomeNavbar({ currentUser, onLoginClick }) {
-  const dashboardHref = currentUser?.role === 'admin' ? '/admin/dashboard' : '/app/projetos'
+  const dashboardHref = currentUser?.role === 'admin' ? '/admin/dashboard' : '/admin/projetos'
   const navItems = useMemo(
     () => [
       { href: '#planos', label: 'Planos', icon: Sparkles },
@@ -67,15 +66,6 @@ function HomeNavbar({ currentUser, onLoginClick }) {
               </a>
             )
           })}
-          <a
-            href={`https://wa.me/${WHATSAPP_NUMBER}`}
-            target="_blank"
-            rel="noreferrer"
-            className="infra-click-pulse inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-500 px-6 py-2.5 text-sm font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:from-blue-500 hover:to-blue-400"
-          >
-            <MessageCircle size={15} />
-            {'Solicitar or\u00e7amento'}
-          </a>
           {currentUser ? (
             <Link
               href={dashboardHref}
@@ -118,15 +108,6 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                 {item.label}
               </a>
             ))}
-            <a
-              href={`https://wa.me/${WHATSAPP_NUMBER}`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-3 rounded-2xl border border-sky-400/20 bg-sky-400/10 px-4 py-3 text-sm font-semibold text-sky-50"
-            >
-              <MessageCircle size={16} />
-              {'Solicitar or\u00e7amento'}
-            </a>
             {currentUser ? (
               <Link
                 href={dashboardHref}

@@ -36,11 +36,11 @@ const navItems = [
   { label: 'Dashboard', icon: ChartColumn, href: '/admin/dashboard' },
   { label: 'Projetos', icon: LayoutGrid, href: '/admin/projetos' },
   { label: 'Atendimento', icon: MessageSquareText, href: '/admin/atendimento' },
-  { label: 'Feedback', icon: MessageSquareQuote, href: '/admin/feedback', adminOnly: true },
+  { label: 'Feedback', icon: MessageSquareQuote, href: '/admin/feedback' },
   { label: 'Adriana', icon: Bot, href: '/admin/adriana', adminOnly: true },
-  { label: 'Usuarios', icon: Users, href: '/admin/usuarios' },
-  { label: 'Billing', icon: CreditCard, href: '/admin/billing' },
-  { label: 'Laboratorio', icon: FlaskConical, href: '/admin/laboratorio' },
+  { label: 'Usuarios', icon: Users, href: '/admin/usuarios', adminOnly: true },
+  { label: 'Billing', icon: CreditCard, href: '/admin/billing', adminOnly: true },
+  { label: 'Laboratorio', icon: FlaskConical, href: '/admin/laboratorio', adminOnly: true },
 ]
 
 function isItemActive(item, pathname) {

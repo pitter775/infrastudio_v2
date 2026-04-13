@@ -3,8 +3,10 @@ import "server-only"
 import { listAgentVersionsForUser } from "@/lib/agentes"
 import { listAgentApiIdsForUser } from "@/lib/apis"
 import { getProjectBillingSnapshot } from "@/lib/billing"
+import { listChatWidgetsForUser } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { listWhatsAppChannelsForUser } from "@/lib/whatsapp-channels"
 
 const projetoFields =
   "id, nome, tipo, descricao, status, slug, configuracoes, created_at, updated_at, is_demo, owner_user_id, owner:usuarios!projetos_owner_user_id_fkey(id, nome, email, avatar_url)"
@@ -684,9 +686,11 @@ export async function getProjectForUser(identifier, user) {
     }
 
     const project = normalizeProject(data)
-    const [agent, apis, apiCount, whatsappCount, widgetCount, fileCount, billing] = await Promise.all([
+    const [agent, apis, whatsappChannels, chatWidgets, apiCount, whatsappCount, widgetCount, fileCount, billing] = await Promise.all([
       getActiveAgent(supabase, project.id),
       listProjectApis(supabase, project.id),
+      listWhatsAppChannelsForUser(project, user),
+      listChatWidgetsForUser(project, user),
       safeCount(supabase, "apis", project.id),
       safeCount(supabase, "canais_whatsapp", project.id),
       safeCount(supabase, "chat_widgets", project.id),
@@ -707,6 +711,8 @@ export async function getProjectForUser(identifier, user) {
       ...project,
       agent: agent ? { ...agent, versions: agentVersions } : null,
       apis,
+      whatsappChannels,
+      chatWidgets,
       billing,
       integrations: {
         apis: apiCount,

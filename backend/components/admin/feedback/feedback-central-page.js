@@ -74,16 +74,16 @@ export function AdminFeedbackPage({
     assunto: "",
     mensagemInicial: "",
   })
-  const isAllowed = currentUser?.role === "admin"
+  const isAdmin = currentUser?.role === "admin"
 
   const stats = useMemo(
     () => ({
       total: feedbacks.length,
       novos: feedbacks.filter((item) => item.status === "novo").length,
-      pendentes: feedbacks.filter((item) => item.possuiMensagemNaoLidaAdmin).length,
+      pendentes: feedbacks.filter((item) => (isAdmin ? item.possuiMensagemNaoLidaAdmin : item.possuiMensagemNaoLidaUsuario)).length,
       fechados: feedbacks.filter((item) => item.status === "fechado").length,
     }),
-    [feedbacks],
+    [feedbacks, isAdmin],
   )
 
   async function loadFeedbacks(nextFilters = filters) {
@@ -145,19 +145,11 @@ export function AdminFeedbackPage({
     window.location.href = `/admin/feedback/${data.feedback.id}`
   }
 
-  if (!isAllowed) {
-    return (
-      <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-8 text-rose-100">
-        Modulo Feedback restrito ao admin.
-      </div>
-    )
-  }
-
   return (
     <div>
       <AdminPageHeader
         title="Feedback"
-        description="Central administrativa para abrir, acompanhar e responder feedbacks e chamados internos."
+        description={isAdmin ? "Central administrativa para abrir, acompanhar e responder feedbacks e chamados internos." : "Acompanhe seus feedbacks e chamados."}
         actions={
           <Button
             type="button"
@@ -356,7 +348,7 @@ export function AdminFeedbackPage({
                       <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
                         {item.categoria}
                       </span>
-                      {item.possuiMensagemNaoLidaAdmin ? (
+                      {(isAdmin ? item.possuiMensagemNaoLidaAdmin : item.possuiMensagemNaoLidaUsuario) ? (
                         <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-emerald-200">
                           pendente
                         </span>

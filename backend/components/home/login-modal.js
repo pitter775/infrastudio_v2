@@ -232,7 +232,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     const result = await signInWithProjectAuth(loginEmail, loginPassword)
 
     if (result.user) {
-      window.location.href = result.user.role === 'admin' ? '/admin/dashboard' : '/app/projetos'
+      window.location.href = result.user.role === 'admin' ? '/admin/dashboard' : '/admin/projetos'
       return
     }
 

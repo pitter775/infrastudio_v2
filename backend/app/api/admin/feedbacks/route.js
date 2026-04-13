@@ -9,15 +9,11 @@ import {
 } from "@/lib/feedbacks"
 import { getSessionUser } from "@/lib/session"
 
-function canAccessGlobalAdmin(user) {
-  return user?.role === "admin"
-}
-
 export async function GET(request) {
   const user = await getSessionUser()
 
-  if (!canAccessGlobalAdmin(user)) {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
   }
 
   const searchParams = request.nextUrl.searchParams
@@ -45,8 +41,8 @@ export async function GET(request) {
 export async function POST(request) {
   const user = await getSessionUser()
 
-  if (!canAccessGlobalAdmin(user)) {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
   }
 
   const body = await request.json()

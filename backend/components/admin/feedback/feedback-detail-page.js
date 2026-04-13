@@ -39,7 +39,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
   const [statusDraft, setStatusDraft] = useState(initialFeedback.status)
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState(null)
-  const isAllowed = currentUser?.role === "admin"
+  const isAdmin = currentUser?.role === "admin"
 
   async function refreshDetail() {
     setLoading(true)
@@ -142,14 +142,6 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
     setLoading(false)
   }
 
-  if (!isAllowed) {
-    return (
-      <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-8 text-rose-100">
-        Modulo Feedback restrito ao admin.
-      </div>
-    )
-  }
-
   return (
     <div>
       <AdminPageHeader
@@ -204,29 +196,33 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
           </dl>
 
           <form onSubmit={handleStatusSubmit} className="mt-6 space-y-4">
-            <label className="block space-y-2">
-              <span className="text-sm font-semibold text-slate-300">Status</span>
-              <select
-                value={statusDraft}
-                onChange={(event) => setStatusDraft(event.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-              >
-                {statuses.map((status) => (
-                  <option key={status} value={status}>
-                    {getStatusLabel(status)}
-                  </option>
-                ))}
-              </select>
-            </label>
+            {isAdmin ? (
+              <>
+                <label className="block space-y-2">
+                  <span className="text-sm font-semibold text-slate-300">Status</span>
+                  <select
+                    value={statusDraft}
+                    onChange={(event) => setStatusDraft(event.target.value)}
+                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
+                  >
+                    {statuses.map((status) => (
+                      <option key={status} value={status}>
+                        {getStatusLabel(status)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="h-10 w-full rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
-            >
-              {loading ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-              Salvar status
-            </Button>
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="h-10 w-full rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
+                >
+                  {loading ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+                  Salvar status
+                </Button>
+              </>
+            ) : null}
 
             {detail.status === "fechado" ? (
               <Button
@@ -278,7 +274,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
             <textarea
               value={mensagem}
               onChange={(event) => setMensagem(event.target.value)}
-              placeholder={detail.status === "fechado" ? "Feedback fechado." : "Escreva a resposta administrativa"}
+              placeholder={detail.status === "fechado" ? "Feedback fechado." : isAdmin ? "Escreva a resposta administrativa" : "Escreva sua mensagem"}
               rows={5}
               disabled={detail.status === "fechado" || loading}
               className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-60"
@@ -291,7 +287,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
                 className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
               >
                 {loading ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />}
-                Enviar resposta
+                Enviar mensagem
               </Button>
             </div>
           </form>

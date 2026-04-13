@@ -5,13 +5,12 @@ import { getSessionUser } from "@/lib/session"
 
 export default async function Page() {
   const currentUser = await getSessionUser()
-  const [projects, result] =
-    currentUser?.role === "admin"
-      ? await Promise.all([
-          listProjectsForUser(currentUser),
-          listFeedbacks({ user: currentUser, ordenacao: "pendentes" }),
-        ])
-      : [[], { feedbacks: [], filtros: { usuarios: [] } }]
+  const [projects, result] = currentUser
+    ? await Promise.all([
+        listProjectsForUser(currentUser),
+        listFeedbacks({ user: currentUser, ordenacao: currentUser.role === "admin" ? "pendentes" : "recentes" }),
+      ])
+    : [[], { feedbacks: [], filtros: { usuarios: [] } }]
 
   return (
     <AdminFeedbackPage

@@ -151,16 +151,14 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
             : 'Projetos vinculados ao seu usuario.'
         }
         actions={
-          isAdmin ? (
-            <Button
-              type="button"
-              onClick={handleNewProject}
-              className="h-8 rounded-lg bg-emerald-500 px-3 text-xs font-medium text-slate-950 hover:bg-emerald-400"
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Novo projeto
-            </Button>
-          ) : null
+          <Button
+            type="button"
+            onClick={handleNewProject}
+            className="h-8 rounded-lg bg-emerald-500 px-3 text-xs font-medium text-slate-950 hover:bg-emerald-400"
+          >
+            <Plus className="mr-1.5 h-3.5 w-3.5" />
+            Novo projeto
+          </Button>
         }
       />
 
@@ -193,8 +191,7 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
         </div>
       )}
 
-      {isAdmin ? (
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen} modal={false}>
+      <Sheet open={sheetOpen} onOpenChange={setSheetOpen} modal={false}>
           <SheetContent
             side="right"
             showOverlay={false}
@@ -298,7 +295,7 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                   >
                     Limpar
                   </Button>
-                  {form.id ? (
+                  {isAdmin && form.id ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -325,6 +322,7 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
               </form>
                 </div>
 
+                {isAdmin ? (
                 <div className="min-h-0 border-t border-white/5 p-6 lg:border-l lg:border-t-0">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
                   Projetos cadastrados
@@ -368,11 +366,11 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                   ))}
                 </div>
                 </div>
+                ) : null}
               </div>
             </div>
           </SheetContent>
         </Sheet>
-      ) : null}
 
       {deleteTarget ? (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">

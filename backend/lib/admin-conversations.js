@@ -80,10 +80,31 @@ async function loadHandoff(chat) {
   }
 }
 
-export async function listAdminConversations() {
+function getScopedProjectIds(user) {
+  if (user?.role === "admin") {
+    return null
+  }
+
+  return user?.memberships?.map((item) => item.projetoId).filter(Boolean) ?? []
+}
+
+function canAccessConversation(user, chat) {
+  if (user?.role === "admin") {
+    return true
+  }
+
+  return Boolean(chat?.projetoId && user?.memberships?.some((item) => item.projetoId === chat.projetoId))
+}
+
+export async function listAdminConversations(user) {
   try {
+    const scopedProjectIds = getScopedProjectIds(user)
+    if (Array.isArray(scopedProjectIds) && scopedProjectIds.length === 0) {
+      return []
+    }
+
     const supabase = getSupabaseAdminClient()
-    const { data, error } = await supabase
+    let query = supabase
       .from("chats")
       .select(
         "id, titulo, contato_nome, contato_telefone, contato_avatar_url, status, created_at, updated_at, total_tokens, total_custo, agente_id, usuario_id, projeto_id, canal, identificador_externo, contexto",
@@ -91,6 +112,12 @@ export async function listAdminConversations() {
       .neq("canal", "admin_agent_test")
       .order("updated_at", { ascending: false, nullsFirst: false })
       .limit(50)
+
+    if (Array.isArray(scopedProjectIds)) {
+      query = query.in("projeto_id", scopedProjectIds)
+    }
+
+    const { data, error } = await query
 
     if (error) {
       console.error("[admin-conversations] failed to list chats", error)
@@ -133,11 +160,15 @@ export async function listAdminConversations() {
   }
 }
 
-export async function appendAdminConversationMessage(chatId, texto, attachments = []) {
+export async function appendAdminConversationMessage(chatId, texto, attachments = [], user) {
   const chat = await getChatById(chatId)
 
   if (!chat) {
     return null
+  }
+
+  if (!canAccessConversation(user, chat)) {
+    return false
   }
 
   const message = await appendMessage({
@@ -162,4 +193,8 @@ export async function appendAdminConversationMessage(chatId, texto, attachments 
   })
 
   return message ? mapAdminConversationMessage(message) : null
+}
+
+export function userCanAccessAdminConversation(user, chat) {
+  return canAccessConversation(user, chat)
 }

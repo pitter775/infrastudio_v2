@@ -567,6 +567,42 @@ export async function updateApiForUser(apiId, projetoId, input, user) {
   }
 }
 
+export async function deleteApiForUser(apiId, projetoId, user) {
+  if (!apiId || !projetoId || !userCanAccessProject(user, projetoId)) {
+    return { ok: false, error: "Acesso negado." }
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data: api, error: apiError } = await supabase
+      .from("apis")
+      .select("id")
+      .eq("id", apiId)
+      .eq("projeto_id", projetoId)
+      .maybeSingle()
+
+    if (apiError || !api) {
+      return { ok: false, error: "API nao encontrada." }
+    }
+
+    await supabase.from("agente_api").delete().eq("api_id", apiId)
+    await supabase.from("api_campos").delete().eq("api_id", apiId)
+    await supabase.from("api_versoes").delete().eq("api_id", apiId)
+
+    const { error } = await supabase.from("apis").delete().eq("id", apiId).eq("projeto_id", projetoId)
+
+    if (error) {
+      console.error("[apis] failed to delete api", error)
+      return { ok: false, error: "Nao foi possivel deletar a API." }
+    }
+
+    return { ok: true, error: null }
+  } catch (error) {
+    console.error("[apis] failed to delete api", error)
+    return { ok: false, error: "Nao foi possivel deletar a API." }
+  }
+}
+
 export async function restoreApiVersionForUser({ apiId, projetoId, versionId }, user) {
   if (!apiId || !projetoId || !versionId || !userCanAccessProject(user, projetoId)) {
     return { api: null, error: "Acesso negado." }

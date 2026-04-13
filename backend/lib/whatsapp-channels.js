@@ -137,6 +137,28 @@ export async function getWhatsAppChannelForUser(channelId, project, user) {
   }
 }
 
+export async function deleteWhatsAppChannelForUser(channelId, project, user) {
+  if (!channelId || !project?.id || !userCanAccessProject(user, project.id)) {
+    return { ok: false, error: "Acesso negado." }
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    await supabase.from("whatsapp_handoff_contatos").delete().eq("canal_whatsapp_id", channelId)
+    const { error } = await supabase.from("canais_whatsapp").delete().eq("id", channelId).eq("projeto_id", project.id)
+
+    if (error) {
+      console.error("[whatsapp] failed to delete channel", error)
+      return { ok: false, error: "Nao foi possivel remover o WhatsApp." }
+    }
+
+    return { ok: true, error: null }
+  } catch (error) {
+    console.error("[whatsapp] failed to delete channel", error)
+    return { ok: false, error: "Nao foi possivel remover o WhatsApp." }
+  }
+}
+
 export async function updateWhatsAppChannelSession(channelId, patch) {
   if (!channelId) {
     return null

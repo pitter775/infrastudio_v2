@@ -19,7 +19,11 @@ export async function POST(request, { params }) {
     )
   }
 
-  const message = await appendAdminConversationMessage(id, texto, body.attachments)
+  const message = await appendAdminConversationMessage(id, texto, body.attachments, user)
+
+  if (message === false) {
+    return Response.json({ success: false, error: "Acesso negado" }, { status: 403 })
+  }
 
   if (!message) {
     return Response.json({ success: false, error: "Conversa nao encontrada" }, { status: 404 })

@@ -1,4 +1,5 @@
 import { claimHumanHandoff, releaseHumanHandoff } from "@/lib/chat-handoffs"
+import { userCanAccessAdminConversation } from "@/lib/admin-conversations"
 import { getChatById } from "@/lib/chats"
 import { getSessionUser } from "@/lib/session"
 
@@ -15,6 +16,10 @@ export async function PATCH(request, { params }) {
 
   if (!chat) {
     return Response.json({ error: "Conversa nao encontrada." }, { status: 404 })
+  }
+
+  if (!userCanAccessAdminConversation(user, chat)) {
+    return Response.json({ error: "Acesso negado." }, { status: 403 })
   }
 
   const handoff =

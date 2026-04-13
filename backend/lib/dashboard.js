@@ -27,6 +27,10 @@ function getScopeProjectIds(user, projects) {
 async function countUsuarios(scopeProjectIds) {
   const supabase = getSupabaseAdminClient()
 
+  if (Array.isArray(scopeProjectIds) && scopeProjectIds.length === 0) {
+    return 0
+  }
+
   if (!scopeProjectIds) {
     const { count, error } = await supabase.from("usuarios").select("id", { count: "exact", head: true })
 
@@ -52,6 +56,10 @@ async function countUsuarios(scopeProjectIds) {
 }
 
 async function listScopedChats(scopeProjectIds) {
+  if (Array.isArray(scopeProjectIds) && scopeProjectIds.length === 0) {
+    return []
+  }
+
   const supabase = getSupabaseAdminClient()
   let query = supabase
     .from("chats")
@@ -83,6 +91,10 @@ async function listScopedChats(scopeProjectIds) {
 }
 
 async function listScopedLogs(scopeProjectIds) {
+  if (Array.isArray(scopeProjectIds) && scopeProjectIds.length === 0) {
+    return []
+  }
+
   const supabase = getSupabaseAdminClient()
   let query = supabase
     .from("logs")

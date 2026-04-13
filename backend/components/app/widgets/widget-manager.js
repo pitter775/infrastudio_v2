@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Bot, CheckCircle2, Code2, Copy, ExternalLink, Pencil, Plus, XCircle } from "lucide-react"
+import { Bot, BookOpen, CheckCircle2, Code2, Copy, ExternalLink, Pencil, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { JsonCodeBlock } from "@/components/ui/json-code-block"
+import { ToggleSwitchButton } from "@/components/ui/toggle-switch-button"
 import { cn } from "@/lib/utils"
 
 const PUBLIC_DOMAIN = "https://www.infrastudio.pro"
@@ -19,6 +21,10 @@ const emptyForm = {
   transparent: true,
   active: true,
 }
+
+const inputClassName =
+  "mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
+const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
 
 function slugify(value) {
   return String(value || "")
@@ -62,7 +68,7 @@ function buildPreviewUrl(project, widget) {
   return `/widget-contract-test?${params.toString()}`
 }
 
-export function WidgetManager({ project }) {
+export function WidgetManager({ project, initialWidgetId = null, activeTab: controlledActiveTab, onTabChange, onFooterStateChange, compact = false }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const endpoint = `/api/app/projetos/${projectIdentifier}/widgets`
   const [widgets, setWidgets] = useState([])
@@ -71,6 +77,8 @@ export function WidgetManager({ project }) {
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState({ type: "idle", message: "" })
   const [selectedWidgetId, setSelectedWidgetId] = useState(null)
+  const [activeTab, setActiveTab] = useState("edit")
+  const currentTab = controlledActiveTab || activeTab
 
   const editing = Boolean(form.id)
   const selectedWidget = useMemo(
@@ -106,6 +114,32 @@ export function WidgetManager({ project }) {
     }
   }, [endpoint])
 
+  useEffect(() => {
+    if (!initialWidgetId || !widgets.length) {
+      return
+    }
+
+    const widget = widgets.find((item) => item.id === initialWidgetId)
+    if (widget) {
+      setSelectedWidgetId(widget.id)
+      startEdit(widget)
+    }
+  }, [initialWidgetId, widgets])
+
+  useEffect(() => {
+    if (!form.id && selectedWidget) {
+      setForm(selectedWidget)
+    }
+  }, [form.id, selectedWidget])
+
+  useEffect(() => {
+    onFooterStateChange?.({
+      activeTab: currentTab,
+      canSave: currentTab === "edit" && Boolean(form.name || editing),
+      canCopy: currentTab === "code" && Boolean(selectedWidget),
+    })
+  }, [currentTab, editing, form.name, onFooterStateChange, selectedWidget])
+
   function updateForm(field, value) {
     setForm((current) => {
       const next = { ...current, [field]: value }
@@ -122,17 +156,10 @@ export function WidgetManager({ project }) {
     })
   }
 
-  function startCreate() {
-    setForm({
-      ...emptyForm,
-      name: `${project.name} Chat`,
-      slug: slugify(`${project.slug || project.name}-chat`),
-    })
-    setStatus({ type: "idle", message: "" })
-  }
-
   function startEdit(widget) {
     setForm(widget)
+    setActiveTab("edit")
+    onTabChange?.("edit")
     setStatus({ type: "idle", message: "" })
   }
 
@@ -190,116 +217,139 @@ export function WidgetManager({ project }) {
   }
 
   return (
-    <section className="mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className={cn("mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm", compact && "mt-0 border-0 bg-transparent p-0 text-slate-300 shadow-none")}>
+      <div className={cn("flex items-center gap-3", compact && "sr-only")}>
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700">
+          <Bot className="h-5 w-5" />
+        </div>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700">
-            <Bot className="h-5 w-5" />
-          </div>
           <div>
-            <h2 className="text-base font-semibold text-zinc-950">Widgets de chat</h2>
+            <h2 className="text-base font-semibold text-zinc-950">Chat widget</h2>
             <p className="text-sm text-zinc-500">Instalacao publica usando {PUBLIC_DOMAIN}.</p>
           </div>
         </div>
-        <Button type="button" variant="outline" className="gap-2" onClick={startCreate}>
-          <Plus className="h-4 w-4" />
-          Novo widget
-        </Button>
       </div>
 
-      {form.name || editing ? (
-        <form className="mt-5 grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4" onSubmit={saveWidget}>
-          <div className="grid gap-3 md:grid-cols-2">
+      <div className={cn("mt-5 flex flex-wrap gap-2", compact && "hidden")}>
+        {[
+          { id: "edit", label: "Editar", icon: Pencil },
+          { id: "code", label: "Ver codigo fonte", icon: Code2 },
+          { id: "docs", label: "Documentacao", icon: BookOpen },
+        ].map((tab) => {
+          const Icon = tab.icon
+          const active = currentTab === tab.id
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab.id)
+                onTabChange?.(tab.id)
+              }}
+              className={cn(
+                "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition",
+                active
+                  ? "border-sky-400/40 bg-sky-500/15 text-sky-100"
+                  : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {!selectedWidget && !loading ? (
+        <p className="mt-5 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+          Nenhum widget padrao encontrado neste projeto.
+        </p>
+      ) : null}
+
+      {currentTab === "edit" && (form.name || editing) ? (
+        <form id="widget-editor-form" className="grid gap-4" onSubmit={saveWidget}>
+          <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Titulo</span>
+              <span className={labelClassName}>Titulo</span>
               <input
                 value={form.name}
                 onChange={(event) => updateForm("name", event.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+                className={inputClassName}
                 required
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Slug</span>
+              <span className={labelClassName}>Slug</span>
               <input
                 value={form.slug}
                 onChange={(event) => updateForm("slug", event.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+                className={inputClassName}
                 required
               />
             </label>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_160px]">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_160px]">
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Dominio permitido</span>
+              <span className={labelClassName}>Dominio permitido</span>
               <input
                 value={form.domain}
                 onChange={(event) => updateForm("domain", event.target.value)}
                 placeholder="https://cliente.com.br"
-                className="mt-1 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+                className={inputClassName}
               />
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Tema</span>
+              <span className={labelClassName}>Tema</span>
               <select
                 value={form.theme}
                 onChange={(event) => updateForm("theme", event.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+                className={inputClassName}
               >
                 <option value="dark">Dark</option>
                 <option value="light">Light</option>
               </select>
             </label>
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">Cor</span>
+              <span className={labelClassName}>Cor</span>
               <input
                 type="color"
                 value={form.accent}
                 onChange={(event) => updateForm("accent", event.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-zinc-300 bg-white px-2 py-1"
+                className="mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-2 py-1"
               />
             </label>
           </div>
 
-          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px_160px]">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px_180px]">
             <label className="block">
-              <span className="text-sm font-medium text-zinc-700">WhatsApp de continuidade</span>
+              <span className={labelClassName}>WhatsApp de continuidade</span>
               <input
                 value={form.whatsapp}
                 onChange={(event) => updateForm("whatsapp", event.target.value)}
                 placeholder="5511999999999"
-                className="mt-1 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+                className={inputClassName}
               />
             </label>
-            <label className="flex items-center gap-3 pt-6 text-sm text-zinc-700">
-              <input
-                type="checkbox"
-                checked={form.transparent}
-                onChange={(event) => updateForm("transparent", event.target.checked)}
-                className="h-4 w-4 rounded border-zinc-300"
-              />
-              Fundo transparente
-            </label>
-            <label className="flex items-center gap-3 pt-6 text-sm text-zinc-700">
-              <input
-                type="checkbox"
-                checked={form.active}
-                onChange={(event) => updateForm("active", event.target.checked)}
-                className="h-4 w-4 rounded border-zinc-300"
-              />
-              Ativo
-            </label>
+            <div className="flex items-end">
+              <ToggleSwitchButton checked={form.transparent} onChange={(value) => updateForm("transparent", value)} labelOn="Fundo transparente" labelOff="Fundo solido" />
+            </div>
+            <div className="flex items-end">
+              <ToggleSwitchButton checked={form.active} onChange={(value) => updateForm("active", value)} labelOn="Widget ativo" labelOff="Widget inativo" />
+            </div>
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={resetForm}>
-              Cancelar
+          {!compact ? <div className="flex justify-end gap-2">
+            <Button
+              type="submit"
+              disabled={saving}
+              variant="ghost"
+              className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {saving ? "Salvando..." : "Atualizar widget"}
             </Button>
-            <Button type="submit" disabled={saving}>
-              {saving ? "Salvando..." : editing ? "Atualizar widget" : "Criar widget"}
-            </Button>
-          </div>
+          </div> : null}
         </form>
       ) : null}
 
@@ -308,19 +358,26 @@ export function WidgetManager({ project }) {
           className={cn(
             "mt-4 rounded-lg border px-3 py-2 text-sm",
             status.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
+              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+              : "border-red-500/20 bg-red-500/10 text-red-200",
           )}
         >
           {status.message}
         </p>
       ) : null}
 
+      {currentTab === "edit" && widgets.length > 1 ? (
       <div className="mt-5 overflow-hidden rounded-lg border border-zinc-200">
         {widgets.length ? (
           <div className="divide-y divide-zinc-200">
             {widgets.map((widget) => (
-              <div key={widget.id} className="grid gap-3 p-4 text-sm xl:grid-cols-[minmax(0,1fr)_220px]">
+              <div
+                key={widget.id}
+                className={cn(
+                  "grid gap-3 p-4 text-sm xl:grid-cols-[minmax(0,1fr)_220px]",
+                  initialWidgetId === widget.id && "bg-sky-500/10",
+                )}
+              >
                 <button
                   type="button"
                   className="min-w-0 text-left"
@@ -372,18 +429,24 @@ export function WidgetManager({ project }) {
           </p>
         )}
       </div>
+      ) : null}
 
-      {selectedWidget ? (
+      {currentTab === "code" && selectedWidget ? (
         <div className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <form
+            id="widget-copy-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              copySnippet(buildWidgetSnippet(selectedWidget))
+            }}
+          />
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-zinc-950">
               <Code2 className="h-4 w-4" />
               Snippet recomendado
             </div>
-            <pre className="overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-100">
-              {buildWidgetSnippet(selectedWidget)}
-            </pre>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <JsonCodeBlock value={buildWidgetSnippet(selectedWidget)} />
+            {!compact ? <div className="mt-3 flex flex-wrap gap-2">
               <Button type="button" size="sm" className="gap-2" onClick={() => copySnippet(buildWidgetSnippet(selectedWidget))}>
                 <Copy className="h-4 w-4" />
                 Copiar snippet
@@ -394,16 +457,29 @@ export function WidgetManager({ project }) {
                   Testar preview
                 </a>
               </Button>
-            </div>
+            </div> : null}
           </div>
 
           <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
             <p className="text-sm font-semibold text-zinc-950">Compatibilidade</p>
             <p className="mt-1 text-xs text-zinc-600">Snippet alternativo para clientes que usam o contrato antigo.</p>
-            <pre className="mt-3 max-h-40 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-100">
-              {buildCompatSnippet(project, selectedWidget)}
-            </pre>
+            <JsonCodeBlock value={buildCompatSnippet(project, selectedWidget)} className="mt-3 max-h-40 overflow-y-auto" />
           </div>
+        </div>
+      ) : null}
+
+      {currentTab === "docs" ? (
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
+          {[
+            ["1. Publique o script", "Use o codigo fonte no site do cliente."],
+            ["2. Domínio", "Restrinja por domínio quando precisar controlar origem."],
+            ["3. Continuidade", "Configure WhatsApp para seguir o atendimento fora do site."],
+          ].map(([title, text]) => (
+            <div key={title} className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+              <p className="text-sm font-semibold text-zinc-950">{title}</p>
+              <p className="mt-2 text-sm leading-6 text-zinc-600">{text}</p>
+            </div>
+          ))}
         </div>
       ) : null}
     </section>

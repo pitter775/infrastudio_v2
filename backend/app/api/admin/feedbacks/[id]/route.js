@@ -3,15 +3,11 @@ import { NextResponse } from "next/server"
 import { atualizarStatusFeedback, marcarFeedbackComoLido } from "@/lib/feedbacks"
 import { getSessionUser } from "@/lib/session"
 
-function canAccessGlobalAdmin(user) {
-  return user?.role === "admin"
-}
-
 export async function GET(_request, { params }) {
   const user = await getSessionUser()
 
-  if (!canAccessGlobalAdmin(user)) {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
   }
 
   const { id } = await params
@@ -31,8 +27,8 @@ export async function GET(_request, { params }) {
 export async function PATCH(request, { params }) {
   const user = await getSessionUser()
 
-  if (!canAccessGlobalAdmin(user)) {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
   }
 
   const { id } = await params

@@ -9,11 +9,13 @@ import {
   ChevronRight,
   Files,
   History,
+  LoaderCircle,
   MessageSquare,
   PackageSearch,
   PlugZap,
   RotateCcw,
   Store,
+  Users,
   Wand2,
 } from 'lucide-react'
 import { AgentSimulator } from '@/components/app/agents/agent-simulator'
@@ -23,6 +25,7 @@ import { WidgetManager } from '@/components/app/widgets/widget-manager'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
 import { Button } from '@/components/ui/button'
 import { HorizontalDragScroll } from '@/components/ui/horizontal-drag-scroll'
+import { JsonCodeBlock } from '@/components/ui/json-code-block'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { cn } from '@/lib/utils'
 
@@ -41,8 +44,55 @@ const CARD_ESTIMATED_HEIGHT = 228
 const CARD_CLOSED_SCALE = 0.88
 const MOBILE_CARD_SCALE = 0.72
 const DEFAULT_PANEL = 'project'
+const AGENT_TAB_URL_VALUES = {
+  edit: 'editar',
+  history: 'historico',
+  json: 'json',
+  connections: 'conexao',
+}
+const AGENT_TAB_ALIASES = {
+  edit: 'edit',
+  editar: 'edit',
+  history: 'history',
+  historico: 'history',
+  json: 'json',
+  connections: 'connections',
+  conexao: 'connections',
+  conexoes: 'connections',
+}
 const SATELLITE_BUTTON_WIDTH = 146
 const SATELLITE_BUTTON_HEIGHT = 52
+
+function resolveAgentTab(value) {
+  return AGENT_TAB_ALIASES[String(value || '').toLowerCase()] || null
+}
+
+function getAgentTabUrlValue(tabId) {
+  return AGENT_TAB_URL_VALUES[tabId] || AGENT_TAB_URL_VALUES.edit
+}
+
+function updateAgentTabQuery(tabId) {
+  const url = new URL(window.location.href)
+  url.searchParams.set('tab', getAgentTabUrlValue(tabId))
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+function updatePanelQuery(panelId, params = {}) {
+  const url = new URL(window.location.href)
+  url.searchParams.set('panel', panelId)
+  url.searchParams.delete('tab')
+  url.searchParams.delete('api')
+  url.searchParams.delete('channel')
+  url.searchParams.delete('widget')
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) {
+      url.searchParams.set(key, value)
+    }
+  })
+
+  window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
 
 function escapeHtml(value) {
   return value
@@ -318,18 +368,11 @@ function buildIntegrationPanels(project) {
 }
 
 function buildTopMenuItems(panels) {
-  return [
-    {
-      id: DEFAULT_PANEL,
-      label: 'Agente',
-      icon: Wand2,
-    },
-    ...panels.map((panel) => ({
-      id: panel.id,
-      label: panel.shortLabel || panel.label,
-      icon: panel.icon,
-    })),
-  ]
+  return panels.map((panel) => ({
+    id: panel.id,
+    label: panel.shortLabel || panel.label,
+    icon: panel.icon,
+  }))
 }
 
 function getPanelAccentClasses(colorClassName) {
@@ -475,6 +518,7 @@ function getDockedCardLayout({ viewportWidth, viewportHeight }) {
 
 function SheetPanelHeader({
   eyebrow,
+  eyebrowIcon: EyebrowIcon = null,
   description,
   statusLabel,
   statusTone = 'emerald',
@@ -490,7 +534,8 @@ function SheetPanelHeader({
     <div className="px-6 py-5">
       <div className="flex flex-col gap-3 pr-14 sm:pr-0">
         <div className="flex items-center gap-3">
-          <p className={cn('hidden text-xs uppercase tracking-[0.22em] sm:block', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
+          <p className={cn('hidden items-center gap-2 text-xs uppercase tracking-[0.22em] sm:flex', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
+            {EyebrowIcon ? <EyebrowIcon className="h-3.5 w-3.5" /> : null}
             {eyebrow}
           </p>
 
@@ -600,7 +645,7 @@ function PlaceholderPanel({ title, description, items = [] }) {
   )
 }
 
-function ProjectPanel({ project }) {
+function ProjectPanel({ project, initialAgentTab = 'edit', onAgentTabChange, onOpenConnection }) {
   const router = useRouter()
   const agent = project.agent
   const projectIdentifier = project.routeKey || project.slug || project.id
@@ -622,13 +667,12 @@ function ProjectPanel({ project }) {
   const [rollbackStatus, setRollbackStatus] = useState({ type: 'idle', message: '' })
   const [editorStatus, setEditorStatus] = useState({ type: 'idle', message: '' })
   const [siteSummaryStatus, setSiteSummaryStatus] = useState({ type: 'idle', message: '' })
-  const [activeAgentTab, setActiveAgentTab] = useState('edit')
+  const [activeAgentTab, setActiveAgentTab] = useState(resolveAgentTab(initialAgentTab) || 'edit')
   const agentTabs = [
     { id: 'edit', label: 'Editar agente', icon: Wand2 },
     { id: 'history', label: 'Historico', icon: History },
     { id: 'json', label: 'Ver JSON', icon: Files },
     { id: 'connections', label: 'Conexoes', icon: PlugZap },
-    { id: 'observability', label: 'Observabilidade', icon: MessageSquare, badge: 'Em desenvolvimento' },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
   const hasUnsavedChanges =
@@ -644,6 +688,61 @@ function ProjectPanel({ project }) {
     setPromptValue(plainTextToEditorHtml(initialPrompt))
     setEditorStatus({ type: 'idle', message: '' })
   }, [initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
+
+  useEffect(() => {
+    const nextTab = resolveAgentTab(initialAgentTab)
+    if (nextTab && nextTab !== activeAgentTab) {
+      setActiveAgentTab(nextTab)
+    }
+  }, [activeAgentTab, initialAgentTab])
+
+  function handleAgentTabChange(tabId) {
+    setActiveAgentTab(tabId)
+    onAgentTabChange?.(tabId)
+  }
+
+  const connectionItems = [
+    ...(project.apis || []).map((api) => ({
+      id: api.id,
+      type: 'api',
+      title: api.name,
+      description: api.url || `${api.method || 'GET'} cadastrado`,
+      icon: PlugZap,
+      panel: 'apis',
+      params: { api: api.id },
+    })),
+    ...(project.whatsappChannels || []).map((channel) => ({
+      id: channel.id,
+      type: 'channel',
+      title: channel.number || 'Canal WhatsApp',
+      description: channel.connectionStatus || channel.status || 'Canal cadastrado',
+      icon: MessageSquare,
+      panel: 'whatsapp',
+      params: { channel: channel.id },
+    })),
+    ...(project.chatWidgets || []).map((widget) => ({
+      id: widget.id,
+      type: 'widget',
+      title: widget.name || widget.nome || 'Chat widget',
+      description: widget.slug || 'Widget cadastrado',
+      icon: PackageSearch,
+      panel: 'chat-widget',
+      params: { widget: widget.id },
+    })),
+    ...(project.directConnections?.mercadoLivre
+      ? [
+          {
+            id: 'mercado-livre',
+            type: 'connector',
+            title: 'Mercado Livre',
+            description: `${project.directConnections.mercadoLivre} conector ativo`,
+            icon: Store,
+            panel: 'mercado-livre',
+            params: {},
+          },
+        ]
+      : []),
+  ]
 
   async function handleCreateAgent() {
     if (agent?.id || creatingAgent) {
@@ -890,7 +989,7 @@ function ProjectPanel({ project }) {
           ) : null
         }
       />
-      <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={setActiveAgentTab} />
+      <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={handleAgentTabChange} />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {activeAgentTab === 'edit' ? (
@@ -1007,16 +1106,37 @@ function ProjectPanel({ project }) {
 
         {activeAgentTab === 'json' ? (
           <div className="px-6 py-5">
-            <pre className="max-h-[calc(100vh-220px)] overflow-auto rounded-2xl border border-white/10 bg-[#0a1020] p-4 text-xs leading-5 text-slate-300">
-              {JSON.stringify({ projectId: project.id, agent }, null, 2)}
-            </pre>
+            <JsonCodeBlock value={{ projectId: project.id, agent }} />
           </div>
         ) : null}
 
         {activeAgentTab === 'connections' ? (
-          <div className="grid gap-4 px-6 py-5 md:grid-cols-2">
-            <PlaceholderPanel title="APIs vinculadas" description="Aqui entram as APIs liberadas para este agente." items={project.apis.map((api) => api.name)} />
-            <PlaceholderPanel title="Canais conectados" description="Aqui entram widget, WhatsApp e conectores usados pelo agente." items={['Chat widget', 'WhatsApp', 'Arquivos']} />
+          <div className="grid gap-3 px-6 py-5 md:grid-cols-2">
+            {connectionItems.length ? (
+              connectionItems.map((item) => {
+                const Icon = item.icon
+
+                return (
+                  <button
+                    key={`${item.type}-${item.id}`}
+                    type="button"
+                    onClick={() => onOpenConnection?.(item.panel, item.params)}
+                    className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0a1020] p-4 text-left transition-colors hover:border-sky-400/40 hover:bg-sky-500/10"
+                  >
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sky-300">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-white">{item.title}</span>
+                      <span className="mt-1 block truncate text-xs text-slate-500">{item.description}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-600 transition-colors group-hover:text-sky-300" />
+                  </button>
+                )
+              })
+            ) : (
+              <PlaceholderPanel title="Sem conexoes" description="Cadastre APIs, WhatsApp, widget ou conectores para liberar atalhos diretos." />
+            )}
           </div>
         ) : null}
 
@@ -1085,15 +1205,6 @@ function ProjectPanel({ project }) {
           </div>
         ) : null}
 
-        {activeAgentTab === 'observability' ? (
-          <div className="px-6 py-5">
-            <PlaceholderPanel
-              title="Observabilidade do agente"
-              description="Espaco reservado para IA trace, APIs consultadas, custo, handoff e falhas do runtime."
-              items={['IA trace', 'APIs consultadas', 'Tokens e custo', 'Handoff', 'Fail-closed']}
-            />
-          </div>
-        ) : null}
       </div>
 
       <div className="border-t border-white/5 px-6 py-4">
@@ -1177,73 +1288,220 @@ function buildIntegrationTabs(panelId) {
 
 function ManagerFrame({ children }) {
   return (
-    <div className="manager-frame rounded-2xl bg-slate-100 p-1 text-zinc-950">
+    <div className="text-slate-300">
       {children}
     </div>
   )
 }
 
-function MercadoLivrePanel({ project }) {
+function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChange, onFooterStateChange, compact = false }) {
   const activeCount = project.directConnections?.mercadoLivre ?? 0
+  const [activeTab, setActiveTab] = useState('connection')
+  const currentTab = controlledActiveTab || activeTab
+  const [step, setStep] = useState(activeCount ? 2 : 1)
+  const [productUrl, setProductUrl] = useState('')
+  const [storeName, setStoreName] = useState('')
+  const [appId, setAppId] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [seedId, setSeedId] = useState('')
+  const tabs = [
+    { id: 'connection', label: 'Conexao', icon: Store },
+    { id: 'tutorial', label: 'Tutorial', icon: Files },
+  ]
+
+  function handleResolveStore(event) {
+    event.preventDefault()
+    const sellerMatch = productUrl.match(/(?:seller_id|sellerId|official_store_id)=([^&]+)/i)
+    const productMatch = productUrl.match(/MLB-?(\d+)/i)
+    setSeedId(sellerMatch?.[1] || productMatch?.[1] || '')
+    setStoreName((current) => current || 'Loja Mercado Livre')
+    setStep(2)
+  }
+
+  useEffect(() => {
+    onFooterStateChange?.({ step, activeTab: currentTab })
+  }, [currentTab, onFooterStateChange, step])
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-5">
-        <div className="text-sm font-medium text-white">Mercado Livre</div>
-        <div className="mt-2 text-sm leading-6 text-slate-400">
-          Integracao preparada para catalogo, pedidos e perguntas vinculadas ao agente.
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          {[
-            ['Conectores ativos', activeCount],
-            ['Catalogo', 'Pronto para vinculo'],
-            ['Perguntas', 'Fila do agente'],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-xs uppercase tracking-[0.16em] text-slate-500">{label}</div>
-              <div className="mt-2 text-sm font-medium text-slate-100">{value}</div>
-            </div>
-          ))}
-        </div>
+      <div className={cn("flex flex-wrap gap-2", compact && "hidden")}>
+        {tabs.map((tab) => {
+          const Icon = tab.icon
+          const active = currentTab === tab.id
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => {
+                setActiveTab(tab.id)
+                onTabChange?.(tab.id)
+              }}
+              className={cn(
+                'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition',
+                active
+                  ? 'border-white bg-white text-zinc-950'
+                  : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-white',
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          )
+        })}
       </div>
-      <PlaceholderPanel
-        title="Fluxo v2"
-        description="Base visual portada para evoluir autenticacao, catalogo, pedidos e respostas do Mercado Livre sem depender do legado."
-        items={['OAuth Mercado Livre', 'Produtos', 'Pedidos', 'Perguntas do comprador']}
-      />
+
+      {currentTab === 'connection' ? (
+        <div className="grid gap-4">
+          {step === 1 ? (
+            <form id="mercado-livre-resolve-form" className="grid gap-4" onSubmit={handleResolveStore}>
+              <label className="block">
+                <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Produto cadastrado na loja
+                </span>
+                <input
+                  value={productUrl}
+                  onChange={(event) => setProductUrl(event.target.value)}
+                  placeholder="Cole a URL de qualquer produto da loja"
+                  className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-amber-300/40"
+                />
+              </label>
+              {!compact ? <div className="flex justify-end">
+                <Button type="submit" className="rounded-xl">
+                  Avancar
+                </Button>
+              </div> : null}
+            </form>
+          ) : null}
+
+          {step === 2 ? (
+            <>
+            <form id="mercado-livre-save-form" onSubmit={(event) => event.preventDefault()} />
+            <div className="grid gap-4">
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
+                {seedId ? `Identificador sugerido: ${seedId}` : 'Resolucao automatica indisponivel. Preencha manualmente.'}
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da conexao</span>
+                  <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">App ID</span>
+                  <input value={appId} onChange={(event) => setAppId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Client secret</span>
+                  <input value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                </label>
+                <label className="block">
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Seed ID</span>
+                  <input value={seedId} onChange={(event) => setSeedId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                </label>
+              </div>
+            </div>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      {currentTab === 'tutorial' ? (
+        <PlaceholderPanel
+          title="Tutorial"
+          description="Crie uma aplicacao no Mercado Livre, informe as credenciais e use um produto da loja para tentar preencher o identificador automaticamente."
+          items={['Uma conexao por projeto', 'Fallback manual liberado', 'Catalogo e perguntas usam esta base']}
+        />
+      ) : null}
     </div>
   )
 }
 
-function IntegrationPanel({ panel, sheetItems, project }) {
-  const tabs = useMemo(() => buildIntegrationTabs(panel.id), [panel.id])
+function IntegrationPanel({ panel, sheetItems, project, deepLink }) {
+  const [apiDetailOpen, setApiDetailOpen] = useState(Boolean(deepLink?.api))
+  const [apiDeleteAvailable, setApiDeleteAvailable] = useState(false)
+  const [apiResetSignal, setApiResetSignal] = useState(0)
+  const [whatsappFooter, setWhatsappFooter] = useState({})
+  const [widgetFooter, setWidgetFooter] = useState({})
+  const [mercadoFooter, setMercadoFooter] = useState({})
+  const tabs = useMemo(() => {
+    if (panel.id === 'apis') {
+      return [
+        { id: 'edit', label: 'Criar/Editar', icon: Wand2 },
+        { id: 'json', label: 'JSON', icon: Files },
+        { id: 'test', label: 'Testar', icon: MessageSquare },
+      ]
+    }
+
+    if (panel.id === 'whatsapp') {
+      return [
+        { id: 'connect', label: 'Conectar', icon: MessageSquare },
+        { id: 'attendants', label: 'Atendentes', icon: Users },
+        { id: 'tutorial', label: 'Tutorial', icon: Files },
+      ]
+    }
+
+    if (panel.id === 'chat-widget') {
+      return [
+        { id: 'edit', label: 'Editar', icon: Wand2 },
+        { id: 'code', label: 'Ver codigo fonte', icon: Files },
+        { id: 'docs', label: 'Documentacao', icon: MessageSquare },
+      ]
+    }
+
+    if (panel.id === 'mercado-livre') {
+      return [
+        { id: 'connection', label: 'Conexao', icon: Store },
+        { id: 'tutorial', label: 'Tutorial', icon: Files },
+      ]
+    }
+
+    return buildIntegrationTabs(panel.id)
+  }, [panel.id])
   const [activeTab, setActiveTab] = useState(tabs[0]?.id || 'overview')
   const [enabled, setEnabled] = useState(true)
+
+  useEffect(() => {
+    setActiveTab(tabs[0]?.id || 'overview')
+  }, [panel.id, tabs])
+
   const realPanel =
     panel.id === 'apis' ? (
       <ManagerFrame>
-        <ApiManager project={project} />
+        <ApiManager
+          project={project}
+          initialApiId={deepLink?.api || null}
+          activeTab={activeTab}
+          onTabChange={setActiveTab}
+          onDetailOpenChange={setApiDetailOpen}
+          onDeleteAvailableChange={setApiDeleteAvailable}
+          resetSignal={apiResetSignal}
+          compact
+        />
       </ManagerFrame>
     ) : panel.id === 'whatsapp' ? (
       <ManagerFrame>
-        <WhatsAppManager project={project} />
+        <WhatsAppManager project={project} initialChannelId={deepLink?.channel || null} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setWhatsappFooter} compact />
       </ManagerFrame>
     ) : panel.id === 'chat-widget' ? (
       <ManagerFrame>
-        <WidgetManager project={project} />
+        <WidgetManager project={project} initialWidgetId={deepLink?.widget || null} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setWidgetFooter} compact />
       </ManagerFrame>
     ) : panel.id === 'mercado-livre' ? (
-      <MercadoLivrePanel project={project} />
+      <MercadoLivrePanel project={project} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setMercadoFooter} compact />
     ) : null
 
   return (
     <>
       <SheetPanelHeader
-        eyebrow="Painel de integracao"
+        eyebrow={panel.title || panel.label}
+        eyebrowIcon={panel.icon}
         description={panel.description}
+        statusTone="sky"
         leftAction={<SheetPowerToggle enabled={enabled} onClick={() => setEnabled((value) => !value)} />}
       />
-      <SheetInternalTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      {panel.id === 'apis' && !apiDetailOpen ? null : (
+        <SheetInternalTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         {realPanel ? (
@@ -1278,18 +1536,132 @@ function IntegrationPanel({ panel, sheetItems, project }) {
         </div>
         )}
       </div>
+      {panel.id === 'apis' && apiDetailOpen ? (
+        <div className="border-t border-white/5 px-6 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                onClick={() => setApiResetSignal((value) => value + 1)}
+              >
+                Voltar para lista
+              </Button>
+            </div>
+            <div className="flex items-center gap-3">
+            {apiDeleteAvailable ? (
+              <Button
+                type="submit"
+                form="api-delete-form"
+                variant="ghost"
+                className="h-10 rounded-xl border border-red-500/20 bg-red-500/10 px-4 text-sm text-red-200"
+              >
+                Deletar API
+              </Button>
+            ) : null}
+            {activeTab === 'edit' ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                  onClick={() => setApiResetSignal((value) => value + 1)}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  form="api-editor-form"
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+                >
+                  Salvar API
+                </Button>
+              </>
+            ) : null}
+            {activeTab === 'json' ? (
+              <Button
+                type="submit"
+                form="api-editor-form"
+                variant="ghost"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+              >
+                Salvar JSON
+              </Button>
+            ) : null}
+            {activeTab === 'test' ? (
+              <Button
+                type="submit"
+                form="api-test-form"
+                variant="ghost"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+              >
+                Testar
+              </Button>
+            ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+      {panel.id === 'whatsapp' && whatsappFooter.canSaveContact ? (
+        <div className="border-t border-white/5 px-6 py-4">
+          <div className="flex justify-end">
+            {activeTab === 'attendants' ? (
+              <Button type="submit" form="whatsapp-contact-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
+                Salvar atendente
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {panel.id === 'chat-widget' && (widgetFooter.canSave || widgetFooter.canCopy) ? (
+        <div className="border-t border-white/5 px-6 py-4">
+          <div className="flex justify-end">
+            {activeTab === 'edit' ? (
+              <Button type="submit" form="widget-editor-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
+                Salvar widget
+              </Button>
+            ) : null}
+            {activeTab === 'code' ? (
+              <Button type="submit" form="widget-copy-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
+                Copiar codigo
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+      {panel.id === 'mercado-livre' && activeTab === 'connection' ? (
+        <div className="border-t border-white/5 px-6 py-4">
+          <div className="flex justify-end">
+            {mercadoFooter.step === 1 ? (
+              <Button type="submit" form="mercado-livre-resolve-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
+                Avancar
+              </Button>
+            ) : null}
+            {mercadoFooter.step === 2 ? (
+              <Button type="submit" form="mercado-livre-save-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
+                Salvar conexao
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </>
   )
 }
 
 export function AdminProjectDetailPage({ project }) {
-  const [isPanelOpen, setIsPanelOpen] = useState(false)
+  const [isPanelOpen, setIsPanelOpen] = useState(Boolean(project.agent?.id))
   const [activePanel, setActivePanel] = useState(DEFAULT_PANEL)
+  const [agentTabFromUrl, setAgentTabFromUrl] = useState('edit')
+  const [deepLink, setDeepLink] = useState({})
   const [testOpen, setTestOpen] = useState(false)
   const [viewport, setViewport] = useState({ width: 0, height: 0 })
   const [dragResetSignal, setDragResetSignal] = useState(0)
   const [isCardDragging, setIsCardDragging] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
+  const [pendingPanelId, setPendingPanelId] = useState(null)
   const integrationPanels = useMemo(() => buildIntegrationPanels(project), [project])
   const topMenuItems = useMemo(() => buildTopMenuItems(integrationPanels), [integrationPanels])
   const directCardIcons = useMemo(
@@ -1348,6 +1720,38 @@ export function AdminProjectDetailPage({ project }) {
     }
   }, [isPanelOpen])
 
+  useEffect(() => {
+    function syncAgentTabFromUrl() {
+      const params = new URLSearchParams(window.location.search)
+      const nextTab = resolveAgentTab(params.get('tab'))
+      const panel = params.get('panel')
+
+      if (nextTab) {
+        setAgentTabFromUrl(nextTab)
+        setActivePanel(DEFAULT_PANEL)
+        setIsPanelOpen(true)
+        return
+      }
+
+      if (panel && [DEFAULT_PANEL, ...integrationPanels.map((item) => item.id)].includes(panel)) {
+        setDeepLink({
+          api: params.get('api') || null,
+          channel: params.get('channel') || null,
+          widget: params.get('widget') || null,
+        })
+        setActivePanel(panel)
+        setIsPanelOpen(true)
+      }
+    }
+
+    syncAgentTabFromUrl()
+    window.addEventListener('popstate', syncAgentTabFromUrl)
+
+    return () => {
+      window.removeEventListener('popstate', syncAgentTabFromUrl)
+    }
+  }, [integrationPanels])
+
   const viewportWidth = viewport.width || DESKTOP_BREAKPOINT
   const viewportHeight = viewport.height || 900
   const isMobile = viewportWidth < MOBILE_BREAKPOINT
@@ -1395,9 +1799,28 @@ export function AdminProjectDetailPage({ project }) {
       'Permissao validada pela sessao',
       'Pipeline pronto para evoluir',
     ]
-  function handleOpenPanel(panelId = DEFAULT_PANEL) {
+  function handleOpenPanel(panelId = DEFAULT_PANEL, params = {}) {
+    setPendingPanelId(panelId)
     setActivePanel(panelId)
+    setDeepLink(params)
     setIsPanelOpen(true)
+
+    if (panelId === DEFAULT_PANEL) {
+      updateAgentTabQuery(agentTabFromUrl)
+    } else {
+      updatePanelQuery(panelId, params)
+    }
+  }
+
+  useEffect(() => {
+    if (!pendingPanelId) return
+    const timeout = setTimeout(() => setPendingPanelId(null), 450)
+    return () => clearTimeout(timeout)
+  }, [pendingPanelId])
+
+  function handleAgentTabChange(tabId) {
+    setAgentTabFromUrl(tabId)
+    updateAgentTabQuery(tabId)
   }
 
   return (
@@ -1421,10 +1844,11 @@ export function AdminProjectDetailPage({ project }) {
         }
       >
         <div className="px-0 py-1">
-          <HorizontalDragScroll className="w-full" itemClassName="px-1" scrollClassName="px-1 py-0.5">
+          <HorizontalDragScroll className="w-full" itemClassName="px-0.5" scrollClassName="px-0.5 py-0.5">
             {topMenuItems.map((item) => {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen
+              const loading = pendingPanelId === item.id
 
               return (
                 <button
@@ -1433,13 +1857,13 @@ export function AdminProjectDetailPage({ project }) {
                   type="button"
                   onClick={() => handleOpenPanel(item.id)}
                   className={cn(
-                    'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-xs font-semibold transition-colors',
+                    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 text-xs font-semibold transition-colors',
                     active
                       ? 'bg-sky-500/15 text-sky-200'
                       : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-white',
                   )}
                 >
-                  {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
+                  {loading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : Icon ? <Icon className="h-3.5 w-3.5" /> : null}
                   {item.label}
                 </button>
               )
@@ -1600,9 +2024,14 @@ export function AdminProjectDetailPage({ project }) {
                 className="flex h-full min-h-0 flex-col"
               >
                 {selectedPanel ? (
-                  <IntegrationPanel panel={selectedPanel} sheetItems={sheetItems} project={project} />
+                  <IntegrationPanel panel={selectedPanel} sheetItems={sheetItems} project={project} deepLink={deepLink} />
                 ) : (
-                  <ProjectPanel project={project} />
+                  <ProjectPanel
+                    project={project}
+                    initialAgentTab={agentTabFromUrl}
+                    onAgentTabChange={handleAgentTabChange}
+                    onOpenConnection={handleOpenPanel}
+                  />
                 )}
               </motion.div>
             </AnimatePresence>

@@ -1,9 +1,11 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CheckCircle2, FlaskConical, History, Pencil, PlugZap, Plus, RotateCcw, XCircle } from "lucide-react"
+import { CheckCircle2, Code2, FlaskConical, History, Pencil, PlugZap, Plus, RotateCcw, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { JsonCodeBlock } from "@/components/ui/json-code-block"
+import { ToggleSwitchButton } from "@/components/ui/toggle-switch-button"
 import { cn } from "@/lib/utils"
 
 const pricingApiConfigTemplate = {
@@ -90,6 +92,12 @@ const emptyForm = {
   configText: "{}",
 }
 
+const inputClassName =
+  "mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
+const textareaClassName =
+  "mt-1 w-full resize-y rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
+const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+
 function normalizeInitialApi(api) {
   return {
     id: api.id,
@@ -103,12 +111,22 @@ function normalizeInitialApi(api) {
   }
 }
 
-export function ApiManager({ project }) {
+export function ApiManager({
+  project,
+  initialApiId = null,
+  activeTab = "edit",
+  onTabChange,
+  onDetailOpenChange,
+  onDeleteAvailableChange,
+  resetSignal = 0,
+  compact = false,
+}) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const endpoint = `/api/app/projetos/${projectIdentifier}/apis`
   const [apis, setApis] = useState(() => (project.apis || []).map(normalizeInitialApi))
   const [linkedApiIds, setLinkedApiIds] = useState([])
   const [form, setForm] = useState(emptyForm)
+  const [selectedApiId, setSelectedApiId] = useState(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [testingId, setTestingId] = useState(null)
@@ -118,6 +136,20 @@ export function ApiManager({ project }) {
   const [status, setStatus] = useState({ type: "idle", message: "" })
 
   const editing = useMemo(() => Boolean(form.id), [form.id])
+
+  useEffect(() => {
+    onDetailOpenChange?.(Boolean(selectedApiId))
+  }, [onDetailOpenChange, selectedApiId])
+
+  useEffect(() => {
+    onDeleteAvailableChange?.(Boolean(form.id))
+  }, [form.id, onDeleteAvailableChange])
+
+  useEffect(() => {
+    if (resetSignal) {
+      resetForm()
+    }
+  }, [resetSignal])
 
   useEffect(() => {
     let active = true
@@ -146,11 +178,30 @@ export function ApiManager({ project }) {
     }
   }, [endpoint])
 
+  useEffect(() => {
+    if (!initialApiId || !apis.length) {
+      return
+    }
+
+    const api = apis.find((item) => item.id === initialApiId)
+    if (api) {
+      startEdit(api)
+    }
+  }, [apis, initialApiId])
+
+  useEffect(() => {
+    if (!loading && apis.length === 0 && !selectedApiId) {
+      startCreate()
+    }
+  }, [apis.length, loading, selectedApiId])
+
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
   }
 
   function startEdit(api) {
+    setSelectedApiId(api.id)
+    onTabChange?.("edit")
     setForm({
       id: api.id,
       name: api.name,
@@ -165,11 +216,21 @@ export function ApiManager({ project }) {
 
   function resetForm() {
     setForm(emptyForm)
+    setSelectedApiId(null)
+    onTabChange?.("edit")
     setStatus({ type: "idle", message: "" })
   }
 
+  function startCreate() {
+    setSelectedApiId("new")
+    onTabChange?.("edit")
+    setForm(emptyForm)
+    setStatus({ type: "idle", message: "" })
+    setTestResult(null)
+  }
+
   async function saveApi(event) {
-    event.preventDefault()
+    event?.preventDefault?.()
     setSaving(true)
     setStatus({ type: "idle", message: "" })
 
@@ -210,7 +271,15 @@ export function ApiManager({ project }) {
         editing ? current.map((item) => (item.id === saved.id ? saved : item)) : [saved, ...current],
       )
       setStatus({ type: "success", message: editing ? "API atualizada." : "API criada." })
-      setForm(emptyForm)
+      setSelectedApiId(saved.id)
+      setForm({
+        id: saved.id,
+        name: saved.name,
+        url: saved.url,
+        description: saved.description || "",
+        active: saved.active !== false,
+        configText: saved.configText || "{}",
+      })
     } catch (error) {
       setStatus({ type: "error", message: error.message })
     } finally {
@@ -242,6 +311,40 @@ export function ApiManager({ project }) {
       })
     } finally {
       setTestingId(null)
+    }
+  }
+
+  async function deleteApi(event) {
+    event.preventDefault()
+
+    if (!form.id) {
+      return
+    }
+
+    const confirmed = window.confirm("Deletar esta API?")
+    if (!confirmed) {
+      return
+    }
+
+    setSaving(true)
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      const response = await fetch(`${endpoint}/${form.id}`, { method: "DELETE" })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || "Nao foi possivel deletar a API.")
+      }
+
+      setApis((current) => current.filter((api) => api.id !== form.id))
+      setLinkedApiIds((current) => current.filter((apiId) => apiId !== form.id))
+      resetForm()
+      setStatus({ type: "success", message: "API deletada." })
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -336,120 +439,211 @@ export function ApiManager({ project }) {
     setStatus({ type: "idle", message: "" })
   }
 
+  const selectedApi = apis.find((api) => api.id === form.id) || null
+  const detailOpen = Boolean(selectedApiId)
+  const tabs = [
+    { id: "edit", label: "Criar/Editar", icon: Pencil },
+    { id: "json", label: "JSON", icon: Code2 },
+    { id: "test", label: "Testar", icon: FlaskConical },
+  ]
+
+  if (!detailOpen) {
+    return (
+      <section className="mt-0 border-0 bg-transparent p-0 text-slate-300 shadow-none">
+        <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", compact && "sr-only")}>
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sky-300">
+              <PlugZap className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-white">APIs conectadas</h2>
+              <p className="text-sm text-slate-400">Cadastre endpoints GET para uso da inteligencia.</p>
+            </div>
+          </div>
+          <Button type="button" variant="outline" className="gap-2" onClick={startCreate}>
+            <Plus className="h-4 w-4" />
+            Criar API
+          </Button>
+        </div>
+
+        {compact ? (
+          <div className="mb-4 flex justify-end">
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+              onClick={startCreate}
+            >
+              <Plus className="h-4 w-4" />
+              Criar API
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+          {apis.length ? (
+            <div className="divide-y divide-zinc-200">
+              {apis.map((api) => (
+                <button
+                  key={api.id}
+                  type="button"
+                  onClick={() => startEdit(api)}
+                  className="grid w-full gap-3 p-4 text-left text-sm transition hover:bg-sky-500/10 lg:grid-cols-[minmax(0,1fr)_120px]"
+                >
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-white">{api.name}</span>
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium",
+                          api.active
+                            ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+                            : "border-white/10 bg-white/[0.03] text-slate-400",
+                        )}
+                      >
+                        {api.active ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        {api.active ? "Ativa" : "Inativa"}
+                      </span>
+                    </span>
+                    <span className="mt-1 block truncate text-slate-400">{api.url}</span>
+                    {api.description ? <span className="mt-1 block text-slate-500">{api.description}</span> : null}
+                  </span>
+                  <span className="self-center justify-self-start rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-slate-300 lg:justify-self-end">
+                    Abrir
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="p-4 text-sm text-slate-400">
+              {loading ? "Carregando APIs..." : "Nenhuma API conectada neste projeto."}
+            </p>
+          )}
+        </div>
+      </section>
+    )
+  }
+
   return (
-    <section className="mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <section className="mt-0 border-0 bg-transparent p-0 text-slate-300 shadow-none">
+      <div className={cn("flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between", compact && "sr-only")}>
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-zinc-100 text-zinc-700">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sky-300">
             <PlugZap className="h-5 w-5" />
           </div>
           <div>
-            <h2 className="text-base font-semibold text-zinc-950">APIs conectadas</h2>
-            <p className="text-sm text-zinc-500">Cadastre endpoints GET para uso da inteligencia.</p>
+            <h2 className="text-base font-semibold text-white">APIs conectadas</h2>
+            <p className="text-sm text-slate-400">Cadastre endpoints GET para uso da inteligencia.</p>
           </div>
         </div>
         <Button type="button" variant="outline" className="gap-2" onClick={resetForm}>
           <Plus className="h-4 w-4" />
-          Nova API
+          Voltar para lista
         </Button>
       </div>
 
-      <form className="mt-5 grid gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-4" onSubmit={saveApi}>
+      <div className={cn("mt-5 flex flex-wrap gap-2", compact && "hidden")}>
+        {tabs.map((tab) => {
+          const Icon = tab.icon
+          const active = activeTab === tab.id
+
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => onTabChange?.(tab.id)}
+              className={cn(
+                "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition",
+                active
+                  ? "border-sky-400/40 bg-sky-500/15 text-sky-100"
+                  : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200",
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label}
+            </button>
+          )
+        })}
+      </div>
+
+      {activeTab === "edit" ? (
+      <form id="api-editor-form" className="grid gap-4" onSubmit={saveApi}>
         <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700">Nome</span>
+            <span className={labelClassName}>Nome</span>
             <input
               value={form.name}
               onChange={(event) => updateForm("name", event.target.value)}
-              className="mt-1 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+              className={inputClassName}
               required
             />
           </label>
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700">URL GET</span>
+            <span className={labelClassName}>URL GET</span>
             <input
               value={form.url}
               onChange={(event) => updateForm("url", event.target.value)}
               placeholder="https://exemplo.com/api/produtos"
-              className="mt-1 h-10 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+              className={inputClassName}
               required
             />
           </label>
         </div>
 
         <label className="block">
-          <span className="text-sm font-medium text-zinc-700">Descricao</span>
+          <span className={labelClassName}>Descricao</span>
           <textarea
             value={form.description}
             onChange={(event) => updateForm("description", event.target.value)}
-            className="mt-1 min-h-16 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+            className={cn(textareaClassName, "min-h-20")}
           />
         </label>
 
-        <div className="grid gap-3 lg:grid-cols-2">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <ToggleSwitchButton checked={form.active} onChange={(value) => updateForm("active", value)} labelOn="API ativa" labelOff="API inativa" />
+        </div>
+      </form>
+      ) : null}
+
+      {activeTab === "json" ? (
+        <div className="mt-0 grid gap-5">
           <label className="block">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm font-medium text-zinc-700">Configuracoes JSON</span>
-              <Button type="button" variant="outline" size="sm" onClick={applyPricingTemplate}>
-                Usar modelo de valores
-              </Button>
+              <span className={labelClassName}>Configuracao JSON</span>
             </div>
             <textarea
               value={form.configText}
               onChange={(event) => updateForm("configText", event.target.value)}
-              className="mt-1 min-h-64 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+              className={cn(textareaClassName, "min-h-80 break-all font-mono text-xs [overflow-wrap:anywhere]")}
               spellCheck={false}
             />
           </label>
 
-          <div className="rounded-lg border border-dashed border-zinc-300 bg-white p-3">
-            <p className="text-sm font-medium text-zinc-800">Exemplo para API de valores</p>
-            <p className="mt-1 text-xs text-zinc-500">
+          <div>
+            <p className="text-sm font-medium text-white">Exemplo JSON de retorno</p>
+            <p className="mt-1 text-xs text-slate-500">
               A URL deve responder JSON. O runtime usa `responsePath`, `previewPath` e `fields.path`.
             </p>
-            <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-100">
-              {pricingApiResponseExampleText}
-            </pre>
+            <JsonCodeBlock value={pricingApiResponseExampleText} className="mt-3 max-h-80 overflow-y-auto" />
           </div>
         </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <label className="flex items-center gap-3 text-sm text-zinc-700">
-            <input
-              type="checkbox"
-              checked={form.active}
-              onChange={(event) => updateForm("active", event.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300"
-            />
-            API ativa
-          </label>
-          <div className="flex gap-2">
-            {editing ? (
-              <Button type="button" variant="ghost" onClick={resetForm}>
-                Cancelar
-              </Button>
-            ) : null}
-            <Button type="submit" disabled={saving} className="gap-2">
-              <PlugZap className="h-4 w-4" />
-              {saving ? "Salvando..." : editing ? "Atualizar API" : "Criar API"}
-            </Button>
-          </div>
-        </div>
-      </form>
+      ) : null}
 
       {status.message ? (
         <p
           className={cn(
             "mt-4 rounded-lg border px-3 py-2 text-sm",
             status.type === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700",
+              ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+              : "border-red-500/20 bg-red-500/10 text-red-200",
           )}
         >
           {status.message}
         </p>
       ) : null}
 
+      {false && activeTab === "edit" ? (
+      <>
       <div className="mt-5 overflow-hidden rounded-lg border border-zinc-200">
         {apis.length ? (
           <div className="divide-y divide-zinc-200">
@@ -539,46 +733,132 @@ export function ApiManager({ project }) {
 
       {project.agent?.id && apis.length ? (
         <div className="mt-4 flex justify-end">
-          <Button type="button" variant="outline" onClick={saveApiLinks} disabled={savingLinks}>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={saveApiLinks}
+            disabled={savingLinks}
+            className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+          >
             {savingLinks ? "Salvando vinculos..." : "Salvar vinculos do agente"}
           </Button>
         </div>
       ) : null}
+      </>
+      ) : null}
+
+      {activeTab === "test" ? (
+        <div className="mt-0 rounded-lg border border-white/10 bg-white/[0.03] p-4">
+          <p className="text-sm font-medium text-white">Resposta do teste</p>
+          <p className="mt-1 text-xs text-slate-500">Execute o teste para validar retorno, campos extraidos e preview.</p>
+          <form
+            id="api-test-form"
+            onSubmit={(event) => {
+              event.preventDefault()
+              if (selectedApi) {
+                testApi(selectedApi)
+              }
+            }}
+          />
+        </div>
+      ) : null}
+
+      <form id="api-delete-form" onSubmit={deleteApi} />
 
       {testResult ? (
-        <div className="mt-4 rounded-lg border border-zinc-200 bg-zinc-50 p-4">
+        <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-zinc-950">Teste: {testResult.apiName}</p>
+            <p className="text-sm font-semibold text-white">Teste: {testResult.apiName}</p>
             <span
               className={cn(
                 "rounded-lg border px-2.5 py-1 text-xs font-medium",
                 testResult.ok
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                  : "border-red-200 bg-red-50 text-red-700",
+                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+                  : "border-red-500/20 bg-red-500/10 text-red-200",
               )}
             >
               {testResult.status || 0} {testResult.statusText}
             </span>
           </div>
           {testResult.durationMs !== null && testResult.durationMs !== undefined ? (
-            <p className="mt-2 text-xs text-zinc-500">{testResult.durationMs}ms</p>
+            <p className="mt-2 text-xs text-slate-500">{testResult.durationMs}ms</p>
           ) : null}
           {Array.isArray(testResult.fields) && testResult.fields.length ? (
-            <div className="mt-3 rounded-lg border border-zinc-200 bg-white p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Campos extraidos</p>
+            <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Campos extraidos</p>
               <div className="mt-2 grid gap-2 sm:grid-cols-2">
                 {testResult.fields.map((field) => (
-                  <div key={`${field.nome}-${field.valor}`} className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-2">
-                    <p className="text-xs font-medium text-zinc-700">{field.nome}</p>
-                    <p className="mt-1 text-xs text-zinc-500">{String(field.valor)}</p>
+                  <div key={`${field.nome}-${field.valor}`} className="rounded-md border border-white/10 bg-[#0a1020] px-2.5 py-2">
+                    <p className="text-xs font-medium text-slate-300">{field.nome}</p>
+                    <p className="mt-1 text-xs text-slate-500">{String(field.valor)}</p>
                   </div>
                 ))}
               </div>
             </div>
           ) : null}
-          <pre className="mt-3 max-h-56 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-100">
-            {testResult.preview || "Sem corpo de resposta."}
-          </pre>
+          <JsonCodeBlock value={testResult.preview || "Sem corpo de resposta."} className="mt-3 max-h-56 overflow-y-auto" />
+        </div>
+      ) : null}
+
+      {detailOpen && !compact ? (
+        <div className="mt-5 border-t border-white/5 pt-4">
+          <div className="flex flex-wrap items-center justify-end gap-3">
+            {activeTab === "edit" ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={resetForm}
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  form="api-editor-form"
+                  disabled={saving}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? "Salvando..." : editing ? "Salvar API" : "Criar API"}
+                </Button>
+              </>
+            ) : null}
+
+            {activeTab === "json" ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={applyPricingTemplate}
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                >
+                  Usar modelo
+                </Button>
+                <Button
+                  type="button"
+                  disabled={saving}
+                  variant="ghost"
+                  onClick={() => saveApi()}
+                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {saving ? "Salvando..." : "Salvar JSON"}
+                </Button>
+              </>
+            ) : null}
+
+            {activeTab === "test" ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={!selectedApi || testingId === selectedApi?.id}
+                onClick={() => selectedApi && testApi(selectedApi)}
+              >
+                {testingId === selectedApi?.id ? "Testando..." : "Testar"}
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </section>

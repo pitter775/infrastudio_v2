@@ -3,15 +3,11 @@ import { NextResponse } from "next/server"
 import { getSessionUser } from "@/lib/session"
 import { createProject, listProjectsForUser, updateProject } from "@/lib/projetos"
 
-function canAccessGlobalAdmin(user) {
-  return user?.role === "admin"
-}
-
 export async function GET() {
   const user = await getSessionUser()
 
-  if (!canAccessGlobalAdmin(user)) {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
   }
 
   const projects = await listProjectsForUser(user)
@@ -21,8 +17,8 @@ export async function GET() {
 export async function POST(request) {
   const user = await getSessionUser()
 
-  if (!canAccessGlobalAdmin(user)) {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
   }
 
   const body = await request.json()
@@ -43,7 +39,7 @@ export async function POST(request) {
 export async function PUT(request) {
   const user = await getSessionUser()
 
-  if (!canAccessGlobalAdmin(user)) {
+  if (user?.role !== "admin") {
     return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
   }
 
