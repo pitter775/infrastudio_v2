@@ -10,7 +10,7 @@ export function AdminPageHeader({ title, description, actions, className }) {
         className,
       )}
     >
-      <div>
+      <div className="min-w-0">
         <h1 className="text-lg font-semibold text-emerald-400">{title}</h1>
         {description ? <p className="mt-1 text-xs text-slate-500">{description}</p> : null}
       </div>
@@ -18,3 +18,4 @@ export function AdminPageHeader({ title, description, actions, className }) {
     </div>
   )
 }
+

@@ -8,11 +8,15 @@ import {
   BookOpenText,
   BriefcaseBusiness,
   CheckCircle2,
+  ChevronDown,
+  Loader2,
   Menu,
+  LogOut,
+  LayoutGrid,
   Smartphone,
   Sparkles,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { PremiumHomeChatDemo } from '@/components/home/chat-demo'
 import { LoginModal } from '@/components/home/login-modal'
 import {
@@ -25,10 +29,13 @@ import {
   TECH_STACK,
   WHATSAPP_NUMBER,
 } from '@/components/home/data'
+import { signOutProjectAuth } from '@/lib/auth'
 import { cn } from '@/lib/utils'
 
 function HomeNavbar({ currentUser, onLoginClick }) {
-  const dashboardHref = currentUser?.role === 'admin' ? '/admin/dashboard' : '/admin/projetos'
+  const projectsHref = currentUser?.role === 'admin' ? '/admin/projetos' : '/app/projetos'
+  const displayName = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Usuario'
+  const avatarInitial = displayName.charAt(0).toUpperCase()
   const navItems = useMemo(
     () => [
       { href: '#planos', label: 'Planos', icon: Sparkles },
@@ -39,6 +46,45 @@ function HomeNavbar({ currentUser, onLoginClick }) {
     [],
   )
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [projectLoading, setProjectLoading] = useState(false)
+  const userMenuRef = useRef(null)
+
+  useEffect(() => {
+    function handlePointerDown(event) {
+      if (!userMenuRef.current?.contains(event.target)) {
+        setUserMenuOpen(false)
+      }
+    }
+
+    function handleEscape(event) {
+      if (event.key === 'Escape') {
+        setUserMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
+
+  async function handleLogout() {
+    setUserMenuOpen(false)
+    setMobileOpen(false)
+    await signOutProjectAuth()
+    window.location.href = '/'
+  }
+
+  function handleProjectsOpen() {
+    setProjectLoading(true)
+    setUserMenuOpen(false)
+    setMobileOpen(false)
+    window.location.href = projectsHref
+  }
 
   return (
     <nav className="fixed top-0 z-50 w-full border-b border-white/5 bg-slate-950/82 py-4 shadow-[0_12px_50px_rgba(2,6,23,0.42)] backdrop-blur-xl">
@@ -67,12 +113,57 @@ function HomeNavbar({ currentUser, onLoginClick }) {
             )
           })}
           {currentUser ? (
-            <Link
-              href={dashboardHref}
-              className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white lg:inline-flex"
-            >
-              Abrir painel
-            </Link>
+            <div ref={userMenuRef} className="relative hidden lg:block">
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen((value) => !value)}
+                className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.05] py-1.5 pl-2 pr-3 text-sm font-medium text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white"
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-[11px] font-semibold text-white">
+                  {projectLoading ? <Loader2 size={12} className="animate-spin" /> : avatarInitial}
+                </span>
+                <span className="max-w-[140px] truncate text-left">{displayName}</span>
+                <ChevronDown
+                  size={16}
+                  className={cn('text-slate-400 transition-transform', userMenuOpen && 'rotate-180')}
+                />
+              </button>
+
+              {userMenuOpen ? (
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] w-64 rounded-3xl border border-white/10 bg-slate-950/96 p-3 shadow-2xl backdrop-blur-xl">
+                  <div className="mb-2 border-b border-white/10 px-2 pb-3">
+                    <p className="truncate text-sm font-semibold text-white">{displayName}</p>
+                    <p className="truncate text-xs text-slate-400">{currentUser?.email || 'Sessao ativa'}</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={handleProjectsOpen}
+                      disabled={projectLoading}
+                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors hover:bg-white/[0.08]"
+                    >
+                      {projectLoading ? (
+                        <Loader2 size={16} className="animate-spin text-cyan-200" />
+                      ) : (
+                        <LayoutGrid size={16} className="text-cyan-200" />
+                      )}
+                      Entrar em projetos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors hover:bg-white/[0.08]"
+                    >
+                      <LogOut size={16} className="text-rose-300" />
+                      Deslogar
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : (
             <button
               type="button"
@@ -109,13 +200,38 @@ function HomeNavbar({ currentUser, onLoginClick }) {
               </a>
             ))}
             {currentUser ? (
-              <Link
-                href={dashboardHref}
-                onClick={() => setMobileOpen(false)}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-              >
-                Abrir painel
-              </Link>
+              <>
+                <div className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-semibold text-white">
+                    {projectLoading ? <Loader2 size={14} className="animate-spin" /> : avatarInitial}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-white">{displayName}</p>
+                    <p className="truncate text-xs text-slate-400">{currentUser?.email || 'Sessao ativa'}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleProjectsOpen}
+                  disabled={projectLoading}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                >
+                  {projectLoading ? (
+                    <Loader2 size={16} className="animate-spin text-cyan-200" />
+                  ) : (
+                    <LayoutGrid size={16} className="text-cyan-200" />
+                  )}
+                  Entrar em projetos
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                >
+                  <LogOut size={16} className="text-rose-300" />
+                  Deslogar
+                </button>
+              </>
             ) : (
               <button
                 type="button"
@@ -344,16 +460,9 @@ export function LandingPage({ currentUser = null }) {
               className="inline-flex items-center justify-center gap-2 rounded-xl border border-cyan-300/40 bg-cyan-400/12 px-8 py-4 font-medium text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_28px_rgba(34,211,238,0.22),0_0_60px_rgba(59,130,246,0.18)] transition-all duration-300 hover:-translate-y-1 hover:border-cyan-200/50 hover:bg-cyan-400/18"
             >
               <Sparkles size={18} className="animate-pulse text-cyan-200" />
-              Testar agora sem cadastro
+              Veja funcionando no Plano Free
             </button>
-            <a
-              href={`https://wa.me/${WHATSAPP_NUMBER}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center justify-center rounded-xl border border-white/10 bg-white/5 px-8 py-4 text-base font-semibold text-slate-100 transition-all hover:bg-white/10"
-            >
-              Falar com especialista
-            </a>
+      
           </motion.div>
           <motion.div
             initial={{ opacity: 0, y: 12 }}
@@ -442,29 +551,7 @@ export function LandingPage({ currentUser = null }) {
         </div>
       </section>
       <PricingSection />
-      <section id="contato" className="px-4 py-32">
-        <div className="mx-auto max-w-5xl">
-          <div className="glass-effect relative overflow-hidden rounded-[40px] p-12 text-center shadow-2xl md:p-20">
-            <div className="absolute -right-24 -top-24 h-64 w-64 rounded-full bg-blue-600/10 blur-[100px]" />
-            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-blue-600/10 blur-[100px]" />
-            <h2 className="mb-8 text-3xl font-semibold tracking-[-0.04em] text-slate-100/88 md:text-5xl">
-              {'Pronto para o pr\u00f3ximo n\u00edvel?'}
-            </h2>
-            <p className="mx-auto mb-12 max-w-2xl text-lg leading-relaxed text-slate-400 md:text-xl">
-              Fale sobre sua ideia e receba uma proposta personalizada sem compromisso.
-            </p>
-            <a
-              href={`https://wa.me/${WHATSAPP_NUMBER}`}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-3 rounded-2xl bg-[#25D366] px-10 py-5 text-xl font-semibold text-white shadow-2xl shadow-[#25D366]/20 transition-all hover:scale-105 hover:bg-[#20ba59]"
-            >
-              <Smartphone size={24} />
-              Chamar no WhatsApp
-            </a>
-          </div>
-        </div>
-      </section>
+
       <footer className="relative z-10 border-t border-white/5 bg-brand-dark py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-start justify-between gap-12 md:flex-row">

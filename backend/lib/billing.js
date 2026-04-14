@@ -263,9 +263,7 @@ export async function getProjectBillingSnapshot(projectId, deps = {}) {
     warnOptionalBillingLoad("project billing config", projectPlanResult.error)
     warnOptionalBillingLoad("subscription", subscriptionResult.error)
     warnOptionalBillingLoad("usage cycle", cycleResult.error)
-    if (topUpsResult.error) {
-      console.error("[billing] failed to load top-up tokens", topUpsResult.error)
-    }
+    warnOptionalBillingLoad("top-up tokens", topUpsResult.error)
 
     const selectedPlanId =
       projectPlanResult.data?.plano_id ?? subscriptionResult.data?.plano_id ?? cycleResult.data?.plano_id ?? null

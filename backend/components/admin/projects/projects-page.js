@@ -172,9 +172,9 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
       </div>
 
       {projects.length > 0 ? (
-        <div className="flex flex-wrap items-start gap-5">
+        <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project, index) => (
-            <div key={project.id} className="w-full sm:w-[360px]">
+            <div key={project.id} className="min-w-0">
               <AdminProjectCard
                 project={project}
                 index={index}
@@ -436,3 +436,4 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
     </motion.div>
   )
 }
+

@@ -250,8 +250,8 @@ export function AdminShell({ user, children }) {
             </div>
           </motion.aside>
 
-          <main className="flex min-h-screen flex-1 flex-col pt-12 lg:min-h-0 lg:pt-0">
-            <header className="fixed inset-x-0 top-0 z-30 h-12 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-20">
+          <main className="flex min-h-screen min-w-0 flex-1 flex-col pt-16 lg:min-h-0 lg:pt-0">
+            <header className="fixed inset-x-0 top-0 z-50 h-16 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-20 lg:h-12">
               <div className="flex h-full items-center justify-end">
                 <div className="mr-auto lg:hidden">
                   <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -318,13 +318,13 @@ export function AdminShell({ user, children }) {
               </div>
             </header>
 
-            <div className="flex flex-1 flex-col px-4 pb-4 pt-1 lg:min-h-0">
+            <div className="flex min-w-0 flex-1 flex-col px-4 pb-4 pt-1 lg:min-h-0">
               <div
-                className="flex flex-1 flex-col overflow-x-hidden overflow-y-visible rounded-none border-0 lg:min-h-0 lg:overflow-hidden lg:rounded-xl lg:border lg:border-white/5"
+                className="flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-visible rounded-none border-0 lg:min-h-0 lg:overflow-hidden lg:rounded-xl lg:border lg:border-white/5"
                 style={contentBackgroundStyle}
               >
-                <div className={cn('overflow-x-hidden lg:flex-1', attendanceRoute ? 'lg:overflow-hidden' : 'lg:overflow-y-auto')}>
-                  <div className={cn(attendanceRoute ? 'h-full px-2 py-2' : 'px-4 py-6')}>
+                <div className={cn('min-w-0 overflow-x-hidden lg:flex-1', attendanceRoute ? 'lg:overflow-hidden' : 'lg:overflow-y-auto')}>
+                  <div className={cn(attendanceRoute ? 'h-full px-2 py-2' : 'min-w-0 px-4 py-6')}>
                     {children}
                   </div>
                 </div>
@@ -336,3 +336,4 @@ export function AdminShell({ user, children }) {
     </TooltipProvider>
   )
 }
+

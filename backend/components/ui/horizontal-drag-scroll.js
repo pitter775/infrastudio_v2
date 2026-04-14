@@ -63,7 +63,10 @@ export function HorizontalDragScroll({ children, className, itemClassName, scrol
   }
 
   const items = Children.toArray(children).map((child, index) => {
-    const itemId = isValidElement(child) && child.props.itemId ? child.props.itemId : `horizontal-item-${index}`
+    const itemId =
+      isValidElement(child) && (child.props.itemId || child.props["data-item-id"])
+        ? child.props.itemId || child.props["data-item-id"]
+        : `horizontal-item-${index}`
 
     return (
       <HorizontalDragScrollItem key={itemId} itemId={itemId}>

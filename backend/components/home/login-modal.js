@@ -368,6 +368,12 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
               >
                 {mode === 'login' ? (
                   <form onSubmit={handleLoginSubmit} className="space-y-4">
+                    <SocialButtons
+                      socialLoadingProvider={socialLoadingProvider}
+                      onSocialLogin={handleSocialLogin}
+                      dividerText="ou entre com email"
+                    />
+
                     <Field
                       label="Email"
                       id="auth-login-email"
@@ -415,9 +421,6 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
                       </button>
                     </div>
 
-                    <div className="border-t border-white/10 pt-4">
-                      <SocialButtons socialLoadingProvider={socialLoadingProvider} onSocialLogin={handleSocialLogin} />
-                    </div>
                   </form>
                 ) : (
                   <form onSubmit={handleRegisterSubmit} className="space-y-4">
@@ -490,3 +493,4 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     </Dialog.Root>
   )
 }
+

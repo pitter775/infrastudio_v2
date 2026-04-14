@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EditorContent, useEditor } from '@tiptap/react'
@@ -17,6 +17,7 @@ import {
   Store,
   Users,
   Wand2,
+  X,
 } from 'lucide-react'
 import { AgentSimulator } from '@/components/app/agents/agent-simulator'
 import { ApiManager } from '@/components/app/apis/api-manager'
@@ -92,6 +93,16 @@ function updatePanelQuery(panelId, params = {}) {
   })
 
   window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`)
+}
+
+function clearProjectDetailQuery() {
+  const url = new URL(window.location.href)
+  url.searchParams.delete('panel')
+  url.searchParams.delete('tab')
+  url.searchParams.delete('api')
+  url.searchParams.delete('channel')
+  url.searchParams.delete('widget')
+  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
 function escapeHtml(value) {
@@ -495,7 +506,7 @@ function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
 function getMobileCardLayout(viewportWidth, cardWidth) {
   return {
     left: Math.max((viewportWidth - cardWidth) / 2, 0),
-    top: 56,
+    top: 164,
     scale: MOBILE_CARD_SCALE,
   }
 }
@@ -524,6 +535,7 @@ function SheetPanelHeader({
   statusTone = 'emerald',
   enabled = true,
   leftAction = null,
+  onCancel = null,
 }) {
   const statusClasses =
     statusTone === 'sky'
@@ -533,27 +545,47 @@ function SheetPanelHeader({
   return (
     <div className="px-6 py-5">
       <div className="flex flex-col gap-3 pr-14 sm:pr-0">
-        <div className="flex items-center gap-3">
-          <p className={cn('hidden items-center gap-2 text-xs uppercase tracking-[0.22em] sm:flex', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
-            {EyebrowIcon ? <EyebrowIcon className="h-3.5 w-3.5" /> : null}
-            {eyebrow}
-          </p>
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start justify-between gap-3">
+                <p className={cn('flex items-center gap-2 text-xs uppercase tracking-[0.22em]', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
+                  {EyebrowIcon ? <EyebrowIcon className="h-3.5 w-3.5" /> : null}
+                  {eyebrow}
+                </p>
 
-          {leftAction ? <div className="flex items-center">{leftAction}</div> : null}
+                {onCancel ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={onCancel}
+                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] p-0 text-slate-300 hover:bg-white/[0.06] hover:text-white sm:hidden"
+                  >
+                    <X className="h-4 w-4" />
+                    <span className="sr-only">Fechar</span>
+                  </Button>
+                ) : null}
+              </div>
 
-          {!leftAction && statusLabel ? (
-          <div className="flex items-center gap-3">
-            <span className={cn('text-xs font-semibold uppercase tracking-[0.18em]', statusClasses.text)}>
-              {enabled ? 'Desativar' : 'Ativar'}
-            </span>
-            <div className={cn('flex h-7 w-10 items-center rounded-full p-1', statusClasses.track)}>
-              <div className={cn(enabled ? 'ml-auto' : 'mr-auto', 'h-5 w-5 rounded-full', statusClasses.thumb)} />
+              <div className="flex flex-wrap items-center gap-2">
+                {leftAction ? <div className="flex items-center">{leftAction}</div> : null}
+
+                {!leftAction && statusLabel ? (
+                <div className="flex items-center gap-3">
+                  <span className={cn('text-xs font-semibold uppercase tracking-[0.18em]', statusClasses.text)}>
+                    {enabled ? 'Desativar' : 'Ativar'}
+                  </span>
+                  <div className={cn('flex h-7 w-10 items-center rounded-full p-1', statusClasses.track)}>
+                    <div className={cn(enabled ? 'ml-auto' : 'mr-auto', 'h-5 w-5 rounded-full', statusClasses.thumb)} />
+                  </div>
+                </div>
+                ) : null}
+              </div>
             </div>
-          </div>
-          ) : null}
-        </div>
 
-        <p className="hidden text-sm text-slate-400 sm:block">{description}</p>
+            <p className="mt-2 text-sm text-slate-400">{description}</p>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -602,7 +634,7 @@ function SheetInternalTabs({ tabs, activeTab, onChange }) {
           return (
             <button
               key={tab.id}
-              itemId={tab.id}
+              data-item-id={tab.id}
               type="button"
               onClick={() => onChange(tab.id)}
               className={cn(
@@ -645,7 +677,13 @@ function PlaceholderPanel({ title, description, items = [] }) {
   )
 }
 
-function ProjectPanel({ project, initialAgentTab = 'edit', onAgentTabChange, onOpenConnection }) {
+function ProjectPanel({
+  project,
+  initialAgentTab = 'edit',
+  onAgentTabChange,
+  onOpenConnection,
+  onCloseSheet = null,
+}) {
   const router = useRouter()
   const agent = project.agent
   const projectIdentifier = project.routeKey || project.slug || project.id
@@ -983,6 +1021,7 @@ function ProjectPanel({ project, initialAgentTab = 'edit', onAgentTabChange, onO
         eyebrow="Agente"
         description="Defina o agente e selecione quais APIs deste projeto ele pode usar."
         statusTone="sky"
+        onCancel={onCloseSheet}
         leftAction={
           agent?.id ? (
             <SheetPowerToggle enabled={agentActive} disabled={savingActive} onClick={handleToggleAgentActive} />
@@ -1234,9 +1273,8 @@ function ProjectPanel({ project, initialAgentTab = 'edit', onAgentTabChange, onO
           <Button
             type="button"
             variant="ghost"
-            disabled={activeAgentTab !== 'edit' || !hasUnsavedChanges || savingDraft}
-            onClick={handleResetAgentDraft}
-            className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={onCloseSheet}
+            className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
           >
             Cancelar
           </Button>
@@ -1416,7 +1454,7 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
   )
 }
 
-function IntegrationPanel({ panel, sheetItems, project, deepLink }) {
+function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet = null }) {
   const [apiDetailOpen, setApiDetailOpen] = useState(Boolean(deepLink?.api))
   const [apiDeleteAvailable, setApiDeleteAvailable] = useState(false)
   const [apiResetSignal, setApiResetSignal] = useState(0)
@@ -1497,6 +1535,7 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink }) {
         eyebrowIcon={panel.icon}
         description={panel.description}
         statusTone="sky"
+        onCancel={onCloseSheet}
         leftAction={<SheetPowerToggle enabled={enabled} onClick={() => setEnabled((value) => !value)} />}
       />
       {panel.id === 'apis' && !apiDetailOpen ? null : (
@@ -1566,7 +1605,7 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink }) {
                   type="button"
                   variant="ghost"
                   className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
-                  onClick={() => setApiResetSignal((value) => value + 1)}
+                  onClick={onCloseSheet}
                 >
                   Cancelar
                 </Button>
@@ -1662,6 +1701,7 @@ export function AdminProjectDetailPage({ project }) {
   const [isCardDragging, setIsCardDragging] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [pendingPanelId, setPendingPanelId] = useState(null)
+  const mobileHistoryGuardRef = useRef(false)
   const integrationPanels = useMemo(() => buildIntegrationPanels(project), [project])
   const topMenuItems = useMemo(() => buildTopMenuItems(integrationPanels), [integrationPanels])
   const directCardIcons = useMemo(
@@ -1720,38 +1760,6 @@ export function AdminProjectDetailPage({ project }) {
     }
   }, [isPanelOpen])
 
-  useEffect(() => {
-    function syncAgentTabFromUrl() {
-      const params = new URLSearchParams(window.location.search)
-      const nextTab = resolveAgentTab(params.get('tab'))
-      const panel = params.get('panel')
-
-      if (nextTab) {
-        setAgentTabFromUrl(nextTab)
-        setActivePanel(DEFAULT_PANEL)
-        setIsPanelOpen(true)
-        return
-      }
-
-      if (panel && [DEFAULT_PANEL, ...integrationPanels.map((item) => item.id)].includes(panel)) {
-        setDeepLink({
-          api: params.get('api') || null,
-          channel: params.get('channel') || null,
-          widget: params.get('widget') || null,
-        })
-        setActivePanel(panel)
-        setIsPanelOpen(true)
-      }
-    }
-
-    syncAgentTabFromUrl()
-    window.addEventListener('popstate', syncAgentTabFromUrl)
-
-    return () => {
-      window.removeEventListener('popstate', syncAgentTabFromUrl)
-    }
-  }, [integrationPanels])
-
   const viewportWidth = viewport.width || DESKTOP_BREAKPOINT
   const viewportHeight = viewport.height || 900
   const isMobile = viewportWidth < MOBILE_BREAKPOINT
@@ -1799,6 +1807,91 @@ export function AdminProjectDetailPage({ project }) {
       'Permissao validada pela sessao',
       'Pipeline pronto para evoluir',
     ]
+
+  useEffect(() => {
+    function syncAgentTabFromUrl() {
+      const params = new URLSearchParams(window.location.search)
+      const nextTab = resolveAgentTab(params.get('tab'))
+      const panel = params.get('panel')
+
+      if (nextTab) {
+        setAgentTabFromUrl(nextTab)
+        setActivePanel(DEFAULT_PANEL)
+        setIsPanelOpen(true)
+        return
+      }
+
+      if (panel && [DEFAULT_PANEL, ...integrationPanels.map((item) => item.id)].includes(panel)) {
+        setDeepLink({
+          api: params.get('api') || null,
+          channel: params.get('channel') || null,
+          widget: params.get('widget') || null,
+        })
+        setActivePanel(panel)
+        setIsPanelOpen(true)
+      }
+    }
+
+    function handlePopState() {
+      if (isMobile && isPanelOpen && mobileHistoryGuardRef.current) {
+        mobileHistoryGuardRef.current = false
+        setIsPanelOpen(false)
+        setActivePanel(DEFAULT_PANEL)
+        setDeepLink({})
+        clearProjectDetailQuery()
+        return
+      }
+
+      syncAgentTabFromUrl()
+    }
+
+    syncAgentTabFromUrl()
+    window.addEventListener('popstate', handlePopState)
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [integrationPanels, isMobile, isPanelOpen])
+
+  useEffect(() => {
+    if (!isMobile) {
+      mobileHistoryGuardRef.current = false
+      return
+    }
+
+    if (!isPanelOpen || mobileHistoryGuardRef.current) {
+      return
+    }
+
+    window.history.pushState({ ...(window.history.state || {}), adminProjectSheetGuard: true }, '', window.location.href)
+    mobileHistoryGuardRef.current = true
+  }, [isMobile, isPanelOpen])
+
+  function closePanel() {
+    setIsPanelOpen(false)
+    setActivePanel(DEFAULT_PANEL)
+    setDeepLink({})
+    clearProjectDetailQuery()
+  }
+
+  function handleMobileBack() {
+    if (isMobile && mobileHistoryGuardRef.current) {
+      window.history.back()
+      return
+    }
+
+    closePanel()
+  }
+
+  function handleCloseSheet() {
+    if (isMobile) {
+      handleMobileBack()
+      return
+    }
+
+    closePanel()
+  }
+
   function handleOpenPanel(panelId = DEFAULT_PANEL, params = {}) {
     setPendingPanelId(panelId)
     setActivePanel(panelId)
@@ -1824,7 +1917,7 @@ export function AdminProjectDetailPage({ project }) {
   }
 
   return (
-    <div className={cn('min-h-full px-8 py-10', isMobile && 'h-[calc(100dvh-88px)] overflow-hidden px-4 py-6')}>
+    <div className={cn('min-h-full px-8 py-10', isMobile && 'h-[calc(100dvh-88px)] overflow-hidden px-0 pb-4 pt-4')}>
       <div
         className={cn(
           'z-30',
@@ -1843,8 +1936,12 @@ export function AdminProjectDetailPage({ project }) {
               }
         }
       >
-        <div className="px-0 py-1">
-          <HorizontalDragScroll className="w-full" itemClassName="px-0.5" scrollClassName="px-0.5 py-0.5">
+        <div className={cn(isMobile ? 'py-0' : 'px-0 py-1')}>
+          <HorizontalDragScroll
+            className="w-full"
+            itemClassName={isMobile ? 'px-0' : 'px-0.5'}
+            scrollClassName={isMobile ? 'px-0 py-0.5' : 'px-0.5 py-0.5'}
+          >
             {topMenuItems.map((item) => {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen
@@ -1853,7 +1950,7 @@ export function AdminProjectDetailPage({ project }) {
               return (
                 <button
                   key={item.id}
-                  itemId={item.id}
+                  data-item-id={item.id}
                   type="button"
                   onClick={() => handleOpenPanel(item.id)}
                   className={cn(
@@ -1980,11 +2077,12 @@ export function AdminProjectDetailPage({ project }) {
       <Sheet
         open={isPanelOpen}
         onOpenChange={(open) => {
-          setIsPanelOpen(open)
-
           if (!open) {
-            setActivePanel(DEFAULT_PANEL)
+            handleCloseSheet()
+            return
           }
+
+          setIsPanelOpen(true)
         }}
         modal={false}
       >
@@ -2024,13 +2122,20 @@ export function AdminProjectDetailPage({ project }) {
                 className="flex h-full min-h-0 flex-col"
               >
                 {selectedPanel ? (
-                  <IntegrationPanel panel={selectedPanel} sheetItems={sheetItems} project={project} deepLink={deepLink} />
+                  <IntegrationPanel
+                    panel={selectedPanel}
+                    sheetItems={sheetItems}
+                    project={project}
+                    deepLink={deepLink}
+                    onCloseSheet={handleCloseSheet}
+                  />
                 ) : (
                   <ProjectPanel
                     project={project}
                     initialAgentTab={agentTabFromUrl}
                     onAgentTabChange={handleAgentTabChange}
                     onOpenConnection={handleOpenPanel}
+                    onCloseSheet={handleCloseSheet}
                   />
                 )}
               </motion.div>
