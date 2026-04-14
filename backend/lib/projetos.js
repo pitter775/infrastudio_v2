@@ -412,7 +412,7 @@ async function deleteRowsByProject(supabase, table, projectId) {
 
   if (error) {
     console.error(`[projetos] failed to delete ${table}`, error)
-    return { ok: false, error: `Falha ao limpar ${table}.` }
+    return { ok: false, error }
   }
 
   return { ok: true }
@@ -494,6 +494,24 @@ async function deleteFeedbackMessagesForProject(supabase, projectId) {
     }
   }
 
+  async function deleteFeedbackMessagesByMessageIds(ids) {
+    for (let index = 0; index < ids.length; index += 50) {
+      const batchIds = ids.slice(index, index + 50)
+
+      if (!batchIds.length) {
+        continue
+      }
+
+      const { error } = await supabase.from("feedback_mensagens").delete().in("id", batchIds)
+
+      if (error) {
+        return { ok: false, error }
+      }
+    }
+
+    return { ok: true }
+  }
+
   for (let index = 0; index < feedbackIds.length; index += 50) {
     const ids = feedbackIds.slice(index, index + 50)
 
@@ -505,17 +523,72 @@ async function deleteFeedbackMessagesForProject(supabase, projectId) {
 
     if (error) {
       const message = String(error?.message || "")
+      const missingFeedbackMessagesMetadata =
+        (!error?.code && !error?.message && !error?.details && !error?.hint) ||
+        error?.code === "PGRST204" ||
+        error?.code === "42703" ||
+        /feedback_id/i.test(message) && /column|schema cache|not found|could not find/i.test(message)
       const missingFeedbackMessagesTable =
         error?.code === "42P01" ||
         error?.code === "PGRST205" ||
         /feedback_mensagens/i.test(message) && /does not exist|not found|could not find|relation/i.test(message)
 
-      if (missingFeedbackMessagesTable) {
-        console.warn("[projetos] feedback_mensagens table not available; continuing project delete")
+      if (missingFeedbackMessagesTable || missingFeedbackMessagesMetadata) {
+        console.warn("[projetos] feedback_mensagens cleanup unavailable; continuing project delete")
         return { ok: true }
       }
 
-      return { ok: false, error }
+      const fallbackMessagesResult = await supabase
+        .from("feedback_mensagens")
+        .select("id")
+        .in("feedback_id", ids)
+        .limit(1000)
+
+      if (!fallbackMessagesResult.error) {
+        const messageIds = (fallbackMessagesResult.data ?? []).map((item) => item.id).filter(Boolean)
+
+        if (!messageIds.length) {
+          continue
+        }
+
+        const fallbackDeleteResult = await deleteFeedbackMessagesByMessageIds(messageIds)
+        if (fallbackDeleteResult.ok) {
+          continue
+        }
+
+        return {
+          ok: false,
+          error: {
+            ...fallbackDeleteResult.error,
+            message: fallbackDeleteResult.error?.message || error?.message || "Fallback delete by message id failed.",
+            details: fallbackDeleteResult.error?.details ?? error?.details ?? null,
+            hint: fallbackDeleteResult.error?.hint ?? error?.hint ?? null,
+            cause: {
+              feedbackIdDelete: {
+                code: error?.code ?? null,
+                message: error?.message ?? null,
+                details: error?.details ?? null,
+                hint: error?.hint ?? null,
+              },
+            },
+          },
+        }
+      }
+
+      return {
+        ok: false,
+        error: {
+          ...error,
+          cause: {
+            feedbackMessagesLookup: {
+              code: fallbackMessagesResult.error?.code ?? null,
+              message: fallbackMessagesResult.error?.message ?? null,
+              details: fallbackMessagesResult.error?.details ?? null,
+              hint: fallbackMessagesResult.error?.hint ?? null,
+            },
+          },
+        },
+      }
     }
   }
 
@@ -550,6 +623,10 @@ export async function deleteProject(projectId, confirmationName) {
 
   if (!feedbackMessagesResult.ok) {
     console.error("[projetos] failed to delete feedback messages", feedbackMessagesResult.error)
+    const errorMessage = feedbackMessagesResult.error?.message?.trim()
+    const errorDetails = feedbackMessagesResult.error?.details?.trim()
+    const errorHint = feedbackMessagesResult.error?.hint?.trim()
+    const suffix = [errorMessage, errorDetails, errorHint].filter(Boolean).join(" | ")
     return failProjectDelete(
       {
         supabase,
@@ -558,7 +635,7 @@ export async function deleteProject(projectId, confirmationName) {
         step: "feedback_mensagens",
         error: feedbackMessagesResult.error,
       },
-      "Falha ao limpar mensagens de feedback.",
+      suffix ? `Falha ao limpar mensagens de feedback. ${suffix}` : "Falha ao limpar mensagens de feedback.",
     )
   }
 
@@ -629,9 +706,13 @@ export async function deleteProject(projectId, confirmationName) {
   for (const table of projectTables) {
     const result = await deleteRowsByProject(supabase, table, projectId)
     if (!result.ok) {
+      const errorMessage = result.error?.message?.trim()
+      const errorDetails = result.error?.details?.trim()
+      const errorHint = result.error?.hint?.trim()
+      const suffix = [errorMessage, errorDetails, errorHint].filter(Boolean).join(" | ")
       return failProjectDelete(
         { supabase, projectId, projectName: project.nome, step: table, error: result.error },
-        result.error,
+        suffix ? `Falha ao limpar ${table}. ${suffix}` : `Falha ao limpar ${table}.`,
       )
     }
   }

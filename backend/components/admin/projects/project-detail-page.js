@@ -319,6 +319,7 @@ function buildIntegrationPanels(project) {
       title: 'APIs',
       description: 'Endpoints cadastrados para o agente usar no pipeline.',
       statusLabel: `${project.integrations.apis} endpoints conectados`,
+      isAvailable: (project.apis?.length || 0) > 0 || Number(project.integrations?.apis || 0) > 0,
       items:
         project.apis.length > 0
           ? project.apis.map((api) => `${api.method} ${api.name}`)
@@ -339,6 +340,8 @@ function buildIntegrationPanels(project) {
       title: 'WhatsApp',
       description: 'Canais WhatsApp vinculados ao projeto.',
       statusLabel: `${project.integrations.whatsapp} numeros ativos`,
+      isAvailable:
+        (project.whatsappChannels?.length || 0) > 0 || Number(project.integrations?.whatsapp || 0) > 0,
       items: ['Webhook de entrada', 'Fila de atendimento', 'Handoff humano', 'Resposta automatizada'],
     },
     {
@@ -356,6 +359,7 @@ function buildIntegrationPanels(project) {
       title: 'Mercado Livre',
       description: 'Painel reservado para catalogo, pedidos e operacao de marketplace.',
       statusLabel: 'Integracao preparada',
+      isAvailable: Number(project.directConnections?.mercadoLivre || 0) > 0,
       items: ['Catalogo', 'Pedidos', 'Reputacao', 'Perguntas'],
     },
     {
@@ -373,6 +377,8 @@ function buildIntegrationPanels(project) {
       title: 'Chat widget',
       description: 'Widgets web conectados ao atendimento.',
       statusLabel: `${project.integrations.chatWidget} widgets online`,
+      isAvailable:
+        (project.chatWidgets?.length || 0) > 0 || Number(project.integrations?.chatWidget || 0) > 0,
       items: ['Fluxo inicial', 'Qualificacao de lead', 'Fallback humano', 'Eventos de conversao'],
     },
   ]
@@ -1703,13 +1709,17 @@ export function AdminProjectDetailPage({ project }) {
   const [pendingPanelId, setPendingPanelId] = useState(null)
   const mobileHistoryGuardRef = useRef(false)
   const integrationPanels = useMemo(() => buildIntegrationPanels(project), [project])
+  const activeIntegrationPanels = useMemo(
+    () => integrationPanels.filter((panel) => panel.isAvailable),
+    [integrationPanels],
+  )
   const topMenuItems = useMemo(() => buildTopMenuItems(integrationPanels), [integrationPanels])
   const directCardIcons = useMemo(
     () =>
-      integrationPanels
+      activeIntegrationPanels
         .filter((panel) => panel.directToAgent)
         .map((panel) => panel.id),
-    [integrationPanels],
+    [activeIntegrationPanels],
   )
 
   useEffect(() => {
@@ -2001,7 +2011,7 @@ export function AdminProjectDetailPage({ project }) {
             onSelect={() => handleOpenPanel(DEFAULT_PANEL)}
             onTestAgent={project.agent?.id ? () => setTestOpen(true) : null}
           >
-            {integrationPanels
+            {activeIntegrationPanels
               .filter((panel) => panel.directToAgent)
               .map((panel, index) => {
                 const Icon = panel.icon
@@ -2106,7 +2116,7 @@ export function AdminProjectDetailPage({ project }) {
           <SheetTitle className="sr-only">{sheetHeading}</SheetTitle>
           <SheetDescription className="sr-only">{sheetIntro}</SheetDescription>
           {!isMobile ? (
-            <SheetClose className="absolute left-0 top-[102px] z-40 -translate-x-1/2 rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
+            <SheetClose className="absolute left-0 top-[102px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
               <ChevronRight className="h-4 w-4" />
               <span className="sr-only">Fechar painel</span>
             </SheetClose>
@@ -2115,9 +2125,9 @@ export function AdminProjectDetailPage({ project }) {
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activePanel}
-                initial={{ opacity: 0, x: 56 }}
+                initial={{ opacity: 0, x: isMobile ? -56 : 56 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 56 }}
+                exit={{ opacity: 0, x: isMobile ? -56 : 56 }}
                 transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
                 className="flex h-full min-h-0 flex-col"
               >

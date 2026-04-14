@@ -105,10 +105,6 @@ function getProjectServiceIcons(project) {
     icons.push('mercadoLivre')
   }
 
-  if (!icons.length) {
-    icons.push('apis')
-  }
-
   return icons.slice(0, 4)
 }
 
