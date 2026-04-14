@@ -550,27 +550,15 @@ function SheetPanelHeader({
 
   return (
     <div className="px-6 py-5">
-      <div className="flex flex-col gap-3 pr-14 sm:pr-0">
+      <div className="relative flex flex-col gap-3 pr-14 sm:pr-0">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start justify-between gap-3 pr-8 sm:pr-0">
                 <p className={cn('flex items-center gap-2 text-xs uppercase tracking-[0.22em]', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
                   {EyebrowIcon ? <EyebrowIcon className="h-3.5 w-3.5" /> : null}
                   {eyebrow}
                 </p>
-
-                {onCancel ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={onCancel}
-                    className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] p-0 text-slate-300 hover:bg-white/[0.06] hover:text-white sm:hidden"
-                  >
-                    <X className="h-4 w-4" />
-                    <span className="sr-only">Fechar</span>
-                  </Button>
-                ) : null}
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -589,42 +577,55 @@ function SheetPanelHeader({
               </div>
             </div>
 
-            <p className="mt-2 text-sm text-slate-400">{description}</p>
+            <p className="mt-2 hidden text-sm text-slate-400 sm:block">{description}</p>
           </div>
         </div>
+
+        {onCancel ? (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            className="absolute right-0 top-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] p-0 text-slate-300 hover:bg-white/[0.06] hover:text-white sm:hidden"
+          >
+            <X className="h-4 w-4" />
+            <span className="sr-only">Fechar</span>
+          </Button>
+        ) : null}
       </div>
     </div>
   )
 }
 
-function SheetPowerToggle({ enabled, disabled = false, onClick }) {
+function SheetPowerToggle({ enabled, disabled = false, onClick, compact = false }) {
   return (
     <button
       type="button"
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        'group inline-flex h-7 items-center gap-1.5 rounded-full border px-2 pr-2.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+        'group inline-flex items-center rounded-full border text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60',
+        compact ? 'h-6 gap-1 px-1.5 pr-1.5' : 'h-7 gap-1.5 px-2 pr-2.5',
         enabled
           ? 'border-emerald-400/25 bg-emerald-500/10 text-emerald-100 hover:bg-emerald-500/20'
           : 'border-red-400/25 bg-red-500/10 text-red-100 hover:bg-red-500/20',
       )}
       title={enabled ? 'Desativar' : 'Ativar'}
     >
-      <span
-        className={cn(
-          'flex h-4 w-7 items-center rounded-full p-0.5 transition-colors',
-          enabled ? 'bg-emerald-400/25' : 'bg-red-400/25',
-        )}
-      >
         <span
           className={cn(
-            'h-3 w-3 rounded-full transition-transform',
-            enabled ? 'translate-x-3 bg-emerald-300' : 'translate-x-0 bg-red-300',
+            compact ? 'flex h-3.5 w-6 items-center rounded-full p-0.5 transition-colors' : 'flex h-4 w-7 items-center rounded-full p-0.5 transition-colors',
+            enabled ? 'bg-emerald-400/25' : 'bg-red-400/25',
           )}
-        />
-      </span>
-      {enabled ? 'Desativar' : 'Ativar'}
+        >
+          <span
+            className={cn(
+              compact ? 'h-2.5 w-2.5 rounded-full transition-transform' : 'h-3 w-3 rounded-full transition-transform',
+              enabled ? (compact ? 'translate-x-2.5 bg-emerald-300' : 'translate-x-3 bg-emerald-300') : 'translate-x-0 bg-red-300',
+            )}
+          />
+        </span>
+      {compact ? null : enabled ? 'Desativar' : 'Ativar'}
     </button>
   )
 }
@@ -1460,7 +1461,7 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
   )
 }
 
-function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet = null }) {
+function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet = null, enabled = true }) {
   const [apiDetailOpen, setApiDetailOpen] = useState(Boolean(deepLink?.api))
   const [apiDeleteAvailable, setApiDeleteAvailable] = useState(false)
   const [apiResetSignal, setApiResetSignal] = useState(0)
@@ -1502,8 +1503,6 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
     return buildIntegrationTabs(panel.id)
   }, [panel.id])
   const [activeTab, setActiveTab] = useState(tabs[0]?.id || 'overview')
-  const [enabled, setEnabled] = useState(true)
-
   useEffect(() => {
     setActiveTab(tabs[0]?.id || 'overview')
   }, [panel.id, tabs])
@@ -1542,7 +1541,6 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
         description={panel.description}
         statusTone="sky"
         onCancel={onCloseSheet}
-        leftAction={<SheetPowerToggle enabled={enabled} onClick={() => setEnabled((value) => !value)} />}
       />
       {panel.id === 'apis' && !apiDetailOpen ? null : (
         <SheetInternalTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
@@ -1709,6 +1707,7 @@ export function AdminProjectDetailPage({ project }) {
   const [pendingPanelId, setPendingPanelId] = useState(null)
   const mobileHistoryGuardRef = useRef(false)
   const integrationPanels = useMemo(() => buildIntegrationPanels(project), [project])
+  const [panelEnabledMap, setPanelEnabledMap] = useState({})
   const activeIntegrationPanels = useMemo(
     () => integrationPanels.filter((panel) => panel.isAvailable),
     [integrationPanels],
@@ -1721,6 +1720,15 @@ export function AdminProjectDetailPage({ project }) {
         .map((panel) => panel.id),
     [activeIntegrationPanels],
   )
+
+  useEffect(() => {
+    setPanelEnabledMap((current) =>
+      integrationPanels.reduce((acc, panel) => {
+        acc[panel.id] = current[panel.id] ?? true
+        return acc
+      }, {}),
+    )
+  }, [integrationPanels])
 
   useEffect(() => {
     function syncViewport() {
@@ -2019,6 +2027,7 @@ export function AdminProjectDetailPage({ project }) {
                 const accent = getPanelAccentClasses(panel.colorClassName)
                 const isActiveConnector = activePanel === panel.id && isPanelOpen
                 const connectorClassName = isActiveConnector ? accent.connector : 'border-slate-600/35'
+                const enabled = panelEnabledMap[panel.id] !== false
 
                 return (
                   <div key={panel.id}>
@@ -2059,20 +2068,31 @@ export function AdminProjectDetailPage({ project }) {
                           handleOpenPanel(panel.id)
                         }}
                         className={cn(
-                          'h-full w-full rounded-full border border-white/10 bg-[#0c1426] px-4 text-slate-200 transition-[box-shadow,transform] duration-200 hover:bg-[#101b31] hover:text-white',
+                          'h-full w-full rounded-full border border-white/10 bg-[#0c1426] px-3 text-slate-200 transition-[box-shadow,transform] duration-200 hover:bg-[#101b31] hover:text-white',
                           isCardDragging
                             ? 'shadow-[0_14px_0_rgba(2,6,23,0.78)]'
                             : 'shadow-[0_8px_0_rgba(2,6,23,0.64)]',
                           activePanel === panel.id && isPanelOpen ? accent.button : null,
                         )}
                       >
-                        <Icon
-                          className={cn(
-                            'mr-2 h-4 w-4 text-slate-300',
-                            activePanel === panel.id && isPanelOpen ? accent.icon : null,
-                          )}
-                        />
-                        <span className="text-xs font-medium tracking-[0.08em]">{panel.label}</span>
+                        <span className="flex min-w-0 items-center">
+                          <Icon
+                            className={cn(
+                              'mr-2 h-4 w-4 shrink-0 text-slate-300',
+                              activePanel === panel.id && isPanelOpen ? accent.icon : null,
+                            )}
+                          />
+                          <span className="truncate text-xs font-medium tracking-[0.08em]">{panel.label}</span>
+                        </span>
+                        <span
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            setPanelEnabledMap((current) => ({ ...current, [panel.id]: !enabled }))
+                          }}
+                        >
+                          <SheetPowerToggle enabled={enabled} compact />
+                        </span>
                       </Button>
                     </motion.div>
                   </div>
@@ -2104,7 +2124,7 @@ export function AdminProjectDetailPage({ project }) {
           closeOnEscapeKeyDown={false}
           className={
             isMobile
-              ? 'inset-0 h-screen w-screen max-w-none overflow-hidden rounded-none border-0 bg-[#080e1d] p-0 text-slate-300 shadow-none'
+              ? 'inset-0 h-[100svh] w-screen max-w-none overflow-hidden rounded-none border-0 bg-[#080e1d] p-0 text-slate-300 shadow-none'
               : 'right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible rounded-l-lg border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-none'
           }
           style={
@@ -2138,6 +2158,7 @@ export function AdminProjectDetailPage({ project }) {
                     project={project}
                     deepLink={deepLink}
                     onCloseSheet={handleCloseSheet}
+                    enabled={panelEnabledMap[selectedPanel.id] !== false}
                   />
                 ) : (
                   <ProjectPanel

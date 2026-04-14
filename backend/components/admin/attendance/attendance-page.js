@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   Globe,
   ImagePlus,
@@ -239,7 +240,7 @@ function Composer({ conversation, onMessageSent }) {
   }
 
   return (
-    <div className="border-t border-white/5 px-4 py-3">
+    <div className="sticky bottom-0 z-10 border-t border-white/5 bg-[#0c1322] px-3 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] lg:px-4 lg:py-3 lg:pb-3">
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <label className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] hover:text-white">
           <Paperclip className="h-4 w-4" />
@@ -322,7 +323,7 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
         transition={{ duration: 0.22, ease: "easeInOut" }}
         className="flex h-full min-h-0 flex-col"
       >
-        <div className="border-b border-white/5 px-4 py-3">
+        <div className="sticky top-0 z-10 border-b border-white/5 bg-[#0c1322] px-3 py-3 lg:px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-3">
@@ -394,8 +395,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <div className="space-y-5">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="space-y-5 px-3 py-4 lg:px-4">
             {conversation.mensagens.map((message) => (
               <motion.div
                 key={message.id}
@@ -419,6 +420,9 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
 }
 
 export default function AttendancePage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [conversations, setConversations] = useState([])
   const [selectedConversation, setSelectedConversation] = useState(null)
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
@@ -523,6 +527,41 @@ export default function AttendancePage() {
     }
   }, [filteredConversations, selectedConversation?.id])
 
+  useEffect(() => {
+    const conversationId = searchParams.get("conversa")
+
+    if (!conversationId) {
+      if (isMobile) {
+        setMobileChatOpen(false)
+      }
+      return
+    }
+
+    const conversation = conversations.find((item) => item.id === conversationId)
+    if (!conversation) {
+      return
+    }
+
+    setSelectedConversation(conversation)
+
+    if (isMobile) {
+      setMobileChatOpen(true)
+    }
+  }, [conversations, isMobile, searchParams])
+
+  function setConversationQuery(conversationId) {
+    const params = new URLSearchParams(searchParams.toString())
+
+    if (conversationId) {
+      params.set("conversa", conversationId)
+    } else {
+      params.delete("conversa")
+    }
+
+    const nextQuery = params.toString()
+    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname)
+  }
+
   function updateConversation(conversationId, message) {
     setConversations((currentConversations) =>
       currentConversations.map((conversation) =>
@@ -547,10 +586,16 @@ export default function AttendancePage() {
 
   function handleConversationSelect(conversation) {
     setSelectedConversation(conversation)
+    setConversationQuery(conversation.id)
 
     if (isMobile) {
       setMobileChatOpen(true)
     }
+  }
+
+  function handleMobileClose() {
+    setMobileChatOpen(false)
+    setConversationQuery(null)
   }
 
   function updateConversationStatus(conversationId, status) {
@@ -655,8 +700,8 @@ export default function AttendancePage() {
             </div>
           </aside>
 
-          <section className="overflow-visible rounded-[12px] border border-white/5 bg-[#0d1424] lg:min-h-0 lg:overflow-hidden">
-            <div className="border-b border-white/5 px-3 py-3">
+          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-white/5 bg-[#0d1424]">
+            <div className="sticky top-0 z-10 border-b border-white/5 bg-[#0d1424] px-3 py-3">
               <div className="text-sm font-semibold text-slate-100">Conversas do projeto</div>
               <p className="mt-1 text-[11px] text-slate-500">Site e WhatsApp no mesmo feed.</p>
               <div className="mt-3 flex items-center gap-2">
@@ -685,7 +730,7 @@ export default function AttendancePage() {
               </div>
             </div>
 
-            <div className="px-2 py-2 lg:h-[calc(100%-104px)] lg:overflow-y-auto">
+            <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
               <div className="space-y-2">
                 {filteredConversations.map((conversation) => (
                   <ConversationItem
@@ -715,13 +760,13 @@ export default function AttendancePage() {
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ duration: 0.24, ease: "easeInOut" }}
-                className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden rounded-[12px] border border-white/5 bg-[#0c1322] lg:hidden"
+                className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
               >
                 <ChatPanel
                   conversation={activeConversation}
                   onMessageSent={updateConversation}
                   onStatusChanged={updateConversationStatus}
-                  onCloseMobile={() => setMobileChatOpen(false)}
+                  onCloseMobile={handleMobileClose}
                 />
               </motion.section>
             ) : null}

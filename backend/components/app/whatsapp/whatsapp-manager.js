@@ -301,7 +301,13 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
       {currentTab === "connect" ? (
         <>
-      {channels.length === 0 ? (
+      {loading ? (
+      <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
+        <RotateCcw className="h-3.5 w-3.5 animate-spin" />
+        Verificando cadastro
+      </div>
+      ) : null}
+      {!loading && channels.length === 0 ? (
       <form id="whatsapp-channel-form" className="grid gap-3 md:grid-cols-[minmax(0,1fr)_150px]" onSubmit={createChannel}>
         <label className="block">
           <span className={labelClassName}>Numero</span>
