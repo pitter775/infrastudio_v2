@@ -22,6 +22,7 @@ import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-wi
 import { createLogEntry } from "@/lib/logs"
 import { estimateOpenAICostUsd } from "@/lib/openai-pricing"
 import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
+import { getConfiguredWhatsAppDestination } from "@/lib/chat/whatsapp-availability"
 import { listActiveHandoffRecipientsByProjectId } from "@/lib/whatsapp-handoff-contatos"
 import { sendWhatsAppTextMessage } from "@/lib/whatsapp-channels"
 
@@ -201,6 +202,8 @@ function formatWhatsAppOutboundTextSafe(reply) {
       return `*${String(label || "").trim()}:* `
     })
     .replace(/:\s+(?=(?:\d+\.|\*[A-Z0-9]))/g, ":\n")
+    .replace(/\s+\./g, ".")
+    .replace(/\s+,/g, ",")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
@@ -231,6 +234,8 @@ function stripAssistantMetaArtifacts(reply) {
     .replace(/,\s*,+/g, ", ")
     .replace(/,\s*\./g, ".")
     .replace(/\.\s*,/g, ".")
+    .replace(/\s+\./g, ".")
+    .replace(/\s+,/g, ",")
     .replace(/[ \t]{2,}/g, " ")
     .replace(/([.!?])\s+(?=[A-Z0-9*])/g, "$1\n\n")
     .replace(/^([A-Za-z0-9][A-Za-z0-9\s]{1,28}):\s*/gm, "$1:\n")
@@ -248,7 +253,7 @@ function stripAssistantMetaReply(reply, channelKind) {
 function preserveStructuredWhitespace(value) {
   return String(value || "")
     .split("\n")
-    .map((line) => line.replace(/[ \t]{2,}/g, " ").trimEnd())
+    .map((line) => line.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/[ \t]{2,}/g, " ").trimEnd())
     .join("\n")
     .replace(/[ \t]+\n/g, "\n")
     .replace(/\n[ \t]+/g, "\n")
@@ -733,6 +738,69 @@ export function updateContextFromAiResult(input) {
   return nextContext
 }
 
+function normalizeWhatsAppDestination(value) {
+  const digits = sanitizePhone(value)
+  if (!digits) {
+    return null
+  }
+
+  if (digits.length === 13 && digits.startsWith("55")) {
+    return digits
+  }
+
+  if (digits.length === 11) {
+    return `55${digits}`
+  }
+
+  return digits.length >= 10 ? digits : null
+}
+
+function shouldAttachWhatsAppCta(reply) {
+  const normalized = String(reply || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
+  return (
+    /\bwhatsapp\b/.test(normalized) ||
+    /wa\.me|api\.whatsapp\.com/i.test(normalized) ||
+    /\bmeu numero\b|\bmeu telefone\b|\bchama\b|\bfalar por la\b|\bcontinuar por la\b/i.test(normalized) ||
+    /(?:\+?\d[\d\s().-]{7,}\d)/.test(String(reply || ""))
+  )
+}
+
+function buildWhatsAppContinuationCta(input = {}) {
+  const destination = normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext))
+  if (!destination || !shouldAttachWhatsAppCta(`${input.reply || ""}\n${input.followUpReply || ""}`)) {
+    return null
+  }
+
+  return {
+    label: "Continuar no WhatsApp",
+    url: `https://wa.me/${destination}`,
+  }
+}
+
+function sanitizeReplyForWhatsAppCta(reply, label = "Continuar no WhatsApp") {
+  const sanitized = String(reply || "")
+    .replace(/https?:\/\/(?:wa\.me|api\.whatsapp\.com)[^\s)]+/gi, "")
+    .replace(/\+?\d[\d\s().-]{7,}\d/g, "")
+    .replace(/(?:meu|nosso)\s+(?:numero|telefone)\s+(?:e|é)\s*[:\-]?\s*/gi, "")
+    .replace(/(?:me chama|pode me chamar|pode falar comigo)\s+no\s+whatsapp[^.!?\n]*[.!?]?/gi, "")
+    .replace(/(?:se quiser|se preferir)\s+mais\s+detalhes[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
+    .replace(/\s+\./g, ".")
+    .replace(/\s+,/g, ",")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+
+  if (!sanitized) {
+    return `Se preferir, clique em "${label}".`
+  }
+
+  return sanitized
+}
+
 export function prepareAiReplyPayload(input) {
   const splitReply =
     input.channelKind === "whatsapp"
@@ -747,14 +815,27 @@ export function prepareAiReplyPayload(input) {
     input.channelKind === "whatsapp" ? sanitizeWhatsAppCustomerFacingReply(primaryReplyBase) : primaryReplyBase
   const followUpReply =
     input.channelKind === "whatsapp" ? sanitizeWhatsAppCustomerFacingReply(followUpReplyBase) : followUpReplyBase
+  const whatsappCta =
+    input.channelKind === "whatsapp"
+      ? null
+      : buildWhatsAppContinuationCta({
+          nextContext: input.nextContext,
+          reply: primaryReply,
+          followUpReply,
+        })
+  const normalizedPrimaryReply =
+    whatsappCta ? sanitizeReplyForWhatsAppCta(primaryReply, whatsappCta.label) : primaryReply
+  const normalizedFollowUpReply =
+    whatsappCta ? sanitizeReplyForWhatsAppCta(followUpReply, whatsappCta.label) : followUpReply
   const whatsappEmbeddedSequence =
-    input.channelKind === "whatsapp" ? buildWhatsAppMessageSequence(primaryReply, input.ai.assets ?? [], null) : []
+    input.channelKind === "whatsapp" ? buildWhatsAppMessageSequence(normalizedPrimaryReply, input.ai.assets ?? [], null) : []
 
   return {
-    primaryReply,
-    followUpReply,
+    primaryReply: normalizedPrimaryReply,
+    followUpReply: normalizedFollowUpReply,
     whatsappEmbeddedSequence,
     whatsappEmbeddedMessage: whatsappEmbeddedSequence[0] ?? "",
+    whatsappCta,
     contactSnapshot: resolveChatContactSnapshot(input.nextContext, input.normalizedExternalIdentifier),
     whatsappContactNameForTitle: getWhatsAppContactNameFromContext(input.nextContext),
     leadNameForTitle:
@@ -1500,7 +1581,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     followUpReply: replyPayload.followUpReply,
     messageSequence: replyPayload.whatsappEmbeddedSequence,
     assets: aiResult?.assets ?? [],
-    whatsapp: null,
+    whatsapp: replyPayload.whatsappCta,
     handoff: aiResult?.handoff ?? null,
   })
 }

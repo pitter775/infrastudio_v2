@@ -35,7 +35,9 @@ function buildRuntimeConfigInstructions(context = {}) {
   } else {
     const whatsappDestination = getConfiguredWhatsAppDestination(context)
     if (whatsappDestination && whatsappDestination !== "current_channel") {
-      lines.push(`WhatsApp cadastrado para CTA: ${whatsappDestination}. Se mencionar WhatsApp, use somente este numero e nunca use placeholder.`)
+      lines.push("WhatsApp cadastrado para continuidade do atendimento.")
+      lines.push("Se sugerir continuar no WhatsApp, nao escreva numero, link ou contato em texto.")
+      lines.push("Apenas convide de forma curta para continuar no WhatsApp quando fizer sentido.")
     }
   }
 

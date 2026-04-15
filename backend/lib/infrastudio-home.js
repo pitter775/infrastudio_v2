@@ -38,7 +38,7 @@ export async function getInfraStudioHomeChatConfig() {
     projeto: projeto.id,
     agente: agenteIdentifier,
     widget: widget?.slug || INFRASTUDIO_HOME_WIDGET_SLUG,
-    title: widget?.nome || "Chat",
+    title: agente?.nome || projeto?.nome || widget?.nome || "Chat",
     theme: widget?.tema || "dark",
     accent: widget?.corPrimaria || "#2563eb",
     transparent: widget?.fundoTransparente !== false,
