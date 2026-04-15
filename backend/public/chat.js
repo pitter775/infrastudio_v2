@@ -272,6 +272,18 @@
     };
   }
 
+  function createHumanHandoffAction(handoff) {
+    if (!handoff || handoff.offered !== true) {
+      return null;
+    }
+
+    return {
+      label: handoff.actionLabel || "Chamar humano",
+      message: "Quero falar com um atendente humano",
+      requested: handoff.requested === true,
+    };
+  }
+
   function createInstance(config) {
     var hasInlineUi =
       isRecord(config.ui) &&
@@ -666,6 +678,19 @@
         bubble.appendChild(cta);
       }
 
+      if (message.isAi && message.handoffAction && message.handoffAction.requested !== true) {
+        var handoffButton = document.createElement("button");
+        handoffButton.type = "button";
+        handoffButton.className = "chat-cta";
+        handoffButton.textContent = message.handoffAction.label || "Chamar humano";
+        handoffButton.addEventListener("click", function () {
+          void sendMessage(instance, message.handoffAction.message || "Quero falar com um atendente humano", {
+            skipUserBubble: true,
+          });
+        });
+        bubble.appendChild(handoffButton);
+      }
+
       if (message.isAi && Array.isArray(message.assets) && message.assets.length) {
         var assetGallery = createAssetGallery(message.assets);
         if (assetGallery) {
@@ -1035,13 +1060,16 @@
     }
   }
 
-  async function sendMessage(instance, text) {
+  async function sendMessage(instance, text, options) {
+    var settings = options && typeof options === "object" ? options : {};
     var trimmed = String(text || "").trim();
     if (!trimmed || instance.state.loading || !instance.config.apiBase) {
       return;
     }
 
-    instance.state.messages.push({ id: "user-" + Date.now(), text: trimmed, isAi: false });
+    if (!settings.skipUserBubble) {
+      instance.state.messages.push({ id: "user-" + Date.now(), text: trimmed, isAi: false });
+    }
     instance.refs.input.value = "";
     autoResizeInput(instance);
     renderMessages(instance);
@@ -1080,6 +1108,7 @@
         text: payload.reply || payload.error || "Nao consegui responder agora.",
         isAi: true,
         cta: null,
+        handoffAction: createHumanHandoffAction(payload.handoff),
         assets: Array.isArray(payload.assets) ? payload.assets : [],
       });
 

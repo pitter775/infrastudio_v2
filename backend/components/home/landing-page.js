@@ -19,6 +19,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PremiumHomeChatDemo } from '@/components/home/chat-demo'
 import { LoginModal } from '@/components/home/login-modal'
+import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   BENEFIT_ITEMS,
   DEMO_FEATURES,
@@ -35,7 +36,6 @@ import { cn } from '@/lib/utils'
 function HomeNavbar({ currentUser, onLoginClick }) {
   const projectsHref = currentUser?.role === 'admin' ? '/admin/projetos' : '/app/projetos'
   const displayName = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Usuario'
-  const avatarInitial = displayName.charAt(0).toUpperCase()
   const navItems = useMemo(
     () => [
       { href: '#planos', label: 'Planos', icon: Sparkles },
@@ -117,13 +117,17 @@ function HomeNavbar({ currentUser, onLoginClick }) {
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((value) => !value)}
-                className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.05] py-1.5 pl-2 pr-3 text-sm font-medium text-slate-200 transition-all hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-white"
+                className="relative inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.05] py-1.5 pl-2 pr-3 text-sm font-medium text-slate-200 transition-all hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-white"
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
               >
-                <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-[11px] font-semibold text-white">
-                  {projectLoading ? <Loader2 size={12} className="animate-spin" /> : avatarInitial}
-                </span>
+                <UserAvatar
+                  src={projectLoading ? "" : currentUser?.avatarUrl}
+                  label={displayName}
+                  className="h-7 w-7 bg-gradient-to-br from-cyan-400 to-blue-500 text-[11px]"
+                  fallbackClassName={projectLoading ? "hidden" : undefined}
+                />
+                {projectLoading ? <Loader2 size={12} className="absolute left-4 top-1/2 -translate-y-1/2 animate-spin text-cyan-100" /> : null}
                 <span className="max-w-[140px] truncate text-left">{displayName}</span>
                 <ChevronDown
                   size={16}
@@ -202,9 +206,12 @@ function HomeNavbar({ currentUser, onLoginClick }) {
             {currentUser ? (
               <>
                 <div className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-cyan-400 to-blue-500 text-xs font-semibold text-white">
-                    {projectLoading ? <Loader2 size={14} className="animate-spin" /> : avatarInitial}
-                  </span>
+                  <UserAvatar
+                    src={projectLoading ? "" : currentUser?.avatarUrl}
+                    label={displayName}
+                    className="h-8 w-8 bg-gradient-to-br from-cyan-400 to-blue-500"
+                    fallbackClassName={projectLoading ? "hidden" : undefined}
+                  />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white">{displayName}</p>
                     <p className="truncate text-xs text-slate-400">{currentUser?.email || 'Sessao ativa'}</p>
@@ -280,7 +287,7 @@ function PlanFeature({ children }) {
   )
 }
 
-function PricingSection() {
+function PricingSection({ onPlanSelect }) {
   const plans = [
     {
       name: 'Free',
@@ -354,6 +361,8 @@ function PricingSection() {
               </ul>
 
               <button
+                type="button"
+                onClick={() => onPlanSelect?.(plan)}
                 className={cn(
                   'mt-6 w-full rounded-xl py-2 font-semibold text-white transition',
                   plan.featured
@@ -398,11 +407,13 @@ export function LandingPage({ currentUser = null }) {
       ? 'Email confirmado. Voce ja pode entrar.'
       : authNotice === 'email_expired'
         ? 'Seu link de confirmacao expirou. Reenvie a confirmacao.'
-        : authNotice === 'email_already_verified'
-          ? 'Este email ja foi confirmado. Voce ja pode entrar.'
-          : authNotice === 'email_invalid'
-            ? 'Link de confirmacao invalido. Reenvie a confirmacao.'
-            : ''
+      : authNotice === 'email_already_verified'
+        ? 'Este email ja foi confirmado. Voce ja pode entrar.'
+      : authNotice === 'email_invalid'
+        ? 'Link de confirmacao invalido. Reenvie a confirmacao.'
+        : authNotice === 'social_oauth_error'
+          ? 'Nao foi possivel concluir o login social. Verifique a configuracao e tente novamente.'
+          : ''
 
   useEffect(() => {
     if (authNoticeMessage) {
@@ -550,7 +561,7 @@ export function LandingPage({ currentUser = null }) {
           </div>
         </div>
       </section>
-      <PricingSection />
+      <PricingSection onPlanSelect={() => setLoginOpen(true)} />
 
       <footer className="relative z-10 border-t border-white/5 bg-brand-dark py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -591,6 +602,9 @@ export function LandingPage({ currentUser = null }) {
                       {link}
                     </a>
                   ))}
+                  <Link href="/politica-de-privacidade" className="text-sm text-slate-500 transition-colors hover:text-blue-400">
+                    Politica de Privacidade
+                  </Link>
                 </nav>
               </div>
             </div>

@@ -1,4 +1,4 @@
-import { claimHumanHandoff, releaseHumanHandoff } from "@/lib/chat-handoffs"
+import { claimHumanHandoff, releaseHumanHandoff, touchHumanHandoff } from "@/lib/chat-handoffs"
 import { userCanAccessAdminConversation } from "@/lib/admin-conversations"
 import { getChatById } from "@/lib/chats"
 import { getSessionUser } from "@/lib/session"
@@ -23,7 +23,11 @@ export async function PATCH(request, { params }) {
   }
 
   const handoff =
-    body.status === "human"
+    body.action === "touch"
+      ? await touchHumanHandoff({
+          chatId: chat.id,
+        })
+      : body.status === "human"
       ? await claimHumanHandoff({
           chatId: chat.id,
           projetoId: chat.projetoId,

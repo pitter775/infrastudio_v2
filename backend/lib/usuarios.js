@@ -5,9 +5,9 @@ import { hashSync } from "bcryptjs"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const usuarioSelectFields =
-  "id, nome, email, telefone, senha, provider, provider_id, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
+  "id, nome, email, telefone, senha, provider, provider_id, avatar_url, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
 const usuarioSelectFieldsLegacy =
-  "id, nome, email, senha, provider, provider_id, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
+  "id, nome, email, senha, provider, provider_id, avatar_url, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
 
 async function runUsuarioQueryWithTelefoneFallback(executor) {
   const result = await executor(usuarioSelectFields)
@@ -58,6 +58,7 @@ export function mapUsuarioToAppUser(row) {
     name: row.nome?.trim() || "Usuario",
     email: row.email?.trim() || "",
     telefone: row.telefone?.trim() || "",
+    avatarUrl: row.avatar_url?.trim() || "",
     provider: row.provider ?? undefined,
     providerId: row.provider_id ?? undefined,
     role:
@@ -105,6 +106,7 @@ export async function updateUsuarioProviderAndVerification(input) {
     .update({
       provider: input.provider,
       provider_id: input.providerId,
+      avatar_url: String(input.avatarUrl || "").trim() || null,
       email_verificado: input.emailVerificado === true,
       ativo: true,
       updated_at: new Date().toISOString(),
@@ -189,6 +191,7 @@ function sanitizeUsuarioPayload(input) {
     nome: input.nome.trim(),
     email: input.email.trim().toLowerCase(),
     telefone: String(input.telefone ?? "").trim() || null,
+    avatar_url: String(input.avatarUrl ?? "").trim() || null,
     ativo: input.ativo ?? true,
     email_verificado: input.emailVerificado ?? true,
     role: input.papel === "admin" ? "admin" : "viewer",
@@ -207,6 +210,7 @@ export async function updateOwnUsuarioProfile(input) {
   const payload = {
     nome: String(input.nome ?? "").trim(),
     telefone: String(input.telefone ?? "").trim() || null,
+    avatar_url: String(input.avatarUrl ?? "").trim() || null,
     updated_at: new Date().toISOString(),
   }
 

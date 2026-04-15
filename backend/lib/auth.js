@@ -69,7 +69,7 @@ export async function registerWithProjectAuth(input) {
 }
 
 export async function signInWithSocialProvider(provider) {
-  if (!["google", "github", "facebook"].includes(provider)) {
+  if (!["google", "facebook"].includes(provider)) {
     return { ok: false, error: "Provider social invalido." }
   }
 

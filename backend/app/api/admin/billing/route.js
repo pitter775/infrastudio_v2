@@ -18,7 +18,10 @@ export async function GET() {
     return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
   }
 
-  const [plans, projects] = await Promise.all([listBillingPlans(), listAdminBillingProjects()])
+  const [plans, projects] = await Promise.all([
+    listBillingPlans(),
+    listAdminBillingProjects(),
+  ])
   return NextResponse.json({ plans, projects }, { status: 200 })
 }
 

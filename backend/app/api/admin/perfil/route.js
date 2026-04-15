@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 
 import { createSession } from "@/lib/session"
 import { getSessionUser } from "@/lib/session"
+import { uploadUserAvatar } from "@/lib/user-avatars"
 import { getUsuarioById, updateOwnUsuarioProfile } from "@/lib/usuarios"
 
 export async function GET() {
@@ -36,11 +37,30 @@ export async function PATCH(request) {
     return NextResponse.json({ error: "A senha precisa ter pelo menos 6 caracteres." }, { status: 400 })
   }
 
+  let avatarUrl = undefined
+
+  if (body.avatarUpload?.dataBase64) {
+    try {
+      avatarUrl = await uploadUserAvatar({
+        usuarioId: user.id,
+        dataBase64: body.avatarUpload.dataBase64,
+        type: body.avatarUpload.type,
+        name: body.avatarUpload.name,
+      })
+    } catch (error) {
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Nao foi possivel enviar a foto de perfil." },
+        { status: 400 },
+      )
+    }
+  }
+
   const updated = await updateOwnUsuarioProfile({
     id: user.id,
     nome: body.nome,
     telefone: body.telefone,
     senha: body.senha,
+    avatarUrl,
   })
 
   if (!updated) {

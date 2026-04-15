@@ -31,7 +31,7 @@ function SheetDescription(props) {
 function SheetOverlay({ className, ...props }) {
   return (
     <DialogPrimitive.Overlay
-      className={cn('fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm', className)}
+      className={cn('fixed inset-0 z-[80] bg-slate-950/60 backdrop-blur-sm', className)}
       {...props}
     />
   )
@@ -45,6 +45,7 @@ function SheetContent({
   showCloseButton = true,
   closeOnInteractOutside = true,
   closeOnEscapeKeyDown = true,
+  overlayClassName,
   ...props
 }) {
   const sideClassName =
@@ -54,10 +55,10 @@ function SheetContent({
 
   return (
     <SheetPortal>
-      {showOverlay ? <SheetOverlay /> : null}
+      {showOverlay ? <SheetOverlay className={overlayClassName} /> : null}
       <DialogPrimitive.Content
         className={cn(
-          'fixed z-50 bg-[#080e1d] p-0 text-slate-400 outline-none border-white/5 will-change-transform transition-transform duration-300 ease-out',
+          'fixed z-[81] bg-[#080e1d] p-0 text-slate-400 outline-none border-white/5 will-change-transform transition-transform duration-300 ease-out',
           sideClassName,
           className,
         )}

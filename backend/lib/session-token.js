@@ -17,6 +17,7 @@ export async function signSessionToken(user) {
     email: user.email,
     name: user.name,
     telefone: user.telefone ?? "",
+    avatarUrl: user.avatarUrl ?? "",
     role: user.role,
     status: user.status,
     currentProjectId: user.currentProjectId ?? null,
@@ -37,6 +38,7 @@ export async function verifySessionToken(token) {
     email: String(payload.email),
     name: String(payload.name),
     telefone: typeof payload.telefone === "string" ? payload.telefone : "",
+    avatarUrl: typeof payload.avatarUrl === "string" ? payload.avatarUrl : "",
     role: payload.role === "admin" ? "admin" : "viewer",
     status: payload.status === "pendente" ? "pendente" : "ativo",
     currentProjectId:

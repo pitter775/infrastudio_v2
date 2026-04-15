@@ -4,6 +4,9 @@
 
 - Mercado Livre: evoluir o painel v2 inicial para fluxo completo com OAuth, catalogo, pedidos e perguntas.
 - Chat runtime: ampliar observabilidade de fail-closed, widget resolvido, APIs usadas e decisao de handoff.
+- Chat runtime: fechar oferta automatica de humano quando a pergunta fugir do dominio do agente.
+- WhatsApp worker externo: garantir envio sempre explicito da flag de contato salvo para o v2 confiar sem inferencia.
+- WhatsApp/handoff: validar ponta a ponta em canal real o disparo para atendente cadastrado usando o proprio canal do projeto.
 
 ## Alto
 
@@ -18,8 +21,3 @@
 ## Baixo
 
 - Limpeza operacional do Laboratorio/logs com TTL, dry-run e opcao de fixar logs importantes.
-
-
-
-cria um documento primeiro o mock de cada tela completa depois manda extrair a inteligencia do legado caso contrario nao vai dar certo 
-

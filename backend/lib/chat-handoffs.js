@@ -2,6 +2,8 @@ import "server-only"
 
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
+const HUMAN_HANDOFF_IDLE_TIMEOUT_MS = 5 * 60 * 1000
+
 function mapChatHandoff(row) {
   return {
     id: row.id,
@@ -27,6 +29,39 @@ function mapChatHandoff(row) {
 
 export function shouldPauseAssistantForHandoff(handoff) {
   return handoff?.status === "human"
+}
+
+function normalizeIsoTimestamp(value) {
+  const raw = String(value || "").trim()
+  if (!raw) {
+    return null
+  }
+
+  const timestamp = new Date(raw)
+  return Number.isNaN(timestamp.getTime()) ? null : timestamp.toISOString()
+}
+
+function getHumanActivityTimestamp(handoff) {
+  const metadata = handoff?.metadata && typeof handoff.metadata === "object" ? handoff.metadata : {}
+  return (
+    normalizeIsoTimestamp(metadata.lastHumanActivityAt) ??
+    normalizeIsoTimestamp(handoff?.claimedAt) ??
+    normalizeIsoTimestamp(handoff?.updatedAt) ??
+    null
+  )
+}
+
+export function isHumanHandoffExpired(handoff, now = Date.now()) {
+  if (handoff?.status !== "human") {
+    return false
+  }
+
+  const activityAt = getHumanActivityTimestamp(handoff)
+  if (!activityAt) {
+    return false
+  }
+
+  return now - new Date(activityAt).getTime() >= HUMAN_HANDOFF_IDLE_TIMEOUT_MS
 }
 
 export async function getChatHandoffByChatId(chatId) {
@@ -154,6 +189,25 @@ export async function claimHumanHandoff(input) {
       metadata: {
         ...(current.metadata ?? {}),
         claimedBy: "admin",
+        lastHumanActivityAt: new Date().toISOString(),
+      },
+    },
+  })
+}
+
+export async function touchHumanHandoff(input) {
+  const current = await getChatHandoffByChatId(input.chatId)
+
+  if (!current || current.status !== "human") {
+    return current
+  }
+
+  return updateChatHandoffRecord({
+    handoffId: current.id,
+    patch: {
+      metadata: {
+        ...(current.metadata ?? {}),
+        lastHumanActivityAt: new Date().toISOString(),
       },
     },
   })
@@ -175,6 +229,8 @@ export async function releaseHumanHandoff(input) {
       metadata: {
         ...(current.metadata ?? {}),
         releasedBy: "admin",
+        lastHumanActivityAt: null,
+        autoReleasedAt: input.autoReleased === true ? new Date().toISOString() : current.metadata?.autoReleasedAt ?? null,
       },
     },
   })

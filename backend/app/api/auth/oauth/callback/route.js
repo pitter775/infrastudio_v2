@@ -7,7 +7,7 @@ export async function GET(request) {
 
   try {
     const user = await completeSocialOAuthCallback(url.searchParams, url.origin)
-    return NextResponse.redirect(new URL(user.role === "admin" ? "/admin/dashboard" : "/admin/projetos", url.origin))
+    return NextResponse.redirect(new URL(user.role === "admin" ? "/admin/dashboard" : "/app/projetos", url.origin))
   } catch (error) {
     console.error("[auth] social oauth callback failed", error)
     const target = new URL("/", url.origin)

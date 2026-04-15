@@ -57,6 +57,21 @@ export function buildLogSearchText(entry) {
     .toLowerCase()
 }
 
+export function isNoisyOperationalLog(entry) {
+  const level = normalizeLogLevel(entry?.level ?? entry?.payload?.level)
+  if (level === "error") {
+    return false
+  }
+
+  const haystack = buildLogSearchText(entry)
+
+  return (
+    haystack.includes("qr code gerado") ||
+    haystack.includes("aguardando leitura") ||
+    (haystack.includes("qr code") && haystack.includes("whatsapp"))
+  )
+}
+
 export function mapLogRow(row, projectMap = new Map()) {
   const payload = row?.payload && typeof row.payload === "object" && !Array.isArray(row.payload) ? row.payload : {}
   const project = projectMap.get(row?.projeto_id) ?? null
@@ -88,6 +103,10 @@ export function filterAdminLogs(logs, filters = {}) {
   const search = String(filters.search || "").trim().toLowerCase()
 
   return (Array.isArray(logs) ? logs : []).filter((entry) => {
+    if (isNoisyOperationalLog(entry)) {
+      return false
+    }
+
     if (projectId) {
       const payloadProjectId = entry?.payload?.projetoId
       const payloadProject = entry?.payload?.projeto

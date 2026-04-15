@@ -79,9 +79,11 @@ Areas principais:
 - `/app/projetos`
 - `/app/projetos/[id]`
 - `/admin`
+- `/admin/avisos`
 - `/admin/projetos`
 - `/admin/atendimento`
 - `/admin/usuarios`
+- `/politica-de-privacidade`
 
 ## Comandos uteis
 

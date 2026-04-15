@@ -1,13 +1,15 @@
 import { randomUUID } from "node:crypto"
 
-import { buildInitialChatContext, processChatRequest } from "@/lib/chat/service"
+import { buildInitialChatContext, buildSilentChatResult, isSavedWhatsAppContact, processChatRequest, resolveProjectAgent } from "@/lib/chat/service"
 import { buildAiObservability } from "@/lib/admin-conversations"
+import { registerProjectBillingUsage, verifyProjectBillingAccess } from "@/lib/billing"
 import { recordPublicChatEvent } from "@/lib/chat/diagnostics"
 import { emptyChatOptionsResponse, formatPublicChatResult, jsonChatResponse, normalizePublicChatBody } from "@/lib/chat/http"
 import { createLogEntry } from "@/lib/logs"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { getWhatsAppChannelById } from "@/lib/whatsapp-channels"
 
 function isPlainObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
@@ -236,6 +238,18 @@ function inferChatFailureOrigin(error) {
   return "runtime"
 }
 
+function getIncomingWhatsAppChannelId(body) {
+  if (typeof body?.whatsappChannelId === "string" && body.whatsappChannelId.trim()) {
+    return body.whatsappChannelId.trim()
+  }
+
+  if (typeof body?.context?.whatsapp?.channelId === "string" && body.context.whatsapp.channelId.trim()) {
+    return body.context.whatsapp.channelId.trim()
+  }
+
+  return null
+}
+
 export async function OPTIONS(request) {
   return emptyChatOptionsResponse(request.headers.get("origin"))
 }
@@ -282,7 +296,46 @@ export async function POST(request) {
           user: adminAgentTestContext.user,
         })
       : null
-    const result = await processChatRequest(normalizedBody, adminAgentTestRuntime?.options ?? {})
+    const channelId = getIncomingWhatsAppChannelId(normalizedBody)
+    const resolvedProjectAgent =
+      normalizedBody?.canal === "whatsapp" && channelId
+        ? await resolveProjectAgent(normalizedBody)
+        : null
+    const whatsappChannel =
+      normalizedBody?.canal === "whatsapp" && channelId
+        ? await getWhatsAppChannelById(channelId)
+        : null
+
+    if (
+      normalizedBody?.canal === "whatsapp" &&
+      whatsappChannel?.onlyReplyToUnsavedContacts === true &&
+      resolvedProjectAgent?.projeto?.id === whatsappChannel?.projetoId &&
+      isSavedWhatsAppContact(normalizedBody?.context)
+    ) {
+      await recordPublicChatEvent({
+        event: "completed",
+        origin,
+        host,
+        method: "POST",
+        body: normalizedBody,
+        status: 200,
+        projectId: resolvedProjectAgent?.projeto?.id ?? null,
+        chatId: normalizedBody.chatId ?? channelId,
+        elapsedMs: Date.now() - startedAt,
+        errorSource: null,
+      })
+
+      return jsonChatResponse(formatPublicChatResult(buildSilentChatResult(normalizedBody.chatId ?? channelId)), {
+        status: 200,
+        origin,
+      })
+    }
+
+    const result = await processChatRequest(normalizedBody, {
+      verificarLimite: verifyProjectBillingAccess,
+      registrarUso: registerProjectBillingUsage,
+      ...(adminAgentTestRuntime?.options ?? {}),
+    })
     if (isAdminAgentTest) {
       await recordAdminAgentTestLog({
         normalizedBody,

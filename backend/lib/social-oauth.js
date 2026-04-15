@@ -24,7 +24,7 @@ function getAppUrl(origin) {
 }
 
 function assertProvider(provider) {
-  if (provider !== "google" && provider !== "github" && provider !== "facebook") {
+  if (provider !== "google" && provider !== "facebook") {
     throw new Error("Provider social invalido.")
   }
 
@@ -59,17 +59,6 @@ function getProviderConfig(provider, origin) {
     }
   }
 
-  if (provider === "github") {
-    return {
-      clientId: process.env.GITHUB_CLIENT_ID?.trim() || "",
-      clientSecret: process.env.GITHUB_CLIENT_SECRET?.trim() || "",
-      authorizeUrl: "https://github.com/login/oauth/authorize",
-      tokenUrl: "https://github.com/login/oauth/access_token",
-      redirectUri,
-      scope: "read:user user:email",
-    }
-  }
-
   return {
     clientId: process.env.FACEBOOK_CLIENT_ID?.trim() || "",
     clientSecret: process.env.FACEBOOK_CLIENT_SECRET?.trim() || "",
@@ -100,8 +89,6 @@ export async function buildSocialAuthorizationUrl(provider, origin) {
     url.searchParams.set("access_type", "online")
     url.searchParams.set("include_granted_scopes", "true")
     url.searchParams.set("prompt", "select_account")
-  } else if (safeProvider === "github") {
-    url.searchParams.set("scope", config.scope)
   } else {
     url.searchParams.set("scope", config.scope)
     url.searchParams.set("response_type", "code")
@@ -142,64 +129,7 @@ async function exchangeGoogleCode(code, origin, fetchImpl = fetch) {
     providerUserId: profile.sub,
     email: profile.email,
     nome: profile.name?.trim() || profile.email.split("@")[0] || "Usuario",
-  }
-}
-
-async function exchangeGithubCode(code, origin, fetchImpl = fetch) {
-  const config = getProviderConfig("github", origin)
-  const tokenResponse = await fetchImpl(config.tokenUrl, {
-    method: "POST",
-    headers: {
-      Accept: "application/json",
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: config.clientId,
-      client_secret: config.clientSecret,
-      code,
-      redirect_uri: config.redirectUri,
-    }),
-  })
-
-  const tokenPayload = await tokenResponse.json()
-  if (!tokenResponse.ok || !tokenPayload.access_token) {
-    throw new Error("Falha ao trocar codigo do GitHub.")
-  }
-
-  const [userResponse, emailResponse] = await Promise.all([
-    fetchImpl("https://api.github.com/user", {
-      headers: {
-        Authorization: `Bearer ${tokenPayload.access_token}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": "InfraStudio",
-      },
-    }),
-    fetchImpl("https://api.github.com/user/emails", {
-      headers: {
-        Authorization: `Bearer ${tokenPayload.access_token}`,
-        Accept: "application/vnd.github+json",
-        "User-Agent": "InfraStudio",
-      },
-    }),
-  ])
-
-  const userPayload = await userResponse.json()
-  const emailPayload = await emailResponse.json()
-  const primaryEmail =
-    Array.isArray(emailPayload)
-      ? emailPayload.find((item) => item.primary && item.verified)?.email ||
-        emailPayload.find((item) => item.verified)?.email ||
-        null
-      : null
-
-  if (!userResponse.ok || !emailResponse.ok || !userPayload.id || !primaryEmail) {
-    throw new Error("Falha ao carregar perfil do GitHub.")
-  }
-
-  return {
-    providerUserId: String(userPayload.id),
-    email: primaryEmail,
-    nome: userPayload.name?.trim() || userPayload.login?.trim() || primaryEmail.split("@")[0] || "Usuario",
+    avatarUrl: profile.picture?.trim() || "",
   }
 }
 
@@ -218,7 +148,7 @@ async function exchangeFacebookCode(code, origin, fetchImpl = fetch) {
   }
 
   const profileUrl = new URL("https://graph.facebook.com/me")
-  profileUrl.searchParams.set("fields", "id,name,email")
+  profileUrl.searchParams.set("fields", "id,name,email,picture.width(256).height(256)")
   profileUrl.searchParams.set("access_token", tokenPayload.access_token)
   const profileResponse = await fetchImpl(profileUrl)
   const profile = await profileResponse.json()
@@ -231,6 +161,7 @@ async function exchangeFacebookCode(code, origin, fetchImpl = fetch) {
     providerUserId: profile.id,
     email: profile.email,
     nome: profile.name?.trim() || profile.email.split("@")[0] || "Usuario",
+    avatarUrl: profile.picture?.data?.url?.trim() || "",
   }
 }
 
@@ -252,9 +183,7 @@ export async function completeSocialOAuthCallback(searchParams, origin, dependen
   const profile =
     parsedState.provider === "google"
       ? await exchangeGoogleCode(code, origin, fetchImpl)
-      : parsedState.provider === "github"
-        ? await exchangeGithubCode(code, origin, fetchImpl)
-        : await exchangeFacebookCode(code, origin, fetchImpl)
+      : await exchangeFacebookCode(code, origin, fetchImpl)
 
   const finalizeLogin = dependencies.finalizeLogin ?? loginOrCreateSocialUsuario
   const result = await finalizeLogin({
@@ -262,6 +191,7 @@ export async function completeSocialOAuthCallback(searchParams, origin, dependen
     providerUserId: profile.providerUserId,
     email: profile.email,
     nome: profile.nome,
+    avatarUrl: profile.avatarUrl,
   })
 
   if (!result.ok || !result.user) {

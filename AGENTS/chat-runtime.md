@@ -8,6 +8,7 @@
 - `POST /api/chat` aceita contrato publico dos widgets e contrato interno do admin
 - `GET /api/chat/config` existe para compatibilidade com `/chat.js`
 - `/chat.js` e `/chat-widget.js` existem em `backend/public`
+- central `/admin/atendimento` ja suporta sheet mobile acima do chat, voltar mobile e formatacao estilo WhatsApp em texto manual
 
 ## Contrato esperado do chat
 
@@ -33,6 +34,7 @@ Saida comum:
 - `messageSequence`
 - `assets`
 - `whatsapp`
+- `handoff`
 
 ## Arquivos-chave
 
@@ -59,6 +61,14 @@ Saida comum:
   - `OPENAI_API_KEY`
   - resposta util do modelo
 - handoff principal foi religado no fluxo do v2
+- pedido explicito de humano ja dispara handoff no runtime
+- runtime ja envia alerta de handoff para atendentes cadastrados via WhatsApp do proprio projeto
+- alerta de handoff leva link direto para `/admin/atendimento?conversa=...`
+- atendimento humano agora assume automaticamente ao digitar/enviar mensagem no admin
+- handoff humano volta sozinho para IA apos 5 minutos sem atividade humana
+- widget publico e `chat.js` ja suportam CTA `Chamar humano` quando o runtime oferecer
+- WhatsApp por canal ja suporta flag `responseOnlyUnsavedContacts`
+- backend do chat ja respeita a regra de responder apenas contatos nao salvos quando a flag vier no canal
 - resumo curto de memoria foi religado
 - comportamento especifico da InfraStudio saiu do hardcode e foi para `agentes.configuracoes.runtimeConfig`
 - APIs do agente aceitam configuracao em `apis.configuracoes`
@@ -76,3 +86,9 @@ Saida comum:
 - tudo especifico de negocio deve ir para banco quando fizer sentido:
   - `agentes.configuracoes.runtimeConfig`
   - `apis.configuracoes`
+
+## Pendencias abertas do runtime
+
+- worker externo `whatsapp-web.js` ainda precisa mandar sempre a flag explicita de contato salvo; o backend v2 ja esta pronto para consumir
+- classificador de handoff ainda nao oferece humano de forma confiavel quando a pergunta foge do dominio do agente; hoje isso esta fechado para pedido explicito
+- handoff/alerta de WhatsApp precisa de validacao ponta a ponta com canal real conectado e atendente cadastrado

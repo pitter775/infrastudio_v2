@@ -29,6 +29,7 @@ function mapChannel(row) {
     lastError: session.lastError || "",
     lastInboundAt: session.lastInboundAt || null,
     lastOutboundAt: session.lastOutboundAt || null,
+    onlyReplyToUnsavedContacts: session.responseOnlyUnsavedContacts === true,
     sessionData: session,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -137,6 +138,115 @@ export async function getWhatsAppChannelForUser(channelId, project, user) {
   }
 }
 
+export async function getPrimaryWhatsAppChannelByProjectId(projectId, deps = {}) {
+  if (!projectId) {
+    return null
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("canais_whatsapp")
+      .select(channelFields)
+      .eq("projeto_id", projectId)
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[whatsapp] failed to load primary project channel", error)
+      }
+      return null
+    }
+
+    return mapChannel(data)
+  } catch (error) {
+    console.error("[whatsapp] failed to load primary project channel", error)
+    return null
+  }
+}
+
+export async function getWhatsAppChannelById(channelId, deps = {}) {
+  if (!channelId) {
+    return null
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("canais_whatsapp")
+      .select(channelFields)
+      .eq("id", channelId)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[whatsapp] failed to load channel by id", error)
+      }
+      return null
+    }
+
+    return mapChannel(data)
+  } catch (error) {
+    console.error("[whatsapp] failed to load channel by id", error)
+    return null
+  }
+}
+
+export async function updateWhatsAppChannelForUser(channelId, project, input, user) {
+  if (!channelId || !project?.id || !userCanAccessProject(user, project.id)) {
+    return { channel: null, error: "Acesso negado." }
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data: current, error: currentError } = await supabase
+      .from("canais_whatsapp")
+      .select(channelFields)
+      .eq("id", channelId)
+      .eq("projeto_id", project.id)
+      .maybeSingle()
+
+    if (currentError || !current) {
+      if (currentError) {
+        console.error("[whatsapp] failed to load channel for update", currentError)
+      }
+      return { channel: null, error: "Canal nao encontrado." }
+    }
+
+    const session = current.session_data && typeof current.session_data === "object" ? current.session_data : {}
+    const nextSession = { ...session }
+
+    if (typeof input.onlyReplyToUnsavedContacts === "boolean") {
+      nextSession.responseOnlyUnsavedContacts = input.onlyReplyToUnsavedContacts
+    }
+
+    const { data, error } = await supabase
+      .from("canais_whatsapp")
+      .update({
+        session_data: nextSession,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", channelId)
+      .eq("projeto_id", project.id)
+      .select(channelFields)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[whatsapp] failed to update channel", error)
+      }
+      return { channel: null, error: "Nao foi possivel atualizar o canal." }
+    }
+
+    return { channel: mapChannel(data), error: null }
+  } catch (error) {
+    console.error("[whatsapp] failed to update channel", error)
+    return { channel: null, error: "Nao foi possivel atualizar o canal." }
+  }
+}
+
 export async function deleteWhatsAppChannelForUser(channelId, project, user) {
   if (!channelId || !project?.id || !userCanAccessProject(user, project.id)) {
     return { ok: false, error: "Acesso negado." }
@@ -228,4 +338,38 @@ export async function callWhatsAppWorker(path, init = {}) {
   }
 
   return data
+}
+
+export async function sendWhatsAppTextMessage(input) {
+  const channelId = String(input?.channelId || "").trim()
+  const to = normalizePhone(input?.to)
+  const message = String(input?.message || "").trim()
+
+  if (!channelId || to.length < 12 || !message) {
+    return { ok: false, error: "Parametros invalidos para envio de WhatsApp." }
+  }
+
+  try {
+    const snapshot = await callWhatsAppWorker("/send", {
+      method: "POST",
+      body: JSON.stringify({
+        channelId,
+        to,
+        message,
+      }),
+    })
+
+    return {
+      ok: true,
+      error: null,
+      snapshot,
+    }
+  } catch (error) {
+    console.error("[whatsapp] failed to send outbound text", error)
+    return {
+      ok: false,
+      error: error?.message || "Nao foi possivel enviar a mensagem de WhatsApp.",
+      snapshot: null,
+    }
+  }
 }

@@ -48,6 +48,66 @@ export function normalizeWhatsAppHandoffPhone(value) {
   return normalizePhone(value)
 }
 
+export async function listBillingAlertRecipientsByProjectId(projectId, deps = {}) {
+  if (!projectId) {
+    return []
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("whatsapp_handoff_contatos")
+      .select(contactFields)
+      .eq("projeto_id", projectId)
+      .eq("ativo", true)
+      .eq("receber_alertas", true)
+      .order("nome", { ascending: true })
+
+    if (error) {
+      console.error("[whatsapp-handoff] failed to list billing alert recipients", error)
+      return []
+    }
+
+    return (data ?? []).map(mapContact)
+  } catch (error) {
+    console.error("[whatsapp-handoff] failed to list billing alert recipients", error)
+    return []
+  }
+}
+
+export async function listActiveHandoffRecipientsByProjectId(projectId, options = {}, deps = {}) {
+  if (!projectId) {
+    return []
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    let query = supabase
+      .from("whatsapp_handoff_contatos")
+      .select(contactFields)
+      .eq("projeto_id", projectId)
+      .eq("ativo", true)
+      .eq("receber_alertas", true)
+      .order("nome", { ascending: true })
+
+    if (options.canalWhatsappId) {
+      query = query.or(`canal_whatsapp_id.eq.${options.canalWhatsappId},canal_whatsapp_id.is.null`)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error("[whatsapp-handoff] failed to list handoff recipients", error)
+      return []
+    }
+
+    return (data ?? []).map(mapContact)
+  } catch (error) {
+    console.error("[whatsapp-handoff] failed to list handoff recipients", error)
+    return []
+  }
+}
+
 export async function listWhatsAppHandoffContactsForUser(project, user) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
     return []

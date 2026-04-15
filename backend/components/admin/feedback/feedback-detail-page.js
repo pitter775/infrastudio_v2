@@ -150,7 +150,11 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
         description={`Feedback ${detail.id} • ${detail.projeto?.nome || "Nao vinculado"}`}
         actions={
           <>
-            <Button asChild variant="outline" className="h-8 rounded-lg px-3 text-xs">
+            <Button
+              asChild
+              variant="ghost"
+              className="h-8 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs text-slate-200 hover:bg-white/[0.08] hover:text-white"
+            >
               <Link href="/admin/feedback">
                 <ArrowLeft className="mr-1.5 h-3.5 w-3.5" />
                 Voltar

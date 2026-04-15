@@ -10,12 +10,20 @@ import {
 } from "@/lib/chat/handoff-policy"
 import { enrichLeadContext, executeSalesOrchestrator } from "@/lib/chat/orchestrator"
 import { shouldRefreshSummary, summarizeConversation } from "@/lib/chat/summary-stage"
-import { getChatHandoffByChatId, requestHumanHandoff, shouldPauseAssistantForHandoff } from "@/lib/chat-handoffs"
+import {
+  getChatHandoffByChatId,
+  isHumanHandoffExpired,
+  releaseHumanHandoff,
+  requestHumanHandoff,
+  shouldPauseAssistantForHandoff,
+} from "@/lib/chat-handoffs"
 import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, updateChatContext, updateChatStats } from "@/lib/chats"
 import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { estimateOpenAICostUsd } from "@/lib/openai-pricing"
 import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
+import { listActiveHandoffRecipientsByProjectId } from "@/lib/whatsapp-handoff-contatos"
+import { sendWhatsAppTextMessage } from "@/lib/whatsapp-channels"
 
 function sanitizePhone(phone) {
   return String(phone || "").replace(/\D/g, "")
@@ -509,6 +517,46 @@ export function normalizeChannelKind(body) {
     typeof body.context.channel.kind === "string"
     ? body.context.channel.kind.trim()
     : "web"
+}
+
+export function getChatWhatsAppChannelId(chat, body) {
+  const candidates = [
+    body?.whatsappChannelId,
+    body?.context?.whatsapp?.channelId,
+    chat?.contexto?.whatsapp?.channelId,
+    chat?.canalWhatsappId,
+  ]
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim()) {
+      return candidate.trim()
+    }
+  }
+
+  return null
+}
+
+function getAppUrl() {
+  return (
+    process.env.APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
+    "http://localhost:3000"
+  )
+}
+
+function buildHumanHandoffAlertMessage(input) {
+  return [
+    "Novo pedido de atendimento humano.",
+    input.projectName ? `Projeto: ${input.projectName}.` : "",
+    input.customerName ? `Cliente: ${input.customerName}.` : "",
+    input.customerPhone ? `WhatsApp: ${input.customerPhone}.` : "",
+    input.message ? `Ultima mensagem: ${input.message}` : "",
+    `Abrir atendimento: ${input.attendanceUrl}`,
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+    .trim()
 }
 
 export function getAdminTestAgentId(body) {
@@ -1098,7 +1146,22 @@ export async function applyBillingGuardrail(input, deps = {}) {
 
 export async function applyHandoffGuardrail(input, deps = {}) {
   const loadChatHandoff = deps.getChatHandoffByChatId ?? getChatHandoffByChatId
+  const releaseHandoff = deps.releaseHumanHandoff ?? releaseHumanHandoff
   const currentHandoff = await loadChatHandoff(input.chatId)
+
+  if (isHumanHandoffExpired(currentHandoff)) {
+    const releasedHandoff = await releaseHandoff({
+      chatId: input.chatId,
+      usuarioId: null,
+      autoReleased: true,
+    })
+
+    return {
+      paused: false,
+      handoff: releasedHandoff ?? currentHandoff,
+      result: null,
+    }
+  }
 
   if (shouldPauseAssistantForHandoff(currentHandoff)) {
     return {
@@ -1117,9 +1180,51 @@ export async function applyHandoffGuardrail(input, deps = {}) {
 
 export async function requestRuntimeHumanHandoff(input, deps = {}) {
   const requestHandoff = deps.requestHumanHandoff ?? requestHumanHandoff
+  const listRecipients = deps.listActiveHandoffRecipientsByProjectId ?? listActiveHandoffRecipientsByProjectId
+  const sendMessage = deps.sendWhatsAppTextMessage ?? sendWhatsAppTextMessage
   const acknowledgement = input.channelKind === "whatsapp"
     ? "Perfeito. Ja acionei um atendente humano para continuar por aqui. Assim que alguem assumir, seguimos neste mesmo WhatsApp."
     : "Perfeito. Ja acionei um atendente humano para continuar por aqui assim que possivel."
+
+  let alertMessage = input.alertMessage ?? null
+
+  if (input.channelKind === "whatsapp" && input.chatId && input.projetoId && input.canalWhatsappId) {
+    const chat = await getChatById(input.chatId)
+    const recipients = await listRecipients(input.projetoId, {
+      canalWhatsappId: input.canalWhatsappId,
+    })
+
+    if (chat && recipients.length > 0) {
+      const attendanceUrl = `${getAppUrl().replace(/\/$/, "")}/admin/atendimento?conversa=${encodeURIComponent(input.chatId)}`
+      const customerName = chat.contatoNome?.trim() || chat.titulo?.trim() || "Cliente"
+      const customerPhone = chat.contatoTelefone?.trim() || chat.identificadorExterno?.trim() || ""
+      const lastCustomerMessage = await listChatMessages(input.chatId)
+        .then((messages) =>
+          [...messages]
+            .reverse()
+            .find((message) => message.role === "user" && String(message.conteudo || "").trim())
+        )
+        .catch(() => null)
+
+      alertMessage = buildHumanHandoffAlertMessage({
+        projectName: input.projetoNome || null,
+        customerName,
+        customerPhone,
+        message: String(lastCustomerMessage?.conteudo || "").replace(/\s+/g, " ").trim().slice(0, 280),
+        attendanceUrl,
+      })
+
+      await Promise.all(
+        recipients.map((recipient) =>
+          sendMessage({
+            channelId: input.canalWhatsappId,
+            to: recipient.numero,
+            message: alertMessage,
+          })
+        )
+      )
+    }
+  }
 
   const handoff = await requestHandoff({
     chatId: input.chatId,
@@ -1128,7 +1233,7 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
     requestedBy: "agent",
     motivo: input.motivo ?? "Cliente pediu atendimento humano.",
     metadata: input.metadata ?? {},
-    alertMessage: input.alertMessage ?? null,
+    alertMessage,
   })
 
   return {
@@ -1196,6 +1301,7 @@ export function buildFinalChatResult(input) {
     messageSequence: input.channelKind === "whatsapp" ? input.messageSequence ?? [] : [],
     assets: input.channelKind === "whatsapp" ? [] : input.assets ?? [],
     whatsapp: input.whatsapp ?? null,
+    handoff: input.handoff ?? null,
   }
 }
 
@@ -1221,6 +1327,46 @@ function attachRuntimeDiagnostics(result, runtimeState, extra = {}) {
         : null,
     },
   }
+}
+
+export function isSavedWhatsAppContact(context) {
+  if (!isPlainObject(context?.whatsapp)) {
+    return false
+  }
+
+  const explicitFlags = [
+    context.whatsapp.isSavedContact,
+    context.whatsapp.isMyContact,
+    context.whatsapp.isSaved,
+    context.whatsapp.rawContact?.isSavedContact,
+    context.whatsapp.rawContact?.isMyContact,
+    context.whatsapp.rawContact?.isSaved,
+  ]
+
+  for (const flag of explicitFlags) {
+    if (typeof flag === "boolean") {
+      return flag
+    }
+  }
+
+  const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
+  const rawName = typeof rawContact?.name === "string" ? rawContact.name.trim() : ""
+  const contactName = typeof context.whatsapp.contactName === "string" ? context.whatsapp.contactName.trim() : ""
+  const pushName = typeof context.whatsapp.pushName === "string" ? context.whatsapp.pushName.trim() : ""
+
+  if (!rawName) {
+    return false
+  }
+
+  const loweredRawName = rawName.toLowerCase()
+  const loweredContactName = contactName.toLowerCase()
+  const loweredPushName = pushName.toLowerCase()
+
+  if (loweredRawName && loweredRawName !== loweredPushName) {
+    return true
+  }
+
+  return Boolean(loweredRawName && loweredContactName && loweredRawName !== loweredContactName)
 }
 
 export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
@@ -1338,6 +1484,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     messageSequence: replyPayload.whatsappEmbeddedSequence,
     assets: aiResult?.assets ?? [],
     whatsapp: null,
+    handoff: aiResult?.handoff ?? null,
   })
 }
 
@@ -1367,6 +1514,11 @@ export async function applyAiHumanEscalation(runtimeState, aiResult, options = {
       aiResult: {
         ...aiResult,
         reply: appendOptionalHumanOffer(aiResult.reply, runtimeState.prelude.channelKind),
+        handoff: {
+          offered: true,
+          requested: false,
+          actionLabel: "Chamar humano",
+        },
       },
       handoffDecision: aiHumanEscalationDecision,
       handoffRequested: false,
@@ -1392,6 +1544,7 @@ export async function applyAiHumanEscalation(runtimeState, aiResult, options = {
       projetoId: runtimeState.session.chat.projetoId,
       canalWhatsappId: getChatWhatsAppChannelId(runtimeState.session.chat, runtimeState.prelude.effectiveBody),
       channelKind: runtimeState.prelude.channelKind,
+      projetoNome: runtimeState.resolved?.projeto?.nome ?? null,
       motivo: explicitHumanHandoffRequested
         ? "Cliente pediu atendimento humano explicitamente."
         : aiHumanEscalationDecision?.reason ?? "Escalada humana solicitada pelo runtime.",
@@ -1410,6 +1563,11 @@ export async function applyAiHumanEscalation(runtimeState, aiResult, options = {
       ...aiResult,
       reply: buildHumanHandoffReply(runtimeState.prelude.channelKind),
       assets: [],
+      handoff: {
+        offered: true,
+        requested: true,
+        actionLabel: "Chamar humano",
+      },
     },
     handoffDecision: aiHumanEscalationDecision,
     handoffRequested: true,

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
+  ChevronLeft,
   ChevronDown,
   FileText,
   Globe,
@@ -16,7 +17,6 @@ import {
   SendHorizonal,
   Sparkles,
   Trash2,
-  X,
 } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
@@ -69,14 +69,18 @@ function escapeHtml(value) {
 
 function formatWhatsappText(value) {
   const escaped = escapeHtml(value)
-
-  return escaped
+  const formatted = escaped
     .replace(/```([\s\S]+?)```/g, '<pre class="overflow-x-auto rounded-xl bg-black/20 px-3 py-2 text-[12px] leading-5 text-slate-200">$1</pre>')
     .replace(/`([^`\n]+)`/g, '<code class="rounded bg-black/20 px-1.5 py-0.5 text-[12px] text-slate-100">$1</code>')
     .replace(/\*(?=\S)(.+?)(?<=\S)\*/g, "<strong>$1</strong>")
     .replace(/_(?=\S)(.+?)(?<=\S)_/g, "<em>$1</em>")
     .replace(/~(?=\S)(.+?)(?<=\S)~/g, "<s>$1</s>")
     .replace(/\n/g, "<br />")
+
+  return formatted.replace(
+    /(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noreferrer" class="break-all underline underline-offset-2">$1</a>',
+  )
 }
 
 async function fileToBase64(file) {
@@ -273,11 +277,13 @@ function MessageBubble({ message }) {
   )
 }
 
-function Composer({ conversation, onMessageSent }) {
+function Composer({ conversation, onMessageSent, onStatusChanged }) {
   const [texto, setTexto] = useState("")
   const [attachments, setAttachments] = useState([])
   const [isSending, setIsSending] = useState(false)
   const inputRef = useRef(null)
+  const touchTimerRef = useRef(null)
+  const claimInFlightRef = useRef(false)
 
   useEffect(() => {
     const textarea = inputRef.current
@@ -288,6 +294,47 @@ function Composer({ conversation, onMessageSent }) {
     textarea.style.height = "0px"
     textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 44), 136)}px`
   }, [texto])
+
+  useEffect(
+    () => () => {
+      if (touchTimerRef.current) {
+        window.clearTimeout(touchTimerRef.current)
+      }
+    },
+    []
+  )
+
+  async function signalHumanActivity(mode = "touch") {
+    if (!conversation?.id) {
+      return
+    }
+
+    if (mode === "claim" && claimInFlightRef.current) {
+      return
+    }
+
+    if (mode === "claim") {
+      claimInFlightRef.current = true
+    }
+
+    try {
+      const response = await fetch(`/api/admin/conversations/${conversation.id}/handoff`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(mode === "claim" ? { status: "human" } : { action: "touch" }),
+      })
+
+      if (response.ok && mode === "claim") {
+        onStatusChanged?.(conversation.id, "humano")
+      }
+    } finally {
+      if (mode === "claim") {
+        claimInFlightRef.current = false
+      }
+    }
+  }
 
   function wrapSelection(before, after = before) {
     const textarea = inputRef.current
@@ -390,7 +437,26 @@ function Composer({ conversation, onMessageSent }) {
         <textarea
           ref={inputRef}
           value={texto}
-          onChange={(event) => setTexto(event.target.value)}
+          onChange={(event) => {
+            const nextValue = event.target.value
+            setTexto(nextValue)
+
+            if (!nextValue.trim()) {
+              return
+            }
+
+            if (conversation?.status !== "humano") {
+              void signalHumanActivity("claim")
+            }
+
+            if (touchTimerRef.current) {
+              window.clearTimeout(touchTimerRef.current)
+            }
+
+            touchTimerRef.current = window.setTimeout(() => {
+              void signalHumanActivity("touch")
+            }, 400)
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault()
@@ -506,12 +572,24 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
       >
         <div className="sticky top-0 z-10 border-b border-white/5 bg-[#0c1322] px-3 py-3 lg:px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={() => setDetailsOpen(true)}
-              className="min-w-0 flex-1 text-left"
-            >
-              <div className="flex min-w-0 items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              {onCloseMobile ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0 rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:border-sky-400/20 hover:bg-sky-500/10 hover:text-white lg:hidden"
+                  onClick={onCloseMobile}
+                  aria-label="Voltar para a lista de conversas"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              ) : null}
+              <button
+                type="button"
+                onClick={() => setDetailsOpen(true)}
+                className="min-w-0 flex-1 text-left"
+              >
+                <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#182235] text-[10px] font-semibold uppercase text-slate-200">
                   {initials}
                 </div>
@@ -531,8 +609,9 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                     {getConversationPhone(conversation)} - Ultima atividade em {lastMessage?.horario}
                   </p>
                 </div>
-              </div>
-            </button>
+                </div>
+              </button>
+            </div>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -559,16 +638,6 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                 Limpar
               </Button>
-              {onCloseMobile ? (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:border-sky-400/20 hover:bg-sky-500/10 hover:text-white lg:hidden"
-                  onClick={onCloseMobile}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-              ) : null}
             </div>
           </div>
         </div>
@@ -608,10 +677,15 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
         <Composer
           conversation={conversation}
           onMessageSent={onMessageSent}
+          onStatusChanged={onStatusChanged}
         />
 
         <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <SheetContent side="right" className="w-[92vw] max-w-[420px] border-l border-white/5">
+          <SheetContent
+            side="right"
+            className="w-[92vw] max-w-[420px] border-l border-white/5"
+            overlayClassName="z-[82]"
+          >
             <div className="flex h-full flex-col">
               <div className="border-b border-white/5 px-5 py-5">
                 <SheetTitle className="text-left text-base font-semibold text-white">
@@ -1107,7 +1181,7 @@ export default function AttendancePage() {
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ duration: 0.24, ease: "easeInOut" }}
-                className="fixed inset-0 z-[60] flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
+                className="fixed inset-0 z-[70] flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
               >
                 <ChatPanel
                   conversation={activeConversation}

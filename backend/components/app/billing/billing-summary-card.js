@@ -23,6 +23,7 @@ function renderUsage(used, limit, formatter) {
 export function BillingSummaryCard({ billing }) {
   const config = billing?.projectPlan
   const cycle = billing?.currentCycle
+  const isUserScoped = billing?.scope?.kind === "user"
 
   return (
     <section className="mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
@@ -30,7 +31,7 @@ export function BillingSummaryCard({ billing }) {
         <div>
           <h2 className="text-base font-semibold text-zinc-950">Billing</h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Plano, limites e consumo atual deste projeto.
+            {isUserScoped ? "Plano do projeto e seu consumo atual." : "Plano, limites e consumo atual deste projeto."}
           </p>
         </div>
         <span
@@ -58,7 +59,7 @@ export function BillingSummaryCard({ billing }) {
         </div>
 
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">Tokens no ciclo</div>
+          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{isUserScoped ? "Seus tokens no ciclo" : "Tokens no ciclo"}</div>
           <div className="mt-2 text-sm font-semibold text-zinc-950">
             {renderUsage(cycle?.usage?.totalTokens ?? 0, cycle?.limits?.totalTokens ?? config?.limits?.totalTokens ?? null, formatInteger)}
           </div>
@@ -68,7 +69,7 @@ export function BillingSummaryCard({ billing }) {
         </div>
 
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">Custo no ciclo</div>
+          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{isUserScoped ? "Seu custo no ciclo" : "Custo no ciclo"}</div>
           <div className="mt-2 text-sm font-semibold text-zinc-950">
             {renderUsage(cycle?.usage?.totalCost ?? 0, cycle?.limits?.monthlyCost ?? config?.limits?.monthlyCost ?? null, formatCurrency)}
           </div>
@@ -78,9 +79,13 @@ export function BillingSummaryCard({ billing }) {
         </div>
 
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">Tokens avulsos</div>
-          <div className="mt-2 text-sm font-semibold text-zinc-950">{formatInteger(billing?.topUps?.totalTokens ?? 0)}</div>
-          <div className="mt-1 text-xs text-zinc-500">{billing?.topUps?.availableCount ?? 0} lote(s) disponivel(is)</div>
+          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{isUserScoped ? "Escopo" : "Tokens avulsos"}</div>
+          <div className="mt-2 text-sm font-semibold text-zinc-950">
+            {isUserScoped ? "Seu usuario" : formatInteger(billing?.topUps?.totalTokens ?? 0)}
+          </div>
+          <div className="mt-1 text-xs text-zinc-500">
+            {isUserScoped ? billing?.scope?.email || "Consumo privado" : `${billing?.topUps?.availableCount ?? 0} lote(s) disponivel(is)`}
+          </div>
         </div>
       </div>
 

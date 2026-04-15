@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { BadgeDollarSign, CreditCard, LoaderCircle, Save, ShieldAlert } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
@@ -83,6 +84,7 @@ function toOptions(items = [], labelKey = "name") {
 }
 
 export function AdminBillingPage({ initialPlans, initialProjects, currentUser }) {
+  const searchParams = useSearchParams()
   const [plans, setPlans] = useState(initialPlans)
   const [projects, setProjects] = useState(initialProjects)
   const [selectedProjectId, setSelectedProjectId] = useState(initialProjects[0]?.id ?? "")
@@ -90,12 +92,58 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [projectFilter, setProjectFilter] = useState("")
+  const [userEmailFilter, setUserEmailFilter] = useState("")
   const isAllowed = currentUser?.role === "admin"
 
-  const selectedProject = useMemo(
-    () => projects.find((project) => project.id === selectedProjectId) ?? null,
-    [projects, selectedProjectId],
+  const availableEmails = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          projects.flatMap((project) =>
+            (project.billing?.usageByUser ?? []).map((item) => item.email).filter(Boolean),
+          ),
+        ),
+      )
+        .sort()
+        .map((email) => ({ value: email, label: email })),
+    [projects],
   )
+
+  const filteredProjects = useMemo(
+    () =>
+      projects.filter((project) => {
+        if (projectFilter && project.id !== projectFilter) {
+          return false
+        }
+
+        if (userEmailFilter) {
+          return (project.billing?.usageByUser ?? []).some((item) => item.email === userEmailFilter)
+        }
+
+        return true
+      }),
+    [projectFilter, projects, userEmailFilter],
+  )
+
+  const selectedProject = useMemo(
+    () => filteredProjects.find((project) => project.id === selectedProjectId) ?? projects.find((project) => project.id === selectedProjectId) ?? null,
+    [filteredProjects, projects, selectedProjectId],
+  )
+
+  const visibleUsageByUser = useMemo(() => {
+    if (!selectedProject) {
+      return []
+    }
+
+    return (selectedProject.billing?.usageByUser ?? []).filter((item) => {
+      if (userEmailFilter && item.email !== userEmailFilter) {
+        return false
+      }
+
+      return true
+    })
+  }, [selectedProject, userEmailFilter])
 
   useEffect(() => {
     if (selectedProject) {
@@ -103,15 +151,39 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
     }
   }, [selectedProject])
 
+  useEffect(() => {
+    if (!filteredProjects.length) {
+      return
+    }
+
+    if (!filteredProjects.some((project) => project.id === selectedProjectId)) {
+      setSelectedProjectId(filteredProjects[0].id)
+    }
+  }, [filteredProjects, selectedProjectId])
+
+  useEffect(() => {
+    const projectIdFromQuery = searchParams.get("projeto")
+    const emailFromQuery = searchParams.get("email")
+
+    if (projectIdFromQuery) {
+      setProjectFilter(projectIdFromQuery)
+      setSelectedProjectId(projectIdFromQuery)
+    }
+
+    if (emailFromQuery) {
+      setUserEmailFilter(emailFromQuery)
+    }
+  }, [searchParams])
+
   const stats = useMemo(
     () => ({
-      totalProjects: projects.length,
-      blocked: projects.filter((project) => project.billing?.status?.blocked).length,
-      warnings: projects.filter(
+      totalProjects: filteredProjects.length,
+      blocked: filteredProjects.filter((project) => project.billing?.status?.blocked).length,
+      warnings: filteredProjects.filter(
         (project) => project.billing?.status?.warning80 || project.billing?.status?.warning100,
       ).length,
     }),
-    [projects],
+    [filteredProjects],
   )
 
   async function refreshBilling() {
@@ -232,7 +304,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
                 </tr>
               </thead>
               <tbody>
-                {projects.map((project) => {
+                {filteredProjects.map((project) => {
                   const cycle = project.billing?.currentCycle
                   const config = project.billing?.projectPlan
                   const active = project.id === selectedProjectId
@@ -432,6 +504,104 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
         </form>
       </div>
 
+      <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
+          <div className="flex flex-col gap-4 border-b border-white/5 pb-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Filtro de leitura</h3>
+              <p className="mt-1 text-xs text-slate-500">Admin enxerga todos os dados, com filtro por projeto e email.</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AppSelect
+                value={projectFilter}
+                onChangeValue={setProjectFilter}
+                placeholder="Todos os projetos"
+                options={[{ value: "", label: "Todos os projetos" }, ...toOptions(projects)]}
+              />
+              <AppSelect
+                value={userEmailFilter}
+                onChangeValue={setUserEmailFilter}
+                placeholder="Todos os usuarios"
+                options={[{ value: "", label: "Todos os usuarios" }, ...availableEmails]}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead className="bg-slate-950/30 text-xs uppercase tracking-[0.18em] text-slate-500">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Email</th>
+                  <th className="px-4 py-3 font-semibold">Nome</th>
+                  <th className="px-4 py-3 font-semibold">Tokens</th>
+                  <th className="px-4 py-3 font-semibold">Custo</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleUsageByUser.length ? (
+                  visibleUsageByUser.map((item) => (
+                    <tr key={`${selectedProject?.id}-${item.email || item.usuarioId || item.name}`} className="border-t border-white/5 text-sm text-slate-300">
+                      <td className="px-4 py-3 text-white">{item.email || "--"}</td>
+                      <td className="px-4 py-3">{item.name}</td>
+                      <td className="px-4 py-3">{formatInteger(item.totalTokens)}</td>
+                      <td className="px-4 py-3">{formatCurrency(item.totalCost)}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr className="border-t border-white/5 text-sm text-slate-400">
+                    <td colSpan={4} className="px-4 py-5">
+                      Nenhum consumo por usuario para o filtro atual.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
+          <h3 className="text-lg font-semibold text-white">Projeto em foco</h3>
+          <p className="mt-1 text-xs text-slate-500">Uso por usuario, creditos e canal emissor central dos alertas.</p>
+
+          {selectedProject ? (
+            <div className="mt-4 space-y-3">
+              <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
+                <div className="text-sm font-semibold text-white">{selectedProject.name}</div>
+                <div className="mt-1 text-xs text-slate-500">{selectedProject.slug}</div>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Usuarios no filtro</div>
+                  <div className="mt-2 text-2xl font-semibold text-white">{visibleUsageByUser.length}</div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Tokens somados</div>
+                  <div className="mt-2 text-2xl font-semibold text-white">
+                    {formatInteger(visibleUsageByUser.reduce((sum, item) => sum + Number(item.totalTokens || 0), 0))}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Creditos avulsos disponiveis</div>
+                  <div className="mt-2 text-2xl font-semibold text-white">
+                    {formatInteger(selectedProject.billing?.topUps?.availableTokens ?? 0)}
+                  </div>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Canal emissor dos alertas</div>
+                  <div className="mt-2 text-sm font-semibold text-white">
+                    {selectedProject.billing?.whatsappAlerts?.senderChannelNumber || "Nao configurado"}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mt-4 rounded-xl border border-white/10 bg-slate-950/35 p-4 text-sm text-slate-400">
+              Nenhum projeto encontrado para o filtro atual.
+            </div>
+          )}
+        </div>
+      </div>
+
       <div className="mt-6 rounded-xl border border-white/5 bg-[#0b1120] p-5">
         <h3 className="text-lg font-semibold text-white">Planos cadastrados</h3>
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -439,12 +609,12 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
             <div key={plan.id} className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="font-semibold text-white">{plan.name}</div>
-                <span className="text-xs text-slate-400">{formatCurrency(plan.monthlyPrice)}</span>
+                <span className="text-xs text-slate-400">preco do plano: {formatCurrency(plan.monthlyPrice)}</span>
               </div>
               <p className="mt-2 text-sm text-slate-400">{plan.description || "Sem descricao."}</p>
               <div className="mt-3 space-y-1 text-xs text-slate-500">
                 <div>tokens total: {plan.limits.totalTokens != null ? formatInteger(plan.limits.totalTokens) : "sem limite"}</div>
-                <div>custo mensal: {plan.limits.monthlyCost != null ? formatCurrency(plan.limits.monthlyCost) : "sem limite"}</div>
+                <div>custo mensal interno: {plan.limits.monthlyCost != null ? formatCurrency(plan.limits.monthlyCost) : "sem limite"}</div>
                 <div>agentes: {plan.capacities.agents ?? "-"}</div>
               </div>
             </div>

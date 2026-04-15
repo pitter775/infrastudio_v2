@@ -111,6 +111,18 @@ CREATE TABLE public.apis (
   CONSTRAINT apis_pkey PRIMARY KEY (id),
   CONSTRAINT apis_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
 );
+CREATE TABLE public.avisos_leituras (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  usuario_id uuid NOT NULL,
+  aviso_chave text NOT NULL,
+  aviso_tipo character varying,
+  destino text,
+  lido_em timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT avisos_leituras_pkey PRIMARY KEY (id),
+  CONSTRAINT avisos_leituras_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
+);
 CREATE TABLE public.canais_whatsapp (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   projeto_id uuid NOT NULL,
@@ -454,6 +466,7 @@ CREATE TABLE public.tokens_avulsos (
   origem character varying DEFAULT 'manual'::character varying,
   utilizado boolean DEFAULT false,
   created_at timestamp without time zone DEFAULT now(),
+  tokens_utilizados integer NOT NULL DEFAULT 0,
   CONSTRAINT tokens_avulsos_pkey PRIMARY KEY (id),
   CONSTRAINT tokens_avulsos_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
 );

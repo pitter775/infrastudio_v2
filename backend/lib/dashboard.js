@@ -2,6 +2,7 @@ import "server-only"
 
 import { getProjectBillingSnapshot, listAdminBillingProjects } from "@/lib/billing"
 import { listFeedbacks } from "@/lib/feedbacks"
+import { isNoisyOperationalLog } from "@/lib/logs"
 import { listProjectsForUser } from "@/lib/projetos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
@@ -123,15 +124,18 @@ async function listScopedLogs(scopeProjectIds, user) {
     return []
   }
 
-  return (data ?? []).map((item) => ({
-    id: item.id,
-    projectId: item.projeto_id ?? null,
-    type: item.tipo?.trim() || "system",
-    origin: item.origem?.trim() || "system",
-    description: item.descricao?.trim() || "Evento operacional",
-    createdAt: item.created_at ?? null,
-    level: String(item.payload?.level || "").trim().toLowerCase() || "info",
-  }))
+  return (data ?? [])
+    .map((item) => ({
+      id: item.id,
+      projectId: item.projeto_id ?? null,
+      type: item.tipo?.trim() || "system",
+      origin: item.origem?.trim() || "system",
+      description: item.descricao?.trim() || "Evento operacional",
+      createdAt: item.created_at ?? null,
+      level: String(item.payload?.level || "").trim().toLowerCase() || "info",
+      payload: item.payload ?? {},
+    }))
+    .filter((item) => !isNoisyOperationalLog(item))
 }
 
 async function listScopedFeedbacks(user) {

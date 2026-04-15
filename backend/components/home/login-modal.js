@@ -29,21 +29,12 @@ function GoogleIcon() {
   )
 }
 
-function InstagramIcon({ className }) {
+function FacebookIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-      <defs>
-        <linearGradient id="instagram-gradient-v2" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#F58529" />
-          <stop offset="30%" stopColor="#FEDA77" />
-          <stop offset="60%" stopColor="#DD2A7B" />
-          <stop offset="85%" stopColor="#8134AF" />
-          <stop offset="100%" stopColor="#515BD4" />
-        </linearGradient>
-      </defs>
       <path
-        fill="url(#instagram-gradient-v2)"
-        d="M7.75 2h8.5A5.75 5.75 0 0 1 22 7.75v8.5A5.75 5.75 0 0 1 16.25 22h-8.5A5.75 5.75 0 0 1 2 16.25v-8.5A5.75 5.75 0 0 1 7.75 2Zm0 1.8A3.95 3.95 0 0 0 3.8 7.75v8.5a3.95 3.95 0 0 0 3.95 3.95h8.5a3.95 3.95 0 0 0 3.95-3.95v-8.5a3.95 3.95 0 0 0-3.95-3.95h-8.5Zm8.95 1.35a1.1 1.1 0 1 1 0 2.2 1.1 1.1 0 0 1 0-2.2ZM12 7a5 5 0 1 1 0 10 5 5 0 0 1 0-10Zm0 1.8A3.2 3.2 0 1 0 12 15.2 3.2 3.2 0 0 0 12 8.8Z"
+        fill="#1877F2"
+        d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07C0 18.1 4.39 23.1 10.13 24v-8.44H7.08v-3.49h3.05V9.41c0-3.03 1.79-4.7 4.54-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.88v2.26h3.31l-.53 3.49h-2.78V24C19.61 23.1 24 18.1 24 12.07Z"
       />
     </svg>
   )
@@ -89,7 +80,7 @@ function Feedback({ type, children }) {
 function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
   const providers = [
     { id: 'google', label: 'Google', icon: GoogleIcon },
-    { id: 'instagram', label: 'Instagram', icon: InstagramIcon },
+    { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
   ]
 
   return (
@@ -208,7 +199,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     const result = await signInWithProjectAuth(loginEmail, loginPassword)
 
     if (result.user) {
-      window.location.href = result.user.role === 'admin' ? '/admin/dashboard' : '/admin/projetos'
+      window.location.href = result.user.role === 'admin' ? '/admin/dashboard' : '/app/projetos'
       return
     }
 
@@ -264,16 +255,6 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
   }
 
   async function handleSocialLogin(provider) {
-    if (provider === 'instagram') {
-      const message = 'Instagram ainda nao esta disponivel no login social.'
-      if (mode === 'login') {
-        setLoginError(message)
-      } else {
-        setRegisterError(message)
-      }
-      return
-    }
-
     setLoginError('')
     setRegisterError('')
     setNotice('')

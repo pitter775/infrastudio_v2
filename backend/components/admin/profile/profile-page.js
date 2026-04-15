@@ -1,20 +1,70 @@
 "use client"
 
-import { useState } from "react"
-import { LoaderCircle, Save, UserCog } from "lucide-react"
+import { useRef, useState } from "react"
+import { Camera, LoaderCircle, Save, UserCog } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
 import { Button } from "@/components/ui/button"
+import { UserAvatar } from "@/components/ui/user-avatar"
+
+const MAX_AVATAR_BYTES = 500 * 1024
+
+function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result || "")
+      const [, base64 = ""] = result.split(",")
+      resolve(base64)
+    }
+    reader.onerror = () => reject(new Error("Nao foi possivel ler a foto selecionada."))
+    reader.readAsDataURL(file)
+  })
+}
 
 export function AdminProfilePage({ currentUser }) {
   const [form, setForm] = useState({
     nome: currentUser?.name || "",
     email: currentUser?.email || "",
     telefone: currentUser?.telefone || "",
+    avatarUrl: currentUser?.avatarUrl || "",
     senha: "",
   })
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [avatarUpload, setAvatarUpload] = useState(null)
+  const inputRef = useRef(null)
+
+  async function handleAvatarChange(event) {
+    const file = event.target.files?.[0]
+    if (!file) {
+      return
+    }
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setFeedback("Use JPG, PNG ou WEBP na foto de perfil.")
+      event.target.value = ""
+      return
+    }
+
+    if (file.size > MAX_AVATAR_BYTES) {
+      setFeedback("A foto de perfil deve ter no maximo 500 KB.")
+      event.target.value = ""
+      return
+    }
+
+    const dataBase64 = await fileToBase64(file)
+    const previewUrl = URL.createObjectURL(file)
+
+    setAvatarUpload({
+      name: file.name,
+      type: file.type,
+      dataBase64,
+      previewUrl,
+    })
+    setForm((current) => ({ ...current, avatarUrl: previewUrl }))
+    setFeedback(null)
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -30,6 +80,13 @@ export function AdminProfilePage({ currentUser }) {
         nome: form.nome,
         telefone: form.telefone,
         senha: form.senha,
+        avatarUpload: avatarUpload
+          ? {
+              name: avatarUpload.name,
+              type: avatarUpload.type,
+              dataBase64: avatarUpload.dataBase64,
+            }
+          : null,
       }),
     })
     const data = await response.json().catch(() => null)
@@ -40,7 +97,15 @@ export function AdminProfilePage({ currentUser }) {
       return
     }
 
-    setForm((current) => ({ ...current, senha: "" }))
+    setForm((current) => ({
+      ...current,
+      senha: "",
+      avatarUrl: data?.user?.avatarUrl || current.avatarUrl,
+    }))
+    setAvatarUpload(null)
+    if (inputRef.current) {
+      inputRef.current.value = ""
+    }
     setFeedback("Perfil atualizado com sucesso.")
     setSaving(false)
   }
@@ -57,11 +122,35 @@ export function AdminProfilePage({ currentUser }) {
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-white">Minha conta</h2>
-              <p className="mt-1 text-xs text-slate-500">Campo de telefone opcional.</p>
+              <p className="mt-1 text-xs text-slate-500">Telefone opcional. Foto de perfil ate 500 KB.</p>
             </div>
             <div className="rounded-xl border border-cyan-500/15 bg-cyan-500/10 p-3 text-cyan-200">
               <UserCog className="h-5 w-5" />
             </div>
+          </div>
+
+          <div className="mb-5 flex items-center gap-4 rounded-xl border border-white/10 bg-slate-950/35 p-4">
+            <UserAvatar src={form.avatarUrl} label={form.nome || form.email} className="h-16 w-16 text-sm" />
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-white">Foto de perfil</div>
+              <div className="mt-1 text-xs text-slate-500">JPG, PNG ou WEBP com no maximo 500 KB.</div>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => inputRef.current?.click()}
+              className="rounded-xl border-white/10 bg-slate-950/50 text-slate-200 hover:bg-slate-900"
+            >
+              <Camera className="mr-1.5 h-4 w-4" />
+              Enviar
+            </Button>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleAvatarChange}
+            />
           </div>
 
           <dl className="space-y-3 text-sm">

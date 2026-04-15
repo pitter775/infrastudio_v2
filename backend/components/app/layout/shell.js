@@ -6,6 +6,7 @@ import { House, LayoutGrid, LogOut, Menu, ShieldCheck } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { UserAvatar } from "@/components/ui/user-avatar"
 import { cn } from "@/lib/utils"
 
 const navigation = [
@@ -68,9 +69,7 @@ function SidebarContent({ pathname, user, onNavigate }) {
 
       <div className="border-t border-white/5 px-4 py-6">
         <div className="mb-4 flex min-w-0 items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-xs font-semibold text-white">
-            {(user?.name?.[0] || user?.email?.[0] || "U").toUpperCase()}
-          </div>
+          <UserAvatar src={user?.avatarUrl} label={user?.name || user?.email} className="h-8 w-8" />
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-white">{user?.name || "Usuario"}</p>
             <p className="truncate text-xs text-slate-500">{user?.email}</p>

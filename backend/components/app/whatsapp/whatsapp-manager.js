@@ -203,13 +203,6 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   }, [channels, qrSnapshot])
 
   useEffect(() => {
-    if (initialChannelId) {
-      onTabChange?.("connect")
-      setActiveTab("connect")
-    }
-  }, [initialChannelId, onTabChange])
-
-  useEffect(() => {
     onFooterStateChange?.({
       activeTab: currentTab,
       hasChannel: channels.length > 0,
@@ -402,6 +395,33 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     }
   }
 
+  async function updateChannel(channelId, patch, successMessage) {
+    setBusyId(channelId)
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      const response = await fetch(`${endpoint}/${channelId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(patch),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok || !data.channel) {
+        throw new Error(data.error || "Nao foi possivel atualizar o canal.")
+      }
+
+      setChannels((current) => current.map((item) => (item.id === data.channel.id ? data.channel : item)))
+      setStatus({ type: "success", message: successMessage })
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   const tabs = [
     { id: "connect", label: "Conectar", icon: QrCode },
     { id: "attendants", label: "Atendentes", icon: Users },
@@ -525,6 +545,23 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                       </span>
                     </div>
                     <p className="mt-1 text-slate-500">{channel.notes || "Sem observacao do worker."}</p>
+                    <div className="mt-3">
+                      <ToggleSwitchButton
+                        checked={channel.onlyReplyToUnsavedContacts === true}
+                        disabled={busyId === channel.id}
+                        labelOn="Responder so nao salvos"
+                        labelOff="Responder todos"
+                        onChange={(nextValue) =>
+                          updateChannel(
+                            channel.id,
+                            { onlyReplyToUnsavedContacts: nextValue },
+                            nextValue
+                              ? "Resposta limitada a contatos nao salvos."
+                              : "Resposta liberada para todos os contatos.",
+                          )
+                        }
+                      />
+                    </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 xl:justify-end">
                     <Button

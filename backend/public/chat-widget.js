@@ -308,6 +308,18 @@
       return link;
     }
 
+    function createHumanHandoffAction(handoff) {
+      if (!handoff || handoff.offered !== true) {
+        return null;
+      }
+
+      return {
+        label: handoff.actionLabel || "Chamar humano",
+        message: "Quero falar com um atendente humano",
+        requested: handoff.requested === true,
+      };
+    }
+
     function createAssetGallery(assets) {
       if (!Array.isArray(assets) || !assets.length) {
         return null;
@@ -524,6 +536,18 @@
               bubble.appendChild(cta);
             }
           }
+          if (message.isAi && message.handoffAction && message.handoffAction.requested !== true) {
+            var handoffButton = document.createElement("button");
+            handoffButton.type = "button";
+            handoffButton.className = "chat-cta";
+            handoffButton.textContent = message.handoffAction.label || "Chamar humano";
+            handoffButton.addEventListener("click", function () {
+              void sendMessage(message.handoffAction.message || "Quero falar com um atendente humano", {
+                skipUserBubble: true,
+              });
+            });
+            bubble.appendChild(handoffButton);
+          }
           if (message.isAi && Array.isArray(message.assets) && message.assets.length) {
             var assetGallery = createAssetGallery(message.assets);
             if (assetGallery) {
@@ -573,13 +597,16 @@
       renderMessages();
     }
 
-    async function sendMessage(text) {
+    async function sendMessage(text, options) {
+      var settings = options && typeof options === "object" ? options : {};
       var trimmed = String(text || "").trim();
       if (!trimmed || loading) {
         return;
       }
 
-      messages.push({ id: "user-" + Date.now(), text: trimmed, isAi: false });
+      if (!settings.skipUserBubble) {
+        messages.push({ id: "user-" + Date.now(), text: trimmed, isAi: false });
+      }
       persist();
       renderMessages();
       input.value = "";
@@ -609,6 +636,7 @@
           text: payload.reply || payload.error || "Nao consegui responder agora.",
           isAi: true,
           cta: payload.whatsapp && payload.whatsapp.url ? payload.whatsapp : null,
+          handoffAction: createHumanHandoffAction(payload.handoff),
           assets: Array.isArray(payload.assets) ? payload.assets : [],
         });
       } catch (error) {

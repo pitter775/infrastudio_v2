@@ -26,6 +26,7 @@ async function provisionUsuarioInicial(input) {
     papel: "viewer",
     provider: input.provider,
     providerId: input.providerId,
+    avatarUrl: input.avatarUrl,
   })
 
   if (!usuario?.id) {
@@ -139,6 +140,7 @@ export async function loginOrCreateSocialUsuario(input) {
       usuarioId: existingByEmail.id,
       provider: input.provider,
       providerId: input.providerUserId,
+      avatarUrl: input.avatarUrl,
       emailVerificado: true,
     })
 
@@ -161,6 +163,7 @@ export async function loginOrCreateSocialUsuario(input) {
     email: normalizedEmail,
     provider: input.provider,
     providerId: input.providerUserId,
+    avatarUrl: input.avatarUrl,
     emailVerificado: true,
   })
 
