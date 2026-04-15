@@ -1,5 +1,6 @@
 import "server-only"
 
+import { sendEmail } from "@/lib/email"
 import { createLogEntry } from "@/lib/logs"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { listBillingAlertRecipientsByProjectId } from "@/lib/whatsapp-handoff-contatos"
@@ -424,9 +425,143 @@ async function applyTopUpConsumption({ projectId, exceededTokens, topUpRows, sup
   }
 }
 
+function buildBillingStatusLabel(status) {
+  return status === "blocked" ? "bloqueio" : status === "warning100" ? "limite atingido" : "alerta preventivo"
+}
+
+function buildBillingEmailSubject({ projectName, status }) {
+  const statusLabel = buildBillingStatusLabel(status)
+  return `[InfraStudio] Billing ${statusLabel} - ${projectName || "Projeto"}`
+}
+
+function buildBillingEmailHtml({ recipientName, projectName, projectSlug, status, summary }) {
+  const statusLabel = buildBillingStatusLabel(status)
+  const totalTokens = new Intl.NumberFormat("pt-BR").format(Number(summary.totalTokens || 0))
+  const totalCost = new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(Number(summary.totalCost || 0))
+  const tokenLimit =
+    summary.effectiveTokenLimit == null
+      ? "sem limite"
+      : new Intl.NumberFormat("pt-BR").format(Number(summary.effectiveTokenLimit || 0))
+  const costLimit =
+    summary.effectiveCostLimit == null
+      ? "sem limite"
+      : new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "USD",
+          minimumFractionDigits: 2,
+        }).format(Number(summary.effectiveCostLimit || 0))
+
+  return `
+    <div style="font-family:Arial,sans-serif;background:#08111f;color:#e2e8f0;padding:24px">
+      <div style="max-width:640px;margin:0 auto;background:#0f172a;border:1px solid rgba(148,163,184,.18);border-radius:16px;padding:24px">
+        <p style="margin:0 0 12px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#7dd3fc">Billing InfraStudio</p>
+        <h1 style="margin:0 0 16px;font-size:24px;color:#fff">Aviso de cobranca do projeto ${projectName || "Projeto"}</h1>
+        <p style="margin:0 0 16px;line-height:1.7">Ola ${recipientName || "time"}, o projeto <strong>${projectName || "Projeto"}</strong>${projectSlug ? ` (${projectSlug})` : ""} entrou em estado de <strong>${statusLabel}</strong>.</p>
+        <div style="margin:0 0 20px;padding:16px;border-radius:12px;background:#111827;border:1px solid rgba(148,163,184,.14)">
+          <p style="margin:0 0 8px">Tokens consumidos: <strong>${totalTokens}</strong></p>
+          <p style="margin:0 0 8px">Limite efetivo de tokens: <strong>${tokenLimit}</strong></p>
+          <p style="margin:0 0 8px">Custo acumulado: <strong>${totalCost}</strong></p>
+          <p style="margin:0">Limite efetivo de custo: <strong>${costLimit}</strong></p>
+        </div>
+        <p style="margin:0;line-height:1.7;color:#94a3b8">Se precisar, ajuste o plano ou libere novo ciclo no painel de billing da InfraStudio.</p>
+      </div>
+    </div>
+  `
+}
+
+async function listBillingEmailRecipientsByProjectId(projectId, deps = {}) {
+  const supabase = deps.supabase ?? getSupabaseAdminClient()
+  const recipients = new Map()
+
+  const [projectResult, membershipsResult] = await Promise.all([
+    supabase
+      .from("projetos")
+      .select("id, nome, slug, owner_user_id")
+      .eq("id", projectId)
+      .maybeSingle(),
+    supabase
+      .from("usuarios_projetos")
+      .select("usuario_id, usuario:usuarios(nome, email)")
+      .eq("projeto_id", projectId),
+  ])
+
+  if (projectResult.error) {
+    console.error("[billing] failed to load project for email recipients", projectResult.error)
+  }
+
+  if (membershipsResult.error) {
+    console.error("[billing] failed to load billing email recipients", membershipsResult.error)
+  }
+
+  for (const row of membershipsResult.data ?? []) {
+    const email = row.usuario?.email?.trim().toLowerCase()
+    if (!email) {
+      continue
+    }
+
+    recipients.set(email, {
+      email,
+      nome: row.usuario?.nome?.trim() || "Usuario",
+    })
+  }
+
+  const ownerUserId = projectResult.data?.owner_user_id ?? null
+  if (ownerUserId) {
+    const ownerResult = await supabase.from("usuarios").select("nome, email").eq("id", ownerUserId).maybeSingle()
+    if (ownerResult.error) {
+      console.error("[billing] failed to load project owner for email recipients", ownerResult.error)
+    } else {
+      const ownerEmail = ownerResult.data?.email?.trim().toLowerCase()
+      if (ownerEmail) {
+        recipients.set(ownerEmail, {
+          email: ownerEmail,
+          nome: ownerResult.data?.nome?.trim() || "Responsavel",
+        })
+      }
+    }
+  }
+
+  return {
+    projectName: projectResult.data?.nome?.trim() || "Projeto",
+    projectSlug: projectResult.data?.slug?.trim() || "",
+    recipients: Array.from(recipients.values()),
+  }
+}
+
+async function sendBillingEmailTransition({ status, summary, projectName, projectSlug, recipients }) {
+  for (const recipient of recipients) {
+    try {
+      await sendEmail({
+        to: recipient.email,
+        subject: buildBillingEmailSubject({ projectName, status }),
+        html: buildBillingEmailHtml({
+          recipientName: recipient.nome,
+          projectName,
+          projectSlug,
+          status,
+          summary,
+        }),
+      })
+    } catch (error) {
+      console.error("[billing] failed to send billing alert email", {
+        email: recipient.email,
+        status,
+        error,
+      })
+    }
+  }
+}
+
 async function logBillingTransition({ projectId, status, summary, recipients, senderChannel, deps = {} }) {
   const supabase = deps.supabase ?? getSupabaseAdminClient()
   const recipientNumbers = (recipients ?? []).map((item) => item.numero).filter(Boolean)
+  const emailTargets = deps.emailRecipients ?? []
+  const projectName = deps.projectName ?? "Projeto"
+  const projectSlug = deps.projectSlug ?? ""
   const logPayload = {
     event: status,
     projetoId: projectId,
@@ -438,6 +573,7 @@ async function logBillingTransition({ projectId, status, summary, recipients, se
     availableCreditTokens: summary.availableCreditTokens,
     effectiveTokenLimit: summary.effectiveTokenLimit,
     effectiveCostLimit: summary.effectiveCostLimit,
+    emailRecipients: emailTargets.map((item) => item.email),
   }
 
   await createLogEntry(
@@ -469,6 +605,28 @@ async function logBillingTransition({ projectId, status, summary, recipients, se
     },
     { supabase },
   )
+
+  if (emailTargets.length > 0) {
+    await sendBillingEmailTransition({
+      status,
+      summary,
+      projectName,
+      projectSlug,
+      recipients: emailTargets,
+    })
+
+    await createLogEntry(
+      {
+        projectId,
+        type: "billing_email_alert",
+        origin: "billing_runtime",
+        level: "info",
+        description: `Alerta de billing enviado por email para ${emailTargets.length} destinatario(s).`,
+        payload: logPayload,
+      },
+      { supabase },
+    )
+  }
 }
 }
 
@@ -957,9 +1115,10 @@ export async function registerProjectBillingUsage(projectId, tokens, cost, detai
     return null
   }
 
-  const [recipients, senderChannel] = await Promise.all([
+  const [recipients, senderChannel, emailContext] = await Promise.all([
     listBillingAlertRecipientsByProjectId(projectId, { supabase }),
     getPrimaryWhatsAppChannelByProjectId(INFRASTUDIO_BILLING_ALERT_PROJECT_ID, { supabase }),
+    listBillingEmailRecipientsByProjectId(projectId, { supabase }),
   ])
   const summary = {
     totalTokens: nextUsage.totalTokens,
@@ -970,15 +1129,51 @@ export async function registerProjectBillingUsage(projectId, tokens, cost, detai
   }
 
   if (!status.previousWarning80 && status.warning80) {
-    await logBillingTransition({ projectId, status: "warning80", summary, recipients, senderChannel, deps: { supabase } })
+    await logBillingTransition({
+      projectId,
+      status: "warning80",
+      summary,
+      recipients,
+      senderChannel,
+      deps: {
+        supabase,
+        emailRecipients: emailContext.recipients,
+        projectName: emailContext.projectName,
+        projectSlug: emailContext.projectSlug,
+      },
+    })
   }
 
   if (!status.previousWarning100 && status.warning100) {
-    await logBillingTransition({ projectId, status: "warning100", summary, recipients, senderChannel, deps: { supabase } })
+    await logBillingTransition({
+      projectId,
+      status: "warning100",
+      summary,
+      recipients,
+      senderChannel,
+      deps: {
+        supabase,
+        emailRecipients: emailContext.recipients,
+        projectName: emailContext.projectName,
+        projectSlug: emailContext.projectSlug,
+      },
+    })
   }
 
   if (!status.previousBlocked && status.blocked) {
-    await logBillingTransition({ projectId, status: "blocked", summary, recipients, senderChannel, deps: { supabase } })
+    await logBillingTransition({
+      projectId,
+      status: "blocked",
+      summary,
+      recipients,
+      senderChannel,
+      deps: {
+        supabase,
+        emailRecipients: emailContext.recipients,
+        projectName: emailContext.projectName,
+        projectSlug: emailContext.projectSlug,
+      },
+    })
   }
 
   return {

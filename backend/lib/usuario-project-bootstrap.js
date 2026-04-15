@@ -18,6 +18,117 @@ function slugify(value) {
     .slice(0, 48) || "projeto"
 }
 
+async function getFreeBillingPlan(supabase) {
+  const { data, error } = await supabase
+    .from("planos")
+    .select(
+      "id, nome, limite_tokens_input_mensal, limite_tokens_output_mensal, limite_tokens_total_mensal, limite_custo_mensal, ativo, is_free",
+    )
+    .eq("ativo", true)
+    .eq("is_free", true)
+    .order("preco_mensal", { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error("[usuario-project-bootstrap] failed to load free billing plan", error)
+    return null
+  }
+
+  return data ?? null
+}
+
+async function applyInitialFreePlan({ supabase, projetoId, now }) {
+  const freePlan = await getFreeBillingPlan(supabase)
+
+  if (!freePlan?.id) {
+    return
+  }
+
+  const planPayload = {
+    projeto_id: projetoId,
+    nome_plano: freePlan.nome || "Free",
+    modelo_referencia: "gpt-4o-mini",
+    limite_tokens_input_mensal: freePlan.limite_tokens_input_mensal ?? null,
+    limite_tokens_output_mensal: freePlan.limite_tokens_output_mensal ?? null,
+    limite_tokens_total_mensal: freePlan.limite_tokens_total_mensal ?? null,
+    limite_custo_mensal: freePlan.limite_custo_mensal ?? null,
+    auto_bloquear: true,
+    bloqueado: false,
+    bloqueado_motivo: null,
+    observacoes: "Plano inicial aplicado automaticamente no cadastro.",
+    plano_id: freePlan.id,
+    updated_at: now,
+  }
+
+  const existingProjectPlan = await supabase
+    .from("projetos_planos")
+    .select("id")
+    .eq("projeto_id", projetoId)
+    .maybeSingle()
+
+  if (existingProjectPlan.error && existingProjectPlan.error.code !== "PGRST116") {
+    throw existingProjectPlan.error
+  }
+
+  if (existingProjectPlan.data?.id) {
+    const { error } = await supabase.from("projetos_planos").update(planPayload).eq("id", existingProjectPlan.data.id)
+    if (error) {
+      throw error
+    }
+  } else {
+    const { error } = await supabase.from("projetos_planos").insert({
+      id: randomUUID(),
+      ...planPayload,
+      created_at: now,
+    })
+    if (error) {
+      throw error
+    }
+  }
+
+  const existingSubscription = await supabase
+    .from("projetos_assinaturas")
+    .select("id")
+    .eq("projeto_id", projetoId)
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (existingSubscription.error && existingSubscription.error.code !== "PGRST116") {
+    throw existingSubscription.error
+  }
+
+  const subscriptionPayload = {
+    projeto_id: projetoId,
+    plano_id: freePlan.id,
+    status: "ativo",
+    data_inicio: now,
+    data_fim: null,
+    renovar_automatico: true,
+    updated_at: now,
+  }
+
+  if (existingSubscription.data?.id) {
+    const { error } = await supabase
+      .from("projetos_assinaturas")
+      .update(subscriptionPayload)
+      .eq("id", existingSubscription.data.id)
+    if (error) {
+      throw error
+    }
+  } else {
+    const { error } = await supabase.from("projetos_assinaturas").insert({
+      id: randomUUID(),
+      ...subscriptionPayload,
+      created_at: now,
+    })
+    if (error) {
+      throw error
+    }
+  }
+}
+
 async function cloneTemplateProjectData({ supabase, templateProjectId, projetoId, now }) {
   const [templateAgentsResult, templateApisResult, templateWidgetsResult, templateConnectorsResult, templateSecretsResult, templatePlanResult] =
     await Promise.all([
@@ -292,6 +403,21 @@ export async function createInitialProjectForUsuario({ usuarioId, nome }) {
       await supabase.from("projetos").delete().eq("id", project.id)
       return null
     }
+  }
+
+  try {
+    await applyInitialFreePlan({
+      supabase,
+      projetoId: project.id,
+      now,
+    })
+  } catch (error) {
+    console.error("[usuario-project-bootstrap] failed to apply initial free plan", error)
+    await supabase.from("projetos_assinaturas").delete().eq("projeto_id", project.id)
+    await supabase.from("projetos_planos").delete().eq("projeto_id", project.id)
+    await supabase.from("usuarios_projetos").delete().eq("projeto_id", project.id)
+    await supabase.from("projetos").delete().eq("id", project.id)
+    return null
   }
 
   return project.id

@@ -80,7 +80,7 @@ function Feedback({ type, children }) {
 function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
   const providers = [
     { id: 'google', label: 'Google', icon: GoogleIcon },
-    { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
+    { id: 'facebook', label: 'Facebook', icon: FacebookIcon, disabled: true, badge: 'Bloqueado' },
   ]
 
   return (
@@ -90,17 +90,24 @@ function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
         {providers.map((provider) => {
           const Icon = provider.icon
           const loading = socialLoadingProvider === provider.id
+          const disabled = socialLoadingProvider !== null || provider.disabled
 
           return (
             <button
               key={provider.id}
               type="button"
-              onClick={() => onSocialLogin(provider.id)}
-              disabled={socialLoadingProvider !== null}
+              onClick={disabled ? undefined : () => onSocialLogin(provider.id)}
+              disabled={disabled}
               className={socialButtonClassName}
+              title={provider.disabled ? 'Login com Facebook temporariamente indisponivel.' : undefined}
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
               <span className="truncate">{provider.label}</span>
+              {provider.badge ? (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-300">
+                  {provider.badge}
+                </span>
+              ) : null}
             </button>
           )
         })}

@@ -9,7 +9,7 @@ import { createLogEntry } from "@/lib/logs"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
-import { getWhatsAppChannelById } from "@/lib/whatsapp-channels"
+import { getWhatsAppChannelById, resolveSavedContactFlags } from "@/lib/whatsapp-channels"
 
 function isPlainObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
@@ -250,6 +250,45 @@ function getIncomingWhatsAppChannelId(body) {
   return null
 }
 
+function buildWhatsAppContextWithSavedContactFlags(context, whatsappChannel) {
+  const savedContactFlags = resolveSavedContactFlags(whatsappChannel?.sessionData)
+  if (!savedContactFlags) {
+    return context
+  }
+
+  const baseContext = isPlainObject(context) ? { ...context } : {}
+  const whatsapp = isPlainObject(baseContext.whatsapp) ? { ...baseContext.whatsapp } : {}
+  const rawContact = isPlainObject(whatsapp.rawContact) ? { ...whatsapp.rawContact } : null
+  const hasExplicitFlags = [
+    whatsapp.isSavedContact,
+    whatsapp.isMyContact,
+    whatsapp.isSaved,
+    rawContact?.isSavedContact,
+    rawContact?.isMyContact,
+    rawContact?.isSaved,
+  ].some((value) => typeof value === "boolean")
+
+  if (hasExplicitFlags) {
+    return baseContext
+  }
+
+  return {
+    ...baseContext,
+    whatsapp: {
+      ...whatsapp,
+      ...savedContactFlags,
+      ...(rawContact
+        ? {
+            rawContact: {
+              ...rawContact,
+              ...savedContactFlags,
+            },
+          }
+        : {}),
+    },
+  }
+}
+
 export async function OPTIONS(request) {
   return emptyChatOptionsResponse(request.headers.get("origin"))
 }
@@ -305,33 +344,44 @@ export async function POST(request) {
       normalizedBody?.canal === "whatsapp" && channelId
         ? await getWhatsAppChannelById(channelId)
         : null
+    const effectiveContext =
+      normalizedBody?.canal === "whatsapp"
+        ? buildWhatsAppContextWithSavedContactFlags(normalizedBody?.context, whatsappChannel)
+        : normalizedBody?.context
+    const effectiveBody =
+      effectiveContext === normalizedBody?.context
+        ? normalizedBody
+        : {
+            ...normalizedBody,
+            context: effectiveContext,
+          }
 
     if (
-      normalizedBody?.canal === "whatsapp" &&
+      effectiveBody?.canal === "whatsapp" &&
       whatsappChannel?.onlyReplyToUnsavedContacts === true &&
       resolvedProjectAgent?.projeto?.id === whatsappChannel?.projetoId &&
-      isSavedWhatsAppContact(normalizedBody?.context)
+      isSavedWhatsAppContact(effectiveBody?.context)
     ) {
       await recordPublicChatEvent({
         event: "completed",
         origin,
         host,
         method: "POST",
-        body: normalizedBody,
+        body: effectiveBody,
         status: 200,
         projectId: resolvedProjectAgent?.projeto?.id ?? null,
-        chatId: normalizedBody.chatId ?? channelId,
+        chatId: effectiveBody.chatId ?? channelId,
         elapsedMs: Date.now() - startedAt,
         errorSource: null,
       })
 
-      return jsonChatResponse(formatPublicChatResult(buildSilentChatResult(normalizedBody.chatId ?? channelId)), {
+      return jsonChatResponse(formatPublicChatResult(buildSilentChatResult(effectiveBody.chatId ?? channelId)), {
         status: 200,
         origin,
       })
     }
 
-    const result = await processChatRequest(normalizedBody, {
+    const result = await processChatRequest(effectiveBody, {
       verificarLimite: verifyProjectBillingAccess,
       registrarUso: registerProjectBillingUsage,
       ...(adminAgentTestRuntime?.options ?? {}),

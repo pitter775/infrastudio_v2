@@ -29,20 +29,37 @@ export function buildAiObservability(metadata = {}, message = {}) {
     metadata.usageTelemetry && typeof metadata.usageTelemetry === "object" && !Array.isArray(metadata.usageTelemetry)
       ? metadata.usageTelemetry
       : null
+  const runtimeApis = Array.isArray(metadata.runtimeApis) ? metadata.runtimeApis : []
 
-  if (!provider && !routeStage && !heuristicStage && !domainStage && !usageTelemetry) {
+  if (!provider && !routeStage && !heuristicStage && !domainStage && !usageTelemetry && !runtimeApis.length) {
     return null
   }
 
   return {
+    stage: typeof metadata.stage === "string" ? metadata.stage : null,
+    failClosed: metadata.failClosed === true,
     provider,
     model: typeof metadata.model === "string" ? metadata.model : null,
     agenteId: metadata.agenteId ?? null,
     agenteNome: metadata.agenteNome ?? null,
+    widgetId: metadata.widgetId ?? null,
+    widgetName: metadata.widgetName ?? null,
+    widgetSlug: typeof metadata.widgetSlug === "string" ? metadata.widgetSlug : null,
     routeStage,
     heuristicStage,
     domainStage,
+    handoffDecision: typeof metadata.handoffDecision === "string" ? metadata.handoffDecision : null,
+    handoffReason: typeof metadata.handoffReason === "string" ? metadata.handoffReason : null,
+    handoffRequested: metadata.handoffRequested === true,
     catalogoProdutoAtual: metadata.catalogoProdutoAtual ?? null,
+    runtimeApiCount: metadata.runtimeApiCount ?? runtimeApis.length,
+    runtimeApiCacheHits: metadata.runtimeApiCacheHits ?? runtimeApis.filter((item) => item?.cacheHit === true).length,
+    runtimeApis: runtimeApis.map((item) => ({
+      id: item?.id ?? null,
+      nome: item?.nome ?? null,
+      metodo: item?.metodo ?? null,
+      cacheHit: item?.cacheHit === true,
+    })),
     usage: {
       inputTokens: message.tokensInput ?? usageTelemetry?.inputTokens ?? null,
       outputTokens: message.tokensOutput ?? usageTelemetry?.outputTokens ?? null,

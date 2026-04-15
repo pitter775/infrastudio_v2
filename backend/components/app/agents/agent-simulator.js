@@ -230,7 +230,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
       dragMomentum={false}
       dragElastic={0.08}
       initial={false}
-      className="fixed bottom-5 right-5 z-[80] flex h-[620px] max-h-[calc(100vh-40px)] w-[420px] max-w-[calc(100vw-40px)] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#080e1d] shadow-[0_8px_18px_rgba(2,6,23,0.82)]"
+      className="fixed bottom-5 right-5 z-[140] flex h-[620px] max-h-[calc(100vh-40px)] w-[420px] max-w-[calc(100vw-40px)] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#080e1d] shadow-[0_8px_18px_rgba(2,6,23,0.82)]"
     >
       <div
         className="flex cursor-grab items-start justify-between gap-3 border-b border-white/10 bg-[#0c1426] px-4 py-3 active:cursor-grabbing"

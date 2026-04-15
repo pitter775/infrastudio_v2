@@ -60,6 +60,50 @@ function getAttachmentKey(attachment, index) {
   return attachment.storagePath || attachment.publicUrl || `${attachment.name || "arquivo"}-${index}`
 }
 
+function formatUsd(value) {
+  return `US$ ${Number(value ?? 0).toFixed(6)}`
+}
+
+function normalizeTraceOption(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : null
+}
+
+function getConversationTraceEntries(conversation) {
+  return (conversation?.mensagens ?? [])
+    .filter((message) => message?.observability)
+    .map((message) => {
+      const trace = message.observability
+      const totalTokens =
+        Number(trace?.usage?.totalTokens ?? 0) ||
+        Number(trace?.usage?.inputTokens ?? 0) + Number(trace?.usage?.outputTokens ?? 0)
+      const estimatedCostUsd = Number(trace?.usage?.estimatedCostUsd ?? 0)
+
+      return {
+        id: message.id,
+        horario: message.horario,
+        createdAt: message.createdAt,
+        texto: message.texto,
+        provider: normalizeTraceOption(trace?.provider) ?? "n/a",
+        stage: normalizeTraceOption(trace?.stage) ?? "n/a",
+        domainStage: normalizeTraceOption(trace?.domainStage) ?? "n/a",
+        heuristicStage: normalizeTraceOption(trace?.heuristicStage) ?? "modelo",
+        handoffDecision: normalizeTraceOption(trace?.handoffDecision) ?? "n/a",
+        failClosed: trace?.failClosed === true,
+        runtimeApiCount: Number(trace?.runtimeApiCount ?? 0),
+        runtimeApiCacheHits: Number(trace?.runtimeApiCacheHits ?? 0),
+        runtimeApis: Array.isArray(trace?.runtimeApis) ? trace.runtimeApis : [],
+        totalTokens,
+        estimatedCostUsd,
+      }
+    })
+}
+
+function buildTraceSelectOptions(entries, key, fallbackLabel) {
+  const values = Array.from(new Set(entries.map((entry) => entry[key]).filter(Boolean)))
+
+  return [{ value: "", label: fallbackLabel }, ...values.map((value) => ({ value, label: value }))]
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -204,6 +248,10 @@ function MessageBubble({ message }) {
               <div className="mt-2 rounded-xl border border-white/10 bg-black/20 p-3 text-[11px] leading-5 text-slate-300">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div>
+                    <span className="text-slate-500">Stage</span>
+                    <div className="font-medium text-white">{trace.stage || "n/a"}</div>
+                  </div>
+                  <div>
                     <span className="text-slate-500">Provider</span>
                     <div className="font-medium text-white">{trace.provider || "n/a"}</div>
                   </div>
@@ -220,6 +268,10 @@ function MessageBubble({ message }) {
                     <div className="font-medium text-white">{trace.heuristicStage || "modelo"}</div>
                   </div>
                   <div>
+                    <span className="text-slate-500">Handoff</span>
+                    <div className="font-medium text-white">{trace.handoffDecision || "n/a"}</div>
+                  </div>
+                  <div>
                     <span className="text-slate-500">Tokens</span>
                     <div className="font-medium text-white">
                       {(trace.usage?.inputTokens ?? 0) + (trace.usage?.outputTokens ?? 0)}
@@ -231,11 +283,25 @@ function MessageBubble({ message }) {
                       US$ {Number(trace.usage?.estimatedCostUsd ?? 0).toFixed(6)}
                     </div>
                   </div>
+                  <div>
+                    <span className="text-slate-500">APIs runtime</span>
+                    <div className="font-medium text-white">
+                      {trace.runtimeApiCount ?? 0} / cache {trace.runtimeApiCacheHits ?? 0}
+                    </div>
+                  </div>
                 </div>
                 {trace.agenteNome || trace.assetsCount ? (
                   <div className="mt-2 border-t border-white/10 pt-2 text-slate-400">
                     {trace.agenteNome ? `Agente: ${trace.agenteNome}` : ""}
                     {trace.assetsCount ? `${trace.agenteNome ? " · " : ""}Assets: ${trace.assetsCount}` : ""}
+                  </div>
+                ) : null}
+                {trace.widgetSlug || trace.failClosed || trace.handoffReason || trace.runtimeApis?.length ? (
+                  <div className="mt-2 border-t border-white/10 pt-2 text-slate-400">
+                    {trace.widgetSlug ? `Widget: ${trace.widgetSlug}` : ""}
+                    {trace.failClosed ? `${trace.widgetSlug ? " | " : ""}Fail-closed: sim` : ""}
+                    {trace.handoffReason ? `${trace.widgetSlug || trace.failClosed ? " | " : ""}Motivo handoff: ${trace.handoffReason}` : ""}
+                    {trace.runtimeApis?.length ? `${trace.widgetSlug || trace.failClosed || trace.handoffReason ? " | " : ""}APIs: ${trace.runtimeApis.map((api) => `${api.nome || "API"}${api.cacheHit ? " (cache)" : ""}`).join(", ")}` : ""}
                   </div>
                 ) : null}
               </div>
@@ -495,6 +561,10 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
   const statusLabel = conversation.status === "humano" ? "Humano" : "IA atendendo"
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [traceProviderFilter, setTraceProviderFilter] = useState("")
+  const [traceStageFilter, setTraceStageFilter] = useState("")
+  const [traceCostFilter, setTraceCostFilter] = useState("")
+  const [traceErrorFilter, setTraceErrorFilter] = useState("")
   const feedRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const mediaItems = conversation.mensagens.flatMap((message) =>
@@ -505,6 +575,53 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
       key: `${message.id}-${getAttachmentKey(attachment, index)}`,
     })),
   )
+  const traceEntries = useMemo(() => getConversationTraceEntries(conversation), [conversation])
+  const traceProviderOptions = useMemo(
+    () => buildTraceSelectOptions(traceEntries, "provider", "Todos os providers"),
+    [traceEntries]
+  )
+  const traceStageOptions = useMemo(
+    () => buildTraceSelectOptions(traceEntries, "stage", "Todos os stages"),
+    [traceEntries]
+  )
+  const filteredTraceEntries = useMemo(
+    () =>
+      traceEntries.filter((entry) => {
+        if (traceProviderFilter && entry.provider !== traceProviderFilter) {
+          return false
+        }
+
+        if (traceStageFilter && entry.stage !== traceStageFilter) {
+          return false
+        }
+
+        if (traceCostFilter === "with_cost" && entry.estimatedCostUsd <= 0) {
+          return false
+        }
+
+        if (traceCostFilter === "high_cost" && entry.estimatedCostUsd < 0.001) {
+          return false
+        }
+
+        if (traceErrorFilter === "failed" && !entry.failClosed) {
+          return false
+        }
+
+        if (traceErrorFilter === "ok" && entry.failClosed) {
+          return false
+        }
+
+        return true
+      }),
+    [traceCostFilter, traceEntries, traceErrorFilter, traceProviderFilter, traceStageFilter]
+  )
+
+  useEffect(() => {
+    setTraceProviderFilter("")
+    setTraceStageFilter("")
+    setTraceCostFilter("")
+    setTraceErrorFilter("")
+  }, [conversation.id])
 
   useEffect(() => {
     const container = feedRef.current
@@ -683,8 +800,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
         <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
           <SheetContent
             side="right"
-            className="w-[92vw] max-w-[420px] border-l border-white/5"
-            overlayClassName="z-[82]"
+            className="z-[151] w-[92vw] max-w-[420px] border-l border-white/5"
+            overlayClassName="z-[150]"
           >
             <div className="flex h-full flex-col">
               <div className="border-b border-white/5 px-5 py-5">
@@ -753,6 +870,117 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                   ) : (
                     <div className="mt-3 rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
                       Nenhuma midia enviada nesta conversa.
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Observabilidade tecnica</div>
+                      <div className="mt-1 text-sm text-slate-400">
+                        {traceEntries.length} evento(s) com IA trace nesta conversa.
+                      </div>
+                    </div>
+                    {traceEntries.length ? (
+                      <Tag className="border-sky-400/20 bg-sky-400/10 text-sky-200">
+                        timeline
+                      </Tag>
+                    ) : null}
+                  </div>
+
+                  {traceEntries.length ? (
+                    <>
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <AppSelect
+                          value={traceProviderFilter}
+                          onChangeValue={setTraceProviderFilter}
+                          options={traceProviderOptions}
+                          placeholder="Filtrar provider"
+                          minHeight={38}
+                        />
+                        <AppSelect
+                          value={traceStageFilter}
+                          onChangeValue={setTraceStageFilter}
+                          options={traceStageOptions}
+                          placeholder="Filtrar stage"
+                          minHeight={38}
+                        />
+                        <AppSelect
+                          value={traceCostFilter}
+                          onChangeValue={setTraceCostFilter}
+                          options={[
+                            { value: "", label: "Todo custo" },
+                            { value: "with_cost", label: "Com custo" },
+                            { value: "high_cost", label: "Custo >= 0.001" },
+                          ]}
+                          placeholder="Filtrar custo"
+                          minHeight={38}
+                        />
+                        <AppSelect
+                          value={traceErrorFilter}
+                          onChangeValue={setTraceErrorFilter}
+                          options={[
+                            { value: "", label: "Toda falha" },
+                            { value: "failed", label: "Com fail-closed" },
+                            { value: "ok", label: "Sem fail-closed" },
+                          ]}
+                          placeholder="Filtrar falha"
+                          minHeight={38}
+                        />
+                      </div>
+
+                      <div className="mt-3 space-y-3">
+                        {filteredTraceEntries.length ? (
+                          filteredTraceEntries.map((entry) => (
+                            <div key={entry.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Tag className="border-white/10 bg-white/[0.04] text-slate-200">
+                                  {entry.horario}
+                                </Tag>
+                                <Tag className="border-white/10 bg-white/[0.04] text-slate-300">
+                                  {entry.provider}
+                                </Tag>
+                                <Tag className="border-white/10 bg-white/[0.04] text-slate-300">
+                                  {entry.stage}
+                                </Tag>
+                                {entry.failClosed ? (
+                                  <Tag className="border-rose-400/20 bg-rose-500/10 text-rose-200">
+                                    fail-closed
+                                  </Tag>
+                                ) : null}
+                              </div>
+
+                              <div className="mt-3 grid gap-2 text-[12px] text-slate-300 md:grid-cols-2">
+                                <div>dominio: <span className="text-white">{entry.domainStage}</span></div>
+                                <div>heuristica: <span className="text-white">{entry.heuristicStage}</span></div>
+                                <div>handoff: <span className="text-white">{entry.handoffDecision}</span></div>
+                                <div>tokens: <span className="text-white">{entry.totalTokens}</span></div>
+                                <div>custo: <span className="text-white">{formatUsd(entry.estimatedCostUsd)}</span></div>
+                                <div>APIs runtime: <span className="text-white">{entry.runtimeApiCount} / cache {entry.runtimeApiCacheHits}</span></div>
+                              </div>
+
+                              {entry.runtimeApis.length ? (
+                                <div className="mt-3 border-t border-white/10 pt-3 text-[12px] text-slate-400">
+                                  APIs: {entry.runtimeApis.map((api) => `${api.nome || "API"}${api.cacheHit ? " (cache)" : ""}`).join(", ")}
+                                </div>
+                              ) : null}
+
+                              <div className="mt-3 border-t border-white/10 pt-3 text-[12px] text-slate-500">
+                                {entry.texto.slice(0, 220)}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
+                            Nenhum evento atende aos filtros atuais.
+                          </div>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="mt-3 rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
+                      Esta conversa ainda nao gerou timeline tecnica de IA.
                     </div>
                   )}
                 </div>

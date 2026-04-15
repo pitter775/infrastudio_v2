@@ -291,16 +291,123 @@ function resolveEntityAvatarUrl(primaryUrl, siteUrl) {
   }
 }
 
-function buildMergedAgentSummary(currentHtml, generatedSummary) {
+function buildMergedAgentSummary(currentHtml, generatedSummary, promptSuggestion = '') {
   const currentText = richTextToPlainText(currentHtml)
   const summaryText = String(generatedSummary || '').trim()
+  const promptText = String(promptSuggestion || '').trim()
+  const nextSections = []
 
-  if (!summaryText) {
+  if (summaryText) {
+    nextSections.push(summaryText)
+  }
+
+  if (promptText) {
+    nextSections.push(`Prompt base sugerido:\n${promptText}`)
+  }
+
+  if (!nextSections.length) {
     return currentHtml
   }
 
-  const mergedText = currentText ? `${currentText}\n\n${summaryText}` : summaryText
+  const mergedText = currentText ? `${currentText}\n\n${nextSections.join('\n\n')}` : nextSections.join('\n\n')
   return plainTextToEditorHtml(mergedText)
+}
+
+function buildSiteSummaryHighlights(data) {
+  if (!data?.source) {
+    return []
+  }
+
+  const source = data.source
+  const contacts = source.contacts || {}
+  const institutionals = source.institutionalData || {}
+  const structuredData = source.structuredData || {}
+
+  return [
+    contacts.emails?.length ? { label: 'Emails', values: contacts.emails } : null,
+    contacts.phones?.length ? { label: 'Telefones', values: contacts.phones } : null,
+    contacts.whatsappLinks?.length ? { label: 'WhatsApp', values: contacts.whatsappLinks } : null,
+    source.people?.length ? { label: 'Pessoas', values: source.people } : null,
+    institutionals.cnpjs?.length ? { label: 'CNPJ', values: institutionals.cnpjs } : null,
+    institutionals.addresses?.length ? { label: 'Endereco', values: institutionals.addresses } : null,
+    source.socialLinks?.length ? { label: 'Redes', values: source.socialLinks } : null,
+    structuredData.organizations?.length ? { label: 'Organizacao', values: structuredData.organizations } : null,
+  ].filter(Boolean)
+}
+
+function normalizeVersionText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim()
+}
+
+function buildPromptDiffSummary(currentValue, previousValue) {
+  const current = normalizeVersionText(currentValue)
+  const previous = normalizeVersionText(previousValue)
+
+  if (!current && !previous) {
+    return { changed: false, delta: 0, preview: 'sem alteracao de prompt' }
+  }
+
+  const delta = current.length - previous.length
+  if (current === previous) {
+    return { changed: false, delta, preview: 'sem alteracao de prompt' }
+  }
+
+  return {
+    changed: true,
+    delta,
+    preview:
+      delta === 0
+        ? 'prompt reescrito'
+        : delta > 0
+          ? `prompt expandido (+${delta} chars)`
+          : `prompt reduzido (${delta} chars)`,
+  }
+}
+
+function buildRuntimeConfigDiffSummary(currentConfig, previousConfig) {
+  const currentKeys = Object.keys(currentConfig && typeof currentConfig === 'object' ? currentConfig : {})
+  const previousKeys = Object.keys(previousConfig && typeof previousConfig === 'object' ? previousConfig : {})
+  const added = currentKeys.filter((key) => !previousKeys.includes(key))
+  const removed = previousKeys.filter((key) => !currentKeys.includes(key))
+
+  if (!added.length && !removed.length) {
+    return 'runtime sem mudanca estrutural'
+  }
+
+  return [
+    added.length ? `+ ${added.slice(0, 3).join(', ')}` : '',
+    removed.length ? `- ${removed.slice(0, 3).join(', ')}` : '',
+  ]
+    .filter(Boolean)
+    .join(' | ')
+}
+
+function buildVersionChangeNote(version, compareVersion) {
+  const items = []
+
+  if (normalizeVersionText(version.nome) !== normalizeVersionText(compareVersion?.nome)) {
+    items.push('nome alterado')
+  }
+
+  if (normalizeVersionText(version.descricao) !== normalizeVersionText(compareVersion?.descricao)) {
+    items.push('descricao alterada')
+  }
+
+  const promptDiff = buildPromptDiffSummary(version.promptBase, compareVersion?.promptBase)
+  if (promptDiff.changed) {
+    items.push(promptDiff.preview)
+  }
+
+  const runtimeDiff = buildRuntimeConfigDiffSummary(version.runtimeConfig, compareVersion?.runtimeConfig)
+  if (runtimeDiff !== 'runtime sem mudanca estrutural') {
+    items.push(runtimeDiff)
+  }
+
+  if (normalizeVersionText(version.note)) {
+    items.push(`nota: ${normalizeVersionText(version.note)}`)
+  }
+
+  return items.length ? items.join(' | ') : 'sem diferenca relevante visivel'
 }
 
 function buildIntegrationPanels(project) {
@@ -731,6 +838,7 @@ function ProjectPanel({
   const [savingDraft, setSavingDraft] = useState(false)
   const [creatingAgent, setCreatingAgent] = useState(false)
   const [generatingSiteSummary, setGeneratingSiteSummary] = useState(false)
+  const [siteSummaryData, setSiteSummaryData] = useState(null)
   const [agentName, setAgentName] = useState(initialAgentName)
   const [siteUrl, setSiteUrl] = useState(initialSiteUrl)
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl)
@@ -751,6 +859,21 @@ function ProjectPanel({
     normalizedPrompt !== initialPrompt.trim() ||
     siteUrl.trim() !== initialSiteUrl.trim() ||
     logoUrl.trim() !== initialLogoUrl.trim()
+  const currentVersionSnapshot = useMemo(
+    () => ({
+      id: 'current',
+      versionNumber: 'Atual',
+      nome: agentName.trim() || initialAgentName,
+      descricao: '',
+      promptBase: normalizedPrompt,
+      runtimeConfig: agent?.runtimeConfig ?? null,
+      note: hasUnsavedChanges ? 'rascunho local' : 'estado atual salvo',
+      source: hasUnsavedChanges ? 'draft' : 'current',
+      createdAt: new Date().toISOString(),
+      ativo: agentActive,
+    }),
+    [agent?.runtimeConfig, agentActive, agentName, hasUnsavedChanges, initialAgentName, normalizedPrompt],
+  )
 
   useEffect(() => {
     setAgentName(initialAgentName)
@@ -1032,12 +1155,14 @@ function ProjectPanel({
         throw new Error(data.error || 'Nao foi possivel gerar o resumo do site.')
       }
 
-      setPromptValue((currentValue) => buildMergedAgentSummary(currentValue, data.summary))
+      setPromptValue((currentValue) => buildMergedAgentSummary(currentValue, data.summary, data.promptSuggestion))
+      setSiteSummaryData(data)
       if (data?.source?.logoUrl) {
         setLogoUrl(data.source.logoUrl)
       }
-      setSiteSummaryStatus({ type: 'success', message: 'Resumo do site somado ao editor.' })
+      setSiteSummaryStatus({ type: 'success', message: 'Resumo, contatos e prompt sugerido somados ao editor.' })
     } catch (error) {
+      setSiteSummaryData(null)
       setSiteSummaryStatus({ type: 'error', message: error.message })
     } finally {
       setGeneratingSiteSummary(false)
@@ -1134,6 +1259,55 @@ function ProjectPanel({
                     )}
                   >
                     {siteSummaryStatus.message}
+                  </div>
+                ) : null}
+
+                {siteSummaryData ? (
+                  <div className="mt-3 rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                          Leitura automatica
+                        </div>
+                        <div className="mt-1 text-sm text-slate-200">
+                          {siteSummaryData.source?.title || siteUrl}
+                        </div>
+                      </div>
+                      {siteSummaryData.usage?.estimatedCostUsd != null ? (
+                        <div className="text-xs text-slate-500">
+                          custo {Number(siteSummaryData.usage.estimatedCostUsd).toFixed(6)} USD
+                        </div>
+                      ) : null}
+                    </div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      {buildSiteSummaryHighlights(siteSummaryData).map((item) => (
+                        <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                            {item.label}
+                          </div>
+                          <div className="mt-2 space-y-1 text-xs text-slate-300">
+                            {item.values.slice(0, 3).map((value) => (
+                              <div key={value} className="break-words">
+                                {value}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {siteSummaryData.promptSuggestion ? (
+                      <div className="mt-3 rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-3">
+                        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
+                          Prompt sugerido
+                        </div>
+                        <div className="mt-2 text-xs leading-6 text-slate-300">
+                          {siteSummaryData.promptSuggestion.slice(0, 420)}
+                          {siteSummaryData.promptSuggestion.length > 420 ? '...' : ''}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
@@ -1233,31 +1407,65 @@ function ProjectPanel({
 
               {versions.length ? (
                 <div className="mt-4 space-y-2">
-                  {versions.slice(0, 8).map((version) => (
-                    <div
-                      key={version.id}
-                      className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/10 px-3 py-2"
-                    >
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium text-white">
-                          v{version.versionNumber} - {version.nome}
-                        </div>
-                        <div className="mt-0.5 truncate text-xs text-slate-500">
-                          {new Date(version.createdAt).toLocaleString('pt-BR')} - {version.source === 'rollback' ? 'rollback' : 'salvamento'}
+                  {[currentVersionSnapshot, ...versions.slice(0, 8)].map((version, index, list) => {
+                    const isCurrent = version.id === 'current'
+                    const compareVersion = list[index + 1] ?? null
+                    const changeNote = buildVersionChangeNote(version, compareVersion)
+
+                    return (
+                      <div
+                        key={version.id}
+                        className={cn(
+                          "rounded-xl border px-3 py-3",
+                          isCurrent ? "border-emerald-400/20 bg-emerald-500/5" : "border-white/10 bg-black/10",
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="truncate text-sm font-medium text-white">
+                                {isCurrent ? version.versionNumber : `v${version.versionNumber}`} - {version.nome}
+                              </div>
+                              <span
+                                className={cn(
+                                  "rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]",
+                                  isCurrent
+                                    ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                                    : "border-white/10 bg-white/[0.04] text-slate-300",
+                                )}
+                              >
+                                {isCurrent ? "versao atual" : version.source === 'rollback' ? 'rollback' : 'salvamento'}
+                              </span>
+                              {!isCurrent && version.ativo === true ? (
+                                <span className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100">
+                                  ativa na epoca
+                                </span>
+                              ) : null}
+                            </div>
+                            <div className="mt-1 text-xs text-slate-500">
+                              {isCurrent ? 'referencia atual para comparacao' : new Date(version.createdAt).toLocaleString('pt-BR')}
+                            </div>
+                            <div className="mt-2 text-xs leading-5 text-slate-400">
+                              {changeNote}
+                            </div>
+                          </div>
+
+                          {!isCurrent ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              disabled={Boolean(restoringId)}
+                              onClick={() => setRestoreConfirmId(version.id)}
+                              className="h-8 shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs text-sky-100"
+                            >
+                              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
+                              {restoringId === version.id ? 'Restaurando...' : 'Rollback'}
+                            </Button>
+                          ) : null}
                         </div>
                       </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        disabled={Boolean(restoringId)}
-                        onClick={() => setRestoreConfirmId(version.id)}
-                        className="h-8 shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs text-sky-100"
-                      >
-                        <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-                        {restoringId === version.id ? 'Restaurando...' : 'Rollback'}
-                      </Button>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-black/10 px-4 py-3 text-sm text-slate-500">
@@ -1481,6 +1689,20 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
           ) : null}
           {step === 1 ? (
             <form id="mercado-livre-resolve-form" className="grid gap-4" onSubmit={handleResolveStore}>
+              <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
+                <p className="font-semibold">Pegue os dados direto no Mercado Livre</p>
+                <p className="mt-1 text-amber-50/80">
+                  Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
+                </p>
+                <a
+                  href="https://developers.mercadolivre.com.br/devcenter"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
+                >
+                  Abrir painel do Mercado Livre
+                </a>
+              </div>
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Produto cadastrado na loja
@@ -1504,12 +1726,22 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
             <>
             <form id="mercado-livre-save-form" onSubmit={(event) => event.preventDefault()} />
             <div className="grid gap-4">
+              <div className="flex justify-start">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setStep(1)}
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200"
+                >
+                  Voltar e trocar link do produto
+                </Button>
+              </div>
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
                 {seedId ? `Identificador sugerido: ${seedId}` : 'Resolucao automatica indisponivel. Preencha manualmente.'}
               </div>
               <div className="grid gap-3">
                 <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da conexao</span>
+                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da loja</span>
                   <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
                 </label>
                 <label className="block">
@@ -1549,6 +1781,14 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
             <p className="mt-2 text-sm leading-6 text-slate-400">
               Etapa 2. Conectar a loja: depois de salvar, clique em conectar para autorizar a conta do Mercado Livre e finalizar a integracao.
             </p>
+            <a
+              href="https://developers.mercadolivre.com.br/devcenter"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm font-medium text-sky-100 transition hover:bg-sky-500/20"
+            >
+              Abrir painel do Mercado Livre
+            </a>
           </div>
 
           <div className="grid gap-4">

@@ -5,6 +5,85 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 const channelFields =
   "id, projeto_id, agente_id, numero, session_data, status, created_at, updated_at"
 
+function isPlainObject(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value))
+}
+
+function pickBooleanCandidate(...values) {
+  for (const value of values) {
+    if (typeof value === "boolean") {
+      return value
+    }
+  }
+
+  return null
+}
+
+export function resolveSavedContactFlags(sessionData) {
+  if (!isPlainObject(sessionData)) {
+    return null
+  }
+
+  const savedContactFlags = isPlainObject(sessionData.savedContactFlags) ? sessionData.savedContactFlags : null
+  const rawContact = isPlainObject(sessionData.rawContact) ? sessionData.rawContact : null
+  const isSavedContact = pickBooleanCandidate(
+    sessionData.isSavedContact,
+    savedContactFlags?.isSavedContact,
+    rawContact?.isSavedContact
+  )
+  const isMyContact = pickBooleanCandidate(
+    sessionData.isMyContact,
+    savedContactFlags?.isMyContact,
+    rawContact?.isMyContact
+  )
+  const isSaved = pickBooleanCandidate(
+    sessionData.isSaved,
+    savedContactFlags?.isSaved,
+    rawContact?.isSaved
+  )
+
+  if (isSavedContact === null && isMyContact === null && isSaved === null) {
+    return null
+  }
+
+  return {
+    ...(isSavedContact !== null ? { isSavedContact } : {}),
+    ...(isMyContact !== null ? { isMyContact } : {}),
+    ...(isSaved !== null ? { isSaved } : {}),
+  }
+}
+
+function normalizeSessionPatch(patch) {
+  const safePatch = isPlainObject(patch) ? { ...patch } : {}
+  const rawContact = isPlainObject(safePatch.rawContact) ? { ...safePatch.rawContact } : null
+  const nestedFlags = resolveSavedContactFlags({
+    ...safePatch,
+    ...(rawContact ? { rawContact } : {}),
+  })
+
+  if (!nestedFlags) {
+    return safePatch
+  }
+
+  const nextPatch = {
+    ...safePatch,
+    savedContactFlags: {
+      ...(isPlainObject(safePatch.savedContactFlags) ? safePatch.savedContactFlags : {}),
+      ...nestedFlags,
+    },
+    ...nestedFlags,
+  }
+
+  if (rawContact) {
+    nextPatch.rawContact = {
+      ...rawContact,
+      ...nestedFlags,
+    }
+  }
+
+  return nextPatch
+}
+
 function userCanAccessProject(user, projectId) {
   if (user?.role === "admin") {
     return true
@@ -15,6 +94,7 @@ function userCanAccessProject(user, projectId) {
 
 function mapChannel(row) {
   const session = row.session_data && typeof row.session_data === "object" ? row.session_data : {}
+  const savedContactFlags = resolveSavedContactFlags(session)
 
   return {
     id: row.id,
@@ -30,6 +110,7 @@ function mapChannel(row) {
     lastInboundAt: session.lastInboundAt || null,
     lastOutboundAt: session.lastOutboundAt || null,
     onlyReplyToUnsavedContacts: session.responseOnlyUnsavedContacts === true,
+    savedContactFlags,
     sessionData: session,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -290,12 +371,24 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
     }
 
     const session = current.session_data && typeof current.session_data === "object" ? current.session_data : {}
+    const normalizedPatch = normalizeSessionPatch(patch)
     const nextSession = {
       ...session,
-      ...patch,
+      ...normalizedPatch,
+      ...(isPlainObject(session.savedContactFlags) || isPlainObject(normalizedPatch.savedContactFlags)
+        ? {
+            savedContactFlags: {
+              ...(isPlainObject(session.savedContactFlags) ? session.savedContactFlags : {}),
+              ...(isPlainObject(normalizedPatch.savedContactFlags) ? normalizedPatch.savedContactFlags : {}),
+            },
+          }
+        : {}),
       updatedAt: new Date().toISOString(),
     }
-    const nextStatus = patch.connectionStatus === "offline" || patch.connectionStatus === "desconectado" ? "inativo" : "ativo"
+    const nextStatus =
+      normalizedPatch.connectionStatus === "offline" || normalizedPatch.connectionStatus === "desconectado"
+        ? "inativo"
+        : "ativo"
 
     const { data, error } = await supabase
       .from("canais_whatsapp")

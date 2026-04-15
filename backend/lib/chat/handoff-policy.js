@@ -14,11 +14,37 @@ export function appendOptionalHumanOffer(reply, channelKind = "web") {
   return base && !/atendente humano/i.test(base) ? `${base} ${offer}` : base || offer
 }
 
+function looksOutOfDomainReply(aiReply) {
+  const normalized = String(aiReply || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
+  return [
+    /\bnao consigo te ajudar com isso\b/,
+    /\bnao tenho como te ajudar\b/,
+    /\bnao tenho essa informacao\b/,
+    /\bnao consigo confirmar\b/,
+    /\bnao consigo responder\b/,
+    /\bisso foge do escopo\b/,
+    /\bfora do escopo\b/,
+    /\bnao encontrei essa informacao\b/,
+    /\bpreciso que um atendente\b/,
+  ].some((pattern) => pattern.test(normalized))
+}
+
 export async function classifyHumanEscalationNeed(input) {
   if (isHumanHandoffIntent(input?.message)) {
     return {
       decision: "request_handoff",
       reason: "Cliente pediu atendimento humano.",
+    }
+  }
+
+  if (looksOutOfDomainReply(input?.aiReply)) {
+    return {
+      decision: "offer_handoff",
+      reason: "Resposta indica que a pergunta fugiu do dominio atual do agente.",
     }
   }
 

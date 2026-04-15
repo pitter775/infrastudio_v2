@@ -15,6 +15,10 @@ const STOP_WORDS = new Set([
   "and", "for", "with", "your", "you", "our", "are", "this", "that", "from",
 ])
 
+function isPlainObject(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value))
+}
+
 function stripTags(value) {
   return String(value || "")
     .replace(/<script[\s\S]*?<\/script>/gi, " ")
@@ -109,6 +113,127 @@ function uniqueValues(values, limit = 8) {
   return [...new Set(values.map((item) => String(item || "").trim()).filter(Boolean))].slice(0, limit)
 }
 
+function cleanInlineText(value) {
+  return String(value || "").replace(/\s+/g, " ").trim()
+}
+
+function extractJsonLdObjects(html) {
+  const blocks = [...html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)]
+  const items = []
+
+  for (const block of blocks) {
+    const raw = cleanInlineText(block?.[1] || "")
+    if (!raw) {
+      continue
+    }
+
+    try {
+      items.push(JSON.parse(raw))
+    } catch {}
+  }
+
+  return items
+}
+
+function flattenJsonLdNodes(input) {
+  if (!input) {
+    return []
+  }
+
+  if (Array.isArray(input)) {
+    return input.flatMap((item) => flattenJsonLdNodes(item))
+  }
+
+  if (!isPlainObject(input)) {
+    return []
+  }
+
+  const nestedGraph = Array.isArray(input["@graph"]) ? input["@graph"] : []
+  return [input, ...nestedGraph.flatMap((item) => flattenJsonLdNodes(item))]
+}
+
+function extractStructuredData(html) {
+  const nodes = extractJsonLdObjects(html).flatMap((item) => flattenJsonLdNodes(item))
+  const organizations = []
+  const people = []
+  const contacts = []
+  const institutionals = []
+
+  for (const node of nodes) {
+    const typeValue = Array.isArray(node["@type"]) ? node["@type"].join(" ") : String(node["@type"] || "")
+    const normalizedType = typeValue.toLowerCase()
+    const name = cleanInlineText(node.name)
+    const description = cleanInlineText(node.description)
+
+    if (/(organization|localbusiness|corporation|store|professionalservice)/i.test(normalizedType)) {
+      organizations.push({
+        name,
+        description,
+        foundingDate: cleanInlineText(node.foundingDate),
+        slogan: cleanInlineText(node.slogan),
+      })
+
+      const contactPoint = Array.isArray(node.contactPoint) ? node.contactPoint : node.contactPoint ? [node.contactPoint] : []
+      for (const item of contactPoint) {
+        if (!isPlainObject(item)) {
+          continue
+        }
+
+        contacts.push(
+          cleanInlineText(
+            [
+              cleanInlineText(item.contactType),
+              cleanInlineText(item.telephone),
+              cleanInlineText(item.email),
+            ]
+              .filter(Boolean)
+              .join(" | "),
+          ),
+        )
+      }
+
+      const address = isPlainObject(node.address)
+        ? cleanInlineText(
+            [
+              node.address.streetAddress,
+              node.address.addressLocality,
+              node.address.addressRegion,
+              node.address.postalCode,
+            ]
+              .map((item) => cleanInlineText(item))
+              .filter(Boolean)
+              .join(" - "),
+          )
+        : ""
+      if (address) {
+        institutionals.push(`endereco: ${address}`)
+      }
+
+      const sameAs = Array.isArray(node.sameAs) ? uniqueValues(node.sameAs, 8) : []
+      if (sameAs.length) {
+        institutionals.push(`redes: ${sameAs.join(", ")}`)
+      }
+    }
+
+    if (/(person|employee|founder)/i.test(normalizedType)) {
+      people.push(
+        cleanInlineText(
+          [name, cleanInlineText(node.jobTitle), description]
+            .filter(Boolean)
+            .join(" - "),
+        ),
+      )
+    }
+  }
+
+  return {
+    organizations: uniqueValues(organizations.map((item) => [item.name, item.description].filter(Boolean).join(" - ")), 6),
+    people: uniqueValues(people, 8),
+    contacts: uniqueValues(contacts, 8),
+    institutionals: uniqueValues(institutionals, 8),
+  }
+}
+
 function extractContactInfo(html) {
   const text = stripTags(html)
   const emails = uniqueValues(text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [], 6)
@@ -124,6 +249,71 @@ function extractContactInfo(html) {
   )
 
   return { emails, phones, whatsappLinks }
+}
+
+function extractSocialLinks(html, baseUrl) {
+  const socialPatterns = [
+    { kind: "instagram", test: /instagram\.com/i },
+    { kind: "linkedin", test: /linkedin\.com/i },
+    { kind: "facebook", test: /facebook\.com/i },
+    { kind: "youtube", test: /youtube\.com|youtu\.be/i },
+    { kind: "tiktok", test: /tiktok\.com/i },
+    { kind: "x", test: /twitter\.com|x\.com/i },
+  ]
+  const links = []
+
+  for (const match of html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const href = String(match[1] || "").trim()
+    const label = stripTags(match[2])
+    let url = ""
+
+    try {
+      url = new URL(href, baseUrl).toString()
+    } catch {
+      continue
+    }
+
+    const found = socialPatterns.find((pattern) => pattern.test.test(url))
+    if (found) {
+      links.push(`${found.kind}: ${label || url} (${url})`)
+    }
+  }
+
+  return uniqueValues(links, 10)
+}
+
+function extractInstitutionalData(html) {
+  const text = stripTags(html)
+  const cnpjs = uniqueValues(text.match(/\b\d{2}\.?\d{3}\.?\d{3}\/?\d{4}-?\d{2}\b/g) || [], 4)
+  const addresses = uniqueValues(
+    text.match(
+      /\b(?:rua|avenida|av\.|travessa|alameda|rodovia|estrada|pra[çc]a)\s+[a-z0-9à-ÿ.,\- ]{12,120}/gi,
+    ) || [],
+    4,
+  )
+  const policies = uniqueValues(
+    [...html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
+      .map((match) => `${stripTags(match[2])} ${match[1]}`)
+      .filter((item) => /privacidade|politica|termos|troca|devolu[cç][aã]o|garantia/i.test(item)),
+    6,
+  )
+
+  return {
+    cnpjs,
+    addresses: addresses.map((item) => cleanInlineText(item)),
+    policies: policies.map((item) => cleanInlineText(item)),
+  }
+}
+
+function extractPeopleInfo(html) {
+  const candidates = uniqueValues(
+    [...html.matchAll(/<(h[1-6]|strong|b)[^>]*>([\s\S]*?)<\/\1>/gi)]
+      .map((match) => stripTags(match[2]))
+      .filter((item) => /^[A-ZÀ-Ý][A-Za-zÀ-ÿ' -]{4,60}$/.test(item)),
+    8,
+  )
+
+  return candidates
 }
 
 function extractUsefulLinks(html, baseUrl) {
@@ -175,7 +365,20 @@ function extractKeywords(text) {
     .map(([word]) => word)
 }
 
-function buildSiteDigest({ url, title, description, headings, paragraphs, keywords, contacts, usefulLinks }) {
+function buildSiteDigest({
+  url,
+  title,
+  description,
+  headings,
+  paragraphs,
+  keywords,
+  contacts,
+  usefulLinks,
+  socialLinks,
+  institutionalData,
+  people,
+  structuredData,
+}) {
   return [
     `URL: ${url}`,
     title ? `Titulo: ${title}` : null,
@@ -184,12 +387,40 @@ function buildSiteDigest({ url, title, description, headings, paragraphs, keywor
     contacts.emails.length ? `Emails encontrados: ${contacts.emails.join(", ")}` : null,
     contacts.phones.length ? `Telefones encontrados: ${contacts.phones.join(", ")}` : null,
     contacts.whatsappLinks.length ? `Links de WhatsApp: ${contacts.whatsappLinks.join(", ")}` : null,
+    institutionalData.cnpjs.length ? `CNPJs encontrados: ${institutionalData.cnpjs.join(", ")}` : null,
+    institutionalData.addresses.length ? `Enderecos encontrados: ${institutionalData.addresses.join(", ")}` : null,
+    institutionalData.policies.length ? `Paginas institucionais: ${institutionalData.policies.join(", ")}` : null,
+    people.length ? `Pessoas/equipe mencionadas:\n- ${people.join("\n- ")}` : null,
+    structuredData.organizations.length ? `Organizacoes estruturadas:\n- ${structuredData.organizations.join("\n- ")}` : null,
+    structuredData.contacts.length ? `Contatos estruturados:\n- ${structuredData.contacts.join("\n- ")}` : null,
+    structuredData.institutionals.length ? `Dados institucionais estruturados:\n- ${structuredData.institutionals.join("\n- ")}` : null,
+    structuredData.people.length ? `Pessoas estruturadas:\n- ${structuredData.people.join("\n- ")}` : null,
+    socialLinks.length ? `Redes sociais:\n- ${socialLinks.join("\n- ")}` : null,
     usefulLinks.length ? `Links institucionais e sociais:\n- ${usefulLinks.join("\n- ")}` : null,
     headings.length ? `Headings:\n- ${headings.join("\n- ")}` : null,
     paragraphs.length ? `Paragrafos relevantes:\n- ${paragraphs.join("\n- ")}` : null,
   ]
     .filter(Boolean)
     .join("\n\n")
+}
+
+function parseJsonModelOutput(value) {
+  const raw = String(value || "").trim()
+  if (!raw) {
+    return null
+  }
+
+  const normalized = raw
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim()
+
+  try {
+    return JSON.parse(normalized)
+  } catch {
+    return null
+  }
 }
 
 async function generateSummaryWithOpenAI(siteDigest) {
@@ -214,7 +445,7 @@ async function generateSummaryWithOpenAI(siteDigest) {
             {
               type: "input_text",
               text:
-                "Voce recebe informacoes extraidas do site de um cliente. Gere um texto em portugues para somar ao prompt de um agente comercial. Responda em formato util para prompt, com secoes curtas: empresa, produtos/servicos, publico, diferenciais, contato, pessoas/equipe se houver, informacoes institucionais, tom recomendado, palavras importantes, limites/cuidados e perguntas boas para qualificar. Nao invente fatos. Se algo estiver incerto, diga que deve ser confirmado.",
+                "Voce recebe informacoes extraidas do site de um cliente. Responda apenas JSON valido com as chaves summary e promptSuggestion. summary deve ser em portugues, enxuto, com secoes curtas: empresa, produtos/servicos, publico, diferenciais, contato, pessoas/equipe, dados institucionais, tom recomendado, palavras importantes, limites/cuidados e perguntas de qualificacao. promptSuggestion deve ser um prompt-base sugerido para um agente comercial desse negocio, sem markdown, direto para colar no editor. Nao invente fatos. Se algo estiver incerto, diga que precisa de confirmacao.",
             },
           ],
         },
@@ -244,6 +475,17 @@ async function generateSummaryWithOpenAI(siteDigest) {
       ?.join("\n")
       ?.trim() ||
     ""
+  const parsed = parseJsonModelOutput(summary)
+
+  if (parsed?.summary && parsed?.promptSuggestion) {
+    return {
+      summary: String(parsed.summary).trim(),
+      promptSuggestion: String(parsed.promptSuggestion).trim(),
+      inputTokens: payload.usage?.input_tokens ?? 0,
+      outputTokens: payload.usage?.output_tokens ?? 0,
+      model: payload.model || SITE_SUMMARY_MODEL,
+    }
+  }
 
   if (!summary) {
     throw new Error("OpenAI nao retornou texto util para o resumo do site.")
@@ -251,6 +493,7 @@ async function generateSummaryWithOpenAI(siteDigest) {
 
   return {
     summary,
+    promptSuggestion: "",
     inputTokens: payload.usage?.input_tokens ?? 0,
     outputTokens: payload.usage?.output_tokens ?? 0,
     model: payload.model || SITE_SUMMARY_MODEL,
@@ -351,6 +594,10 @@ export async function POST(request, context) {
     const keywords = extractKeywords(`${title} ${description} ${headings.join(" ")} ${paragraphs.join(" ")}`)
     const contacts = extractContactInfo(html)
     const usefulLinks = extractUsefulLinks(html, parsedUrl)
+    const socialLinks = extractSocialLinks(html, parsedUrl)
+    const institutionalData = extractInstitutionalData(html)
+    const people = extractPeopleInfo(html)
+    const structuredData = extractStructuredData(html)
     const siteDigest = buildSiteDigest({
       url: parsedUrl.toString(),
       title,
@@ -360,6 +607,10 @@ export async function POST(request, context) {
       keywords,
       contacts,
       usefulLinks,
+      socialLinks,
+      institutionalData,
+      people,
+      structuredData,
     })
 
     const aiResult = await generateSummaryWithOpenAI(siteDigest)
@@ -380,13 +631,18 @@ export async function POST(request, context) {
     return NextResponse.json(
       {
         summary: aiResult.summary,
+        promptSuggestion: aiResult.promptSuggestion,
         source: {
           url: parsedUrl.toString(),
           title,
           logoUrl,
           description,
           contacts,
+          socialLinks,
           usefulLinks,
+          institutionalData,
+          people,
+          structuredData,
         },
         usage: {
           inputTokens: aiResult.inputTokens,

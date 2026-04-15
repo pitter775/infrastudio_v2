@@ -17,6 +17,14 @@ function formatCurrency(value) {
   }).format(Number(value || 0))
 }
 
+function formatPlanCurrency(value) {
+  return new Intl.NumberFormat("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+    minimumFractionDigits: 2,
+  }).format(Number(value || 0))
+}
+
 function formatInteger(value) {
   return new Intl.NumberFormat("pt-BR").format(Number(value || 0))
 }
@@ -609,7 +617,14 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
             <div key={plan.id} className="rounded-xl border border-white/10 bg-slate-950/40 p-4">
               <div className="flex items-center justify-between gap-3">
                 <div className="font-semibold text-white">{plan.name}</div>
-                <span className="text-xs text-slate-400">preco do plano: {formatCurrency(plan.monthlyPrice)}</span>
+                <div className="flex items-center gap-2">
+                  {plan.isFree ? (
+                    <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+                      Free
+                    </span>
+                  ) : null}
+                  <span className="text-xs text-slate-400">preco do plano: {formatPlanCurrency(plan.monthlyPrice)}</span>
+                </div>
               </div>
               <p className="mt-2 text-sm text-slate-400">{plan.description || "Sem descricao."}</p>
               <div className="mt-3 space-y-1 text-xs text-slate-500">

@@ -405,7 +405,7 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
         </Sheet>
 
       {deleteTarget ? (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
           <div className="w-full max-w-[520px] rounded-lg border border-rose-400/20 bg-[#080e1d] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.58)]">
             <div className="mb-5">
               <div className="mb-3 inline-flex rounded-full border border-rose-400/20 bg-rose-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-rose-200">

@@ -89,6 +89,4 @@ Saida comum:
 
 ## Pendencias abertas do runtime
 
-- worker externo `whatsapp-web.js` ainda precisa mandar sempre a flag explicita de contato salvo; o backend v2 ja esta pronto para consumir
-- classificador de handoff ainda nao oferece humano de forma confiavel quando a pergunta foge do dominio do agente; hoje isso esta fechado para pedido explicito
 - handoff/alerta de WhatsApp precisa de validacao ponta a ponta com canal real conectado e atendente cadastrado

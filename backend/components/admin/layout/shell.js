@@ -529,7 +529,7 @@ export function AdminShell({ user, children }) {
                     </Button>
 
                     {notificationsOpen ? (
-                      <div className="absolute right-0 top-[calc(100%+0.5rem)] z-50 w-[360px] overflow-hidden rounded-2xl border border-white/10 bg-[#0d1424] shadow-2xl">
+                      <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[140] w-[360px] overflow-hidden rounded-2xl border border-white/10 bg-[#0d1424] shadow-2xl">
                         <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
                           <div>
                             <div className="text-sm font-semibold text-white">Avisos</div>

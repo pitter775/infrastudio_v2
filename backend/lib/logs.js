@@ -302,3 +302,62 @@ export async function deleteAdminLogs(filters = {}, deps = {}) {
     return null
   }
 }
+
+export async function updateAdminLogPayload(logId, updater, deps = {}) {
+  try {
+    if (!logId) {
+      return null
+    }
+
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const { data: current, error: currentError } = await supabase
+      .from("logs")
+      .select("id, projeto_id, tipo, origem, descricao, payload, created_at")
+      .eq("id", logId)
+      .maybeSingle()
+
+    if (currentError || !current) {
+      if (currentError) {
+        console.error("[logs] failed to load log for update", currentError)
+      }
+      return null
+    }
+
+    const currentPayload =
+      current.payload && typeof current.payload === "object" && !Array.isArray(current.payload) ? current.payload : {}
+    const nextPayload =
+      typeof updater === "function" ? updater(currentPayload) : updater && typeof updater === "object" ? updater : null
+
+    if (!nextPayload || typeof nextPayload !== "object" || Array.isArray(nextPayload)) {
+      return null
+    }
+
+    const normalizedPayload = {
+      ...nextPayload,
+      level: normalizeLogLevel(nextPayload.level ?? currentPayload.level),
+    }
+
+    const { data, error } = await supabase
+      .from("logs")
+      .update({
+        payload: normalizedPayload,
+        descricao: truncateText(current.descricao || normalizedPayload.error || normalizedPayload.event || "Evento operacional"),
+      })
+      .eq("id", logId)
+      .select("id, projeto_id, tipo, origem, descricao, payload, created_at")
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[logs] failed to update log payload", error)
+      }
+      return null
+    }
+
+    const projectMap = await loadProjectsMap(supabase, [data.projeto_id])
+    return mapLogRow(data, projectMap)
+  } catch (error) {
+    console.error("[logs] failed to update log payload", error)
+    return null
+  }
+}

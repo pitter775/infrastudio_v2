@@ -2,7 +2,7 @@ import { getAgenteById } from "@/lib/agentes"
 import { buildAiObservability } from "@/lib/admin-conversations"
 import { processChatRequest } from "@/lib/chat/service"
 import { getChatWidgetBySlug } from "@/lib/chat-widgets"
-import { createLogEntry } from "@/lib/logs"
+import { createLogEntry, listAdminLogs } from "@/lib/logs"
 
 export const LABORATORY_CHAT_SCENARIOS = {
   infrastudioHomeBaseline: {
@@ -100,6 +100,9 @@ export async function recordLaboratoryChatScenarioRun(scenario, execution) {
   const reply = String(execution.result?.reply || "").trim()
   const level = execution.result?.diagnostics?.agenteId === scenario.agentId ? "info" : "warn"
   const observability = buildAiObservability(execution.result?.diagnostics ?? {}, {})
+  const previousRuns = await listLaboratoryScenarioRuns(scenario.id, execution.testCase.id, 2)
+  const previousRun = previousRuns.find((item) => item.caseId === execution.testCase.id)
+  const diff = buildScenarioReplyDiff(previousRun?.outputReply ?? "", reply)
 
   return createLogEntry({
     projectId: scenario.projectId,
@@ -125,8 +128,62 @@ export async function recordLaboratoryChatScenarioRun(scenario, execution) {
       chatId: execution.result?.chatId ?? null,
       diagnostics: execution.result?.diagnostics ?? null,
       observability,
+      baselineReply: previousRun?.outputReply ?? null,
+      baselineLogId: previousRun?.id ?? null,
+      diff,
       matchedExpectedAgent: execution.result?.diagnostics?.agenteId === scenario.agentId,
       matchedExpectedProject: execution.result?.diagnostics?.projetoId === scenario.projectId,
     },
   })
+}
+
+function tokenizeReply(value) {
+  return String(value || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function buildScenarioReplyDiff(previousReply, currentReply) {
+  const previousTokens = new Set(tokenizeReply(previousReply))
+  const currentTokens = new Set(tokenizeReply(currentReply))
+  const added = [...currentTokens].filter((item) => !previousTokens.has(item)).slice(0, 12)
+  const removed = [...previousTokens].filter((item) => !currentTokens.has(item)).slice(0, 12)
+  const overlap = [...currentTokens].filter((item) => previousTokens.has(item)).length
+  const similarity =
+    currentTokens.size || previousTokens.size
+      ? Number((overlap / Math.max(currentTokens.size, previousTokens.size)).toFixed(2))
+      : 1
+
+  return {
+    added,
+    removed,
+    similarity,
+    changed: added.length > 0 || removed.length > 0,
+  }
+}
+
+export async function listLaboratoryScenarioRuns(scenarioId, caseId = "", limit = 50) {
+  const logs = await listAdminLogs({
+    type: "lab_chat_scenario",
+    origin: "laboratorio",
+    search: scenarioId,
+    limit,
+  })
+
+  return logs
+    .filter((entry) => entry.payload?.scenarioId === scenarioId && (!caseId || entry.payload?.caseId === caseId))
+    .map((entry) => ({
+      id: entry.id,
+      createdAt: entry.createdAt,
+      caseId: entry.payload?.caseId ?? "",
+      outputReply: String(entry.payload?.outputReply || ""),
+      diff: entry.payload?.diff ?? null,
+      humanScore: entry.payload?.humanScore ?? null,
+      humanNotes: entry.payload?.humanNotes ?? null,
+    }))
 }

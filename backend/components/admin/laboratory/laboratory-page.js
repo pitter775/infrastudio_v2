@@ -89,6 +89,40 @@ function getLabObservability(entry) {
   }
 }
 
+function getScenarioEntries(logs) {
+  return (Array.isArray(logs) ? logs : []).filter((entry) => entry.type === "lab_chat_scenario")
+}
+
+function getScenarioSummary(logs) {
+  const entries = getScenarioEntries(logs)
+  const grouped = new Map()
+
+  for (const entry of entries) {
+    const scenarioId = entry.payload?.scenarioId
+    const caseId = entry.payload?.caseId
+    if (!scenarioId || !caseId) {
+      continue
+    }
+
+    const key = `${scenarioId}:${caseId}`
+    if (!grouped.has(key)) {
+      grouped.set(key, entry)
+    }
+  }
+
+  return [...grouped.values()]
+}
+
+function formatDiff(diff) {
+  if (!diff?.changed) {
+    return "sem mudanca relevante"
+  }
+
+  const added = Array.isArray(diff.added) && diff.added.length ? `+ ${diff.added.slice(0, 4).join(", ")}` : ""
+  const removed = Array.isArray(diff.removed) && diff.removed.length ? `- ${diff.removed.slice(0, 4).join(", ")}` : ""
+  return [added, removed].filter(Boolean).join(" | ")
+}
+
 function AiTraceDetails({ entry }) {
   const trace = getLabObservability(entry)
   const hasTrace = trace.provider || trace.domainStage || trace.heuristicStage || trace.routeStage
@@ -145,6 +179,8 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
   const [feedback, setFeedback] = useState(null)
   const [sort, setSort] = useState({ key: "createdAt", direction: "desc" })
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+  const [runningScenarioId, setRunningScenarioId] = useState("")
+  const [scoringLogId, setScoringLogId] = useState("")
   const isAllowed = currentUser?.role === "admin"
 
   const availableTypes = useMemo(
@@ -163,6 +199,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     }),
     [logs],
   )
+  const latestScenarioEntries = useMemo(() => getScenarioSummary(logs), [logs])
   const sortedLogs = useMemo(() => {
     return [...logs].sort((a, b) => {
       const aValue = getSortValue(a, sort.key)
@@ -206,6 +243,53 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
   async function handleSubmit(event) {
     event.preventDefault()
     await refreshLogs(filters)
+  }
+
+  async function runBaselineScenario() {
+    setRunningScenarioId("infrastudio-home-baseline")
+    setFeedback(null)
+
+    const response = await fetch("/api/admin/laboratorio", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scenarioId: "infrastudio-home-baseline" }),
+    })
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      setFeedback(data.error ?? "Nao foi possivel executar o baseline.")
+      setRunningScenarioId("")
+      return
+    }
+
+    await refreshLogs(filters)
+    setFeedback(`${data.runs?.length ?? 0} caso(s) do baseline executado(s).`)
+    setRunningScenarioId("")
+  }
+
+  async function setHumanScore(entry, humanScore) {
+    setScoringLogId(entry.id)
+    setFeedback(null)
+
+    const response = await fetch("/api/admin/laboratorio", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        logId: entry.id,
+        humanScore,
+        humanNotes: entry.payload?.humanNotes || "",
+      }),
+    })
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      setFeedback(data.error ?? "Nao foi possivel salvar o score humano.")
+      setScoringLogId("")
+      return
+    }
+
+    setLogs((current) => current.map((item) => (item.id === entry.id ? data.log : item)))
+    setScoringLogId("")
   }
 
   async function handleClearEvents() {
@@ -274,6 +358,86 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
             <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="mb-6 rounded-xl border border-white/5 bg-[#0b1120] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Baseline do laboratorio</div>
+            <div className="mt-2 text-lg font-semibold text-white">InfraStudio Home Baseline</div>
+            <div className="mt-1 text-sm text-slate-400">
+              Executa os cenarios da home e compara cada resposta com a rodada anterior.
+            </div>
+          </div>
+          <Button
+            type="button"
+            onClick={runBaselineScenario}
+            disabled={loading || runningScenarioId === "infrastudio-home-baseline"}
+            className="h-10 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 text-sm text-emerald-100"
+          >
+            {runningScenarioId === "infrastudio-home-baseline" ? (
+              <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <FlaskConical className="mr-1.5 h-4 w-4" />
+            )}
+            Rodar baseline
+          </Button>
+        </div>
+
+        {latestScenarioEntries.length ? (
+          <div className="mt-4 grid gap-3 xl:grid-cols-2">
+            {latestScenarioEntries.map((entry) => (
+              <div key={entry.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-white">{entry.payload?.caseId || entry.description}</div>
+                    <div className="mt-1 text-xs text-slate-500">{formatDateTime(entry.createdAt)}</div>
+                  </div>
+                  <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", levelClasses(entry.level))}>
+                    {entry.level}
+                  </span>
+                </div>
+
+                <div className="mt-3 space-y-1 text-xs text-slate-400">
+                  <div>diff: {formatDiff(entry.payload?.diff)}</div>
+                  <div>similaridade: {Number(entry.payload?.diff?.similarity ?? 0).toFixed(2)}</div>
+                  {entry.payload?.baselineReply ? <div>baseline anterior: carregado</div> : <div>baseline anterior: primeira rodada</div>}
+                </div>
+
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {[1, 2, 3, 4, 5].map((score) => {
+                    const active = Number(entry.payload?.humanScore ?? 0) === score
+
+                    return (
+                      <button
+                        key={score}
+                        type="button"
+                        disabled={scoringLogId === entry.id}
+                        onClick={() => setHumanScore(entry, score)}
+                        className={cn(
+                          "inline-flex h-8 min-w-8 items-center justify-center rounded-lg border px-2 text-xs font-semibold transition-colors",
+                          active
+                            ? "border-sky-400/20 bg-sky-500/10 text-sky-100"
+                            : "border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06]",
+                        )}
+                      >
+                        {score}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                <div className="mt-3 text-xs text-slate-500">
+                  score humano: {entry.payload?.humanScore ?? "pendente"}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="mt-4 rounded-xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
+            Ainda nao existem execucoes de baseline registradas.
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSubmit} className="mb-6 grid gap-4 rounded-xl border border-white/5 bg-[#0b1120] p-5 lg:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))]">
@@ -420,6 +584,9 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
                         {entry.payload?.agente ? <div>agente: {entry.payload.agente}</div> : null}
                         {entry.payload?.chatId ? <div>chatId: {entry.payload.chatId}</div> : null}
                         {entry.payload?.caseId ? <div>cenario: {entry.payload.caseId}</div> : null}
+                        {entry.payload?.diff ? <div>diff: {formatDiff(entry.payload.diff)}</div> : null}
+                        {entry.payload?.diff?.similarity != null ? <div>similaridade: {Number(entry.payload.diff.similarity).toFixed(2)}</div> : null}
+                        {entry.payload?.humanScore != null ? <div>score humano: {entry.payload.humanScore}/5</div> : null}
                         {entry.payload?.matchedExpectedAgent != null ? (
                           <div>agente esperado: {entry.payload.matchedExpectedAgent ? "ok" : "falhou"}</div>
                         ) : null}

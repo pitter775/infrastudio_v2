@@ -1306,12 +1306,22 @@ export function buildFinalChatResult(input) {
 }
 
 function attachRuntimeDiagnostics(result, runtimeState, extra = {}) {
+  const runtimeApis = Array.isArray(extra.runtimeApis) ? extra.runtimeApis : []
+  const handoffDecision = extra.handoffDecision ?? null
+
   return {
     ...result,
     diagnostics: {
+      stage: runtimeState?.stage ?? null,
+      failClosed:
+        runtimeState?.stage === "billing_blocked" ||
+        runtimeState?.stage === "handoff_paused" ||
+        runtimeState?.stage === "isolated",
       projetoId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
       agenteId: runtimeState?.resolved?.agente?.id ?? runtimeState?.session?.chat?.agenteId ?? null,
       agenteNome: runtimeState?.resolved?.agente?.nome ?? null,
+      widgetId: runtimeState?.resolved?.widget?.id ?? null,
+      widgetName: runtimeState?.resolved?.widget?.nome ?? null,
       widgetSlug: runtimeState?.resolved?.widget?.slug ?? null,
       channelKind: runtimeState?.prelude?.channelKind ?? null,
       provider: extra.aiResult?.metadata?.provider ?? null,
@@ -1321,10 +1331,17 @@ function attachRuntimeDiagnostics(result, runtimeState, extra = {}) {
       heuristicStage: extra.aiResult?.metadata?.heuristicStage ?? null,
       inputTokens: extra.aiResult?.usage?.inputTokens ?? null,
       outputTokens: extra.aiResult?.usage?.outputTokens ?? null,
-      runtimeApiCount: Array.isArray(extra.runtimeApis) ? extra.runtimeApis.length : null,
-      runtimeApiCacheHits: Array.isArray(extra.runtimeApis)
-        ? extra.runtimeApis.filter((api) => api?.cache?.hit === true).length
-        : null,
+      runtimeApiCount: runtimeApis.length,
+      runtimeApiCacheHits: runtimeApis.filter((api) => api?.cache?.hit === true).length,
+      runtimeApis: runtimeApis.map((api) => ({
+        id: api?.id ?? null,
+        nome: api?.nome ?? api?.name ?? null,
+        metodo: api?.metodo ?? api?.method ?? null,
+        cacheHit: api?.cache?.hit === true,
+      })),
+      handoffDecision: typeof handoffDecision?.decision === "string" ? handoffDecision.decision : null,
+      handoffReason: typeof handoffDecision?.reason === "string" ? handoffDecision.reason : null,
+      handoffRequested: extra.handoffRequested === true,
     },
   }
 }
@@ -1819,7 +1836,12 @@ export async function processChatRequest(body, options = {}) {
       },
     })
 
-    return attachRuntimeDiagnostics(finalResult, runtimeState, { aiResult: escalationState.aiResult, runtimeApis })
+    return attachRuntimeDiagnostics(finalResult, runtimeState, {
+      aiResult: escalationState.aiResult,
+      runtimeApis,
+      handoffDecision: escalationState?.handoffDecision ?? null,
+      handoffRequested: escalationState?.handoffRequested === true,
+    })
   } catch (error) {
     const message = error instanceof Error ? error.message : "Falha interna no runtime do chat."
     const lowered = message.toLowerCase()
