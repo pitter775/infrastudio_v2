@@ -31,7 +31,7 @@ function SheetDescription(props) {
 function SheetOverlay({ className, ...props }) {
   return (
     <DialogPrimitive.Overlay
-      className={cn('fixed inset-0 z-[80] bg-slate-950/60 backdrop-blur-sm', className)}
+      className={cn('infra-overlay-motion fixed inset-0 z-[80] bg-slate-950/60 backdrop-blur-sm', className)}
       {...props}
     />
   )
@@ -50,15 +50,15 @@ function SheetContent({
 }) {
   const sideClassName =
     side === 'left'
-      ? 'inset-y-0 left-0 h-full w-[280px] border-r data-[state=open]:animate-none data-[state=closed]:animate-none data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full'
-      : 'inset-y-0 right-0 h-full w-[280px] border-l data-[state=open]:animate-none data-[state=closed]:animate-none data-[state=open]:translate-x-0 data-[state=closed]:translate-x-full'
+      ? 'infra-sheet-left inset-y-0 left-0 h-full w-[280px] border-r'
+      : 'infra-sheet-right inset-y-0 right-0 h-full w-[280px] border-l'
 
   return (
     <SheetPortal>
       {showOverlay ? <SheetOverlay className={overlayClassName} /> : null}
       <DialogPrimitive.Content
         className={cn(
-          'fixed z-[81] bg-[#080e1d] p-0 text-slate-400 outline-none border-white/5 will-change-transform transition-transform duration-300 ease-out',
+          'infra-diagonal-shadow fixed z-[81] bg-[#080e1d] p-0 text-slate-400 outline-none border-white/5 will-change-transform',
           sideClassName,
           className,
         )}

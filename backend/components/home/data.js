@@ -56,7 +56,7 @@ export const SERVICE_ITEMS = [
   },
   {
     icon: Zap,
-    title: 'Automacao de processos',
+    title: 'Automação de processos',
     description:
       'Elimine tarefas repetitivas integrando ferramentas e automatizando fluxos de trabalho complexos.',
     delay: 0.2,

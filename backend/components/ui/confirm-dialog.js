@@ -19,8 +19,8 @@ export function ConfirmDialog({
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[120] bg-slate-950/80" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[130] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-[#0b1120] p-0 text-white shadow-[0_18px_50px_rgba(2,6,23,0.55)] outline-none">
+        <Dialog.Overlay className="infra-overlay-motion fixed inset-0 z-[120] bg-slate-950/80" />
+        <Dialog.Content className="infra-dialog-motion infra-diagonal-shadow fixed left-1/2 top-1/2 z-[130] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-xl border border-white/10 bg-[#0b1120] p-0 text-white outline-none">
           <div className="p-5">
             <Dialog.Title className="text-base font-semibold text-white">{title}</Dialog.Title>
             {description ? (

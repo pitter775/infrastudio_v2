@@ -302,8 +302,8 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[90] bg-slate-950/80" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#0f172a] text-white">
+        <Dialog.Overlay className="infra-overlay-motion fixed inset-0 z-[90] bg-slate-950/80" />
+        <Dialog.Content className="infra-dialog-motion infra-diagonal-shadow fixed left-1/2 top-1/2 z-[100] max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#0f172a] text-white">
           <Dialog.Close className="absolute right-4 top-4 z-10 rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-white">
             <X className="h-4 w-4" />
           </Dialog.Close>

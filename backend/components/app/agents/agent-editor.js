@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { cn } from "@/lib/utils"
 
-export function AgentEditor({ project }) {
+export function AgentEditor({ project, onAgentSummaryChange }) {
   const router = useRouter()
   const agent = project.agent
   const projectIdentifier = project.routeKey || project.slug || project.id
@@ -86,6 +86,14 @@ export function AgentEditor({ project }) {
         if (Array.isArray(versionsData.versions)) {
           setVersions(versionsData.versions)
         }
+      }
+
+      if (agent?.prompt !== prompt) {
+        onAgentSummaryChange?.({
+          projectId: project.id,
+          projectSlug: project.slug,
+          changed: true,
+        })
       }
 
       setStatus({ type: "success", message: "Agente salvo." })

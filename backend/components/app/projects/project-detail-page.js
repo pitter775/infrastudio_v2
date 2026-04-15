@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, Bot, FileText, MessageCircle, PlugZap, Sparkles } from "lucide-react"
 
 import { AgentEditor } from "@/components/app/agents/agent-editor"
@@ -36,6 +37,28 @@ const integrationItems = [
 ]
 
 export function AppProjectDetailPage({ project }) {
+  const onboardingStorageKey = useMemo(
+    () => `infrastudio:onboarding-project:${project.id || project.slug || project.routeKey}`,
+    [project.id, project.routeKey, project.slug],
+  )
+  const [showOnboardingHint, setShowOnboardingHint] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return
+    }
+
+    const dismissed = window.localStorage.getItem(onboardingStorageKey) === "done"
+    setShowOnboardingHint(!dismissed)
+  }, [onboardingStorageKey])
+
+  function handleAgentSummaryChange() {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(onboardingStorageKey, "done")
+    }
+    setShowOnboardingHint(false)
+  }
+
   return (
     <div className="mx-auto max-w-7xl">
       <AppPageHeader
@@ -79,46 +102,64 @@ export function AppProjectDetailPage({ project }) {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <div className="space-y-4">
-          <AgentEditor project={project} />
+          <AgentEditor project={project} onAgentSummaryChange={handleAgentSummaryChange} />
           <BillingSummaryCard billing={project.billing} />
         </div>
 
-        <aside className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-zinc-950">Resumo do projeto</h2>
-          <dl className="mt-4 space-y-3 text-sm">
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">Status</dt>
-              <dd className="font-medium text-zinc-950">{project.status}</dd>
+        <aside className="space-y-4">
+          {showOnboardingHint ? (
+            <div className="rounded-2xl border border-cyan-200/60 bg-white/75 p-5 shadow-[0_18px_40px_rgba(14,165,233,0.08)] backdrop-blur-sm">
+              <div className="text-lg font-semibold text-sky-600">🚀 Seu projeto já está pronto</div>
+              <div className="mt-3 space-y-3 text-sm leading-6 text-zinc-600">
+                <p>Clique no projeto que criamos para você.</p>
+                <p>Ele já vem com tudo que precisa:</p>
+                <ul className="space-y-2 text-zinc-700">
+                  <li>agente configurado</li>
+                  <li>chat funcionando no seu site</li>
+                  <li>pronto para conectar WhatsApp e Mercado Livre</li>
+                </ul>
+                <p>Agora é só entrar no projeto e completar seus dados para começar a usar.</p>
+              </div>
             </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">Slug</dt>
-              <dd className="truncate font-medium text-zinc-950">{project.slug}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">Ambiente</dt>
-              <dd className="font-medium text-zinc-950">{project.isDemo ? "Demo" : "Producao"}</dd>
-            </div>
-            <div className="flex items-center justify-between gap-3">
-              <dt className="text-zinc-500">Billing</dt>
-              <dd className="font-medium text-zinc-950">
-                {project.billing?.status?.blocked ? "Bloqueado" : project.billing?.projectPlan?.planName || "Pendente"}
-              </dd>
-            </div>
-          </dl>
+          ) : null}
 
-          <div className="mt-5 space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm">
-            <div className="font-medium text-zinc-950">Atalhos desta tela</div>
-            <a href="#apis" className="block text-zinc-600 hover:text-zinc-950">
-              APIs e runtime
-            </a>
-            <a href="#widgets" className="block text-zinc-600 hover:text-zinc-950">
-              Widgets
-            </a>
-            <a href="#whatsapp" className="block text-zinc-600 hover:text-zinc-950">
-              WhatsApp
-            </a>
+          <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-zinc-950">Resumo do projeto</h2>
+            <dl className="mt-4 space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-zinc-500">Status</dt>
+                <dd className="font-medium text-zinc-950">{project.status}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-zinc-500">Slug</dt>
+                <dd className="truncate font-medium text-zinc-950">{project.slug}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-zinc-500">Ambiente</dt>
+                <dd className="font-medium text-zinc-950">{project.isDemo ? "Demo" : "Producao"}</dd>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <dt className="text-zinc-500">Billing</dt>
+                <dd className="font-medium text-zinc-950">
+                  {project.billing?.status?.blocked ? "Bloqueado" : project.billing?.projectPlan?.planName || "Pendente"}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-5 space-y-2 rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm">
+              <div className="font-medium text-zinc-950">Atalhos desta tela</div>
+              <a href="#apis" className="block text-zinc-600 hover:text-zinc-950">
+                APIs e runtime
+              </a>
+              <a href="#widgets" className="block text-zinc-600 hover:text-zinc-950">
+                Widgets
+              </a>
+              <a href="#whatsapp" className="block text-zinc-600 hover:text-zinc-950">
+                WhatsApp
+              </a>
+            </div>
           </div>
         </aside>
       </div>

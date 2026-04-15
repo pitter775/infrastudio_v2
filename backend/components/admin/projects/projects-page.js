@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { List, LoaderCircle, Pencil, Plus, Trash2 } from 'lucide-react'
+import { CheckCircle2, List, LoaderCircle, MessageSquare, Pencil, Plus, Store, Trash2 } from 'lucide-react'
 import { AdminPageHeader } from '@/components/admin/page-header'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
 import { Button } from '@/components/ui/button'
@@ -73,6 +73,22 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
   const [deleteError, setDeleteError] = useState('')
   const [deleting, setDeleting] = useState(false)
   const isAdmin = user?.role === 'admin'
+  const primaryProject = projects[0] || null
+  const onboardingStorageKey = useMemo(
+    () => (primaryProject ? `infrastudio:onboarding-project:${primaryProject.id || primaryProject.slug || primaryProject.routeKey}` : ''),
+    [primaryProject],
+  )
+  const [showOnboardingHint, setShowOnboardingHint] = useState(false)
+
+  useEffect(() => {
+    if (!onboardingStorageKey || typeof window === 'undefined') {
+      setShowOnboardingHint(false)
+      return
+    }
+
+    const dismissed = window.localStorage.getItem(onboardingStorageKey) === 'done'
+    setShowOnboardingHint(!dismissed)
+  }, [onboardingStorageKey])
 
   function handleProjectSelect(project) {
     const projectIdentifier = project.routeKey || project.slug || project.id
@@ -200,18 +216,58 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
       </div>
 
       {projects.length > 0 ? (
-        <div className="grid grid-cols-1 items-start gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((project, index) => (
-            <div key={project.id} className="min-w-0">
-              <AdminProjectCard
-                project={project}
-                index={index}
-                onSelect={handleProjectSelect}
-                onEdit={canEditProject(user, project) ? handleEditProject : undefined}
-                loading={loadingProjectSlug === (project.routeKey || project.slug || project.id)}
-              />
-            </div>
-          ))}
+        <div className="flex flex-col gap-8 xl:flex-row xl:items-start">
+          <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-start gap-5">
+            {projects.map((project, index) => (
+              <div key={project.id} className="min-w-0">
+                <AdminProjectCard
+                  project={project}
+                  index={index}
+                  onSelect={handleProjectSelect}
+                  onEdit={canEditProject(user, project) ? handleEditProject : undefined}
+                  loading={loadingProjectSlug === (project.routeKey || project.slug || project.id)}
+                />
+              </div>
+            ))}
+          </div>
+
+          <aside className="w-full xl:sticky xl:top-6 xl:w-[min(40vw,640px)] xl:min-w-[480px]">
+            {showOnboardingHint && primaryProject ? (
+              <div className="px-2 pt-1 text-slate-200 xl:[font-size:clamp(0.84rem,0.68rem+0.34vw,1rem)]">
+                <div className="flex items-center gap-3">
+                  <img src="/logo.png" alt="InfraStudio" className="h-8 w-8 object-contain" />
+                  <div className="text-[clamp(1.7rem,1.2rem+1vw,2.75rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-transparent bg-gradient-to-r from-emerald-300 via-cyan-300 to-sky-400 bg-clip-text">
+                    Seu projeto já está pronto
+                  </div>
+                </div>
+
+                <div className="mt-4 max-w-[30rem] space-y-3 text-[clamp(0.92rem,0.78rem+0.24vw,1.04rem)] leading-[1.65] text-slate-300">
+                  <p>Clique no projeto que criamos para você.</p>
+                  <p>Ele já vem com tudo que precisa:</p>
+                  <ul className="space-y-2.5 text-slate-100">
+                    <li className="flex items-center gap-3">
+                      <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-300" />
+                      <span>agente configurado</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                      <MessageSquare className="h-4.5 w-4.5 shrink-0 text-emerald-300" />
+                      <span>chat funcionando no seu site</span>
+                    </li>
+                    <li className="flex items-center gap-3">
+                      <span className="flex shrink-0 items-center gap-2">
+                        <MessageSquare className="h-4.5 w-4.5 text-emerald-300" />
+                        <Store className="h-4.5 w-4.5 text-amber-300" />
+                      </span>
+                      <span>pronto para conectar WhatsApp e Mercado Livre</span>
+                    </li>
+                  </ul>
+                  <p className="pt-1 text-slate-400">
+                    Agora é só entrar no projeto e completar seus dados para começar a usar.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </aside>
         </div>
       ) : (
         <div className="rounded-xl border border-white/5 bg-[#0b1120] p-6 text-sm text-slate-400">

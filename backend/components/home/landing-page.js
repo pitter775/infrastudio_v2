@@ -39,7 +39,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
   const navItems = useMemo(
     () => [
       { href: '#planos', label: 'Planos', icon: Sparkles },
-      { href: '#servicos', label: 'Servi\u00e7os', icon: Sparkles },
+      { href: '#servicos', label: 'Serviços', icon: Sparkles },
       { href: '#como-funciona', label: 'Como funciona', icon: BriefcaseBusiness },
       { href: '#contato', label: 'Contato', icon: BookOpenText },
     ],
@@ -293,30 +293,49 @@ function PricingSection({ onPlanSelect }) {
       name: 'Free',
       price: 'R$ 0',
       description: 'Ideal para testar',
-      cta: 'Testar gr\u00e1tis',
-      features: ['at\u00e9 10.000 cr\u00e9ditos de IA', 'site e WhatsApp no mesmo fluxo', 'upgrade quando quiser'],
+      cta: 'Testar grátis',
+      features: ['até 10.000 créditos de IA', 'site e WhatsApp no mesmo fluxo', 'upgrade quando quiser'],
+      frameClassName: 'border-emerald-500/50 shadow-[0_0_0_1px_rgba(16,185,129,0.14)]',
+      nameClassName: 'text-emerald-400',
+      buttonClassName:
+        'border border-emerald-400/30 bg-emerald-500/14 text-emerald-100 shadow-[0_14px_28px_-20px_rgba(16,185,129,0.85)] hover:border-emerald-300/40 hover:bg-emerald-500/18 hover:shadow-[0_0_0_1px_rgba(52,211,153,0.18),0_0_26px_rgba(16,185,129,0.26)]',
+      hoverGlowClassName: 'hover:shadow-[0_0_0_1px_rgba(52,211,153,0.18),0_0_34px_rgba(16,185,129,0.2)]',
     },
     {
       name: 'Starter',
       price: 'R$ 29,90',
-      description: 'Ideal para come\u00e7ar',
-      cta: 'Come\u00e7ar agora',
-      features: ['at\u00e9 50.000 cr\u00e9ditos de IA', 'opera\u00e7\u00e3o inicial com atendimento real', 'integra\u00e7\u00f5es liberadas'],
+      description: 'Ideal para começar',
+      cta: 'Começar agora',
+      features: ['até 50.000 créditos de IA', 'operação inicial com atendimento real', 'integrações liberadas'],
+      frameClassName: 'border-zinc-800',
+      nameClassName: 'text-emerald-400',
+      buttonClassName:
+        'border border-white/10 bg-white/[0.04] text-white hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.1),0_0_22px_rgba(34,211,238,0.14)]',
+      hoverGlowClassName: 'hover:shadow-[0_0_0_1px_rgba(34,211,238,0.08),0_0_28px_rgba(34,211,238,0.12)]',
     },
     {
       name: 'Pro',
       price: 'R$ 79,90',
-      description: 'Melhor custo-benef\u00edcio',
-      cta: 'Come\u00e7ar agora',
+      description: 'Melhor custo-benefício',
+      cta: 'Começar agora',
       featured: true,
-      features: ['at\u00e9 200.000 cr\u00e9ditos de IA', 'mais volume para atendimento', 'crescimento sem trocar estrutura'],
+      features: ['até 200.000 créditos de IA', 'mais volume para atendimento', 'melhor custo para operação ativa', 'crescimento sem trocar a estrutura'],
+      nameClassName: 'text-gradient',
+      buttonClassName:
+        'border border-cyan-300/35 bg-cyan-400/12 text-cyan-50 shadow-[0_0_0_1px_rgba(34,211,238,0.18),0_0_28px_rgba(34,211,238,0.16),0_0_60px_rgba(59,130,246,0.14)] hover:border-cyan-200/50 hover:bg-cyan-400/18 hover:shadow-[0_0_0_1px_rgba(34,211,238,0.22),0_0_30px_rgba(59,130,246,0.2),0_0_70px_rgba(34,211,238,0.18)]',
+      hoverGlowClassName: 'hover:shadow-[0_0_0_1px_rgba(34,211,238,0.22),0_0_40px_rgba(59,130,246,0.22),0_0_80px_rgba(250,204,21,0.12)]',
     },
     {
       name: 'Business',
       price: 'R$ 149,90',
       description: 'Escalando',
-      cta: 'Come\u00e7ar agora',
-      features: ['at\u00e9 500.000 cr\u00e9ditos de IA', 'mais folga de consumo', 'mais espa\u00e7o para integra\u00e7\u00f5es'],
+      cta: 'Começar agora',
+      features: ['uso ilimitado com sua chave de API', 'consulta do gasto de tokens por uso', 'mais espaço para integrações', 'mais folga operacional para escalar'],
+      frameClassName: 'border-blue-500/45 shadow-[0_0_0_1px_rgba(59,130,246,0.14)]',
+      nameClassName: 'text-blue-300',
+      buttonClassName:
+        'border border-white/10 bg-white/[0.04] text-white hover:border-blue-400/30 hover:bg-blue-500/10 hover:shadow-[0_0_0_1px_rgba(59,130,246,0.12),0_0_24px_rgba(59,130,246,0.16)]',
+      hoverGlowClassName: 'hover:shadow-[0_0_0_1px_rgba(59,130,246,0.14),0_0_30px_rgba(59,130,246,0.16)]',
     },
   ]
 
@@ -324,60 +343,62 @@ function PricingSection({ onPlanSelect }) {
     <section id="planos" className="py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-16 text-center">
-          <h2 className="text-3xl font-bold text-white md:text-4xl">Voc\u00ea cria quantos projetos quiser</h2>
+          <h2 className="text-3xl font-bold text-white md:text-4xl">Você cria quantos projetos quiser</h2>
           <p className="mx-auto mt-4 max-w-xl leading-relaxed text-zinc-400">
-            Cada projeto pode ter o pr\u00f3prio plano, de acordo com o volume e a fase da sua opera\u00e7\u00e3o.
+            Cada projeto pode ter o próprio plano, de acordo com o volume e a fase da sua operação.
           </p>
         </div>
 
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-4">
           {plans.map((plan) => (
-            <div
-              key={plan.name}
-              className={cn(
-                'rounded-2xl border bg-brand-dark p-6 text-left',
-                plan.featured ? 'border-blue-500/40 shadow-lg shadow-blue-900/20' : 'border-zinc-800',
-              )}
-            >
-              {plan.featured ? (
-                <span className="mb-4 inline-flex rounded-full bg-blue-600 px-3 py-1 text-xs text-white">
-                  MAIS USADO
-                </span>
-              ) : null}
-
-              <span className={cn('font-bold', plan.featured ? 'text-gradient' : 'text-emerald-400')}>
-                {plan.name}
-              </span>
-              <h3 className="mt-2 text-2xl font-bold text-white">
-                {plan.price}
-                <span className="text-sm text-zinc-400">/m\u00eas</span>
-              </h3>
-              <p className="mt-2 text-sm text-zinc-400">{plan.description}</p>
-
-              <ul className="mt-4 space-y-2 text-sm text-zinc-300">
-                {plan.features.map((feature) => (
-                  <PlanFeature key={feature}>{feature}</PlanFeature>
-                ))}
-              </ul>
-
-              <button
-                type="button"
-                onClick={() => onPlanSelect?.(plan)}
+            <div key={plan.name} className="relative h-full">
+              <div
                 className={cn(
-                  'mt-6 w-full rounded-xl py-2 font-semibold text-white transition',
-                  plan.featured
-                    ? 'bg-gradient-to-r from-blue-600 to-cyan-500 hover:opacity-90'
-                    : 'bg-zinc-800 hover:bg-zinc-700',
+                  'h-full rounded-[1.6rem] border bg-brand-dark transition-all duration-300 hover:scale-[1.03]',
+                  plan.hoverGlowClassName,
+                  plan.featured ? 'plan-card-pro border-transparent p-[2px]' : plan.frameClassName,
                 )}
               >
-                {plan.cta}
-              </button>
+                {plan.featured ? (
+                  <span className="absolute left-1/2 top-0 inline-flex -translate-x-1/2 -translate-y-1/2 rounded-full bg-blue-600 px-3 py-1 text-xs text-white shadow-[0_10px_24px_rgba(37,99,235,0.32)]">
+                    MAIS USADO
+                  </span>
+                ) : null}
+
+                <div className={cn('flex h-full flex-col rounded-[1.45rem] p-6 text-left', plan.featured ? 'bg-brand-dark' : null)}>
+                  <span className={cn('font-bold', plan.nameClassName)}>{plan.name}</span>
+                  <h3 className="mt-2 text-2xl font-bold text-white">
+                    {plan.price}
+                    <span className="text-sm text-zinc-400">/mês</span>
+                  </h3>
+                  <p className="mt-2 text-sm text-zinc-400">{plan.description}</p>
+
+                  <ul className="mt-4 space-y-2 text-sm text-zinc-300">
+                    {plan.features.map((feature) => (
+                      <PlanFeature key={feature}>{feature}</PlanFeature>
+                    ))}
+                  </ul>
+
+                  <div className="mt-auto pt-6">
+                    <button
+                      type="button"
+                      onClick={() => onPlanSelect?.(plan)}
+                      className={cn(
+                        'w-full rounded-xl px-4 py-2.5 font-semibold transition-all duration-200 hover:scale-[1.03] active:scale-[0.99]',
+                        plan.buttonClassName,
+                      )}
+                    >
+                      {plan.cta}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           ))}
         </div>
 
         <p className="mt-14 text-center font-semibold text-slate-400">
-          {'Solu\u00e7\u00f5es adaptadas para diferentes nichos de mercado.'}
+          Soluções adaptadas para diferentes nichos de mercado.
         </p>
 
         <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
@@ -440,7 +461,7 @@ export function LandingPage({ currentUser = null }) {
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
               <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-500" />
             </span>
-            {'Tecnologia de ponta e automa\u00e7\u00e3o inteligente'}
+            Tecnologia de ponta e automação inteligente
           </motion.div>
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
@@ -504,7 +525,7 @@ export function LandingPage({ currentUser = null }) {
                 Veja um atendente funcionando
               </h2>
               <p className="mb-10 text-lg leading-relaxed text-slate-400">
-                {'Veja na pr\u00e1tica como o atendimento responde com rapidez, mant\u00e9m contexto e segue no canal certo.'}
+                Veja na prática como o atendimento responde com rapidez, mantém contexto e segue no canal certo.
               </p>
               <div className="space-y-6">
                 {DEMO_FEATURES.map((item) => (
@@ -548,10 +569,10 @@ export function LandingPage({ currentUser = null }) {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-20 text-center">
             <h2 className="mb-4 text-3xl font-semibold tracking-[-0.03em] text-slate-100/88 md:text-[2.35rem]">
-              {'Solu\u00e7\u00f5es t\u00e9cnicas'}
+              Soluções técnicas
             </h2>
             <p className="text-slate-400">
-              {'Para conectar, automatizar e expandir a opera\u00e7\u00e3o quando voc\u00ea precisar ir al\u00e9m do atendimento.'}
+              Para conectar, automatizar e expandir a operação quando você precisar ir além do atendimento.
             </p>
           </div>
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
@@ -572,12 +593,12 @@ export function LandingPage({ currentUser = null }) {
                 <span className="text-xl font-bold tracking-tight text-white">InfraStudio</span>
               </Link>
               <p className="text-sm leading-relaxed text-slate-500">
-                {'Tecnologia sob medida para acelerar neg\u00f3cios brasileiros com intelig\u00eancia e automa\u00e7\u00e3o.'}
+                Tecnologia sob medida para acelerar negócios brasileiros com inteligência e automação.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-20">
               <div className="flex flex-col gap-4">
-                <span className="text-sm font-bold uppercase tracking-widest text-white">{'Solu\u00e7\u00f5es'}</span>
+                <span className="text-sm font-bold uppercase tracking-widest text-white">Soluções</span>
                 <nav className="flex flex-col gap-3">
                   {FOOTER_SOLUTION_LINKS.map((link) => (
                     <a
@@ -610,7 +631,7 @@ export function LandingPage({ currentUser = null }) {
             </div>
           </div>
           <div className="mt-20 flex flex-col items-center justify-between gap-6 border-t border-white/5 pt-8 text-xs font-medium text-slate-600 md:flex-row">
-            <p>{`\u00a9 ${new Date().getFullYear()} InfraStudio. Todos os direitos reservados.`}</p>
+            <p>{`© ${new Date().getFullYear()} InfraStudio. Todos os direitos reservados.`}</p>
             <div className="flex items-center gap-2">
               Desenvolvido para gerar produtividade.
               <ArrowRight size={14} />

@@ -453,9 +453,9 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                 onTabChange?.(tab.id)
               }}
               className={cn(
-                "inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition",
+                "infra-tab-motion inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium",
                 active
-                  ? "border-sky-400/40 bg-sky-500/15 text-sky-100"
+                  ? "border-sky-400/40 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]"
                   : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200",
               )}
             >

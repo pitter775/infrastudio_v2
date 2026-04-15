@@ -757,10 +757,10 @@ function SheetInternalTabs({ tabs, activeTab, onChange }) {
               type="button"
               onClick={() => onChange(tab.id)}
               className={cn(
-                'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-xs font-semibold transition-colors',
+                'infra-tab-motion inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold',
                 active
-                  ? 'bg-sky-500/15 text-sky-100'
-                  : 'bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-slate-100',
+                  ? 'border-sky-400/30 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.18)]'
+                  : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-slate-100',
               )}
             >
               {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
@@ -1112,6 +1112,13 @@ function ProjectPanel({
         setVersions(data.versions)
       }
 
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(
+          `infrastudio:onboarding-project:${project.id || project.slug || project.routeKey}`,
+          'done',
+        )
+      }
+
       setEditorStatus({ type: 'success', message: 'Agente salvo.' })
       router.refresh()
     } catch (error) {
@@ -1180,6 +1187,14 @@ function ProjectPanel({
       <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={handleAgentTabChange} />
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`agent-tab:${activeAgentTab}`}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
         {activeAgentTab === 'edit' ? (
         <div className="min-h-full px-6 py-5">
           {!agent?.id ? (
@@ -1476,6 +1491,8 @@ function ProjectPanel({
           </div>
         ) : null}
 
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       <div className="border-t border-white/5 px-6 py-4">
@@ -1667,10 +1684,10 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
                 onTabChange?.(tab.id)
               }}
               className={cn(
-                'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition',
+                'infra-tab-motion inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium',
                 active
-                  ? 'bg-sky-500/15 text-sky-100'
-                  : 'bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
+                  ? 'border-sky-400/40 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]'
+                  : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
               )}
             >
               <Icon className="h-4 w-4" />
@@ -1929,7 +1946,7 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={panel.id}
+            key={`${panel.id}:${activeTab}`}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
