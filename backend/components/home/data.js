@@ -1,4 +1,4 @@
-import {
+﻿import {
   Building2,
   Clock,
   Code2,
@@ -9,8 +9,8 @@ import {
   Puzzle,
   Share2,
   ShoppingBag,
-  Star,
   Smartphone,
+  Star,
   Stethoscope,
   Zap,
 } from 'lucide-react'
@@ -91,52 +91,9 @@ export const SERVICE_ITEMS = [
   },
 ]
 
-export const USE_CASE_ITEMS = [
-  {
-    icon: Smartphone,
-    title: 'WhatsApp',
-    description:
-      'Atenda clientes automaticamente no canal mais usado do dia a dia, com rapidez e contexto.',
-    delay: 0.1,
-    backgroundImage: '/bg_whatsapp.png',
-    backgroundPosition: 'center center',
-    salesPitch: 'Venda, suporte e triagem no mesmo fluxo sem depender de resposta manual.',
-  },
-  {
-    icon: MessageSquare,
-    title: 'Site',
-    description:
-      'Responda visitantes em tempo real enquanto navegam pela sua página, no momento certo.',
-    delay: 0.2,
-    backgroundImage: '/bg_site.png',
-    backgroundPosition: 'center center',
-    salesPitch: 'Transforme tráfego em conversa qualificada sem deixar o visitante esfriar.',
-  },
-  {
-    icon: Puzzle,
-    title: 'Sistema',
-    description:
-      'Leve o atendente para dentro do fluxo interno e automatize consultas e operação assistida.',
-    delay: 0.3,
-    backgroundImage: '/bg_sistema.png',
-    backgroundPosition: 'center center',
-    salesPitch: 'Mais produtividade para o time e menos gargalo em processos repetitivos.',
-  },
-  {
-    icon: ShoppingBag,
-    title: 'Mercado Livre',
-    description:
-      'Automatize respostas e ganhe velocidade no atendimento da sua operação de loja.',
-    delay: 0.4,
-    backgroundImage: '/bg_mercadolivre.png',
-    backgroundPosition: 'center center',
-    salesPitch: 'Atenda mais rápido, reduza fila e aumente conversão sem ampliar a equipe.',
-  },
-]
-
 export const DEMO_FEATURES = [
-  { title: 'IA nativa', desc: 'Integração real com modelos GPT para atendimento.' },
-  { title: 'Alta performance', desc: 'Carregamento rápido e UI intuitiva.' },
+  { title: 'Mesmo widget externo', desc: 'A mesma base de /chat.js que o cliente usa no site.' },
+  { title: 'Projeto padrão ativo', desc: 'Carregado com projeto e agente padrão da InfraStudio.' },
 ]
 
 export const BENEFIT_ITEMS = [
@@ -155,4 +112,9 @@ export const NICHE_ITEMS = [
 ]
 
 export const FOOTER_SOLUTION_LINKS = ['Automações', 'Sistemas', 'IA', 'Integrações de API']
-export const FOOTER_COMPANY_LINKS = ['Sobre nós', 'Privacidade', 'Contato', 'Carreiras']
+export const FOOTER_COMPANY_LINKS = [
+  { label: 'Sobre nós', href: '#sobre' },
+  { label: 'Planos', href: '#planos' },
+  { label: 'Como funciona', href: '#como-funciona' },
+]
+

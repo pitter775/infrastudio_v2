@@ -111,12 +111,12 @@ export function AppProjectDetailPage({ project }) {
         <aside className="space-y-4">
           {showOnboardingHint ? (
             <div className="rounded-2xl border border-cyan-200/60 bg-white/75 p-5 shadow-[0_18px_40px_rgba(14,165,233,0.08)] backdrop-blur-sm">
-              <div className="text-lg font-semibold text-sky-600">🚀 Seu projeto já está pronto</div>
+              <div className="font-semibold text-sky-600">🚀 Seu projeto já está pronto</div>
               <div className="mt-3 space-y-3 text-sm leading-6 text-zinc-600">
                 <p>Clique no projeto que criamos para você.</p>
                 <p>Ele já vem com tudo que precisa:</p>
                 <ul className="space-y-2 text-zinc-700">
-                  <li>agente configurado</li>
+                  <li>agente de IA configurado, so adiciona suas informacos </li>
                   <li>chat funcionando no seu site</li>
                   <li>pronto para conectar WhatsApp e Mercado Livre</li>
                 </ul>

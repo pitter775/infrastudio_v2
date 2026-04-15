@@ -5,12 +5,12 @@ import { usePathname } from "next/navigation"
 
 const SCRIPT_ID = "infrastudio-home-chat-widget-script"
 
-function removeHomeWidget(widgetSlug) {
-  if (window.InfraChatWidget?.destroy) {
-    window.InfraChatWidget.destroy(widgetSlug)
+function removeHomeWidget() {
+  if (window.InfraChat?.destroy) {
+    window.InfraChat.destroy()
   }
 
-  const host = document.getElementById(`infrastudio-chat-widget-root-${widgetSlug}`)
+  const host = document.getElementById("infrastudio-chat-root")
   if (host?.parentNode) {
     host.parentNode.removeChild(host)
   }
@@ -25,30 +25,29 @@ export function HomeChatWidgetLoader({ config }) {
   const pathname = usePathname()
 
   useEffect(() => {
-    if (!config?.widget) {
+    if (!config?.widget || !config?.projeto || !config?.agente) {
       return undefined
     }
 
     if (pathname !== "/") {
-      removeHomeWidget(config.widget)
+      removeHomeWidget()
       return undefined
     }
 
-    removeHomeWidget(config.widget)
+    removeHomeWidget()
 
     const script = document.createElement("script")
     script.id = SCRIPT_ID
-    script.src = "/chat-widget.js"
+    script.src = "/chat.js"
     script.defer = true
+    script.dataset.projeto = config.projeto
+    script.dataset.agente = config.agente
     script.dataset.widget = config.widget
-    script.dataset.title = config.title || "Chat"
-    script.dataset.theme = config.theme || "dark"
-    script.dataset.accent = config.accent || "#2563eb"
-    script.dataset.transparent = String(config.transparent !== false)
+    script.dataset.apiBase = window.location.origin
     document.body.appendChild(script)
 
     return () => {
-      removeHomeWidget(config.widget)
+      removeHomeWidget()
     }
   }, [config, pathname])
 

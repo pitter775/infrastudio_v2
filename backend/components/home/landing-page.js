@@ -1,19 +1,21 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
   ArrowRight,
-  BookOpenText,
   BriefcaseBusiness,
   CheckCircle2,
   ChevronDown,
-  Loader2,
-  Menu,
-  LogOut,
+  Clock3,
   LayoutGrid,
-  Smartphone,
+  Loader2,
+  LogOut,
+  MapPin,
+  Menu,
+  MessageSquare,
+  Phone,
   Sparkles,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -35,13 +37,13 @@ import { cn } from '@/lib/utils'
 
 function HomeNavbar({ currentUser, onLoginClick }) {
   const projectsHref = currentUser?.role === 'admin' ? '/admin/projetos' : '/app/projetos'
-  const displayName = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Usuario'
+  const displayName = currentUser?.name?.trim() || currentUser?.email?.trim() || 'Usuário'
   const navItems = useMemo(
     () => [
       { href: '#planos', label: 'Planos', icon: Sparkles },
       { href: '#servicos', label: 'Serviços', icon: Sparkles },
       { href: '#como-funciona', label: 'Como funciona', icon: BriefcaseBusiness },
-      { href: '#contato', label: 'Contato', icon: BookOpenText },
+      { href: '#sobre', label: 'Sobre nós', icon: BriefcaseBusiness },
     ],
     [],
   )
@@ -87,11 +89,11 @@ function HomeNavbar({ currentUser, onLoginClick }) {
   }
 
   return (
-    <nav className="fixed top-0 z-50 w-full border-b border-white/5 bg-slate-950/82 py-4 shadow-[0_12px_50px_rgba(2,6,23,0.42)] backdrop-blur-xl">
+    <nav className="fixed top-0 z-[90] w-full border-b border-white/5 bg-slate-950/88 py-4 shadow-[0_12px_50px_rgba(2,6,23,0.42)] backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="relative h-12 w-12 overflow-hidden p-1">
-            <img src="/logo.png" alt="InfraStudio Logo" className="h-full w-full object-contain" />
+            <img src="/logo.png" alt="InfraStudio" className="h-full w-full object-contain" />
           </div>
           <div>
             <span className="block font-bold tracking-tight text-white">InfraStudio</span>
@@ -112,6 +114,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
               </a>
             )
           })}
+
           {currentUser ? (
             <div ref={userMenuRef} className="relative hidden lg:block">
               <button
@@ -122,12 +125,17 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                 aria-expanded={userMenuOpen}
               >
                 <UserAvatar
-                  src={projectLoading ? "" : currentUser?.avatarUrl}
+                  src={projectLoading ? '' : currentUser?.avatarUrl}
                   label={displayName}
                   className="h-7 w-7 bg-gradient-to-br from-cyan-400 to-blue-500 text-[11px]"
-                  fallbackClassName={projectLoading ? "hidden" : undefined}
+                  fallbackClassName={projectLoading ? 'hidden' : undefined}
                 />
-                {projectLoading ? <Loader2 size={12} className="absolute left-4 top-1/2 -translate-y-1/2 animate-spin text-cyan-100" /> : null}
+                {projectLoading ? (
+                  <Loader2
+                    size={12}
+                    className="absolute left-4 top-1/2 -translate-y-1/2 animate-spin text-cyan-100"
+                  />
+                ) : null}
                 <span className="max-w-[140px] truncate text-left">{displayName}</span>
                 <ChevronDown
                   size={16}
@@ -136,10 +144,12 @@ function HomeNavbar({ currentUser, onLoginClick }) {
               </button>
 
               {userMenuOpen ? (
-                <div className="absolute right-0 top-[calc(100%+0.75rem)] w-64 rounded-3xl border border-white/10 bg-slate-950/96 p-3 shadow-2xl backdrop-blur-xl">
+                <div className="absolute right-0 top-[calc(100%+0.75rem)] z-[120] w-72 rounded-3xl border border-slate-700/80 bg-slate-950 p-3 shadow-[0_28px_80px_rgba(2,6,23,0.82)] backdrop-blur-xl">
                   <div className="mb-2 border-b border-white/10 px-2 pb-3">
                     <p className="truncate text-sm font-semibold text-white">{displayName}</p>
-                    <p className="truncate text-xs text-slate-400">{currentUser?.email || 'Sessao ativa'}</p>
+                    <p className="truncate text-xs text-slate-400">
+                      {currentUser?.email || 'Sessão ativa'}
+                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -147,7 +157,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                       type="button"
                       onClick={handleProjectsOpen}
                       disabled={projectLoading}
-                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
+                      className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
                     >
                       {projectLoading ? (
                         <Loader2 size={16} className="animate-spin text-cyan-200" />
@@ -203,25 +213,28 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                 {item.label}
               </a>
             ))}
+
             {currentUser ? (
               <>
                 <div className="mb-2 flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
                   <UserAvatar
-                    src={projectLoading ? "" : currentUser?.avatarUrl}
+                    src={projectLoading ? '' : currentUser?.avatarUrl}
                     label={displayName}
                     className="h-8 w-8 bg-gradient-to-br from-cyan-400 to-blue-500"
-                    fallbackClassName={projectLoading ? "hidden" : undefined}
+                    fallbackClassName={projectLoading ? 'hidden' : undefined}
                   />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-white">{displayName}</p>
-                    <p className="truncate text-xs text-slate-400">{currentUser?.email || 'Sessao ativa'}</p>
+                    <p className="truncate text-xs text-slate-400">
+                      {currentUser?.email || 'Sessão ativa'}
+                    </p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={handleProjectsOpen}
                   disabled={projectLoading}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
                 >
                   {projectLoading ? (
                     <Loader2 size={16} className="animate-spin text-cyan-200" />
@@ -233,7 +246,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-rose-400/25 hover:bg-rose-500/10"
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-rose-400/25 hover:bg-rose-500/10"
                 >
                   <LogOut size={16} className="text-rose-300" />
                   Deslogar
@@ -246,7 +259,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                   setMobileOpen(false)
                   onLoginClick()
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
               >
                 Entrar
               </button>
@@ -265,13 +278,23 @@ function ServiceCard({ icon: Icon, title, description, delay }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ delay }}
-      className="glass-effect group rounded-2xl p-8 transition-all duration-300 hover:border-blue-500/50"
+      className="group relative overflow-hidden rounded-[1.65rem] transition-transform duration-300 hover:-translate-y-1"
     >
-      <div className="mb-6 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500 transition-transform duration-300 group-hover:scale-110">
-        <Icon size={24} />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+      >
+        <div className="plan-card-pro h-full w-full rounded-[1.65rem] border-transparent p-[4px]">
+          <div className="h-full w-full rounded-[1.55rem] bg-transparent" />
+        </div>
       </div>
-      <h3 className="mb-3 text-xl font-semibold text-slate-100/88">{title}</h3>
-      <p className="text-sm leading-relaxed text-slate-400">{description}</p>
+      <div className="glass-effect relative min-h-[340px] h-full rounded-[1.65rem] border border-white/10 px-10 py-10 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-white/20">
+        <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500 transition-transform duration-300 group-hover:scale-110">
+          <Icon size={24} />
+        </div>
+        <h3 className="mb-4 text-[1.55rem] font-semibold text-slate-100/88">{title}</h3>
+        <p className="text-base leading-relaxed text-slate-400">{description}</p>
+      </div>
     </motion.div>
   )
 }
@@ -419,28 +442,106 @@ function PricingSection({ onPlanSelect }) {
   )
 }
 
+function AboutSection({ onLoginClick }) {
+  return (
+    <section id="sobre" className="py-24">
+      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:px-8">
+        <div className="flex justify-center lg:justify-start">
+          <div className="group relative">
+            <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-cyan-400/30 via-blue-500/20 to-emerald-400/25 blur-2xl" />
+            <div className="relative rounded-full border border-white/10 bg-slate-950/80 p-2 shadow-lg">
+              <img
+                src="/Pitter Rocha Bico.jpg"
+                alt="Pitter Rocha"
+                className="h-48 w-48 rounded-full object-cover transition-transform duration-300 group-hover:scale-105 sm:h-56 sm:w-56"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="text-left">
+          <img src="/logo.png" alt="InfraStudio" className="mb-5 h-10 w-10 object-contain opacity-90" />
+          <h2 className="max-w-2xl text-3xl font-semibold tracking-[-0.04em] text-white md:text-[2.65rem]">
+            <span className="text-gradient">Tecnologia</span> que resolve de verdade
+          </h2>
+          <div className="mt-6 max-w-3xl space-y-4 text-base leading-8 text-slate-300 md:text-lg">
+            <p>
+              A InfraStudio nasceu para resolver um problema simples: empresas que perdem
+              tempo e vendas com atendimento manual.
+            </p>
+            <p>
+              Por trás está Pitter Rocha, desenvolvedor com mais de 18 anos de experiência,
+              focado em criar sistemas, integrações e automações que funcionam na prática.
+            </p>
+            <p>
+              A proposta é simples: automatizar o que é repetitivo, organizar o atendimento
+              e ajudar empresas a crescer sem complicação.
+            </p>
+            <p>
+              Aqui, tecnologia não é enfeite. É ferramenta para gerar resultado.
+            </p>
+          </div>
+
+          <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
+            <p className="max-w-2xl text-sm font-medium text-cyan-200 sm:text-base">
+              Comece testando grátis ou fale direto com a gente no WhatsApp.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={onLoginClick}
+                className="rounded-full border border-cyan-400/30 bg-cyan-500/12 px-5 py-2.5 text-sm font-semibold text-cyan-50 transition-all hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-500/18"
+              >
+                Testar grátis
+              </button>
+              <a
+                href={`https://wa.me/${WHATSAPP_NUMBER}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-100 transition-all hover:-translate-y-0.5 hover:border-emerald-300/35 hover:bg-emerald-500/16"
+              >
+                <MessageSquare size={16} />
+                Falar no WhatsApp
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export function LandingPage({ currentUser = null }) {
   const [loginOpen, setLoginOpen] = useState(false)
   const searchParams = useSearchParams()
   const authNotice = searchParams.get('auth_notice')
   const authNoticeMessage =
     authNotice === 'email_verified'
-      ? 'Email confirmado. Voce ja pode entrar.'
+      ? 'Email confirmado. Você já pode entrar.'
       : authNotice === 'email_expired'
-        ? 'Seu link de confirmacao expirou. Reenvie a confirmacao.'
-      : authNotice === 'email_already_verified'
-        ? 'Este email ja foi confirmado. Voce ja pode entrar.'
-      : authNotice === 'email_invalid'
-        ? 'Link de confirmacao invalido. Reenvie a confirmacao.'
-        : authNotice === 'social_oauth_error'
-          ? 'Nao foi possivel concluir o login social. Verifique a configuracao e tente novamente.'
-          : ''
+        ? 'Seu link de confirmação expirou. Reenvie a confirmação.'
+        : authNotice === 'email_already_verified'
+          ? 'Este email já foi confirmado. Você já pode entrar.'
+          : authNotice === 'email_invalid'
+            ? 'Link de confirmação inválido. Reenvie a confirmação.'
+            : authNotice === 'social_oauth_error'
+              ? 'Não foi possível concluir o login social. Verifique a configuração e tente novamente.'
+              : ''
 
   useEffect(() => {
     if (authNoticeMessage) {
       setLoginOpen(true)
     }
   }, [authNoticeMessage])
+
+  useEffect(() => {
+    const previousBehavior = document.documentElement.style.scrollBehavior
+    document.documentElement.style.scrollBehavior = 'smooth'
+
+    return () => {
+      document.documentElement.style.scrollBehavior = previousBehavior
+    }
+  }, [])
 
   return (
     <div className="home-shell min-h-screen bg-grid bg-[#040816] text-slate-100">
@@ -451,6 +552,7 @@ export function LandingPage({ currentUser = null }) {
           <div className="absolute left-[-10%] top-[-10%] h-[40%] w-[40%] rounded-full bg-blue-600/10 blur-[120px]" />
           <div className="absolute bottom-[10%] right-[-10%] h-[40%] w-[40%] rounded-full bg-cyan-500/10 blur-[120px]" />
         </div>
+
         <div className="relative z-10 mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -463,6 +565,7 @@ export function LandingPage({ currentUser = null }) {
             </span>
             Tecnologia de ponta e automação inteligente
           </motion.div>
+
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -472,6 +575,7 @@ export function LandingPage({ currentUser = null }) {
             Crie um atendente com IA <br className="hidden md:block" /> e coloque ele{' '}
             <span className="text-gradient">onde quiser</span>
           </motion.h1>
+
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -480,11 +584,12 @@ export function LandingPage({ currentUser = null }) {
           >
             Agentes no WhatsApp, Instagram, site e conectados aos seus sistemas via API.
           </motion.p>
+
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="flex flex-col items-center justify-center gap-4 sm:flex-row"
+            className="flex items-center justify-center"
           >
             <button
               type="button"
@@ -494,8 +599,8 @@ export function LandingPage({ currentUser = null }) {
               <Sparkles size={18} className="animate-pulse text-cyan-200" />
               Veja funcionando no Plano Free
             </button>
-      
           </motion.div>
+
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
@@ -517,6 +622,7 @@ export function LandingPage({ currentUser = null }) {
           </motion.div>
         </div>
       </section>
+
       <section id="como-funciona" className="relative overflow-hidden py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center gap-20 lg:flex-row">
@@ -544,12 +650,14 @@ export function LandingPage({ currentUser = null }) {
                 ))}
               </div>
             </div>
+
             <div className="flex w-full justify-center lg:w-1/2 lg:justify-end">
               <PremiumHomeChatDemo />
             </div>
           </div>
         </div>
       </section>
+
       <section className="border-y border-white/5 py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 gap-12 lg:grid-cols-4">
@@ -575,6 +683,7 @@ export function LandingPage({ currentUser = null }) {
               Para conectar, automatizar e expandir a operação quando você precisar ir além do atendimento.
             </p>
           </div>
+
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {SERVICE_ITEMS.map((item) => (
               <ServiceCard key={item.title} {...item} />
@@ -582,21 +691,24 @@ export function LandingPage({ currentUser = null }) {
           </div>
         </div>
       </section>
-      <PricingSection onPlanSelect={() => setLoginOpen(true)} />
 
-      <footer className="relative z-10 border-t border-white/5 bg-brand-dark py-20">
+      <PricingSection onPlanSelect={() => setLoginOpen(true)} />
+      <AboutSection onLoginClick={() => setLoginOpen(true)} />
+
+      <footer id="contato" className="relative z-10 border-t border-white/5 bg-brand-dark py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-start justify-between gap-12 md:flex-row">
             <div className="max-w-sm">
               <Link href="/" className="mb-6 flex items-center gap-2">
-                <img src="/logo.png" alt="Logo" className="h-8 w-8 object-contain" />
+                <img src="/logo.png" alt="InfraStudio" className="h-8 w-8 object-contain" />
                 <span className="text-xl font-bold tracking-tight text-white">InfraStudio</span>
               </Link>
               <p className="text-sm leading-relaxed text-slate-500">
                 Tecnologia sob medida para acelerar negócios brasileiros com inteligência e automação.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-20">
+
+            <div className="grid gap-12 md:grid-cols-3 md:gap-16">
               <div className="flex flex-col gap-4">
                 <span className="text-sm font-bold uppercase tracking-widest text-white">Soluções</span>
                 <nav className="flex flex-col gap-3">
@@ -611,25 +723,77 @@ export function LandingPage({ currentUser = null }) {
                   ))}
                 </nav>
               </div>
+
+              <div className="flex flex-col gap-4">
+                <span className="text-sm font-bold uppercase tracking-widest text-white">Contato</span>
+                <address className="not-italic">
+                  <div className="space-y-4 text-sm text-slate-400">
+                    <div className="flex items-start gap-3">
+                      <Phone className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Telefone
+                        </div>
+                        <a
+                          href={`https://wa.me/${WHATSAPP_NUMBER}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="mt-1 block text-slate-300 transition-colors hover:text-cyan-300 hover:underline"
+                        >
+                          +55 11 9 4950 6267
+                        </a>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Endereço
+                        </div>
+                        <div className="mt-1 text-slate-300">
+                          Estrada de São Francisco, Taboão da Serra - São Paulo, SP
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3">
+                      <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Horário de funcionamento
+                        </div>
+                        <div className="mt-1 text-slate-300">
+                          Aberto 24 horas por dia, 7 dias por semana
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </address>
+              </div>
               <div className="flex flex-col gap-4">
                 <span className="text-sm font-bold uppercase tracking-widest text-white">Empresa</span>
                 <nav className="flex flex-col gap-3">
                   {FOOTER_COMPANY_LINKS.map((link) => (
                     <a
-                      key={link}
-                      href="#contato"
+                      key={link.href}
+                      href={link.href}
                       className="text-sm text-slate-500 transition-colors hover:text-blue-400"
                     >
-                      {link}
+                      {link.label}
                     </a>
                   ))}
-                  <Link href="/politica-de-privacidade" className="text-sm text-slate-500 transition-colors hover:text-blue-400">
-                    Politica de Privacidade
+                  <Link
+                    href="/politica-de-privacidade"
+                    className="text-sm text-slate-500 transition-colors hover:text-blue-400"
+                  >
+                    Política de Privacidade
                   </Link>
                 </nav>
               </div>
             </div>
           </div>
+
           <div className="mt-20 flex flex-col items-center justify-between gap-6 border-t border-white/5 pt-8 text-xs font-medium text-slate-600 md:flex-row">
             <p>{`© ${new Date().getFullYear()} InfraStudio. Todos os direitos reservados.`}</p>
             <div className="flex items-center gap-2">
@@ -642,3 +806,6 @@ export function LandingPage({ currentUser = null }) {
     </div>
   )
 }
+
+
+

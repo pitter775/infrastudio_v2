@@ -84,6 +84,9 @@
       agente: (script.getAttribute("data-agente") || "").trim() || null,
       widgetSlug: (script.getAttribute("data-widget") || script.getAttribute("data-widget-slug") || "").trim() || null,
       apiBase: (script.getAttribute("data-api-base") || new URL(script.src, window.location.href).origin).trim(),
+      target: (script.getAttribute("data-target") || "").trim() || null,
+      embedded: script.getAttribute("data-embedded") === "true",
+      open: script.getAttribute("data-open") === "true",
     };
   }
 
@@ -1148,10 +1151,10 @@
       context: isRecord(config.context) ? clone(config.context) : {},
       ui: isRecord(config.ui) ? clone(config.ui) : {},
       policy: isRecord(config.policy) ? clone(config.policy) : {},
-      open: Boolean(config.open),
+      open: typeof config.open === "boolean" ? Boolean(config.open) : Boolean(defaults.open),
       hidden: Boolean(config.hidden),
-      embedded: Boolean(config.embedded),
-      target: typeof config.target === "string" && config.target.trim() ? config.target.trim() : null,
+      embedded: typeof config.embedded === "boolean" ? Boolean(config.embedded) : Boolean(defaults.embedded),
+      target: typeof config.target === "string" && config.target.trim() ? config.target.trim() : defaults.target,
       hideLauncher: Boolean(config.hideLauncher),
       destroyOnClose: Boolean(config.destroyOnClose),
       mobileFullscreen: Boolean(config.mobileFullscreen),

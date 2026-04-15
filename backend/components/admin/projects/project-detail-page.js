@@ -1190,10 +1190,10 @@ function ProjectPanel({
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={`agent-tab:${activeAgentTab}`}
-            initial={{ opacity: 0, y: 12 }}
+            initial={{ opacity: 0.985, y: 4 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            exit={{ opacity: 0.985, y: -3 }}
+            transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
           >
         {activeAgentTab === 'edit' ? (
         <div className="min-h-full px-6 py-5">

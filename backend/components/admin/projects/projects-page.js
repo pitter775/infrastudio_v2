@@ -236,33 +236,33 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
               <div className="px-2 pt-1 text-slate-200 xl:[font-size:clamp(0.84rem,0.68rem+0.34vw,1rem)]">
                 <div className="flex items-center gap-3">
                   <img src="/logo.png" alt="InfraStudio" className="h-8 w-8 object-contain" />
-                  <div className="text-[clamp(1.7rem,1.2rem+1vw,2.75rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-transparent bg-gradient-to-r from-emerald-300 via-cyan-300 to-sky-400 bg-clip-text">
+                  <div className="text-[clamp(1.5rem,1.2rem+1vw,1.75rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-transparent bg-gradient-to-r from-emerald-300 via-cyan-300 to-sky-400 bg-clip-text">
                     Seu projeto já está pronto
                   </div>
                 </div>
 
                 <div className="mt-4 max-w-[30rem] space-y-3 text-[clamp(0.92rem,0.78rem+0.24vw,1.04rem)] leading-[1.65] text-slate-300">
-                  <p>Clique no projeto que criamos para você.</p>
-                  <p>Ele já vem com tudo que precisa:</p>
+                <p className="text-sm text-gray-400 leading-relaxed">Clique no projeto que criamos para você.
+                  Ele já vem com tudo que precisa:</p>
                   <ul className="space-y-2.5 text-slate-100">
                     <li className="flex items-center gap-3">
                       <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-300" />
-                      <span>agente configurado</span>
+                      <span>Agente configurado, agora vc inclui suas informacoes.</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <MessageSquare className="h-4.5 w-4.5 shrink-0 text-emerald-300" />
-                      <span>chat funcionando no seu site</span>
+                      <span>Chat funcionando no seu site ou sistema.</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <span className="flex shrink-0 items-center gap-2">
                         <MessageSquare className="h-4.5 w-4.5 text-emerald-300" />
                         <Store className="h-4.5 w-4.5 text-amber-300" />
                       </span>
-                      <span>pronto para conectar WhatsApp e Mercado Livre</span>
+                      <span>Conecta seu WhatsApp e Mercado Livre e suas APis</span>
                     </li>
                   </ul>
                   <p className="pt-1 text-slate-400">
-                    Agora é só entrar no projeto e completar seus dados para começar a usar.
+                    Clica no projeto e completar seus dados para começar a usar!
                   </p>
                 </div>
               </div>
