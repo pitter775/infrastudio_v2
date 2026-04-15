@@ -1,9 +1,10 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { BookOpen, CheckCircle2, MessageCircle, Pencil, Plus, Power, QrCode, RotateCcw, Trash2, Users, XCircle } from "lucide-react"
+import { CheckCircle2, LoaderCircle, MessageCircle, Pencil, Plus, Power, QrCode, RotateCcw, Trash2, Users, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { ToggleSwitchButton } from "@/components/ui/toggle-switch-button"
 import { cn } from "@/lib/utils"
 
@@ -11,13 +12,50 @@ const inputClassName =
   "mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
 const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
 
-export function WhatsAppManager({ project, initialChannelId = null, activeTab: controlledActiveTab, onTabChange, onFooterStateChange, compact = false }) {
+function normalizePhoneDigits(value) {
+  return String(value || "").replace(/\D/g, "").slice(0, 13)
+}
+
+function formatWhatsappPhone(value) {
+  const digits = normalizePhoneDigits(value)
+
+  if (!digits) {
+    return ""
+  }
+
+  const hasBrazilCountryCode = digits.startsWith("55")
+  const country = hasBrazilCountryCode ? "55" : ""
+  const localDigits = hasBrazilCountryCode ? digits.slice(2) : digits
+  const areaCode = localDigits.slice(0, 2)
+  const subscriber = localDigits.slice(2)
+  const prefixLength = subscriber.length > 8 ? 5 : 4
+  const prefix = subscriber.slice(0, prefixLength)
+  const suffix = subscriber.slice(prefixLength, prefixLength + 4)
+
+  let formatted = country ? `+${country}` : ""
+  if (areaCode) {
+    formatted += `${formatted ? " " : ""}(${areaCode}`
+    if (areaCode.length === 2) {
+      formatted += ")"
+    }
+  }
+  if (prefix) {
+    formatted += `${areaCode ? " " : ""}${prefix}`
+  }
+  if (suffix) {
+    formatted += `-${suffix}`
+  }
+
+  return formatted.trim()
+}
+
+export function WhatsAppManager({ project, initialChannelId = null, activeTab: controlledActiveTab, onTabChange, onFooterStateChange, onStatsChange, compact = false }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const endpoint = `/api/app/projetos/${projectIdentifier}/whatsapp`
   const contactsEndpoint = `${endpoint}/handoff-contatos`
   const emptyContactForm = { id: null, nome: "", numero: "", papel: "", observacoes: "", ativo: true, receberAlertas: true }
   const [activeTab, setActiveTab] = useState("connect")
-  const currentTab = controlledActiveTab || activeTab
+  const currentTab = controlledActiveTab && ["connect", "attendants"].includes(controlledActiveTab) ? controlledActiveTab : activeTab
   const [channels, setChannels] = useState([])
   const [contacts, setContacts] = useState([])
   const [number, setNumber] = useState("")
@@ -27,20 +65,34 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   const [savingContact, setSavingContact] = useState(false)
   const [busyId, setBusyId] = useState(null)
   const [qrSnapshot, setQrSnapshot] = useState(null)
+  const [pendingChannelId, setPendingChannelId] = useState(null)
+  const [hasSeenQr, setHasSeenQr] = useState(false)
+  const [connectionHint, setConnectionHint] = useState("")
   const [status, setStatus] = useState({ type: "idle", message: "" })
+  const [deleteContactTarget, setDeleteContactTarget] = useState(null)
+  const [deleteChannelTarget, setDeleteChannelTarget] = useState(null)
 
-  async function loadChannels() {
-    setLoading(true)
+  async function loadChannels(options = {}) {
+    if (!options.silent) {
+      setLoading(true)
+    }
+
     try {
       const response = await fetch(endpoint)
       const data = await response.json()
 
       if (response.ok) {
-        setChannels(data.channels || [])
+        const nextChannels = data.channels || []
+        setChannels(nextChannels)
+        return nextChannels
       }
     } finally {
-      setLoading(false)
+      if (!options.silent) {
+        setLoading(false)
+      }
     }
+
+    return []
   }
 
   async function loadContacts() {
@@ -60,6 +112,97 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   }, [endpoint, contactsEndpoint])
 
   useEffect(() => {
+    if (!pendingChannelId) {
+      return
+    }
+
+    let active = true
+
+    async function syncPendingChannel() {
+      const nextChannels = await loadChannels({ silent: true })
+      if (!active) {
+        return
+      }
+
+      const currentChannel = nextChannels.find((channel) => channel.id === pendingChannelId)
+      if (!currentChannel) {
+        setPendingChannelId(null)
+        setQrSnapshot(null)
+        setHasSeenQr(false)
+        setConnectionHint("")
+        return
+      }
+
+      try {
+        const response = await fetch(`${endpoint}/${pendingChannelId}/qr`)
+        const data = await response.json().catch(() => ({}))
+        const snapshot = data.snapshot || null
+
+        if (!active) {
+          return
+        }
+
+        if (snapshot?.qrCodeDataUrl) {
+          setQrSnapshot(snapshot)
+          setHasSeenQr(true)
+          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo.")
+          return
+        }
+
+        if (currentChannel.connectionStatus === "online" || snapshot?.status === "online") {
+          setQrSnapshot(null)
+          setPendingChannelId(null)
+          setHasSeenQr(false)
+          setConnectionHint("")
+          return
+        }
+
+        if (hasSeenQr && (currentChannel.connectionStatus === "connecting" || snapshot?.status === "connecting")) {
+          setQrSnapshot(snapshot)
+          setConnectionHint("QR lido. Aguardando confirmacao do dispositivo e estabilizacao da conexao.")
+          return
+        }
+
+        if (currentChannel.connectionStatus === "aguardando_qr") {
+          setQrSnapshot(snapshot)
+          setConnectionHint("Aguardando o QR ser gerado pelo worker.")
+          return
+        }
+
+        if (currentChannel.connectionStatus === "connecting") {
+          setQrSnapshot(snapshot)
+          setConnectionHint("Conectando o dispositivo. Aguarde alguns instantes.")
+          return
+        }
+
+        setQrSnapshot(snapshot)
+      } catch {}
+    }
+
+    syncPendingChannel()
+    const intervalId = window.setInterval(syncPendingChannel, 2500)
+
+    return () => {
+      active = false
+      window.clearInterval(intervalId)
+    }
+  }, [endpoint, hasSeenQr, pendingChannelId])
+
+  useEffect(() => {
+    if (!qrSnapshot?.channelId) {
+      return
+    }
+
+    const channel = channels.find((item) => item.id === qrSnapshot.channelId)
+    if (channel?.connectionStatus === "online") {
+      setQrSnapshot(null)
+      setPendingChannelId(null)
+      setHasSeenQr(false)
+      setConnectionHint("")
+    }
+  }, [channels, qrSnapshot])
+
+  useEffect(() => {
     if (initialChannelId) {
       onTabChange?.("connect")
       setActiveTab("connect")
@@ -74,6 +217,10 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     })
   }, [channels.length, currentTab, onFooterStateChange])
 
+  useEffect(() => {
+    onStatsChange?.({ whatsapp: channels.length })
+  }, [channels.length, onStatsChange])
+
   async function createChannel(event) {
     event.preventDefault()
     setSaving(true)
@@ -86,7 +233,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          numero: number,
+          numero: normalizePhoneDigits(number),
           agenteId: project.agent?.id || null,
         }),
       })
@@ -110,6 +257,17 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     setBusyId(channel.id)
     setStatus({ type: "idle", message: "" })
 
+    if (action === "disconnect") {
+      setPendingChannelId(null)
+      setQrSnapshot(null)
+      setHasSeenQr(false)
+      setConnectionHint("")
+    } else {
+      setPendingChannelId(channel.id)
+      setHasSeenQr(false)
+      setConnectionHint(action === "connect" ? "Solicitando conexao ao worker. Aguarde o QR." : "Atualizando QR Code do dispositivo.")
+    }
+
     try {
       const response = await fetch(`${endpoint}/${channel.id}/${action}`, {
         method: action === "qr" ? "GET" : "POST",
@@ -122,15 +280,23 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
       if (action === "qr") {
         setQrSnapshot(data.snapshot)
+        if (data.snapshot?.qrCodeDataUrl) {
+          setHasSeenQr(true)
+          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo.")
+        }
       } else {
         setQrSnapshot(data.snapshot)
         setStatus({
           type: "success",
           message: action === "connect" ? "Conexao solicitada ao worker." : "Desconexao solicitada.",
         })
+        if (action === "connect" && data.snapshot?.qrCodeDataUrl) {
+          setHasSeenQr(true)
+          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo.")
+        }
       }
 
-      await loadChannels()
+      await loadChannels({ silent: true })
     } catch (error) {
       setStatus({ type: "error", message: error.message })
     } finally {
@@ -146,7 +312,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     setContactForm({
       id: contact.id,
       nome: contact.nome || "",
-      numero: contact.numero || "",
+      numero: formatWhatsappPhone(contact.numero || ""),
       papel: contact.papel || "",
       observacoes: contact.observacoes || "",
       ativo: contact.ativo !== false,
@@ -168,6 +334,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         },
         body: JSON.stringify({
           ...contactForm,
+          numero: normalizePhoneDigits(contactForm.numero),
           canalWhatsappId: channels[0]?.id || null,
         }),
       })
@@ -190,11 +357,6 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   }
 
   async function deleteContact(contact) {
-    const confirmed = window.confirm("Remover este atendente?")
-    if (!confirmed) {
-      return
-    }
-
     setBusyId(contact.id)
     setStatus({ type: "idle", message: "" })
 
@@ -213,6 +375,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
       setContacts((current) => current.filter((item) => item.id !== contact.id))
       setStatus({ type: "success", message: "Atendente removido." })
+      setDeleteContactTarget(null)
     } catch (error) {
       setStatus({ type: "error", message: error.message })
     } finally {
@@ -221,9 +384,6 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   }
 
   async function deleteChannel(channel) {
-    const confirmed = window.confirm("Remover este WhatsApp?")
-    if (!confirmed) return
-
     setBusyId(channel.id)
     setStatus({ type: "idle", message: "" })
 
@@ -234,6 +394,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setChannels((current) => current.filter((item) => item.id !== channel.id))
       setQrSnapshot(null)
       setStatus({ type: "success", message: "WhatsApp removido." })
+      setDeleteChannelTarget(null)
     } catch (error) {
       setStatus({ type: "error", message: error.message })
     } finally {
@@ -244,7 +405,6 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   const tabs = [
     { id: "connect", label: "Conectar", icon: QrCode },
     { id: "attendants", label: "Atendentes", icon: Users },
-    { id: "tutorial", label: "Tutorial", icon: BookOpen },
   ]
 
   return (
@@ -299,7 +459,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         </p>
       ) : null}
 
-      {currentTab === "connect" ? (
+      {currentTab !== "attendants" ? (
         <>
       {loading ? (
       <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
@@ -313,8 +473,11 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           <span className={labelClassName}>Numero</span>
           <input
             value={number}
-            onChange={(event) => setNumber(event.target.value)}
-            placeholder="5511999999999"
+            placeholder="+55 (11) 99999-9999"
+            inputMode="tel"
+            autoComplete="tel"
+            maxLength={20}
+            onChange={(event) => setNumber(formatWhatsappPhone(event.target.value))}
             className={inputClassName}
             required
           />
@@ -325,8 +488,8 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           variant="ghost"
           className="mt-6 h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Plus className="h-4 w-4" />
-          {saving ? "Criando..." : "Criar canal"}
+          {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          {saving ? "Criando canal..." : "Criar canal"}
         </Button>
       </form>
       ) : null}
@@ -342,12 +505,13 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                   key={channel.id}
                   className={cn(
                     "grid gap-3 p-4 text-sm xl:grid-cols-[minmax(0,1fr)_320px]",
+                    online && "bg-emerald-500/10",
                     initialChannelId === channel.id && "bg-sky-500/10",
                   )}
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="font-semibold text-white">{channel.number}</h3>
+                      <h3 className="font-semibold text-white">{formatWhatsappPhone(channel.number)}</h3>
                       <span
                         className={cn(
                           "inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium",
@@ -363,9 +527,16 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                     <p className="mt-1 text-slate-500">{channel.notes || "Sem observacao do worker."}</p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                    <Button type="button" size="sm" variant="outline" className="gap-2" onClick={() => runAction(channel, "connect")} disabled={busyId === channel.id}>
-                      <Power className="h-4 w-4" />
-                      Conectar
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="gap-2 border border-sky-500/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                      onClick={() => runAction(channel, "connect")}
+                      disabled={busyId === channel.id || online}
+                    >
+                      {busyId === channel.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
+                      {online ? "Conectado" : "Conectar"}
                     </Button>
                     <Button type="button" size="sm" variant="ghost" className="gap-2" onClick={() => runAction(channel, "qr")} disabled={busyId === channel.id}>
                       <QrCode className="h-4 w-4" />
@@ -375,7 +546,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                       <RotateCcw className="h-4 w-4" />
                       Desconectar
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" className="gap-2 text-red-200" onClick={() => deleteChannel(channel)} disabled={busyId === channel.id}>
+                    <Button type="button" size="sm" variant="ghost" className="gap-2 text-red-200" onClick={() => setDeleteChannelTarget(channel)} disabled={busyId === channel.id}>
                       <Trash2 className="h-4 w-4" />
                       Remover
                     </Button>
@@ -395,6 +566,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <p className="text-sm font-semibold text-white">QR Code</p>
           <p className="mt-1 text-xs text-slate-500">Status: {qrSnapshot.status || "desconhecido"}</p>
+          {connectionHint ? <p className="mt-2 text-sm text-amber-200">{connectionHint}</p> : null}
           {qrSnapshot.qrCodeDataUrl ? (
             <img src={qrSnapshot.qrCodeDataUrl} alt="QR Code do WhatsApp" className="mt-3 h-56 w-56 rounded-lg border border-zinc-200 bg-white p-2" />
           ) : (
@@ -402,6 +574,16 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           )}
         </div>
       ) : null}
+
+      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="text-sm font-semibold text-white">Fluxo rapido</p>
+        <div className="mt-3 space-y-2 text-sm text-slate-400">
+          <p>1. Crie o canal com o numero oficial.</p>
+          <p>2. Clique em conectar e aguarde o QR aparecer.</p>
+          <p>3. Depois que o QR for lido, aguarde a confirmacao do dispositivo.</p>
+          <p>4. Quando conectar, o card fica verde e o QR some automaticamente.</p>
+        </div>
+      </div>
         </>
       ) : null}
 
@@ -422,8 +604,11 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
               <span className={labelClassName}>WhatsApp</span>
               <input
                 value={contactForm.numero}
-                onChange={(event) => updateContactForm("numero", event.target.value)}
-                placeholder="5511999999999"
+                onChange={(event) => updateContactForm("numero", formatWhatsappPhone(event.target.value))}
+                placeholder="+55 (11) 99999-9999"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={20}
                 className={inputClassName}
                 required
               />
@@ -459,7 +644,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                 variant="ghost"
                 className="ml-auto h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Plus className="h-4 w-4" />
+                {savingContact ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
                 {savingContact ? "Salvando..." : contactForm.id ? "Atualizar atendente" : "Adicionar atendente"}
               </Button> : null}
             </div>
@@ -477,15 +662,15 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                           {contact.receberAlertas && contact.ativo ? "Recebe alertas" : "Pausado"}
                         </span>
                       </div>
-                      <p className="mt-1 text-slate-500">{contact.numero} {contact.papel ? `- ${contact.papel}` : ""}</p>
+                      <p className="mt-1 text-slate-500">{formatWhatsappPhone(contact.numero)} {contact.papel ? `- ${contact.papel}` : ""}</p>
                       {contact.observacoes ? <p className="mt-1 text-xs text-slate-500">{contact.observacoes}</p> : null}
                     </div>
                     <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                      <Button type="button" size="sm" variant="outline" className="gap-2" onClick={() => editContact(contact)}>
+                      <Button type="button" size="sm" variant="ghost" className="gap-2 border border-sky-500/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20" onClick={() => editContact(contact)}>
                         <Pencil className="h-4 w-4" />
                         Editar
                       </Button>
-                      <Button type="button" size="sm" variant="ghost" className="gap-2" onClick={() => deleteContact(contact)} disabled={busyId === contact.id}>
+                      <Button type="button" size="sm" variant="ghost" className="gap-2" onClick={() => setDeleteContactTarget(contact)} disabled={busyId === contact.id}>
                         <Trash2 className="h-4 w-4" />
                         Remover
                       </Button>
@@ -500,20 +685,35 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         </div>
       ) : null}
 
-      {currentTab === "tutorial" ? (
-        <div className="grid gap-3 md:grid-cols-3">
-          {[
-            ["1. Crie o canal", "Cadastre o numero oficial que ficara conectado ao worker."],
-            ["2. Leia o QR", "Clique em Conectar e escaneie o QR com o WhatsApp correto."],
-            ["3. Cadastre atendentes", "Adicione quem deve receber aviso quando houver pedido de humano."],
-          ].map(([title, text]) => (
-            <div key={title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <p className="text-sm font-semibold text-white">{title}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-400">{text}</p>
-            </div>
-          ))}
-        </div>
-      ) : null}
+      <ConfirmDialog
+        open={Boolean(deleteContactTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteContactTarget(null)
+          }
+        }}
+        title="Remover atendente"
+        description={deleteContactTarget ? `O atendente ${deleteContactTarget.nome} sera removido da lista.` : ""}
+        confirmLabel="Remover atendente"
+        danger
+        loading={busyId === deleteContactTarget?.id}
+        onConfirm={() => deleteContactTarget ? deleteContact(deleteContactTarget) : null}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteChannelTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteChannelTarget(null)
+          }
+        }}
+        title="Remover canal do WhatsApp"
+        description={deleteChannelTarget ? `O canal ${formatWhatsappPhone(deleteChannelTarget.number)} sera removido.` : ""}
+        confirmLabel="Remover canal"
+        danger
+        loading={busyId === deleteChannelTarget?.id}
+        onConfirm={() => deleteChannelTarget ? deleteChannel(deleteChannelTarget) : null}
+      />
     </section>
   )
 }

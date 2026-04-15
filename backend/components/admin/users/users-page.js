@@ -13,7 +13,9 @@ import {
 } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
+import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { cn } from "@/lib/utils"
 
 const emptyForm = {
@@ -34,6 +36,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
   const isAllowed = currentUser?.role === "admin"
 
   const stats = useMemo(
@@ -129,12 +132,6 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
   }
 
   async function handleDelete(user) {
-    const confirmed = window.confirm(`Excluir o usuario ${user.name}?`)
-
-    if (!confirmed) {
-      return
-    }
-
     const response = await fetch(`/api/admin/usuarios/${user.id}`, {
       method: "DELETE",
     })
@@ -147,6 +144,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
 
     await refreshUsers()
     setFeedback("Usuario excluido com sucesso.")
+    setDeleteTarget(null)
   }
 
   if (!isAllowed) {
@@ -236,16 +234,14 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
 
             <label className="space-y-2 block">
               <span className="text-sm font-semibold text-slate-300">Perfil</span>
-              <select
+              <AppSelect
                 value={form.papel}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, papel: event.target.value }))
-                }
-                className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-              >
-                <option value="viewer">Usuario comum</option>
-                <option value="admin">Admin</option>
-              </select>
+                onChangeValue={(value) => setForm((current) => ({ ...current, papel: value }))}
+                options={[
+                  { value: "viewer", label: "Usuario comum" },
+                  { value: "admin", label: "Admin" },
+                ]}
+              />
             </label>
 
             <label className="space-y-2 block">
@@ -415,7 +411,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
                           <Button
                             type="button"
                             variant="ghost"
-                            onClick={() => handleDelete(user)}
+                            onClick={() => setDeleteTarget(user)}
                             className="h-8 rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 text-rose-100 hover:bg-rose-400/15"
                             title="Excluir"
                           >
@@ -437,6 +433,20 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteTarget(null)
+          }
+        }}
+        title="Excluir usuario"
+        description={deleteTarget ? `O usuario ${deleteTarget.name} sera removido permanentemente.` : ""}
+        confirmLabel="Excluir usuario"
+        danger
+        onConfirm={() => deleteTarget ? handleDelete(deleteTarget) : null}
+      />
     </div>
   )
 }

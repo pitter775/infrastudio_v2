@@ -105,7 +105,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
               <a
                 key={item.href}
                 href={item.href}
-                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-white/[0.04] hover:text-blue-300"
+                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-slate-300 transition-colors hover:bg-blue-500/10 hover:text-blue-300"
               >
                 <Icon size={15} className="text-slate-500" />
                 {item.label}
@@ -117,7 +117,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((value) => !value)}
-                className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.05] py-1.5 pl-2 pr-3 text-sm font-medium text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white"
+                className="inline-flex items-center gap-3 rounded-full border border-white/10 bg-white/[0.05] py-1.5 pl-2 pr-3 text-sm font-medium text-slate-200 transition-all hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-white"
                 aria-haspopup="menu"
                 aria-expanded={userMenuOpen}
               >
@@ -143,7 +143,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                       type="button"
                       onClick={handleProjectsOpen}
                       disabled={projectLoading}
-                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors hover:bg-white/[0.08]"
+                      className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
                     >
                       {projectLoading ? (
                         <Loader2 size={16} className="animate-spin text-cyan-200" />
@@ -155,7 +155,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors hover:bg-white/[0.08]"
+                      className="flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-slate-100 transition-colors hover:border-rose-400/25 hover:bg-rose-500/10"
                     >
                       <LogOut size={16} className="text-rose-300" />
                       Deslogar
@@ -168,7 +168,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
             <button
               type="button"
               onClick={onLoginClick}
-              className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-medium text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white lg:inline-flex"
+              className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-4 py-2 text-sm font-medium text-cyan-100 transition-all hover:border-cyan-300/35 hover:bg-cyan-500/16 hover:text-white"
             >
               Entrar
             </button>
@@ -178,7 +178,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
         <button
           type="button"
           onClick={() => setMobileOpen((value) => !value)}
-          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.05] p-2.5 text-slate-200 transition-all hover:bg-white/[0.08] hover:text-white md:hidden"
+          className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.05] p-2.5 text-slate-200 transition-all hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-white md:hidden"
           aria-label="Abrir menu"
         >
           <Menu size={18} />
@@ -214,7 +214,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                   type="button"
                   onClick={handleProjectsOpen}
                   disabled={projectLoading}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
                 >
                   {projectLoading ? (
                     <Loader2 size={16} className="animate-spin text-cyan-200" />
@@ -226,7 +226,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-rose-400/25 hover:bg-rose-500/10"
                 >
                   <LogOut size={16} className="text-rose-300" />
                   Deslogar
@@ -239,7 +239,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                   setMobileOpen(false)
                   onLoginClick()
                 }}
-                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-white transition-colors hover:border-cyan-400/25 hover:bg-cyan-500/10"
               >
                 Entrar
               </button>
@@ -375,7 +375,7 @@ function PricingSection() {
           {NICHE_ITEMS.map((item) => (
             <div
               key={item.label}
-              className="group cursor-default rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center transition-all hover:bg-white/[0.05]"
+              className="group cursor-default rounded-2xl border border-white/5 bg-white/[0.02] p-8 text-center transition-all hover:border-blue-500/25 hover:bg-blue-500/10"
             >
               <div className="mb-4 flex justify-center text-slate-400 transition-colors group-hover:text-blue-400">
                 <item.icon size={32} strokeWidth={1.5} />

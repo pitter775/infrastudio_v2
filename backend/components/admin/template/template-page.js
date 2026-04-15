@@ -1,9 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import { ChevronDown, Download, Plus, Search, Settings2 } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { AppSelect } from "@/components/ui/app-select"
 
 function BlockTitle({ title, subtitle }) {
   return (
@@ -15,6 +18,9 @@ function BlockTitle({ title, subtitle }) {
 }
 
 export function AdminTemplatePage() {
+  const [templateValue, setTemplateValue] = useState("comercial")
+  const [modalOpen, setModalOpen] = useState(false)
+
   return (
     <div>
       <AdminPageHeader
@@ -64,17 +70,21 @@ export function AdminTemplatePage() {
         </section>
 
         <section className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
-          <BlockTitle title="Dropdowns em mock" subtitle="Com select nativo e botoes de trigger para referencia visual." />
+          <BlockTitle title="Dropdowns em mock" subtitle="Baseado em react-select com visual mais forte para o sistema." />
 
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             <div className="space-y-3">
               <label className="block text-sm font-semibold text-slate-300">Select simples</label>
-              <select className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none">
-                <option>Selecione um template</option>
-                <option>Padrao comercial</option>
-                <option>Padrao operacional</option>
-                <option>Padrao suporte</option>
-              </select>
+              <AppSelect
+                value={templateValue}
+                onChangeValue={setTemplateValue}
+                placeholder="Selecione um template"
+                options={[
+                  { value: "comercial", label: "Padrao comercial" },
+                  { value: "operacional", label: "Padrao operacional" },
+                  { value: "suporte", label: "Padrao suporte" },
+                ]}
+              />
             </div>
 
             <div className="space-y-3">
@@ -92,7 +102,32 @@ export function AdminTemplatePage() {
             </div>
           </div>
         </section>
+
+        <section className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
+          <BlockTitle title="Modal padrao" subtitle="Exemplo do modal de confirmacao para remocao e acoes sensiveis." />
+
+          <div className="mt-5">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setModalOpen(true)}
+              className="border border-rose-500/20 bg-rose-500/10 text-rose-100 hover:bg-rose-500/20"
+            >
+              Abrir modal de exemplo
+            </Button>
+          </div>
+        </section>
       </div>
+
+      <ConfirmDialog
+        open={modalOpen}
+        onOpenChange={setModalOpen}
+        title="Excluir item"
+        description="Use este padrao para remocoes, rollbacks e qualquer acao irreversivel no sistema."
+        confirmLabel="Excluir item"
+        danger
+        onConfirm={() => setModalOpen(false)}
+      />
     </div>
   )
 }

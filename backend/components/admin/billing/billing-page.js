@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { BadgeDollarSign, CreditCard, LoaderCircle, Save, ShieldAlert } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
+import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -75,6 +76,10 @@ function buildFormFromProject(project) {
       monthlyCost: config?.limits?.monthlyCost ?? "",
     },
   }
+}
+
+function toOptions(items = [], labelKey = "name") {
+  return items.map((item) => ({ value: item.id, label: item[labelKey] }))
 }
 
 export function AdminBillingPage({ initialPlans, initialProjects, currentUser }) {
@@ -301,28 +306,18 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
           <div className="space-y-4">
             <label className="space-y-2 block">
               <span className="text-sm font-semibold text-slate-300">Projeto</span>
-              <select
-                value={form.projectId}
-                onChange={(event) => setSelectedProjectId(event.target.value)}
-                className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-              >
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
+              <AppSelect value={form.projectId} onChangeValue={setSelectedProjectId} options={toOptions(projects)} />
             </label>
 
             <label className="space-y-2 block">
               <span className="text-sm font-semibold text-slate-300">Plano base</span>
-              <select
+              <AppSelect
                 value={form.planId}
-                onChange={(event) => {
-                  const plan = plans.find((item) => item.id === event.target.value) ?? null
+                onChangeValue={(nextValue) => {
+                  const plan = plans.find((item) => item.id === nextValue) ?? null
                   setForm((current) => ({
                     ...current,
-                    planId: event.target.value,
+                    planId: nextValue,
                     planName: plan?.name ?? current.planName,
                     limits: {
                       inputTokens: plan?.limits?.inputTokens ?? current.limits.inputTokens,
@@ -332,15 +327,9 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
                     },
                   }))
                 }}
-                className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-              >
-                <option value="">Sem plano vinculado</option>
-                {plans.map((plan) => (
-                  <option key={plan.id} value={plan.id}>
-                    {plan.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="Sem plano vinculado"
+                options={[{ value: "", label: "Sem plano vinculado" }, ...toOptions(plans)]}
+              />
             </label>
 
             <input

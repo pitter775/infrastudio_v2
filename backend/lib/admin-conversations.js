@@ -129,7 +129,7 @@ export async function listAdminConversations(user) {
     let query = supabase
       .from("chats")
       .select(
-        "id, titulo, contato_nome, contato_telefone, contato_avatar_url, status, created_at, updated_at, total_tokens, total_custo, agente_id, usuario_id, projeto_id, canal, identificador_externo, contexto",
+        "id, titulo, contato_nome, contato_telefone, contato_avatar_url, status, created_at, updated_at, total_tokens, total_custo, agente_id, usuario_id, projeto_id, canal, identificador_externo, contexto, projeto:projetos(id, nome, slug)",
       )
       .neq("canal", "admin_agent_test")
       .order("updated_at", { ascending: false, nullsFirst: false })
@@ -179,6 +179,11 @@ export async function listAdminConversations(user) {
             telefone: item.chat.contatoTelefone || item.row.identificador_externo || "",
             avatarUrl: item.chat.contatoAvatarUrl || null,
           },
+          projeto: {
+            id: item.row.projeto_id ?? null,
+            nome: Array.isArray(item.row.projeto) ? item.row.projeto[0]?.nome ?? null : item.row.projeto?.nome ?? null,
+            slug: Array.isArray(item.row.projeto) ? item.row.projeto[0]?.slug ?? null : item.row.projeto?.slug ?? null,
+          },
           origem: item.chat.canal === "whatsapp" ? "whatsapp" : "site",
           status: item.handoff.status,
           handoff: item.handoff.handoff,
@@ -200,6 +205,17 @@ export async function listAdminConversations(user) {
           telefone: item.chat.contatoTelefone || item.row.identificador_externo || currentGroup.cliente.telefone,
           avatarUrl: item.chat.contatoAvatarUrl || currentGroup.cliente.avatarUrl,
         }
+        currentGroup.projeto = {
+          id: item.row.projeto_id ?? currentGroup.projeto?.id ?? null,
+          nome:
+            (Array.isArray(item.row.projeto) ? item.row.projeto[0]?.nome ?? null : item.row.projeto?.nome ?? null) ||
+            currentGroup.projeto?.nome ||
+            null,
+          slug:
+            (Array.isArray(item.row.projeto) ? item.row.projeto[0]?.slug ?? null : item.row.projeto?.slug ?? null) ||
+            currentGroup.projeto?.slug ||
+            null,
+        }
         currentGroup.handoff = item.handoff.handoff
       }
 
@@ -218,6 +234,7 @@ export async function listAdminConversations(user) {
       .map((conversation) => ({
         id: conversation.primaryChatId,
         cliente: conversation.cliente,
+        projeto: conversation.projeto ?? null,
         origem: conversation.origem,
         status: conversation.status,
         handoff: conversation.handoff,

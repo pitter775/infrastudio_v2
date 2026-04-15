@@ -86,7 +86,9 @@ function AgentTestMessage({ message }) {
       <div
         className={cn(
           "max-w-[86%] rounded-lg border px-3 py-2 text-sm shadow-sm",
-          isAgent ? "border-zinc-200 bg-white text-zinc-950" : "border-zinc-950 bg-zinc-950 text-white",
+          isAgent
+            ? "border-white/10 bg-[#0f172a] text-slate-100"
+            : "border-sky-500/30 bg-sky-500/15 text-sky-50",
         )}
       >
         <div
@@ -98,20 +100,20 @@ function AgentTestMessage({ message }) {
             <button
               type="button"
               onClick={() => setShowTrace((value) => !value)}
-              className="inline-flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-[11px] font-medium text-zinc-600 hover:text-zinc-950"
+              className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-medium text-slate-400 hover:bg-white/[0.07] hover:text-white"
             >
               <Info className="h-3 w-3" />
               IA trace
             </button>
             {showTrace ? (
-              <div className="mt-2 grid gap-1 rounded-md border border-zinc-200 bg-zinc-50 p-2 text-xs text-zinc-600">
-                <div>provider: <span className="font-medium text-zinc-950">{message.trace.provider}</span></div>
-                <div>modelo: <span className="font-medium text-zinc-950">{message.trace.model}</span></div>
-                <div>dominio: <span className="font-medium text-zinc-950">{message.trace.domainStage}</span></div>
-                <div>heuristica: <span className="font-medium text-zinc-950">{message.trace.heuristicStage}</span></div>
-                <div>tokens: <span className="font-medium text-zinc-950">{message.trace.tokens}</span></div>
-                <div>APIs: <span className="font-medium text-zinc-950">{message.trace.runtimeApiCount}</span></div>
-                <div>cache APIs: <span className="font-medium text-zinc-950">{message.trace.runtimeApiCacheHits}</span></div>
+              <div className="mt-2 grid gap-1 rounded-md border border-white/10 bg-black/20 p-2 text-xs text-slate-400">
+                <div>provider: <span className="font-medium text-slate-100">{message.trace.provider}</span></div>
+                <div>modelo: <span className="font-medium text-slate-100">{message.trace.model}</span></div>
+                <div>dominio: <span className="font-medium text-slate-100">{message.trace.domainStage}</span></div>
+                <div>heuristica: <span className="font-medium text-slate-100">{message.trace.heuristicStage}</span></div>
+                <div>tokens: <span className="font-medium text-slate-100">{message.trace.tokens}</span></div>
+                <div>APIs: <span className="font-medium text-slate-100">{message.trace.runtimeApiCount}</span></div>
+                <div>cache APIs: <span className="font-medium text-slate-100">{message.trace.runtimeApiCacheHits}</span></div>
               </div>
             ) : null}
           </div>
@@ -228,15 +230,15 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
       dragMomentum={false}
       dragElastic={0.08}
       initial={false}
-      className="fixed bottom-5 right-5 z-[80] flex h-[620px] max-h-[calc(100vh-40px)] w-[420px] max-w-[calc(100vw-40px)] flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-2xl"
+      className="fixed bottom-5 right-5 z-[80] flex h-[620px] max-h-[calc(100vh-40px)] w-[420px] max-w-[calc(100vw-40px)] flex-col overflow-hidden rounded-lg border border-white/10 bg-[#080e1d] shadow-[0_8px_18px_rgba(2,6,23,0.82)]"
     >
       <div
-        className="flex cursor-grab items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 active:cursor-grabbing"
+        className="flex cursor-grab items-start justify-between gap-3 border-b border-white/10 bg-[#0c1426] px-4 py-3 active:cursor-grabbing"
         onPointerDown={(event) => dragControls.start(event)}
       >
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-zinc-950">Teste do agente</h3>
-          <p className="mt-0.5 truncate text-xs text-zinc-500">Runtime real efemero com APIs vinculadas.</p>
+          <h3 className="text-sm font-semibold text-white">Teste do agente</h3>
+          <p className="mt-0.5 truncate text-xs text-slate-400">Runtime real efemero com APIs vinculadas.</p>
         </div>
         <div className="flex items-center gap-1" onPointerDown={(event) => event.stopPropagation()}>
           <Button
@@ -258,7 +260,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto bg-zinc-50 px-4 py-4">
+      <div className="min-h-0 flex-1 overflow-y-auto bg-[#080e1d] px-4 py-4">
         {messages.length ? (
           <div className="space-y-4">
             {messages.map((message) => (
@@ -266,26 +268,26 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
             ))}
           </div>
         ) : (
-          <div className="rounded-lg border border-dashed border-zinc-300 bg-white px-4 py-5 text-sm text-zinc-500">
+          <div className="rounded-lg border border-dashed border-white/15 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
             Envie uma pergunta para testar prompt, runtimeConfig e APIs do agente.
           </div>
         )}
         {error ? (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div className="mt-4 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-200">
             {error}
           </div>
         ) : null}
       </div>
 
-      <form onSubmit={handleSubmit} className="border-t border-zinc-200 bg-white px-3 py-3">
+      <form onSubmit={handleSubmit} className="border-t border-white/10 bg-[#0c1426] px-3 py-3">
         <div className="flex items-center gap-2">
           <input
             value={input}
             onChange={(event) => setInput(event.target.value)}
             placeholder="Digite uma mensagem de teste..."
-            className="h-10 min-w-0 flex-1 rounded-lg border border-zinc-300 px-3 text-sm outline-none focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+            className="h-10 min-w-0 flex-1 rounded-lg border border-white/10 bg-[#0a1020] px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
           />
-          <Button type="submit" disabled={!input.trim() || sending} size="icon" className="h-10 w-10 rounded-lg">
+          <Button type="submit" disabled={!input.trim() || sending} size="icon" className="h-10 w-10 rounded-lg border border-sky-500/20 bg-sky-500/15 text-sky-100 hover:bg-sky-500/25">
             {sending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <SendHorizonal className="h-4 w-4" />}
           </Button>
         </div>

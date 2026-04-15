@@ -4,7 +4,9 @@ import { useMemo, useState } from "react"
 import { AlertTriangle, ArrowUpDown, FlaskConical, LoaderCircle, RefreshCcw, Search, Trash2 } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
+import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { cn } from "@/lib/utils"
 
 function formatDateTime(value) {
@@ -142,6 +144,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [sort, setSort] = useState({ key: "createdAt", direction: "desc" })
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const isAllowed = currentUser?.role === "admin"
 
   const availableTypes = useMemo(
@@ -206,12 +209,6 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
   }
 
   async function handleClearEvents() {
-    const confirmed = window.confirm("Limpar os eventos exibidos no laboratorio?")
-
-    if (!confirmed) {
-      return
-    }
-
     setLoading(true)
     setFeedback(null)
 
@@ -230,6 +227,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
 
     await refreshLogs(filters)
     setFeedback(`${data.deleted ?? 0} eventos removidos.`)
+    setClearConfirmOpen(false)
   }
 
   if (!isAllowed) {
@@ -294,64 +292,22 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
 
         <label className="space-y-2">
           <span className="text-sm font-semibold text-slate-300">Projeto</span>
-          <select
-            value={filters.projectId}
-            onChange={(event) => setFilters((current) => ({ ...current, projectId: event.target.value }))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-          >
-            <option value="">Todos</option>
-            {projects.map((project) => (
-              <option key={project.id} value={project.id}>
-                {project.name}
-              </option>
-            ))}
-          </select>
+          <AppSelect value={filters.projectId} onChangeValue={(value) => setFilters((current) => ({ ...current, projectId: value }))} options={[{ value: "", label: "Todos" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]} />
         </label>
 
         <label className="space-y-2">
           <span className="text-sm font-semibold text-slate-300">Tipo</span>
-          <select
-            value={filters.type}
-            onChange={(event) => setFilters((current) => ({ ...current, type: event.target.value }))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-          >
-            <option value="">Todos</option>
-            {availableTypes.map((type) => (
-              <option key={type} value={type}>
-                {prettifyType(type)}
-              </option>
-            ))}
-          </select>
+          <AppSelect value={filters.type} onChangeValue={(value) => setFilters((current) => ({ ...current, type: value }))} options={[{ value: "", label: "Todos" }, ...availableTypes.map((type) => ({ value: type, label: prettifyType(type) }))]} />
         </label>
 
         <label className="space-y-2">
           <span className="text-sm font-semibold text-slate-300">Origem</span>
-          <select
-            value={filters.origin}
-            onChange={(event) => setFilters((current) => ({ ...current, origin: event.target.value }))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-          >
-            <option value="">Todas</option>
-            {availableOrigins.map((origin) => (
-              <option key={origin} value={origin}>
-                {origin}
-              </option>
-            ))}
-          </select>
+          <AppSelect value={filters.origin} onChangeValue={(value) => setFilters((current) => ({ ...current, origin: value }))} options={[{ value: "", label: "Todas" }, ...availableOrigins.map((origin) => ({ value: origin, label: origin }))]} />
         </label>
 
         <label className="space-y-2">
           <span className="text-sm font-semibold text-slate-300">Nivel</span>
-          <select
-            value={filters.level}
-            onChange={(event) => setFilters((current) => ({ ...current, level: event.target.value }))}
-            className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-          >
-            <option value="">Todos</option>
-            <option value="error">error</option>
-            <option value="warn">warn</option>
-            <option value="info">info</option>
-          </select>
+          <AppSelect value={filters.level} onChangeValue={(value) => setFilters((current) => ({ ...current, level: value }))} options={[{ value: "", label: "Todos" }, { value: "error", label: "error" }, { value: "warn", label: "warn" }, { value: "info", label: "info" }]} />
         </label>
 
         <div className="lg:col-span-full flex gap-3">
@@ -374,7 +330,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
           <Button
             type="button"
             variant="ghost"
-            onClick={handleClearEvents}
+            onClick={() => setClearConfirmOpen(true)}
             disabled={loading || logs.length === 0}
             className="h-10 rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 text-sm text-rose-100 hover:bg-rose-400/15"
           >
@@ -389,6 +345,17 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
           {feedback}
         </div>
       ) : null}
+
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+        title="Limpar eventos do laboratorio"
+        description="Os eventos exibidos com os filtros atuais serao removidos do laboratorio."
+        confirmLabel="Limpar eventos"
+        danger
+        loading={loading}
+        onConfirm={handleClearEvents}
+      />
 
       <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0b1120]">
         <div className="border-b border-white/5 px-5 py-4">

@@ -5,6 +5,7 @@ import { useState } from "react"
 import { ArrowLeft, LoaderCircle, RefreshCcw, Send } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
+import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
@@ -200,17 +201,11 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
               <>
                 <label className="block space-y-2">
                   <span className="text-sm font-semibold text-slate-300">Status</span>
-                  <select
+                  <AppSelect
                     value={statusDraft}
-                    onChange={(event) => setStatusDraft(event.target.value)}
-                    className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-                  >
-                    {statuses.map((status) => (
-                      <option key={status} value={status}>
-                        {getStatusLabel(status)}
-                      </option>
-                    ))}
-                  </select>
+                    onChangeValue={setStatusDraft}
+                    options={statuses.map((status) => ({ value: status, label: getStatusLabel(status) }))}
+                  />
                 </label>
 
                 <Button

@@ -6,6 +6,7 @@ import { Bot, History, Link2, MessageSquareText, RotateCcw, Save, Sparkles } fro
 
 import { AgentSimulator } from "@/components/app/agents/agent-simulator"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { cn } from "@/lib/utils"
 
 export function AgentEditor({ project }) {
@@ -26,6 +27,7 @@ export function AgentEditor({ project }) {
   const [setupBusinessContext, setSetupBusinessContext] = useState("")
   const [setupSiteUrl, setSetupSiteUrl] = useState("")
   const [creatingAgent, setCreatingAgent] = useState(false)
+  const [restoreConfirmId, setRestoreConfirmId] = useState("")
 
   function applyAgentState(nextAgent) {
     setName(nextAgent?.nome || nextAgent?.name || "")
@@ -100,11 +102,6 @@ export function AgentEditor({ project }) {
       return
     }
 
-    const confirmed = window.confirm("Restaurar esta versao do agente? O estado atual sera salvo no historico antes do rollback.")
-    if (!confirmed) {
-      return
-    }
-
     setRestoringId(versionId)
     setStatus({ type: "idle", message: "" })
 
@@ -128,6 +125,7 @@ export function AgentEditor({ project }) {
       applyAgentState(data.agent)
       setVersions(Array.isArray(data.versions) ? data.versions : [])
       setStatus({ type: "success", message: "Versao restaurada." })
+      setRestoreConfirmId("")
       router.refresh()
     } catch (error) {
       setStatus({ type: "error", message: error.message })
@@ -395,7 +393,7 @@ export function AgentEditor({ project }) {
                   size="sm"
                   className="gap-2"
                   disabled={Boolean(restoringId)}
-                  onClick={() => handleRestoreVersion(version.id)}
+                              onClick={() => setRestoreConfirmId(version.id)}
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
                   {restoringId === version.id ? "Restaurando..." : "Restaurar"}
@@ -409,6 +407,20 @@ export function AgentEditor({ project }) {
           </p>
         )}
       </div>
+
+      <ConfirmDialog
+        open={Boolean(restoreConfirmId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRestoreConfirmId("")
+          }
+        }}
+        title="Restaurar versao do agente"
+        description="O estado atual sera salvo no historico antes do rollback."
+        confirmLabel="Restaurar versao"
+        loading={Boolean(restoringId)}
+        onConfirm={() => restoreConfirmId ? handleRestoreVersion(restoreConfirmId) : null}
+      />
 
       <AgentSimulator project={project} agent={agent} open={testOpen} onOpenChange={setTestOpen} />
     </section>

@@ -140,6 +140,7 @@ export function AdminProjectCard({
   draggableHeader = false,
   resetDragSignal = 0,
   onDragStateChange,
+  statusControl,
   children,
 }) {
   const icons = Array.isArray(serviceIcons) && serviceIcons.length ? serviceIcons : getProjectServiceIcons(project)
@@ -244,7 +245,7 @@ export function AdminProjectCard({
         </div>
 
         <div
-          className="relative flex h-32 items-center justify-center gap-4"
+          className="relative flex h-32 items-center justify-center gap-4 pt-8"
           style={{
             backgroundImage: 'radial-gradient(#1e293b 1px, transparent 1px)',
             backgroundSize: '16px 16px',
@@ -296,6 +297,7 @@ export function AdminProjectCard({
               )}
             />
             <span className="truncate">{getStatusLabel(project.status)}</span>
+            {statusControl ? <span className="ml-1 shrink-0">{statusControl}</span> : null}
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {onTestAgent ? (

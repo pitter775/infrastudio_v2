@@ -16,7 +16,7 @@ const fieldClassName =
   'h-12 w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm text-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400'
 
 const socialButtonClassName =
-  'inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-medium text-white transition hover:border-cyan-400/25 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-60'
 
 function GoogleIcon() {
   return (
@@ -316,7 +316,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[90] bg-slate-950/80" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#0f172a] text-white">
-          <Dialog.Close className="absolute right-4 top-4 z-10 rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:bg-white/10 hover:text-white">
+          <Dialog.Close className="absolute right-4 top-4 z-10 rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-white">
             <X className="h-4 w-4" />
           </Dialog.Close>
 

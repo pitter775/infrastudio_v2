@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { EditorContent, useEditor } from '@tiptap/react'
@@ -25,6 +25,7 @@ import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
 import { WidgetManager } from '@/components/app/widgets/widget-manager'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { HorizontalDragScroll } from '@/components/ui/horizontal-drag-scroll'
 import { JsonCodeBlock } from '@/components/ui/json-code-block'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
@@ -61,8 +62,8 @@ const AGENT_TAB_ALIASES = {
   conexao: 'connections',
   conexoes: 'connections',
 }
-const SATELLITE_BUTTON_WIDTH = 146
-const SATELLITE_BUTTON_HEIGHT = 52
+const SATELLITE_BUTTON_WIDTH = 152
+const SATELLITE_BUTTON_HEIGHT = 64
 
 function resolveAgentTab(value) {
   return AGENT_TAB_ALIASES[String(value || '').toLowerCase()] || null
@@ -310,11 +311,12 @@ function buildIntegrationPanels(project) {
       shortLabel: 'APIs',
       icon: PlugZap,
       colorClassName: 'sky',
+      serviceIconType: 'apis',
       directToAgent: true,
-      mobilePosition: { x: 190, y: 312 },
-      desktopPosition: { x: 230, y: 316 },
+      mobilePosition: { x: 94, y: 314 },
+      desktopPosition: { x: 96, y: 322 },
       cardAnchor: { x: 168, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 296,
+      routeY: 292,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'APIs',
       description: 'Endpoints cadastrados para o agente usar no pipeline.',
@@ -331,11 +333,12 @@ function buildIntegrationPanels(project) {
       shortLabel: 'WhatsApp',
       icon: MessageSquare,
       colorClassName: 'emerald',
+      serviceIconType: 'whatsapp',
       directToAgent: true,
-      mobilePosition: { x: -26, y: 300 },
-      desktopPosition: { x: -34, y: 304 },
+      mobilePosition: { x: 94, y: 392 },
+      desktopPosition: { x: 96, y: 400 },
       cardAnchor: { x: 112, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 316,
+      routeY: 370,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'WhatsApp',
       description: 'Canais WhatsApp vinculados ao projeto.',
@@ -350,11 +353,12 @@ function buildIntegrationPanels(project) {
       shortLabel: 'Mercado Livre',
       icon: Store,
       colorClassName: 'amber',
-      directToAgent: false,
-      mobilePosition: { x: 190, y: 434 },
-      desktopPosition: { x: 194, y: 450 },
+      serviceIconType: 'mercadoLivre',
+      directToAgent: true,
+      mobilePosition: { x: 94, y: 548 },
+      desktopPosition: { x: 96, y: 556 },
       cardAnchor: { x: 194, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 432,
+      routeY: 526,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'Mercado Livre',
       description: 'Painel reservado para catalogo, pedidos e operacao de marketplace.',
@@ -368,11 +372,12 @@ function buildIntegrationPanels(project) {
       shortLabel: 'Chat widget',
       icon: PackageSearch,
       colorClassName: 'sky',
+      serviceIconType: 'chatWidget',
       directToAgent: true,
-      mobilePosition: { x: -18, y: 406 },
-      desktopPosition: { x: -22, y: 422 },
+      mobilePosition: { x: 94, y: 470 },
+      desktopPosition: { x: 96, y: 478 },
       cardAnchor: { x: 138, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 404,
+      routeY: 448,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'Chat widget',
       description: 'Widgets web conectados ao atendimento.',
@@ -549,7 +554,7 @@ function SheetPanelHeader({
       : { text: 'text-emerald-300', track: 'bg-emerald-500/20', thumb: 'bg-emerald-300' }
 
   return (
-    <div className="px-6 py-5">
+    <div className="px-6 pt-8 pb-5 sm:py-5">
       <div className="relative flex flex-col gap-3 pr-14 sm:pr-0">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -645,10 +650,10 @@ function SheetInternalTabs({ tabs, activeTab, onChange }) {
               type="button"
               onClick={() => onChange(tab.id)}
               className={cn(
-                'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-colors',
+                'inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl px-3 text-xs font-semibold transition-colors',
                 active
-                  ? 'border-sky-400/40 bg-sky-500/15 text-sky-100'
-                  : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200',
+                  ? 'bg-sky-500/15 text-sky-100'
+                  : 'bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-slate-100',
               )}
             >
               {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
@@ -684,6 +689,26 @@ function PlaceholderPanel({ title, description, items = [] }) {
   )
 }
 
+function mergeIntegrationStats(current, next) {
+  if (!next || typeof next !== 'object') {
+    return current
+  }
+
+  let changed = false
+  const merged = { ...current }
+
+  for (const [key, value] of Object.entries(next)) {
+    if (value == null || merged[key] === value) {
+      continue
+    }
+
+    merged[key] = value
+    changed = true
+  }
+
+  return changed ? merged : current
+}
+
 function ProjectPanel({
   project,
   initialAgentTab = 'edit',
@@ -701,6 +726,7 @@ function ProjectPanel({
   const [agentActive, setAgentActive] = useState(agent?.active !== false)
   const [versions, setVersions] = useState(agent?.versions || [])
   const [restoringId, setRestoringId] = useState('')
+  const [restoreConfirmId, setRestoreConfirmId] = useState('')
   const [savingActive, setSavingActive] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
   const [creatingAgent, setCreatingAgent] = useState(false)
@@ -715,9 +741,9 @@ function ProjectPanel({
   const [activeAgentTab, setActiveAgentTab] = useState(resolveAgentTab(initialAgentTab) || 'edit')
   const agentTabs = [
     { id: 'edit', label: 'Editar agente', icon: Wand2 },
+    { id: 'connections', label: 'Conexoes', icon: PlugZap },
     { id: 'history', label: 'Historico', icon: History },
     { id: 'json', label: 'Ver JSON', icon: Files },
-    { id: 'connections', label: 'Conexoes', icon: PlugZap },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
   const hasUnsavedChanges =
@@ -883,11 +909,6 @@ function ProjectPanel({
       return
     }
 
-    const confirmed = window.confirm('Restaurar esta versao do agente? O estado atual sera salvo no historico antes do rollback.')
-    if (!confirmed) {
-      return
-    }
-
     setRestoringId(versionId)
     setRollbackStatus({ type: 'idle', message: '' })
 
@@ -910,6 +931,7 @@ function ProjectPanel({
 
       setVersions(Array.isArray(data.versions) ? data.versions : [])
       setRollbackStatus({ type: 'success', message: 'Versao restaurada.' })
+      setRestoreConfirmId('')
       router.refresh()
     } catch (error) {
       setRollbackStatus({ type: 'error', message: error.message })
@@ -1029,11 +1051,6 @@ function ProjectPanel({
         description="Defina o agente e selecione quais APIs deste projeto ele pode usar."
         statusTone="sky"
         onCancel={onCloseSheet}
-        leftAction={
-          agent?.id ? (
-            <SheetPowerToggle enabled={agentActive} disabled={savingActive} onClick={handleToggleAgentActive} />
-          ) : null
-        }
       />
       <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={handleAgentTabChange} />
 
@@ -1079,7 +1096,7 @@ function ProjectPanel({
                   URL do site para leitura automatica
                 </label>
 
-                <div className="mt-3 flex flex-col gap-3 xl:flex-row">
+                <div className="mt-3 grid gap-3 xl:grid-cols-[minmax(0,1fr)_260px]">
                   <input
                     value={siteUrl}
                     onChange={(event) => setSiteUrl(event.target.value)}
@@ -1233,7 +1250,7 @@ function ProjectPanel({
                         type="button"
                         variant="ghost"
                         disabled={Boolean(restoringId)}
-                        onClick={() => handleRestoreVersion(version.id)}
+                        onClick={() => setRestoreConfirmId(version.id)}
                         className="h-8 shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs text-sky-100"
                       >
                         <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
@@ -1287,6 +1304,20 @@ function ProjectPanel({
           </Button>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={Boolean(restoreConfirmId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRestoreConfirmId('')
+          }
+        }}
+        title="Restaurar versao do agente"
+        description="O estado atual sera salvo no historico antes do rollback."
+        confirmLabel="Restaurar versao"
+        loading={Boolean(restoringId)}
+        onConfirm={() => (restoreConfirmId ? handleRestoreVersion(restoreConfirmId) : null)}
+      />
     </>
   )
 }
@@ -1349,10 +1380,55 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
   const [appId, setAppId] = useState('')
   const [clientSecret, setClientSecret] = useState('')
   const [seedId, setSeedId] = useState('')
+  const [loadingConnector, setLoadingConnector] = useState(false)
   const tabs = [
     { id: 'connection', label: 'Conexao', icon: Store },
     { id: 'tutorial', label: 'Tutorial', icon: Files },
   ]
+
+  useEffect(() => {
+    let active = true
+
+    async function loadMercadoLivreConnector() {
+      setLoadingConnector(true)
+
+      try {
+        const response = await fetch(`/api/app/projetos/${project.routeKey || project.slug || project.id}/conectores`)
+        const data = await response.json().catch(() => ({}))
+
+        if (!active || !response.ok) {
+          return
+        }
+
+        const connector = (data.connectors || []).find((item) => {
+          const haystack = `${item.slug || ''} ${item.type || ''} ${item.name || ''}`.toLowerCase()
+          return haystack.includes('mercado') || haystack.includes('ml')
+        })
+
+        if (!connector) {
+          return
+        }
+
+        const config = connector.config && typeof connector.config === 'object' ? connector.config : {}
+        setStoreName((current) => current || connector.name || 'Loja Mercado Livre')
+        setAppId((current) => current || String(config.appId || config.app_id || config.clientId || config.client_id || ''))
+        setClientSecret((current) => current || String(config.clientSecret || config.client_secret || config.secret || ''))
+        setSeedId((current) => current || String(config.seedId || config.seed_id || config.sellerId || config.seller_id || ''))
+        setStep(2)
+      } catch {}
+      finally {
+        if (active) {
+          setLoadingConnector(false)
+        }
+      }
+    }
+
+    loadMercadoLivreConnector()
+
+    return () => {
+      active = false
+    }
+  }, [project.id, project.routeKey, project.slug])
 
   function handleResolveStore(event) {
     event.preventDefault()
@@ -1383,10 +1459,10 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
                 onTabChange?.(tab.id)
               }}
               className={cn(
-                'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium transition',
+                'inline-flex h-9 items-center gap-2 rounded-lg px-3 text-sm font-medium transition',
                 active
-                  ? 'border-white bg-white text-zinc-950'
-                  : 'border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-white',
+                  ? 'bg-sky-500/15 text-sky-100'
+                  : 'bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
               )}
             >
               <Icon className="h-4 w-4" />
@@ -1398,6 +1474,11 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
 
       {currentTab === 'connection' ? (
         <div className="grid gap-4">
+          {loadingConnector ? (
+            <div className="rounded-xl bg-white/[0.03] px-3 py-2 text-xs uppercase tracking-[0.16em] text-slate-500">
+              carregando conector
+            </div>
+          ) : null}
           {step === 1 ? (
             <form id="mercado-livre-resolve-form" className="grid gap-4" onSubmit={handleResolveStore}>
               <label className="block">
@@ -1426,7 +1507,7 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
                 {seedId ? `Identificador sugerido: ${seedId}` : 'Resolucao automatica indisponivel. Preencha manualmente.'}
               </div>
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3">
                 <label className="block">
                   <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da conexao</span>
                   <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
@@ -1451,27 +1532,85 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
       ) : null}
 
       {currentTab === 'tutorial' ? (
-        <PlaceholderPanel
-          title="Tutorial"
-          description="Crie uma aplicacao no Mercado Livre, informe as credenciais e use um produto da loja para tentar preencher o identificador automaticamente."
-          items={['Uma conexao por projeto', 'Fallback manual liberado', 'Catalogo e perguntas usam esta base']}
-        />
+        <div className="grid gap-7 bg-transparent p-0 text-sm text-slate-300">
+          <div className="grid gap-2">
+            <p className="text-base font-semibold text-white">Tutorial rapido</p>
+            <p className="text-slate-400">Como conectar o Mercado Livre</p>
+            <p className="leading-6 text-slate-400">
+              Aqui funciona em 2 etapas bem simples: primeiro voce cadastra a loja com os dados do aplicativo, depois conecta a conta do Mercado Livre para liberar o acesso.
+            </p>
+          </div>
+
+          <div className="grid gap-3 bg-transparent p-0">
+            <p className="text-sm font-semibold text-white">Painel de apps do Mercado Livre</p>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Etapa 1. Cadastrar a loja: crie um aplicativo do tipo <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Web</code>, ative as opcoes pedidas pelo Mercado Livre e copie o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">APP ID</code> e o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">CLIENT SECRET</code> para este cadastro.
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Etapa 2. Conectar a loja: depois de salvar, clique em conectar para autorizar a conta do Mercado Livre e finalizar a integracao.
+            </p>
+          </div>
+
+          <div className="grid gap-4">
+            <p className="text-sm font-semibold text-white">Links para configurar no Mercado Livre</p>
+            <p className="text-sm leading-6 text-slate-400">
+              Abra para copiar os links que o Mercado Livre vai pedir na configuracao.
+            </p>
+            <p className="text-sm leading-6 text-slate-400">
+              Use os links abaixo exatamente como estao. Se o campo de notificacoes nao aceitar o endereco direto, use uma URL publica intermediaria.
+            </p>
+          </div>
+
+          <div className="grid gap-5">
+            <div className="grid gap-2 bg-transparent p-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Link de retorno</p>
+              <div className="mt-2 bg-transparent px-0 py-0 font-mono text-xs text-sky-200">
+                https://infrastudio.pro/api/admin/conectores/mercado-livre/callback
+              </div>
+            </div>
+
+            <div className="grid gap-2 bg-transparent p-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Link de notificacoes</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Em alguns casos, o Mercado Livre pode nao aceitar esse endereco direto nesse campo.
+              </p>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Se isso acontecer, use uma URL publica intermediaria e aponte essa URL para o endereco abaixo:
+              </p>
+              <div className="mt-2 bg-transparent px-0 py-0 font-mono text-xs text-sky-200">
+                https://infrastudio.pro/api/mercado-livre/webhook?canal=ml
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
     </div>
   )
 }
 
-function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet = null, enabled = true }) {
+function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet = null, enabled = true, onIntegrationStatsChange = null }) {
   const [apiDetailOpen, setApiDetailOpen] = useState(Boolean(deepLink?.api))
   const [apiDeleteAvailable, setApiDeleteAvailable] = useState(false)
   const [apiResetSignal, setApiResetSignal] = useState(0)
   const [whatsappFooter, setWhatsappFooter] = useState({})
   const [widgetFooter, setWidgetFooter] = useState({})
   const [mercadoFooter, setMercadoFooter] = useState({})
+  const [integrationStats, setIntegrationStats] = useState({})
+
+  const handleStatsChange = useCallback((stats) => {
+    setIntegrationStats((current) => mergeIntegrationStats(current, stats))
+  }, [])
+
+  useEffect(() => {
+    if (Object.keys(integrationStats).length > 0) {
+      onIntegrationStatsChange?.(integrationStats)
+    }
+  }, [integrationStats, onIntegrationStatsChange])
   const tabs = useMemo(() => {
     if (panel.id === 'apis') {
       return [
         { id: 'edit', label: 'Criar/Editar', icon: Wand2 },
+        { id: 'tutorial', label: 'Tutorial', icon: Files },
         { id: 'json', label: 'JSON', icon: Files },
         { id: 'test', label: 'Testar', icon: MessageSquare },
       ]
@@ -1508,7 +1647,7 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
   }, [panel.id, tabs])
 
   const realPanel =
-    panel.id === 'apis' ? (
+    panel.id === 'apis' && activeTab !== 'tutorial' ? (
       <ManagerFrame>
         <ApiManager
           project={project}
@@ -1517,17 +1656,18 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
           onTabChange={setActiveTab}
           onDetailOpenChange={setApiDetailOpen}
           onDeleteAvailableChange={setApiDeleteAvailable}
+          onStatsChange={handleStatsChange}
           resetSignal={apiResetSignal}
           compact
         />
       </ManagerFrame>
     ) : panel.id === 'whatsapp' ? (
       <ManagerFrame>
-        <WhatsAppManager project={project} initialChannelId={deepLink?.channel || null} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setWhatsappFooter} compact />
+        <WhatsAppManager project={project} initialChannelId={deepLink?.channel || null} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setWhatsappFooter} onStatsChange={handleStatsChange} compact />
       </ManagerFrame>
     ) : panel.id === 'chat-widget' ? (
       <ManagerFrame>
-        <WidgetManager project={project} initialWidgetId={deepLink?.widget || null} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setWidgetFooter} compact />
+        <WidgetManager project={project} initialWidgetId={deepLink?.widget || null} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setWidgetFooter} onStatsChange={handleStatsChange} compact />
       </ManagerFrame>
     ) : panel.id === 'mercado-livre' ? (
       <MercadoLivrePanel project={project} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setMercadoFooter} compact />
@@ -1547,8 +1687,29 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
       )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={`${panel.id}-${activeTab}`}
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          >
         {realPanel ? (
           realPanel
+        ) : panel.id === 'apis' && activeTab === 'tutorial' ? (
+        <PlaceholderPanel
+          title="Tutorial para API autenticada"
+          description="O projeto ja esta preparado para APIs autenticadas via JSON de configuracao. Use `configuracoes.http.headers` para enviar `Authorization`, `x-api-key` ou qualquer header fixo."
+          items={[
+            'Use URL GET valida e retorne JSON.',
+            'No JSON, configure http.headers com Bearer ou x-api-key.',
+            'Use runtime.responsePath para apontar o bloco correto da resposta.',
+            'Defina runtime.previewPath para o resumo rapido exibido no teste.',
+            'Mapeie runtime.fields.path para extrair valores especificos do payload.',
+            'Teste a API antes de vincular ao agente.',
+          ]}
+        />
         ) : (
         <div className="space-y-6 text-sm text-slate-300">
           <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
@@ -1578,6 +1739,8 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
           </div>
         </div>
         )}
+          </motion.div>
+        </AnimatePresence>
       </div>
       {panel.id === 'apis' && apiDetailOpen ? (
         <div className="border-t border-white/5 px-6 py-4">
@@ -1695,6 +1858,8 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
 }
 
 export function AdminProjectDetailPage({ project }) {
+  const router = useRouter()
+  const projectIdentifier = project.routeKey || project.slug || project.id
   const [isPanelOpen, setIsPanelOpen] = useState(Boolean(project.agent?.id))
   const [activePanel, setActivePanel] = useState(DEFAULT_PANEL)
   const [agentTabFromUrl, setAgentTabFromUrl] = useState('edit')
@@ -1705,8 +1870,32 @@ export function AdminProjectDetailPage({ project }) {
   const [isCardDragging, setIsCardDragging] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [pendingPanelId, setPendingPanelId] = useState(null)
+  const [agentCardActive, setAgentCardActive] = useState(project.agent?.active !== false)
+  const [savingAgentCardActive, setSavingAgentCardActive] = useState(false)
+  const [integrationStats, setIntegrationStats] = useState(() => ({
+    apis: Number(project.directConnections?.apis || project.integrations?.apis || project.apis?.length || 0),
+    whatsapp: Number(project.directConnections?.whatsapp || project.integrations?.whatsapp || project.whatsappChannels?.length || 0),
+    chatWidget: Number(project.directConnections?.chatWidget || project.integrations?.chatWidget || project.chatWidgets?.length || 0),
+    mercadoLivre: Number(project.directConnections?.mercadoLivre || 0),
+  }))
   const mobileHistoryGuardRef = useRef(false)
-  const integrationPanels = useMemo(() => buildIntegrationPanels(project), [project])
+  const integrationPanels = useMemo(() => {
+    const nextProject = {
+      ...project,
+      integrations: {
+        ...(project.integrations || {}),
+        apis: integrationStats.apis,
+        whatsapp: integrationStats.whatsapp,
+        chatWidget: integrationStats.chatWidget,
+      },
+      directConnections: {
+        ...(project.directConnections || {}),
+        ...integrationStats,
+      },
+    }
+
+    return buildIntegrationPanels(nextProject)
+  }, [integrationStats, project])
   const [panelEnabledMap, setPanelEnabledMap] = useState({})
   const activeIntegrationPanels = useMemo(
     () => integrationPanels.filter((panel) => panel.isAvailable),
@@ -1717,9 +1906,18 @@ export function AdminProjectDetailPage({ project }) {
     () =>
       activeIntegrationPanels
         .filter((panel) => panel.directToAgent)
-        .map((panel) => panel.id),
+        .map((panel) => panel.serviceIconType || panel.id),
     [activeIntegrationPanels],
   )
+
+  useEffect(() => {
+    setIntegrationStats({
+      apis: Number(project.directConnections?.apis || project.integrations?.apis || project.apis?.length || 0),
+      whatsapp: Number(project.directConnections?.whatsapp || project.integrations?.whatsapp || project.whatsappChannels?.length || 0),
+      chatWidget: Number(project.directConnections?.chatWidget || project.integrations?.chatWidget || project.chatWidgets?.length || 0),
+      mercadoLivre: Number(project.directConnections?.mercadoLivre || 0),
+    })
+  }, [project])
 
   useEffect(() => {
     setPanelEnabledMap((current) =>
@@ -1729,6 +1927,10 @@ export function AdminProjectDetailPage({ project }) {
       }, {}),
     )
   }, [integrationPanels])
+
+  useEffect(() => {
+    setAgentCardActive(project.agent?.active !== false)
+  }, [project.agent?.active, project.agent?.id])
 
   useEffect(() => {
     function syncViewport() {
@@ -1934,6 +2136,49 @@ export function AdminProjectDetailPage({ project }) {
     updateAgentTabQuery(tabId)
   }
 
+  const handleIntegrationStatsChange = useCallback((stats) => {
+    setIntegrationStats((current) => mergeIntegrationStats(current, stats))
+  }, [])
+
+  async function handleToggleAgentCardActive() {
+    if (!project.agent?.id || savingAgentCardActive) {
+      return
+    }
+
+    const nextActive = !agentCardActive
+    setSavingAgentCardActive(true)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          agenteId: project.agent.id,
+          nome: project.agent.name,
+          descricao: project.agent.description,
+          promptBase: project.agent.prompt,
+          runtimeConfig: project.agent.runtimeConfig ?? null,
+          configuracoes: project.agent.configuracoes ?? {},
+          ativo: nextActive,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Nao foi possivel alterar o status do agente.')
+      }
+
+      setAgentCardActive(nextActive)
+      router.refresh()
+    } catch (error) {
+      console.error('[project-detail] failed to toggle agent from card', error)
+    } finally {
+      setSavingAgentCardActive(false)
+    }
+  }
+
   return (
     <div className={cn('min-h-full px-8 py-10', isMobile && 'h-[calc(100dvh-88px)] overflow-hidden px-0 pb-4 pt-4')}>
       <div
@@ -1975,7 +2220,7 @@ export function AdminProjectDetailPage({ project }) {
                     'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 text-xs font-semibold transition-colors',
                     active
                       ? 'bg-sky-500/15 text-sky-200'
-                      : 'bg-transparent text-slate-400 hover:bg-white/[0.06] hover:text-white',
+                      : 'bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
                   )}
                 >
                   {loading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : Icon ? <Icon className="h-3.5 w-3.5" /> : null}
@@ -2018,6 +2263,23 @@ export function AdminProjectDetailPage({ project }) {
             onDragStateChange={setIsCardDragging}
             onSelect={() => handleOpenPanel(DEFAULT_PANEL)}
             onTestAgent={project.agent?.id ? () => setTestOpen(true) : null}
+            statusControl={
+              project.agent?.id ? (
+                <span
+                  onClick={(event) => {
+                    event.preventDefault()
+                    event.stopPropagation()
+                  }}
+                >
+                  <SheetPowerToggle
+                    enabled={agentCardActive}
+                    disabled={savingAgentCardActive}
+                    onClick={handleToggleAgentCardActive}
+                    compact
+                  />
+                </span>
+              ) : null
+            }
           >
             {activeIntegrationPanels
               .filter((panel) => panel.directToAgent)
@@ -2026,7 +2288,7 @@ export function AdminProjectDetailPage({ project }) {
                 const satelliteLayout = getSatelliteLayout(panel, isMobile)
                 const accent = getPanelAccentClasses(panel.colorClassName)
                 const isActiveConnector = activePanel === panel.id && isPanelOpen
-                const connectorClassName = isActiveConnector ? accent.connector : 'border-slate-600/35'
+                const connectorClassName = isActiveConnector ? accent.connector : 'border-slate-500/55'
                 const enabled = panelEnabledMap[panel.id] !== false
 
                 return (
@@ -2059,41 +2321,43 @@ export function AdminProjectDetailPage({ project }) {
                       className="absolute z-20"
                       style={satelliteLayout.buttonStyle}
                     >
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={(event) => {
-                          event.preventDefault()
-                          event.stopPropagation()
-                          handleOpenPanel(panel.id)
-                        }}
+                      <div
                         className={cn(
-                          'h-full w-full rounded-full border border-white/10 bg-[#0c1426] px-3 text-slate-200 transition-[box-shadow,transform] duration-200 hover:bg-[#101b31] hover:text-white',
+                          'flex h-full w-full items-center gap-2 rounded-[22px] border border-white/10 bg-[#0c1426] px-3 py-2 text-slate-200 transition-[box-shadow,transform,background-color,border-color] duration-200',
                           isCardDragging
                             ? 'shadow-[0_14px_0_rgba(2,6,23,0.78)]'
                             : 'shadow-[0_8px_0_rgba(2,6,23,0.64)]',
-                          activePanel === panel.id && isPanelOpen ? accent.button : null,
+                          activePanel === panel.id && isPanelOpen ? accent.button : 'hover:border-sky-400/30 hover:bg-[#12203a] hover:text-white',
                         )}
                       >
-                        <span className="flex min-w-0 items-center">
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.preventDefault()
+                            event.stopPropagation()
+                            handleOpenPanel(panel.id)
+                          }}
+                          className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1"
+                        >
                           <Icon
                             className={cn(
-                              'mr-2 h-4 w-4 shrink-0 text-slate-300',
+                              'h-4 w-4 shrink-0 text-slate-300',
                               activePanel === panel.id && isPanelOpen ? accent.icon : null,
                             )}
                           />
-                          <span className="truncate text-xs font-medium tracking-[0.08em]">{panel.label}</span>
-                        </span>
+                          <span className="truncate text-center text-[11px] font-medium tracking-[0.08em]">{panel.label}</span>
+                        </button>
                         <span
                           onClick={(event) => {
                             event.preventDefault()
                             event.stopPropagation()
                             setPanelEnabledMap((current) => ({ ...current, [panel.id]: !enabled }))
                           }}
+                          className="shrink-0 self-center"
                         >
                           <SheetPowerToggle enabled={enabled} compact />
                         </span>
-                      </Button>
+                      </div>
                     </motion.div>
                   </div>
                 )
@@ -2159,6 +2423,7 @@ export function AdminProjectDetailPage({ project }) {
                     deepLink={deepLink}
                     onCloseSheet={handleCloseSheet}
                     enabled={panelEnabledMap[selectedPanel.id] !== false}
+                    onIntegrationStatsChange={handleIntegrationStatsChange}
                   />
                 ) : (
                   <ProjectPanel

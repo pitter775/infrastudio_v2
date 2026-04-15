@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { CheckCircle2, Code2, FlaskConical, History, Pencil, PlugZap, Plus, RotateCcw, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { JsonCodeBlock } from "@/components/ui/json-code-block"
 import { ToggleSwitchButton } from "@/components/ui/toggle-switch-button"
 import { cn } from "@/lib/utils"
@@ -118,6 +119,7 @@ export function ApiManager({
   onTabChange,
   onDetailOpenChange,
   onDeleteAvailableChange,
+  onStatsChange,
   resetSignal = 0,
   compact = false,
 }) {
@@ -134,6 +136,8 @@ export function ApiManager({
   const [savingLinks, setSavingLinks] = useState(false)
   const [testResult, setTestResult] = useState(null)
   const [status, setStatus] = useState({ type: "idle", message: "" })
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [restoreTarget, setRestoreTarget] = useState(null)
 
   const editing = useMemo(() => Boolean(form.id), [form.id])
 
@@ -144,6 +148,10 @@ export function ApiManager({
   useEffect(() => {
     onDeleteAvailableChange?.(Boolean(form.id))
   }, [form.id, onDeleteAvailableChange])
+
+  useEffect(() => {
+    onStatsChange?.({ apis: apis.length })
+  }, [apis.length, onStatsChange])
 
   useEffect(() => {
     if (resetSignal) {
@@ -314,15 +322,8 @@ export function ApiManager({
     }
   }
 
-  async function deleteApi(event) {
-    event.preventDefault()
-
+  async function deleteApi() {
     if (!form.id) {
-      return
-    }
-
-    const confirmed = window.confirm("Deletar esta API?")
-    if (!confirmed) {
       return
     }
 
@@ -341,6 +342,7 @@ export function ApiManager({
       setLinkedApiIds((current) => current.filter((apiId) => apiId !== form.id))
       resetForm()
       setStatus({ type: "success", message: "API deletada." })
+      setDeleteConfirmOpen(false)
     } catch (error) {
       setStatus({ type: "error", message: error.message })
     } finally {
@@ -348,13 +350,16 @@ export function ApiManager({
     }
   }
 
-  async function restoreApiVersion(api, versionId) {
-    if (!api?.id || !versionId || restoringVersionId) {
+  function handleDeleteSubmit(event) {
+    event.preventDefault()
+    if (!form.id) {
       return
     }
+    setDeleteConfirmOpen(true)
+  }
 
-    const confirmed = window.confirm("Restaurar esta versao da API? O estado atual sera salvo no historico antes do rollback.")
-    if (!confirmed) {
+  async function restoreApiVersion(api, versionId) {
+    if (!api?.id || !versionId || restoringVersionId) {
       return
     }
 
@@ -391,6 +396,7 @@ export function ApiManager({
         })
       }
       setStatus({ type: "success", message: "Versao da API restaurada." })
+      setRestoreTarget(null)
     } catch (error) {
       setStatus({ type: "error", message: error.message })
     } finally {
@@ -700,7 +706,7 @@ export function ApiManager({
                               size="sm"
                               className="h-8 gap-1.5 px-2 text-xs"
                               disabled={Boolean(restoringVersionId)}
-                              onClick={() => restoreApiVersion(api, version.id)}
+                              onClick={() => setRestoreTarget({ api, versionId: version.id })}
                             >
                               <RotateCcw className="h-3.5 w-3.5" />
                               {restoringVersionId === version.id ? "Restaurando..." : "Rollback"}
@@ -763,7 +769,32 @@ export function ApiManager({
         </div>
       ) : null}
 
-      <form id="api-delete-form" onSubmit={deleteApi} />
+      <form id="api-delete-form" onSubmit={handleDeleteSubmit} />
+
+      <ConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Excluir API"
+        description="Esta API sera removida do projeto."
+        confirmLabel="Excluir API"
+        danger
+        loading={saving}
+        onConfirm={deleteApi}
+      />
+
+      <ConfirmDialog
+        open={Boolean(restoreTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRestoreTarget(null)
+          }
+        }}
+        title="Restaurar versao da API"
+        description="O estado atual sera salvo no historico antes do rollback."
+        confirmLabel="Restaurar versao"
+        loading={Boolean(restoringVersionId)}
+        onConfirm={() => (restoreTarget ? restoreApiVersion(restoreTarget.api, restoreTarget.versionId) : null)}
+      />
 
       {testResult ? (
         <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">

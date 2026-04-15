@@ -1,9 +1,10 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
+  ChevronDown,
   FileText,
   Globe,
   Info,
@@ -19,6 +20,7 @@ import {
 } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
+import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
@@ -188,7 +190,7 @@ function MessageBubble({ message }) {
             <button
               type="button"
               onClick={() => setShowAiTrace((value) => !value)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300 hover:bg-white/[0.08] hover:text-white"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-300 hover:border-sky-400/20 hover:bg-sky-500/10 hover:text-white"
             >
               <Info className="h-3 w-3" />
               IA trace
@@ -275,6 +277,39 @@ function Composer({ conversation, onMessageSent }) {
   const [texto, setTexto] = useState("")
   const [attachments, setAttachments] = useState([])
   const [isSending, setIsSending] = useState(false)
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    const textarea = inputRef.current
+    if (!textarea) {
+      return
+    }
+
+    textarea.style.height = "0px"
+    textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 44), 136)}px`
+  }, [texto])
+
+  function wrapSelection(before, after = before) {
+    const textarea = inputRef.current
+
+    if (!textarea) {
+      return
+    }
+
+    const start = textarea.selectionStart ?? texto.length
+    const end = textarea.selectionEnd ?? texto.length
+    const selectedText = texto.slice(start, end)
+    const nextValue = `${texto.slice(0, start)}${before}${selectedText}${after}${texto.slice(end)}`
+
+    setTexto(nextValue)
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      const caretStart = start + before.length
+      const caretEnd = caretStart + selectedText.length
+      textarea.setSelectionRange(caretStart, caretEnd)
+    })
+  }
 
   async function handleSubmit(event) {
     event.preventDefault()
@@ -312,8 +347,25 @@ function Composer({ conversation, onMessageSent }) {
 
   return (
     <div className="sticky bottom-0 z-10 border-t border-white/5 bg-[#0c1322] px-3 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] lg:px-4 lg:py-3 lg:pb-3">
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
-        <label className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] hover:text-white">
+      <div className="mb-2 flex items-center gap-1 text-slate-400">
+        {[
+          { label: "B", action: () => wrapSelection("*") },
+          { label: "I", action: () => wrapSelection("_") },
+          { label: "S", action: () => wrapSelection("~") },
+          { label: "{ }", action: () => wrapSelection("`") },
+        ].map((item) => (
+          <button
+            key={item.label}
+            type="button"
+            onClick={item.action}
+            className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-2 text-[11px] font-semibold transition-colors hover:bg-sky-500/10 hover:text-white"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+      <form onSubmit={handleSubmit} className="flex items-end gap-2">
+        <label className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-sky-500/10 hover:text-white">
           <Paperclip className="h-4 w-4" />
           <input
             type="file"
@@ -330,23 +382,32 @@ function Composer({ conversation, onMessageSent }) {
           type="button"
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] hover:text-white"
+          className="h-8 w-8 rounded-xl text-slate-300 hover:bg-sky-500/10 hover:text-white"
+          onClick={() => wrapSelection("```", "```")}
         >
           <Sparkles className="h-4 w-4" />
         </Button>
-        <input
+        <textarea
+          ref={inputRef}
           value={texto}
           onChange={(event) => setTexto(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault()
+              handleSubmit(event)
+            }
+          }}
           placeholder="Digite sua resposta manual..."
-          className="h-8 w-full rounded-xl border border-white/10 bg-[#09111f] px-3 text-xs text-slate-100 outline-none placeholder:text-slate-500"
+          rows={1}
+          className="w-full resize-none rounded-2xl border border-white/10 bg-[#09111f] px-3 py-2 text-sm leading-6 text-slate-100 outline-none placeholder:text-slate-500"
+          style={{ minHeight: 44, maxHeight: 136, overflowY: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}
         />
         <Button
           type="submit"
           disabled={(!texto.trim() && attachments.length === 0) || isSending}
-          className="h-8 rounded-xl bg-[#11233a] px-4 text-xs text-slate-100 hover:bg-[#17304f]"
+          className="h-8 w-8 rounded-xl bg-transparent p-0 text-sky-200 shadow-none hover:bg-sky-500/12 hover:text-white"
         >
-          <SendHorizonal className="mr-1.5 h-3.5 w-3.5" />
-          {isSending ? "Enviando" : "Enviar"}
+          <SendHorizonal className="h-4 w-4" />
         </Button>
       </form>
       {attachments.length ? (
@@ -368,6 +429,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
   const statusLabel = conversation.status === "humano" ? "Humano" : "IA atendendo"
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const feedRef = useRef(null)
+  const [showScrollButton, setShowScrollButton] = useState(false)
   const mediaItems = conversation.mensagens.flatMap((message) =>
     (message.attachments ?? []).map((attachment, index) => ({
       ...attachment,
@@ -376,6 +439,46 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
       key: `${message.id}-${getAttachmentKey(attachment, index)}`,
     })),
   )
+
+  useEffect(() => {
+    const container = feedRef.current
+    if (!container) {
+      return
+    }
+
+    function updateScrollState() {
+      const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+      const hasOverflow = container.scrollHeight - container.clientHeight > 40
+      setShowScrollButton(hasOverflow && distanceToBottom > 80)
+    }
+
+    updateScrollState()
+    container.addEventListener("scroll", updateScrollState)
+    return () => container.removeEventListener("scroll", updateScrollState)
+  }, [conversation.id])
+
+  useEffect(() => {
+    const container = feedRef.current
+    if (!container) {
+      return
+    }
+
+    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+    if (distanceToBottom <= 120) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
+    } else {
+      setShowScrollButton(true)
+    }
+  }, [conversation.id, conversation.mensagens.length])
+
+  function scrollToBottom() {
+    const container = feedRef.current
+    if (!container) {
+      return
+    }
+
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
+  }
 
   async function updateHandoff(nextStatus) {
     const response = await fetch(`/api/admin/conversations/${conversation.id}/handoff`, {
@@ -460,7 +563,7 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:bg-white/[0.06] hover:text-white lg:hidden"
+                  className="h-8 w-8 rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:border-sky-400/20 hover:bg-sky-500/10 hover:text-white lg:hidden"
                   onClick={onCloseMobile}
                 >
                   <X className="h-4 w-4" />
@@ -470,7 +573,7 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div ref={feedRef} className="min-h-0 flex-1 overflow-y-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <div className="space-y-5 px-3 py-4 lg:px-4">
             {conversation.mensagens.map((message) => (
               <motion.div
@@ -484,6 +587,23 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
             ))}
           </div>
         </div>
+
+        <AnimatePresence>
+          {showScrollButton ? (
+            <motion.button
+              type="button"
+              initial={{ opacity: 0, y: 16, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 16, scale: 0.92 }}
+              transition={{ duration: 0.18 }}
+              onClick={scrollToBottom}
+              className="absolute bottom-[92px] right-4 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-sky-400/20 bg-[#10192b]/95 text-sky-100 shadow-[0_10px_24px_rgba(2,6,23,0.45)] hover:bg-sky-500/16"
+              title="Descer para o fim"
+            >
+              <ChevronDown className="h-4 w-4" />
+            </motion.button>
+          ) : null}
+        </AnimatePresence>
 
         <Composer
           conversation={conversation}
@@ -580,8 +700,25 @@ export default function AttendancePage() {
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [activeFilter, setActiveFilter] = useState("all")
+  const [projectFilter, setProjectFilter] = useState("")
+  const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
+
+  useEffect(() => {
+    async function loadUser() {
+      try {
+        const response = await fetch("/api/auth/me", { cache: "no-store" })
+        const data = await response.json().catch(() => ({}))
+
+        if (response.ok) {
+          setCurrentUser(data.user ?? null)
+        }
+      } catch {}
+    }
+
+    loadUser()
+  }, [])
 
   useEffect(() => {
     async function loadConversations() {
@@ -669,10 +806,38 @@ export default function AttendancePage() {
   const filteredConversations = useMemo(
     () =>
       conversations.filter((conversation) =>
-        activeFilter === "all" ? true : conversation.origem === activeFilter
+        (activeFilter === "all" ? true : conversation.origem === activeFilter) &&
+        (projectFilter ? conversation.projeto?.id === projectFilter : true)
       ),
-    [activeFilter, conversations]
+    [activeFilter, conversations, projectFilter]
   )
+
+  const projectOptions = useMemo(() => {
+    const map = new Map()
+
+    conversations.forEach((conversation) => {
+      if (conversation.projeto?.id && !map.has(conversation.projeto.id)) {
+        map.set(conversation.projeto.id, {
+          value: conversation.projeto.id,
+          label: conversation.projeto.nome || conversation.projeto.slug || "Projeto",
+        })
+      }
+    })
+
+    const membershipOptions =
+      currentUser?.memberships?.map((item) => ({
+        value: item.projetoId,
+        label: item.projetoNome || item.projetoSlug || "Projeto",
+      })) ?? []
+
+    membershipOptions.forEach((option) => {
+      if (option.value && !map.has(option.value)) {
+        map.set(option.value, option)
+      }
+    })
+
+    return [{ value: "", label: "Todos os projetos" }, ...Array.from(map.values())]
+  }, [conversations, currentUser])
 
   const activeConversation =
     filteredConversations.find((conversation) => conversation.id === selectedConversation?.id) ??
@@ -808,6 +973,19 @@ export default function AttendancePage() {
         <AdminPageHeader
           title="Central de Atendimento"
           description="Fila ativa de conversas com inteligencia do pipeline real."
+          actions={
+            currentUser?.role === "admin" ? (
+              <div className="w-full min-w-[230px] lg:w-[280px]">
+                <AppSelect
+                  value={projectFilter}
+                  onChangeValue={setProjectFilter}
+                  options={projectOptions}
+                  placeholder="Filtrar por projeto"
+                  minHeight={38}
+                />
+              </div>
+            ) : null
+          }
           className={cn(mobileChatOpen && "hidden lg:flex")}
         />
 

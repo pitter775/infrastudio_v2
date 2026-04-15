@@ -5,6 +5,7 @@ import { useMemo, useState } from "react"
 import { ArrowRight, LoaderCircle, MessageSquareDashed, Plus, RefreshCcw } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
+import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
@@ -46,6 +47,10 @@ function getStatusTone(status) {
     default:
       return "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
   }
+}
+
+function toOptions(values = [], mapLabel = (value) => value) {
+  return values.map((value) => ({ value, label: mapLabel(value) }))
 }
 
 export function AdminFeedbackPage({
@@ -195,56 +200,13 @@ export function AdminFeedbackPage({
           {isAdmin ? (
             <>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-                <select
-                  value={filters.status}
-                  onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
-                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-                >
-                  <option value="todos">Todos os status</option>
-                  {statuses.map((status) => (
-                    <option key={status} value={status}>
-                      {getStatusLabel(status)}
-                    </option>
-                  ))}
-                </select>
+                <AppSelect value={filters.status} onChangeValue={(value) => setFilters((current) => ({ ...current, status: value }))} options={[{ value: "todos", label: "Todos os status" }, ...toOptions(statuses, getStatusLabel)]} />
 
-                <select
-                  value={filters.categoria}
-                  onChange={(event) => setFilters((current) => ({ ...current, categoria: event.target.value }))}
-                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-                >
-                  <option value="todas">Todas as categorias</option>
-                  {categorias.map((categoria) => (
-                    <option key={categoria} value={categoria}>
-                      {categoria}
-                    </option>
-                  ))}
-                </select>
+                <AppSelect value={filters.categoria} onChangeValue={(value) => setFilters((current) => ({ ...current, categoria: value }))} options={[{ value: "todas", label: "Todas as categorias" }, ...toOptions(categorias)]} />
 
-                <select
-                  value={filters.ordenacao}
-                  onChange={(event) => setFilters((current) => ({ ...current, ordenacao: event.target.value }))}
-                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-                >
-                  {ordenacoes.map((ordenacao) => (
-                    <option key={ordenacao} value={ordenacao}>
-                      {ordenacao}
-                    </option>
-                  ))}
-                </select>
+                <AppSelect value={filters.ordenacao} onChangeValue={(value) => setFilters((current) => ({ ...current, ordenacao: value }))} options={toOptions(ordenacoes)} />
 
-                <select
-                  value={filters.usuarioId}
-                  onChange={(event) => setFilters((current) => ({ ...current, usuarioId: event.target.value }))}
-                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-                >
-                  <option value="">Todos os usuarios</option>
-                  {users.map((user) => (
-                    <option key={user.id} value={user.id}>
-                      {user.nome}
-                    </option>
-                  ))}
-                </select>
+                <AppSelect value={filters.usuarioId} onChangeValue={(value) => setFilters((current) => ({ ...current, usuarioId: value }))} options={[{ value: "", label: "Todos os usuarios" }, ...(users || []).map((user) => ({ value: user.id, label: user.nome }))]} />
 
                 <input
                   value={filters.busca}
@@ -352,33 +314,12 @@ export function AdminFeedbackPage({
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-slate-300">Projeto</span>
-                <select
-                  value={form.projetoId}
-                  onChange={(event) => setForm((current) => ({ ...current, projetoId: event.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-                >
-                  <option value="">Nao vinculado</option>
-                  {projects.map((project) => (
-                    <option key={project.id} value={project.id}>
-                      {project.name}
-                    </option>
-                  ))}
-                </select>
+                <AppSelect value={form.projetoId} onChangeValue={(value) => setForm((current) => ({ ...current, projetoId: value }))} options={[{ value: "", label: "Nao vinculado" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]} />
               </label>
 
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-slate-300">Categoria</span>
-                <select
-                  value={form.categoria}
-                  onChange={(event) => setForm((current) => ({ ...current, categoria: event.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-                >
-                  {categorias.map((categoria) => (
-                    <option key={categoria} value={categoria}>
-                      {categoria}
-                    </option>
-                  ))}
-                </select>
+                <AppSelect value={form.categoria} onChangeValue={(value) => setForm((current) => ({ ...current, categoria: value }))} options={toOptions(categorias)} />
               </label>
 
               <input

@@ -8,23 +8,7 @@ function isAuthorized(request) {
 }
 
 function shouldPersistWorkerLog(payload) {
-  if (payload.level === "error") {
-    return true
-  }
-
-  const tipo = String(payload.tipo || "").trim().toLowerCase()
-  const origem = String(payload.origem || "").trim().toLowerCase()
-  const descricao = String(payload.descricao || "").trim().toLowerCase()
-
-  if (tipo === "trace" && origem === "whatsapp-session") {
-    return false
-  }
-
-  if (origem === "whatsapp-session" && descricao.includes("qr code gerado")) {
-    return false
-  }
-
-  return true
+  return payload.level === "error"
 }
 
 export async function POST(request) {
