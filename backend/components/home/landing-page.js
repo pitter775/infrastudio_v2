@@ -466,19 +466,25 @@ function AboutSection({ onLoginClick }) {
           </h2>
           <div className="mt-6 max-w-3xl space-y-4 text-base leading-8 text-slate-300 md:text-lg">
             <p>
-              A InfraStudio nasceu para resolver um problema simples: empresas que perdem
-              tempo e vendas com atendimento manual.
+              A InfraStudio resolve um problema comum: empresas que perdem tempo e vendas
+              com atendimento manual.
             </p>
             <p>
               Por trás está Pitter Rocha, desenvolvedor com mais de 18 anos de experiência,
               focado em criar sistemas, integrações e automações que funcionam na prática.
             </p>
             <p>
-              A proposta é simples: automatizar o que é repetitivo, organizar o atendimento
-              e ajudar empresas a crescer sem complicação.
+              Ao longo do tempo, diversos sistemas foram desenvolvidos e colocados em uso,
+              sendo utilizados no dia a dia para atendimento, organização de processos e apoio
+              direto nas operações.
             </p>
             <p>
-              Aqui, tecnologia não é enfeite. É ferramenta para gerar resultado.
+              O que você está vendo aqui é reflexo desse trabalho: soluções que já estão
+              rodando, sendo usadas e evoluindo continuamente.
+            </p>
+            <p>
+              A proposta é simples: automatizar o que é repetitivo, organizar o atendimento
+              e ajudar empresas a crescer com mais controle e menos esforço.
             </p>
           </div>
 
