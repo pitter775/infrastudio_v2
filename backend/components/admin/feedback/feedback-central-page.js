@@ -6,6 +6,7 @@ import { ArrowRight, LoaderCircle, MessageSquareDashed, Plus, RefreshCcw } from 
 
 import { AdminPageHeader } from "@/components/admin/page-header"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 
 function formatDateTime(value) {
@@ -60,6 +61,7 @@ export function AdminFeedbackPage({
   const [users, setUsers] = useState(initialUsers)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [createOpen, setCreateOpen] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [filters, setFilters] = useState({
     status: "todos",
@@ -142,6 +144,7 @@ export function AdminFeedbackPage({
       return
     }
 
+    setCreateOpen(false)
     window.location.href = `/admin/feedback/${data.feedback.id}`
   }
 
@@ -151,19 +154,29 @@ export function AdminFeedbackPage({
         title="Feedback"
         description={isAdmin ? "Central administrativa para abrir, acompanhar e responder feedbacks e chamados internos." : "Acompanhe seus feedbacks e chamados."}
         actions={
-          <Button
-            type="button"
-            onClick={() => void loadFeedbacks()}
-            disabled={loading}
-            className="h-8 rounded-lg bg-emerald-500 px-3 text-xs font-medium text-slate-950 hover:bg-emerald-400"
-          >
-            {loading ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />}
-            Atualizar
-          </Button>
+          <>
+            <Button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="h-8 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-medium text-sky-100 hover:bg-sky-500/15"
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              Criar feedback
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void loadFeedbacks()}
+              disabled={loading}
+              className="h-8 rounded-lg bg-emerald-500 px-3 text-xs font-medium text-slate-950 hover:bg-emerald-400"
+            >
+              {loading ? <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <RefreshCcw className="mr-1.5 h-3.5 w-3.5" />}
+              Atualizar
+            </Button>
+          </>
         }
       />
 
-      <div className="mb-6 grid gap-4 md:grid-cols-4">
+      <div className="mb-6 hidden gap-4 md:grid-cols-4 lg:grid">
         {[
           ["Total", stats.total],
           ["Novos", stats.novos],
@@ -177,144 +190,84 @@ export function AdminFeedbackPage({
         ))}
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[420px_minmax(0,1fr)]">
-        <form onSubmit={handleCreate} className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
-          <div className="mb-5">
-            <h2 className="text-lg font-semibold text-white">Novo feedback</h2>
-            <p className="mt-1 text-xs text-slate-500">Abre uma conversa nova diretamente no fluxo administrativo.</p>
-          </div>
-
-          <div className="space-y-4">
-            <label className="block space-y-2">
-              <span className="text-sm font-semibold text-slate-300">Projeto</span>
-              <select
-                value={form.projetoId}
-                onChange={(event) => setForm((current) => ({ ...current, projetoId: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-              >
-                <option value="">Nao vinculado</option>
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>
-                    {project.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block space-y-2">
-              <span className="text-sm font-semibold text-slate-300">Categoria</span>
-              <select
-                value={form.categoria}
-                onChange={(event) => setForm((current) => ({ ...current, categoria: event.target.value }))}
-                className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-              >
-                {categorias.map((categoria) => (
-                  <option key={categoria} value={categoria}>
-                    {categoria}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <input
-              value={form.assunto}
-              onChange={(event) => setForm((current) => ({ ...current, assunto: event.target.value }))}
-              placeholder="Assunto"
-              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
-            />
-
-            <textarea
-              value={form.mensagemInicial}
-              onChange={(event) => setForm((current) => ({ ...current, mensagemInicial: event.target.value }))}
-              placeholder="Mensagem inicial"
-              rows={5}
-              className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
-            />
-
-            <Button
-              type="submit"
-              disabled={saving || !form.assunto.trim() || !form.mensagemInicial.trim()}
-              className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
-            >
-              {saving ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
-              Criar feedback
-            </Button>
-          </div>
-        </form>
-
+      <div className="grid gap-6">
         <div className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-            <select
-              value={filters.status}
-              onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
-              className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-            >
-              <option value="todos">Todos os status</option>
-              {statuses.map((status) => (
-                <option key={status} value={status}>
-                  {getStatusLabel(status)}
-                </option>
-              ))}
-            </select>
+          {isAdmin ? (
+            <>
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <select
+                  value={filters.status}
+                  onChange={(event) => setFilters((current) => ({ ...current, status: event.target.value }))}
+                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
+                >
+                  <option value="todos">Todos os status</option>
+                  {statuses.map((status) => (
+                    <option key={status} value={status}>
+                      {getStatusLabel(status)}
+                    </option>
+                  ))}
+                </select>
 
-            <select
-              value={filters.categoria}
-              onChange={(event) => setFilters((current) => ({ ...current, categoria: event.target.value }))}
-              className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-            >
-              <option value="todas">Todas as categorias</option>
-              {categorias.map((categoria) => (
-                <option key={categoria} value={categoria}>
-                  {categoria}
-                </option>
-              ))}
-            </select>
+                <select
+                  value={filters.categoria}
+                  onChange={(event) => setFilters((current) => ({ ...current, categoria: event.target.value }))}
+                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
+                >
+                  <option value="todas">Todas as categorias</option>
+                  {categorias.map((categoria) => (
+                    <option key={categoria} value={categoria}>
+                      {categoria}
+                    </option>
+                  ))}
+                </select>
 
-            <select
-              value={filters.ordenacao}
-              onChange={(event) => setFilters((current) => ({ ...current, ordenacao: event.target.value }))}
-              className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-            >
-              {ordenacoes.map((ordenacao) => (
-                <option key={ordenacao} value={ordenacao}>
-                  {ordenacao}
-                </option>
-              ))}
-            </select>
+                <select
+                  value={filters.ordenacao}
+                  onChange={(event) => setFilters((current) => ({ ...current, ordenacao: event.target.value }))}
+                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
+                >
+                  {ordenacoes.map((ordenacao) => (
+                    <option key={ordenacao} value={ordenacao}>
+                      {ordenacao}
+                    </option>
+                  ))}
+                </select>
 
-            <select
-              value={filters.usuarioId}
-              onChange={(event) => setFilters((current) => ({ ...current, usuarioId: event.target.value }))}
-              className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
-            >
-              <option value="">Todos os usuarios</option>
-              {users.map((user) => (
-                <option key={user.id} value={user.id}>
-                  {user.nome}
-                </option>
-              ))}
-            </select>
+                <select
+                  value={filters.usuarioId}
+                  onChange={(event) => setFilters((current) => ({ ...current, usuarioId: event.target.value }))}
+                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
+                >
+                  <option value="">Todos os usuarios</option>
+                  {users.map((user) => (
+                    <option key={user.id} value={user.id}>
+                      {user.nome}
+                    </option>
+                  ))}
+                </select>
 
-            <input
-              value={filters.busca}
-              onChange={(event) => setFilters((current) => ({ ...current, busca: event.target.value }))}
-              placeholder="Buscar"
-              className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
-            />
-          </div>
+                <input
+                  value={filters.busca}
+                  onChange={(event) => setFilters((current) => ({ ...current, busca: event.target.value }))}
+                  placeholder="Buscar"
+                  className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+                />
+              </div>
 
-          <div className="mt-3 flex justify-end">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => void loadFeedbacks()}
-              disabled={loading}
-              className="h-9 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200"
-            >
-              {loading ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-1.5 h-4 w-4" />}
-              Aplicar filtros
-            </Button>
-          </div>
+              <div className="mt-3 flex justify-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => void loadFeedbacks()}
+                  disabled={loading}
+                  className="h-9 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200"
+                >
+                  {loading ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <RefreshCcw className="mr-1.5 h-4 w-4" />}
+                  Aplicar filtros
+                </Button>
+              </div>
+            </>
+          ) : null}
 
           {feedback ? (
             <div className="mt-4 rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
@@ -385,6 +338,78 @@ export function AdminFeedbackPage({
           </div>
         </div>
       </div>
+
+      <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+        <SheetContent side="right" className="w-[92vw] max-w-[460px] border-l border-white/5">
+          <form onSubmit={handleCreate} className="flex h-full flex-col">
+            <div className="border-b border-white/5 px-5 py-5">
+              <SheetTitle className="text-left text-lg font-semibold text-white">Novo feedback</SheetTitle>
+              <SheetDescription className="mt-1 text-left text-sm text-slate-400">
+                Abre uma conversa nova diretamente no fluxo administrativo.
+              </SheetDescription>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-slate-300">Projeto</span>
+                <select
+                  value={form.projetoId}
+                  onChange={(event) => setForm((current) => ({ ...current, projetoId: event.target.value }))}
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
+                >
+                  <option value="">Nao vinculado</option>
+                  {projects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-slate-300">Categoria</span>
+                <select
+                  value={form.categoria}
+                  onChange={(event) => setForm((current) => ({ ...current, categoria: event.target.value }))}
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none"
+                >
+                  {categorias.map((categoria) => (
+                    <option key={categoria} value={categoria}>
+                      {categoria}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <input
+                value={form.assunto}
+                onChange={(event) => setForm((current) => ({ ...current, assunto: event.target.value }))}
+                placeholder="Assunto"
+                className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+              />
+
+              <textarea
+                value={form.mensagemInicial}
+                onChange={(event) => setForm((current) => ({ ...current, mensagemInicial: event.target.value }))}
+                placeholder="Mensagem inicial"
+                rows={6}
+                className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+              />
+            </div>
+
+            <div className="border-t border-white/5 px-5 py-4">
+              <Button
+                type="submit"
+                disabled={saving || !form.assunto.trim() || !form.mensagemInicial.trim()}
+                className="h-10 w-full rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
+              >
+                {saving ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
+                Criar feedback
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import "server-only"
 import { listAgentVersionsForUser } from "@/lib/agentes"
 import { listAgentApiIdsForUser } from "@/lib/apis"
 import { getProjectBillingSnapshot } from "@/lib/billing"
-import { listChatWidgetsForUser } from "@/lib/chat-widgets"
+import { ensureProjectHasDefaultWidget, listChatWidgetsForUser } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { listWhatsAppChannelsForUser } from "@/lib/whatsapp-channels"
@@ -122,6 +122,31 @@ function userCanAccessProject(user, projectId) {
   }
 
   return user?.memberships?.some((item) => item.projetoId === projectId) ?? false
+}
+
+async function userCanManageProject(user, projectId, supabase = getSupabaseAdminClient()) {
+  if (!user || !projectId) {
+    return false
+  }
+
+  if (user.role === "admin") {
+    return true
+  }
+
+  const { data, error } = await supabase
+    .from("projetos")
+    .select("id, owner_user_id")
+    .eq("id", projectId)
+    .maybeSingle()
+
+  if (error || !data) {
+    if (error) {
+      console.error("[projetos] failed to validate project manager", error)
+    }
+    return false
+  }
+
+  return data.owner_user_id === user.id
 }
 
 async function safeCount(supabase, table, projectId) {
@@ -405,6 +430,43 @@ export async function updateProject(input) {
   }
 
   return normalizeProject(data)
+}
+
+export async function canManageProject(user, projectId) {
+  return userCanManageProject(user, projectId)
+}
+
+export async function getProjectDeletePermission(user, projectId) {
+  if (!user || !projectId) {
+    return { allowed: false, reason: "Acesso negado." }
+  }
+
+  if (user.role === "admin") {
+    return { allowed: true, reason: null }
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const canManage = await userCanManageProject(user, projectId, supabase)
+
+  if (!canManage) {
+    return { allowed: false, reason: "Acesso negado." }
+  }
+
+  const { count, error } = await supabase
+    .from("usuarios_projetos")
+    .select("id", { count: "exact", head: true })
+    .eq("usuario_id", user.id)
+
+  if (error) {
+    console.error("[projetos] failed to count user projects for delete permission", error)
+    return { allowed: false, reason: "Nao foi possivel validar a exclusao do projeto." }
+  }
+
+  if ((count ?? 0) <= 1) {
+    return { allowed: false, reason: "Voce precisa manter pelo menos um projeto." }
+  }
+
+  return { allowed: true, reason: null }
 }
 
 async function deleteRowsByProject(supabase, table, projectId) {
@@ -767,7 +829,7 @@ export async function getProjectForUser(identifier, user) {
     }
 
     const project = normalizeProject(data)
-    const [agent, apis, whatsappChannels, chatWidgets, apiCount, whatsappCount, widgetCount, fileCount, billing] = await Promise.all([
+    const [agent, apis, whatsappChannels, initialChatWidgets, apiCount, whatsappCount, widgetCount, fileCount, billing] = await Promise.all([
       getActiveAgent(supabase, project.id),
       listProjectApis(supabase, project.id),
       listWhatsAppChannelsForUser(project, user),
@@ -779,13 +841,24 @@ export async function getProjectForUser(identifier, user) {
       getProjectBillingSnapshot(project.id, { supabase }),
     ])
     const agentVersions = agent?.id ? await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user) : []
+    let chatWidgets = initialChatWidgets
+
+    if (chatWidgets.length === 0) {
+      const widgetBootstrapProject = { ...project, agent }
+      const ensuredWidget = await ensureProjectHasDefaultWidget(widgetBootstrapProject, user)
+
+      if (ensuredWidget.widget) {
+        chatWidgets = [ensuredWidget.widget]
+      }
+    }
+
     const directConnections = await buildAgentDirectConnections({
       supabase,
       projectId: project.id,
       agent,
       apiCount,
       whatsappCount,
-      widgetCount,
+      widgetCount: chatWidgets.length || widgetCount,
     })
 
     return {
@@ -798,7 +871,7 @@ export async function getProjectForUser(identifier, user) {
       integrations: {
         apis: apiCount,
         whatsapp: whatsappCount,
-        chatWidget: widgetCount,
+        chatWidget: chatWidgets.length || widgetCount,
         files: fileCount,
       },
       directConnections,

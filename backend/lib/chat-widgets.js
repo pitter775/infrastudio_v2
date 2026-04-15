@@ -286,6 +286,63 @@ export async function ensureDefaultChatWidgetForAgent(project, agent, user) {
   }
 }
 
+export async function ensureProjectHasDefaultWidget(project, user) {
+  if (!project?.id || !userCanAccessProject(user, project.id)) {
+    return { widget: null, error: "Acesso negado." }
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data: existing, error: existingError } = await supabase
+      .from("chat_widgets")
+      .select(selectFields)
+      .eq("projeto_id", project.id)
+      .eq("ativo", true)
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    if (existing) {
+      return { widget: mapChatWidget(existing), error: null }
+    }
+
+    if (existingError) {
+      console.error("[chat-widgets] failed to load project widget", existingError)
+    }
+
+    const slug = await buildUniqueWidgetSlug(supabase, `${project.slug || project.name}-chat`)
+    const { data, error } = await supabase
+      .from("chat_widgets")
+      .insert({
+        nome: `${project.name || "Projeto"} Chat`,
+        slug,
+        projeto_id: project.id,
+        agente_id: project.agent?.id || null,
+        dominio: "",
+        whatsapp_celular: "",
+        tema: "dark",
+        cor_primaria: "#2563eb",
+        fundo_transparente: true,
+        ativo: true,
+        updated_at: new Date().toISOString(),
+      })
+      .select(selectFields)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[chat-widgets] failed to create project default widget", error)
+      }
+      return { widget: null, error: "Nao foi possivel criar o widget padrao." }
+    }
+
+    return { widget: mapChatWidget(data), error: null }
+  } catch (error) {
+    console.error("[chat-widgets] failed to ensure project default widget", error)
+    return { widget: null, error: "Nao foi possivel criar o widget padrao." }
+  }
+}
+
 export async function updateChatWidgetForUser(widgetId, project, input, user) {
   if (!widgetId || !project?.id || !userCanAccessProject(user, project.id)) {
     return { widget: null, error: "Acesso negado." }

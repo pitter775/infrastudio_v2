@@ -5,7 +5,31 @@ import { hashSync } from "bcryptjs"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const usuarioSelectFields =
+  "id, nome, email, telefone, senha, provider, provider_id, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
+const usuarioSelectFieldsLegacy =
   "id, nome, email, senha, provider, provider_id, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
+
+async function runUsuarioQueryWithTelefoneFallback(executor) {
+  const result = await executor(usuarioSelectFields)
+  const hasTelefoneError =
+    result?.error &&
+    /telefone|schema cache|column/i.test(String(result.error.message || ""))
+
+  if (!hasTelefoneError) {
+    return result
+  }
+
+  const legacyResult = await executor(usuarioSelectFieldsLegacy)
+  if (legacyResult?.data) {
+    if (Array.isArray(legacyResult.data)) {
+      legacyResult.data = legacyResult.data.map((item) => ({ ...item, telefone: null }))
+    } else {
+      legacyResult.data = { ...legacyResult.data, telefone: null }
+    }
+  }
+
+  return legacyResult
+}
 
 function normalizeRole(role) {
   return role === "admin" ? "admin" : "viewer"
@@ -33,6 +57,7 @@ export function mapUsuarioToAppUser(row) {
     id: row.id,
     name: row.nome?.trim() || "Usuario",
     email: row.email?.trim() || "",
+    telefone: row.telefone?.trim() || "",
     provider: row.provider ?? undefined,
     providerId: row.provider_id ?? undefined,
     role:
@@ -47,11 +72,9 @@ export function mapUsuarioToAppUser(row) {
 
 export async function findUsuarioWithPasswordByEmail(email) {
   const supabase = getSupabaseAdminClient()
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select(usuarioSelectFields)
-    .eq("email", email)
-    .maybeSingle()
+  const { data, error } = await runUsuarioQueryWithTelefoneFallback((fields) =>
+    supabase.from("usuarios").select(fields).eq("email", email).maybeSingle()
+  )
 
   if (error) {
     console.error("[usuarios] failed to find usuario by email", error)
@@ -63,12 +86,9 @@ export async function findUsuarioWithPasswordByEmail(email) {
 
 export async function findUsuarioByProvider(provider, providerId) {
   const supabase = getSupabaseAdminClient()
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select(usuarioSelectFields)
-    .eq("provider", provider)
-    .eq("provider_id", providerId)
-    .maybeSingle()
+  const { data, error } = await runUsuarioQueryWithTelefoneFallback((fields) =>
+    supabase.from("usuarios").select(fields).eq("provider", provider).eq("provider_id", providerId).maybeSingle()
+  )
 
   if (error) {
     console.error("[usuarios] failed to find usuario by provider", error)
@@ -136,10 +156,9 @@ export async function touchUsuarioLogin(usuarioId) {
 
 export async function listUsuarios() {
   const supabase = getSupabaseAdminClient()
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select(usuarioSelectFields.replace("senha, ", ""))
-    .order("nome", { ascending: true })
+  const { data, error } = await runUsuarioQueryWithTelefoneFallback((fields) =>
+    supabase.from("usuarios").select(fields.replace("senha, ", "")).order("nome", { ascending: true })
+  )
 
   if (error || !data) {
     console.error("[usuarios] failed to list usuarios", error)
@@ -151,11 +170,9 @@ export async function listUsuarios() {
 
 export async function getUsuarioById(usuarioId) {
   const supabase = getSupabaseAdminClient()
-  const { data, error } = await supabase
-    .from("usuarios")
-    .select(usuarioSelectFields.replace("senha, ", ""))
-    .eq("id", usuarioId)
-    .maybeSingle()
+  const { data, error } = await runUsuarioQueryWithTelefoneFallback((fields) =>
+    supabase.from("usuarios").select(fields.replace("senha, ", "")).eq("id", usuarioId).maybeSingle()
+  )
 
   if (error || !data) {
     if (error) {
@@ -171,6 +188,7 @@ function sanitizeUsuarioPayload(input) {
   return {
     nome: input.nome.trim(),
     email: input.email.trim().toLowerCase(),
+    telefone: String(input.telefone ?? "").trim() || null,
     ativo: input.ativo ?? true,
     email_verificado: input.emailVerificado ?? true,
     role: input.papel === "admin" ? "admin" : "viewer",
@@ -178,6 +196,41 @@ function sanitizeUsuarioPayload(input) {
     provider_id: input.providerId ?? null,
     updated_at: new Date().toISOString(),
   }
+}
+
+export async function updateOwnUsuarioProfile(input) {
+  if (!input.id) {
+    return null
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const payload = {
+    nome: String(input.nome ?? "").trim(),
+    telefone: String(input.telefone ?? "").trim() || null,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (!payload.nome) {
+    return null
+  }
+
+  if (input.senha?.trim()) {
+    payload.senha = hashSync(input.senha.trim(), 10)
+  }
+
+  const { data, error } = await supabase
+    .from("usuarios")
+    .update(payload)
+    .eq("id", input.id)
+    .select("id")
+    .single()
+
+  if (error || !data) {
+    console.error("[usuarios] failed to update own profile", error)
+    return null
+  }
+
+  return getUsuarioById(data.id)
 }
 
 function normalizeProjetoIds(input) {

@@ -32,6 +32,34 @@ function mapProjectToForm(project) {
   }
 }
 
+function canEditProject(user, project) {
+  if (!user || !project) {
+    return false
+  }
+
+  if (user.role === 'admin') {
+    return true
+  }
+
+  return project.owner?.id === user.id
+}
+
+function canDeleteProject(user, project, projects) {
+  if (!user || !project) {
+    return false
+  }
+
+  if (user.role === 'admin') {
+    return true
+  }
+
+  if (project.owner?.id !== user.id) {
+    return false
+  }
+
+  return (projects?.length ?? 0) > 1
+}
+
 export function AdminProjectsPage({ projects: initialProjects, user }) {
   const router = useRouter()
   const [projects, setProjects] = useState(initialProjects)
@@ -179,7 +207,7 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                 project={project}
                 index={index}
                 onSelect={handleProjectSelect}
-                onEdit={isAdmin ? handleEditProject : undefined}
+                onEdit={canEditProject(user, project) ? handleEditProject : undefined}
                 loading={loadingProjectSlug === (project.routeKey || project.slug || project.id)}
               />
             </div>
@@ -295,7 +323,7 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                   >
                     Limpar
                   </Button>
-                  {isAdmin && form.id ? (
+                  {form.id && canEditProject(user, projects.find((item) => item.id === form.id)) ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -306,6 +334,7 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                           handleDeleteProject(project)
                         }
                       }}
+                      disabled={!canDeleteProject(user, projects.find((item) => item.id === form.id), projects)}
                       className="h-10 rounded-lg border border-rose-400/20 bg-rose-400/10 px-4 text-sm text-rose-100 hover:bg-rose-400/15"
                     >
                       <Trash2 className="mr-1.5 h-4 w-4" />
@@ -322,10 +351,9 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
               </form>
                 </div>
 
-                {isAdmin ? (
                 <div className="min-h-0 border-t border-white/5 p-6 lg:border-l lg:border-t-0">
                 <h3 className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-500">
-                  Projetos cadastrados
+                  {isAdmin ? 'Projetos cadastrados' : 'Seus projetos'}
                 </h3>
                 <div className="mt-4 max-h-[calc(100vh-190px)] space-y-2 overflow-y-auto pr-1">
                   {projects.map((project) => (
@@ -343,30 +371,34 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                         <div className="mt-1 truncate text-xs text-slate-500">{project.slug}</div>
                       </div>
                       <div className="flex shrink-0 gap-2">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => handleEditProject(project)}
-                          className="h-8 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 text-amber-100 hover:bg-amber-500/15"
-                          title="Editar"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          onClick={() => handleDeleteProject(project)}
-                          className="h-8 rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 text-rose-100 hover:bg-rose-400/15"
-                          title="Excluir"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
+                        {canEditProject(user, project) ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => handleEditProject(project)}
+                            className="h-8 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 text-amber-100 hover:bg-amber-500/15"
+                            title="Editar"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
+                        {canEditProject(user, project) ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => handleDeleteProject(project)}
+                            disabled={!canDeleteProject(user, project, projects)}
+                            className="h-8 rounded-lg border border-rose-400/20 bg-rose-400/10 px-3 text-rose-100 hover:bg-rose-400/15 disabled:opacity-40"
+                            title="Excluir"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   ))}
                 </div>
                 </div>
-                ) : null}
               </div>
             </div>
           </SheetContent>

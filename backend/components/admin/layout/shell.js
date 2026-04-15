@@ -20,6 +20,8 @@ import {
   Menu,
   MessageSquareQuote,
   MessageSquareText,
+  PanelsTopLeft,
+  UserCog,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -37,6 +39,8 @@ const navItems = [
   { label: 'Projetos', icon: LayoutGrid, href: '/admin/projetos' },
   { label: 'Atendimento', icon: MessageSquareText, href: '/admin/atendimento' },
   { label: 'Feedback', icon: MessageSquareQuote, href: '/admin/feedback' },
+  { label: 'Template', icon: PanelsTopLeft, href: '/admin/template', adminOnly: true },
+  { label: 'Perfil', icon: UserCog, href: '/admin/perfil' },
   { label: 'Adriana', icon: Bot, href: '/admin/adriana', adminOnly: true },
   { label: 'Usuarios', icon: Users, href: '/admin/usuarios', adminOnly: true },
   { label: 'Billing', icon: CreditCard, href: '/admin/billing', adminOnly: true },
@@ -272,7 +276,6 @@ export function AdminShell({ user, children }) {
                           pendingHref={pendingHref}
                           onNavigate={(href) => {
                             handleNavigate(href)
-                            setMobileOpen(false)
                           }}
                         />
                       </div>

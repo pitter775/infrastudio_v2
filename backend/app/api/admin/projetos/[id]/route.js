@@ -1,21 +1,19 @@
 import { NextResponse } from "next/server"
 
 import { getSessionUser } from "@/lib/session"
-import { deleteProject } from "@/lib/projetos"
-
-function canAccessGlobalAdmin(user) {
-  return user?.role === "admin"
-}
+import { deleteProject, getProjectDeletePermission } from "@/lib/projetos"
 
 export async function DELETE(_request, context) {
   const user = await getSessionUser()
+  const { id } = await context.params
 
-  if (!canAccessGlobalAdmin(user)) {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+  const permission = await getProjectDeletePermission(user, id)
+
+  if (!permission.allowed) {
+    return NextResponse.json({ error: permission.reason ?? "Acesso negado." }, { status: 403 })
   }
 
   const body = await _request.json().catch(() => ({}))
-  const { id } = await context.params
   const result = await deleteProject(id, body.confirmationName)
 
   if (!result.ok) {

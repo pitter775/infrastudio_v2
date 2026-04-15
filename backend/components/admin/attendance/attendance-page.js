@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
+  FileText,
   Globe,
-  ImagePlus,
   Info,
   KanbanSquare,
   LayoutGrid,
@@ -20,6 +20,7 @@ import {
 
 import { AdminPageHeader } from "@/components/admin/page-header"
 import { Button } from "@/components/ui/button"
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 
 const attendanceNav = [
@@ -51,6 +52,56 @@ function getLastMessage(conversation) {
 
 function getConversationPhone(conversation) {
   return conversation.cliente.telefone || "+55 11 97061-4357"
+}
+
+function getAttachmentKey(attachment, index) {
+  return attachment.storagePath || attachment.publicUrl || `${attachment.name || "arquivo"}-${index}`
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+}
+
+function formatWhatsappText(value) {
+  const escaped = escapeHtml(value)
+
+  return escaped
+    .replace(/```([\s\S]+?)```/g, '<pre class="overflow-x-auto rounded-xl bg-black/20 px-3 py-2 text-[12px] leading-5 text-slate-200">$1</pre>')
+    .replace(/`([^`\n]+)`/g, '<code class="rounded bg-black/20 px-1.5 py-0.5 text-[12px] text-slate-100">$1</code>')
+    .replace(/\*(?=\S)(.+?)(?<=\S)\*/g, "<strong>$1</strong>")
+    .replace(/_(?=\S)(.+?)(?<=\S)_/g, "<em>$1</em>")
+    .replace(/~(?=\S)(.+?)(?<=\S)~/g, "<s>$1</s>")
+    .replace(/\n/g, "<br />")
+}
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+
+    reader.onload = () => {
+      const result = typeof reader.result === "string" ? reader.result : ""
+      const [, base64 = ""] = result.split(",")
+      resolve(base64)
+    }
+    reader.onerror = () => reject(reader.error ?? new Error("Falha ao ler arquivo."))
+    reader.readAsDataURL(file)
+  })
+}
+
+async function normalizeAttachmentFiles(fileList) {
+  const files = Array.from(fileList || []).slice(0, 5)
+
+  return Promise.all(
+    files.map(async (file) => ({
+      name: file.name,
+      type: file.type || "application/octet-stream",
+      size: file.size,
+      dataBase64: await fileToBase64(file),
+    })),
+  )
 }
 
 function Tag({ children, className }) {
@@ -128,7 +179,10 @@ function MessageBubble({ message }) {
         <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
           {isAgent ? "Administrador" : "Cliente"}
         </div>
-        <div className="mt-3 whitespace-pre-line text-sm leading-6">{message.texto}</div>
+        <div
+          className="mt-3 text-sm leading-6 [&_a]:text-sky-300 [&_code]:font-mono [&_em]:italic [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_s]:line-through"
+          dangerouslySetInnerHTML={{ __html: formatWhatsappText(message.texto) }}
+        />
         {trace ? (
           <div className="mt-3">
             <button
@@ -183,12 +237,32 @@ function MessageBubble({ message }) {
           </div>
         ) : null}
         {message.attachments?.length ? (
-          <div className="mt-3 space-y-1">
-            {message.attachments.map((attachment) => (
-              <div key={`${message.id}-${attachment.name}`} className="rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] text-slate-300">
-                {attachment.name}
-              </div>
-            ))}
+          <div className="mt-3 grid gap-2">
+            {message.attachments.map((attachment, index) => {
+              const previewable = attachment.category === "image" && attachment.publicUrl
+
+              return (
+                <a
+                  key={`${message.id}-${getAttachmentKey(attachment, index)}`}
+                  href={attachment.publicUrl || "#"}
+                  target={attachment.publicUrl ? "_blank" : undefined}
+                  rel={attachment.publicUrl ? "noreferrer" : undefined}
+                  className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]"
+                >
+                  {previewable ? (
+                    <img
+                      src={attachment.publicUrl}
+                      alt={attachment.name || "Anexo"}
+                      className="max-h-56 w-full object-cover"
+                    />
+                  ) : null}
+                  <div className="flex items-center gap-2 px-3 py-2 text-[11px] text-slate-300">
+                    <FileText className="h-3.5 w-3.5 shrink-0" />
+                    <span className="truncate">{attachment.name}</span>
+                  </div>
+                </a>
+              )
+            })}
           </div>
         ) : null}
         <div className="mt-3 text-xs text-slate-400">{message.horario}</div>
@@ -207,7 +281,7 @@ function Composer({ conversation, onMessageSent }) {
 
     const nextText = texto.trim()
 
-    if (!nextText || !conversation) {
+    if ((!nextText && attachments.length === 0) || !conversation) {
       return
     }
 
@@ -221,10 +295,7 @@ function Composer({ conversation, onMessageSent }) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            texto: nextText,
-            attachments,
-          }),
+          body: JSON.stringify({ texto: nextText, attachments }),
         }
       )
       const messageData = await messageResponse.json()
@@ -248,13 +319,11 @@ function Composer({ conversation, onMessageSent }) {
             type="file"
             multiple
             className="sr-only"
-            onChange={(event) =>
-              setAttachments(
-                Array.from(event.target.files || [])
-                  .map((file) => ({ name: file.name, type: file.type, size: file.size }))
-                  .slice(0, 5),
-              )
-            }
+            onChange={async (event) => {
+              const nextAttachments = await normalizeAttachmentFiles(event.target.files)
+              setAttachments(nextAttachments)
+              event.target.value = ""
+            }}
           />
         </label>
         <Button
@@ -273,7 +342,7 @@ function Composer({ conversation, onMessageSent }) {
         />
         <Button
           type="submit"
-          disabled={!texto.trim() || isSending}
+          disabled={(!texto.trim() && attachments.length === 0) || isSending}
           className="h-8 rounded-xl bg-[#11233a] px-4 text-xs text-slate-100 hover:bg-[#17304f]"
         >
           <SendHorizonal className="mr-1.5 h-3.5 w-3.5" />
@@ -298,6 +367,15 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const lastMessage = getLastMessage(conversation)
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
   const statusLabel = conversation.status === "humano" ? "Humano" : "IA atendendo"
+  const [detailsOpen, setDetailsOpen] = useState(false)
+  const mediaItems = conversation.mensagens.flatMap((message) =>
+    (message.attachments ?? []).map((attachment, index) => ({
+      ...attachment,
+      messageId: message.id,
+      horario: message.horario,
+      key: `${message.id}-${getAttachmentKey(attachment, index)}`,
+    })),
+  )
 
   async function updateHandoff(nextStatus) {
     const response = await fetch(`/api/admin/conversations/${conversation.id}/handoff`, {
@@ -325,7 +403,11 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
       >
         <div className="sticky top-0 z-10 border-b border-white/5 bg-[#0c1322] px-3 py-3 lg:px-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
+            <button
+              type="button"
+              onClick={() => setDetailsOpen(true)}
+              className="min-w-0 flex-1 text-left"
+            >
               <div className="flex min-w-0 items-center gap-3">
                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#182235] text-[10px] font-semibold uppercase text-slate-200">
                   {initials}
@@ -347,7 +429,7 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                   </p>
                 </div>
               </div>
-            </div>
+            </button>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -366,13 +448,6 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
               >
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" />
                 Liberar IA
-              </Button>
-              <Button
-                variant="ghost"
-                className="h-8 rounded-lg px-2.5 text-[11px] text-sky-300 hover:bg-sky-500/16 hover:text-white"
-              >
-                <ImagePlus className="mr-1.5 h-3.5 w-3.5" />
-                Midias
               </Button>
               <Button
                 variant="ghost"
@@ -414,6 +489,83 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
           conversation={conversation}
           onMessageSent={onMessageSent}
         />
+
+        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <SheetContent side="right" className="w-[92vw] max-w-[420px] border-l border-white/5">
+            <div className="flex h-full flex-col">
+              <div className="border-b border-white/5 px-5 py-5">
+                <SheetTitle className="text-left text-base font-semibold text-white">
+                  {conversation.cliente.nome}
+                </SheetTitle>
+                <SheetDescription className="mt-1 text-left text-sm text-slate-400">
+                  Resumo rapido e midias da conversa.
+                </SheetDescription>
+              </div>
+
+              <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    ["Origem", originLabel],
+                    ["Status", statusLabel],
+                    ["Mensagens", String(conversation.mensagens.length)],
+                    ["Midias", String(mediaItems.length)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+                      <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{label}</div>
+                      <div className="mt-2 text-sm font-semibold text-white">{value}</div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Contato</div>
+                  <div className="mt-2 text-sm font-semibold text-white">{conversation.cliente.nome}</div>
+                  <div className="mt-1 text-sm text-slate-400">{getConversationPhone(conversation)}</div>
+                </div>
+
+                <div>
+                  <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Midias e arquivos</div>
+                  {mediaItems.length ? (
+                    <div className="mt-3 grid gap-3">
+                      {mediaItems.map((attachment) => {
+                        const previewable = attachment.category === "image" && attachment.publicUrl
+
+                        return (
+                          <a
+                            key={attachment.key}
+                            href={attachment.publicUrl || "#"}
+                            target={attachment.publicUrl ? "_blank" : undefined}
+                            rel={attachment.publicUrl ? "noreferrer" : undefined}
+                            className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
+                          >
+                            {previewable ? (
+                              <img
+                                src={attachment.publicUrl}
+                                alt={attachment.name || "Midia"}
+                                className="max-h-56 w-full object-cover"
+                              />
+                            ) : null}
+                            <div className="px-3 py-3">
+                              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                                <FileText className="h-4 w-4" />
+                                <span className="truncate">{attachment.name}</span>
+                              </div>
+                              <div className="mt-1 text-xs text-slate-500">{attachment.horario}</div>
+                            </div>
+                          </a>
+                        )
+                      })}
+                    </div>
+                  ) : (
+                    <div className="mt-3 rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
+                      Nenhuma midia enviada nesta conversa.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </SheetContent>
+        </Sheet>
       </motion.div>
     </AnimatePresence>
   )
@@ -497,6 +649,22 @@ export default function AttendancePage() {
       setMobileChatOpen(false)
     }
   }, [isMobile])
+
+  useEffect(() => {
+    if (!mobileChatOpen) {
+      return undefined
+    }
+
+    const previousBodyOverflow = document.body.style.overflow
+    const previousHtmlOverflow = document.documentElement.style.overflow
+    document.body.style.overflow = "hidden"
+    document.documentElement.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousBodyOverflow
+      document.documentElement.style.overflow = previousHtmlOverflow
+    }
+  }, [mobileChatOpen])
 
   const filteredConversations = useMemo(
     () =>
@@ -640,6 +808,7 @@ export default function AttendancePage() {
         <AdminPageHeader
           title="Central de Atendimento"
           description="Fila ativa de conversas com inteligencia do pipeline real."
+          className={cn(mobileChatOpen && "hidden lg:flex")}
         />
 
         <div className="relative flex min-h-0 flex-1 flex-col gap-3 lg:grid lg:grid-cols-[104px,320px,minmax(0,1fr)]">
@@ -760,7 +929,7 @@ export default function AttendancePage() {
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ duration: 0.24, ease: "easeInOut" }}
-                className="absolute inset-0 z-20 flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
+                className="fixed inset-0 z-[60] flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
               >
                 <ChatPanel
                   conversation={activeConversation}

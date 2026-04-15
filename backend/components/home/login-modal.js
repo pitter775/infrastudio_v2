@@ -29,28 +29,6 @@ function GoogleIcon() {
   )
 }
 
-function GithubIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="currentColor"
-        d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.1.79-.25.79-.56v-2.17c-3.2.7-3.88-1.36-3.88-1.36-.52-1.32-1.27-1.67-1.27-1.67-1.04-.71.08-.69.08-.69 1.15.08 1.76 1.18 1.76 1.18 1.02 1.75 2.68 1.24 3.33.95.1-.74.4-1.24.73-1.52-2.55-.29-5.23-1.28-5.23-5.68 0-1.25.45-2.28 1.18-3.08-.12-.29-.51-1.47.11-3.06 0 0 .97-.31 3.19 1.18a11.1 11.1 0 0 1 5.8 0c2.22-1.49 3.19-1.18 3.19-1.18.62 1.59.23 2.77.11 3.06.74.8 1.18 1.83 1.18 3.08 0 4.41-2.69 5.39-5.25 5.67.41.35.78 1.04.78 2.09v3.1c0 .31.21.67.8.56A11.5 11.5 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5Z"
-      />
-    </svg>
-  )
-}
-
-function FacebookIcon({ className }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill="#1877F2"
-        d="M24 12.07C24 5.4 18.63 0 12 0S0 5.4 0 12.07c0 6.03 4.39 11.03 10.13 11.93v-8.44H7.08v-3.5h3.05V9.41c0-3.03 1.79-4.7 4.53-4.7 1.31 0 2.68.24 2.68.24v2.97h-1.51c-1.49 0-1.95.93-1.95 1.88v2.26h3.32l-.53 3.5h-2.79V24C19.61 23.1 24 18.1 24 12.07Z"
-      />
-    </svg>
-  )
-}
-
 function InstagramIcon({ className }) {
   return (
     <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
@@ -111,8 +89,6 @@ function Feedback({ type, children }) {
 function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
   const providers = [
     { id: 'google', label: 'Google', icon: GoogleIcon },
-    { id: 'github', label: 'GitHub', icon: GithubIcon },
-    { id: 'facebook', label: 'Facebook', icon: FacebookIcon },
     { id: 'instagram', label: 'Instagram', icon: InstagramIcon },
   ]
 
@@ -338,8 +314,8 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[90] bg-slate-950/80 backdrop-blur-sm" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#0f172a]/95 text-white shadow-2xl shadow-black/40">
+        <Dialog.Overlay className="fixed inset-0 z-[90] bg-slate-950/80" />
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[100] max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#0f172a] text-white">
           <Dialog.Close className="absolute right-4 top-4 z-10 rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:bg-white/10 hover:text-white">
             <X className="h-4 w-4" />
           </Dialog.Close>
@@ -361,9 +337,9 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={mode}
-                initial={{ opacity: 0, y: 14, filter: 'blur(4px)' }}
-                animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                exit={{ opacity: 0, y: -10, filter: 'blur(3px)' }}
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
               >
                 {mode === 'login' ? (

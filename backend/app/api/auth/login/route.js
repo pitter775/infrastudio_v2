@@ -1,5 +1,6 @@
 import { compareSync } from "bcryptjs"
 
+import { ensureUsuarioHasProjeto } from "@/lib/auth-registration"
 import { createSession } from "@/lib/session"
 import {
   findUsuarioWithPasswordByEmail,
@@ -64,7 +65,7 @@ export async function POST(request) {
       return Response.json({ error: "Usuario inativo." }, { status: 403 })
     }
 
-    const appUser = mapUsuarioToAppUser(usuario)
+    const appUser = await ensureUsuarioHasProjeto(mapUsuarioToAppUser(usuario))
     await createSession(appUser)
     await touchUsuarioLogin(usuario.id)
 

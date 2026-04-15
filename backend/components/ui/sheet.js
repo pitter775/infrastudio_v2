@@ -49,15 +49,15 @@ function SheetContent({
 }) {
   const sideClassName =
     side === 'left'
-      ? 'inset-y-0 left-0 h-full w-[280px] border-r'
-      : 'inset-y-0 right-0 h-full w-[280px] border-l'
+      ? 'inset-y-0 left-0 h-full w-[280px] border-r data-[state=open]:animate-none data-[state=closed]:animate-none data-[state=open]:translate-x-0 data-[state=closed]:-translate-x-full'
+      : 'inset-y-0 right-0 h-full w-[280px] border-l data-[state=open]:animate-none data-[state=closed]:animate-none data-[state=open]:translate-x-0 data-[state=closed]:translate-x-full'
 
   return (
     <SheetPortal>
       {showOverlay ? <SheetOverlay /> : null}
       <DialogPrimitive.Content
         className={cn(
-          'fixed z-50 bg-[#080e1d] p-0 text-slate-400 outline-none border-white/5 will-change-transform data-[state=open]:animate-[sheet-in_360ms_cubic-bezier(0.22,1,0.36,1)] data-[state=closed]:animate-[sheet-out_280ms_cubic-bezier(0.4,0,1,1)]',
+          'fixed z-50 bg-[#080e1d] p-0 text-slate-400 outline-none border-white/5 will-change-transform transition-transform duration-300 ease-out',
           sideClassName,
           className,
         )}

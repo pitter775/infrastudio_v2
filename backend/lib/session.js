@@ -2,6 +2,7 @@ import "server-only"
 
 import { cookies } from "next/headers"
 
+import { ensureUsuarioHasProjeto } from "@/lib/usuario-project-bootstrap"
 import { SESSION_COOKIE, signSessionToken, verifySessionToken } from "@/lib/session-token"
 
 export async function createSession(user) {
@@ -31,7 +32,17 @@ export async function getSessionUser() {
   }
 
   try {
-    return await verifySessionToken(token)
+    const user = await verifySessionToken(token)
+    const ensuredUser = await ensureUsuarioHasProjeto(user)
+
+    if (
+      ensuredUser &&
+      JSON.stringify(ensuredUser.memberships ?? []) !== JSON.stringify(user.memberships ?? [])
+    ) {
+      await createSession(ensuredUser)
+    }
+
+    return ensuredUser
   } catch (error) {
     console.error("[session] failed to verify session", error)
     return null

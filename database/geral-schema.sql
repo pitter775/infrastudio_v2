@@ -471,6 +471,7 @@ CREATE TABLE public.usuarios (
   avatar_url text,
   role character varying NOT NULL DEFAULT 'viewer'::character varying,
   email_verificado boolean NOT NULL DEFAULT false,
+  telefone text,
   CONSTRAINT usuarios_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.usuarios_limites_ia (

@@ -1,6 +1,7 @@
 import "server-only"
 
 import { getChatHandoffByChatId } from "@/lib/chat-handoffs"
+import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
 import { appendMessage, getChatById, listChatMessages } from "@/lib/chats"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
@@ -96,6 +97,27 @@ function canAccessConversation(user, chat) {
   return Boolean(chat?.projetoId && user?.memberships?.some((item) => item.projetoId === chat.projetoId))
 }
 
+function normalizeConversationPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "")
+  if (!digits) {
+    return null
+  }
+
+  return digits.length > 11 ? digits.slice(-11) : digits
+}
+
+function buildConversationGroupKey(row) {
+  const phoneKey = normalizeConversationPhone(row.contato_telefone || row.identificador_externo)
+  if (phoneKey) {
+    return `phone:${phoneKey}`
+  }
+
+  const nameKey = String(row.contato_nome || row.titulo || "")
+    .trim()
+    .toLowerCase()
+  return nameKey ? `name:${nameKey}` : `chat:${row.id}`
+}
+
 export async function listAdminConversations(user) {
   try {
     const scopedProjectIds = getScopedProjectIds(user)
@@ -124,7 +146,7 @@ export async function listAdminConversations(user) {
       return []
     }
 
-    return Promise.all(
+    const hydratedRows = await Promise.all(
       data.map(async (row) => {
         const chat = {
           id: row.id,
@@ -139,21 +161,72 @@ export async function listAdminConversations(user) {
         const mensagens = await loadMessagesForChat(chat.id)
         const handoff = await loadHandoff(chat)
 
-        return {
-          id: chat.id,
-          cliente: {
-            nome: chat.contatoNome || chat.titulo || "Cliente",
-            telefone: chat.contatoTelefone || row.identificador_externo || "",
-            avatarUrl: chat.contatoAvatarUrl || null,
-          },
-          origem: chat.canal === "whatsapp" ? "whatsapp" : "site",
-          status: handoff.status,
-          handoff: handoff.handoff,
-          mensagens,
-          updatedAt: chat.updatedAt,
-        }
+        return { row, chat, mensagens, handoff }
       }),
     )
+
+    const grouped = new Map()
+
+    for (const item of hydratedRows) {
+      const key = buildConversationGroupKey(item.row)
+      const currentGroup = grouped.get(key)
+
+      if (!currentGroup) {
+        grouped.set(key, {
+          primaryChatId: item.chat.id,
+          cliente: {
+            nome: item.chat.contatoNome || item.chat.titulo || "Cliente",
+            telefone: item.chat.contatoTelefone || item.row.identificador_externo || "",
+            avatarUrl: item.chat.contatoAvatarUrl || null,
+          },
+          origem: item.chat.canal === "whatsapp" ? "whatsapp" : "site",
+          status: item.handoff.status,
+          handoff: item.handoff.handoff,
+          mensagens: [...item.mensagens],
+          updatedAt: item.chat.updatedAt,
+          chatIds: [item.chat.id],
+        })
+        continue
+      }
+
+      currentGroup.chatIds.push(item.chat.id)
+      currentGroup.mensagens.push(...item.mensagens)
+
+      if (new Date(item.chat.updatedAt).getTime() >= new Date(currentGroup.updatedAt).getTime()) {
+        currentGroup.primaryChatId = item.chat.id
+        currentGroup.updatedAt = item.chat.updatedAt
+        currentGroup.cliente = {
+          nome: item.chat.contatoNome || item.chat.titulo || currentGroup.cliente.nome,
+          telefone: item.chat.contatoTelefone || item.row.identificador_externo || currentGroup.cliente.telefone,
+          avatarUrl: item.chat.contatoAvatarUrl || currentGroup.cliente.avatarUrl,
+        }
+        currentGroup.handoff = item.handoff.handoff
+      }
+
+      if (item.chat.canal === "whatsapp") {
+        currentGroup.origem = "whatsapp"
+      }
+
+      if (item.handoff.status === "humano") {
+        currentGroup.status = "humano"
+      } else if (currentGroup.status !== "humano" && item.handoff.status === "pendente_humano") {
+        currentGroup.status = "pendente_humano"
+      }
+    }
+
+    return Array.from(grouped.values())
+      .map((conversation) => ({
+        id: conversation.primaryChatId,
+        cliente: conversation.cliente,
+        origem: conversation.origem,
+        status: conversation.status,
+        handoff: conversation.handoff,
+        mensagens: conversation.mensagens.sort(
+          (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+        ),
+        updatedAt: conversation.updatedAt,
+      }))
+      .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
   } catch (error) {
     console.error("[admin-conversations] failed to list conversations", error)
     return []
@@ -171,24 +244,27 @@ export async function appendAdminConversationMessage(chatId, texto, attachments 
     return false
   }
 
+  const uploadedAttachments = await uploadChatAttachmentPayloads({
+    projetoId: chat.projetoId ?? "admin",
+    chatId,
+    attachments: Array.isArray(attachments) ? attachments : [],
+  })
+
+  const content = String(texto ?? "").trim() || (uploadedAttachments.length ? "[Anexo enviado]" : "")
+  if (!content) {
+    return null
+  }
+
   const message = await appendMessage({
     chatId,
     role: "assistant",
-    conteudo: texto,
+    conteudo: content,
     canal: chat.canal,
     identificadorExterno: chat.identificadorExterno,
     metadata: {
       source: "admin_attendance",
       manual: true,
-      attachments: Array.isArray(attachments)
-        ? attachments
-            .map((item) => ({
-              name: String(item.name || "arquivo").trim(),
-              type: String(item.type || "application/octet-stream").trim(),
-              size: Number(item.size || 0),
-            }))
-            .slice(0, 5)
-        : [],
+      attachments: getChatAttachmentsMetadata(uploadedAttachments),
     },
   })
 

@@ -2,82 +2,19 @@ import "server-only"
 
 import { randomUUID } from "node:crypto"
 
-import { createSession } from "@/lib/session"
-import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import {
   createEmailVerificationToken,
   sendEmailVerification,
 } from "@/lib/email-verifications"
+import { createSession } from "@/lib/session"
+import { createInitialProjectForUsuario, ensureUsuarioHasProjeto, rollbackProvisionedUsuario } from "@/lib/usuario-project-bootstrap"
 import {
   createUsuario,
-  deleteUsuario,
   findUsuarioByProvider,
   findUsuarioWithPasswordByEmail,
   getUsuarioById,
   updateUsuarioProviderAndVerification,
 } from "@/lib/usuarios"
-
-function slugify(value) {
-  return String(value || "projeto")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 48) || "projeto"
-}
-
-async function createInitialProjectForUsuario({ usuarioId, nome }) {
-  const supabase = getSupabaseAdminClient()
-  const now = new Date().toISOString()
-  const baseName = String(nome || "Usuario").trim() || "Usuario"
-  const { data: project, error: projectError } = await supabase
-    .from("projetos")
-    .insert({
-      nome: `Projeto ${baseName}`,
-      slug: `${slugify(baseName)}-${Date.now().toString(36)}`,
-      tipo: "Geral",
-      descricao: "Projeto criado no cadastro.",
-      status: "ativo",
-      modo_cobranca: "plano",
-      owner_user_id: usuarioId,
-      configuracoes: {},
-      created_at: now,
-      updated_at: now,
-    })
-    .select("id")
-    .single()
-
-  if (projectError || !project?.id) {
-    console.error("[auth-registration] failed to create initial project", projectError)
-    return null
-  }
-
-  const { error: membershipError } = await supabase.from("usuarios_projetos").insert({
-    usuario_id: usuarioId,
-    projeto_id: project.id,
-    papel: "viewer",
-    created_at: now,
-  })
-
-  if (membershipError) {
-    console.error("[auth-registration] failed to create initial membership", membershipError)
-    await supabase.from("projetos").delete().eq("id", project.id)
-    return null
-  }
-
-  return project.id
-}
-
-async function deleteInitialProject(projetoId) {
-  if (!projetoId) {
-    return
-  }
-
-  const supabase = getSupabaseAdminClient()
-  await supabase.from("usuarios_projetos").delete().eq("projeto_id", projetoId)
-  await supabase.from("projetos").delete().eq("id", projetoId)
-}
 
 async function provisionUsuarioInicial(input) {
   const usuario = await createUsuario({
@@ -101,12 +38,14 @@ async function provisionUsuarioInicial(input) {
   })
 
   if (!projetoId) {
-    await deleteUsuario(usuario.id)
+    await rollbackProvisionedUsuario(usuario.id, null)
     return { ok: false, reason: "project_create_failed" }
   }
 
   return { ok: true, usuarioId: usuario.id, projetoId }
 }
+
+export { ensureUsuarioHasProjeto }
 
 export async function registerUsuarioWithProjeto(input) {
   const normalizedEmail = String(input.email || "").trim().toLowerCase()
@@ -147,8 +86,7 @@ export async function registerUsuarioWithProjeto(input) {
       }
     } catch (error) {
       console.error("[auth-registration] failed to send verification email", error)
-      await deleteInitialProject(provision.projetoId)
-      await deleteUsuario(provision.usuarioId)
+      await rollbackProvisionedUsuario(provision.usuarioId, provision.projetoId)
       return { ok: false, reason: "verification_send_failed" }
     }
   })
@@ -190,8 +128,9 @@ export async function loginOrCreateSocialUsuario(input) {
   const existingByProvider = await findUsuarioByProvider(input.provider, input.providerUserId)
 
   if (existingByProvider) {
-    await createSession(existingByProvider)
-    return { ok: true, user: existingByProvider, created: false }
+    const ensuredUser = await ensureUsuarioHasProjeto(existingByProvider)
+    await createSession(ensuredUser)
+    return { ok: true, user: ensuredUser, created: false }
   }
 
   const existingByEmail = await findUsuarioWithPasswordByEmail(normalizedEmail)
@@ -212,8 +151,9 @@ export async function loginOrCreateSocialUsuario(input) {
       return { ok: false, reason: "user_reload_failed" }
     }
 
-    await createSession(appUser)
-    return { ok: true, user: appUser, created: false }
+    const ensuredUser = await ensureUsuarioHasProjeto(appUser)
+    await createSession(ensuredUser)
+    return { ok: true, user: ensuredUser, created: false }
   }
 
   const provision = await provisionUsuarioInicial({
@@ -233,6 +173,7 @@ export async function loginOrCreateSocialUsuario(input) {
     return { ok: false, reason: "user_reload_failed" }
   }
 
-  await createSession(appUser)
-  return { ok: true, user: appUser, created: true }
+  const ensuredUser = await ensureUsuarioHasProjeto(appUser)
+  await createSession(ensuredUser)
+  return { ok: true, user: ensuredUser, created: true }
 }

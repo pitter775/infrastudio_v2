@@ -11,8 +11,9 @@ export async function POST(request, { params }) {
   const { id } = await params
   const body = await request.json()
   const texto = String(body.texto ?? "").trim()
+  const hasAttachments = Array.isArray(body.attachments) && body.attachments.length > 0
 
-  if (!texto) {
+  if (!texto && !hasAttachments) {
     return Response.json(
       { success: false, error: "Mensagem vazia" },
       { status: 400 }

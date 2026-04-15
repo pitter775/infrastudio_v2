@@ -24,7 +24,11 @@ function getScopeProjectIds(user, projects) {
   return projects.map((project) => project.id)
 }
 
-async function countUsuarios(scopeProjectIds) {
+async function countUsuarios(scopeProjectIds, user) {
+  if (user?.role !== "admin") {
+    return user?.id ? 1 : 0
+  }
+
   const supabase = getSupabaseAdminClient()
 
   if (Array.isArray(scopeProjectIds) && scopeProjectIds.length === 0) {
@@ -55,7 +59,7 @@ async function countUsuarios(scopeProjectIds) {
   return new Set((data ?? []).map((item) => item.usuario_id).filter(Boolean)).size
 }
 
-async function listScopedChats(scopeProjectIds) {
+async function listScopedChats(scopeProjectIds, user) {
   if (Array.isArray(scopeProjectIds) && scopeProjectIds.length === 0) {
     return []
   }
@@ -68,7 +72,9 @@ async function listScopedChats(scopeProjectIds) {
     .order("updated_at", { ascending: false, nullsFirst: false })
     .limit(200)
 
-  if (scopeProjectIds?.length) {
+  if (user?.role !== "admin" && user?.id) {
+    query = query.eq("usuario_id", user.id)
+  } else if (scopeProjectIds?.length) {
     query = query.in("projeto_id", scopeProjectIds)
   }
 
@@ -90,7 +96,11 @@ async function listScopedChats(scopeProjectIds) {
   }))
 }
 
-async function listScopedLogs(scopeProjectIds) {
+async function listScopedLogs(scopeProjectIds, user) {
+  if (user?.role !== "admin") {
+    return []
+  }
+
   if (Array.isArray(scopeProjectIds) && scopeProjectIds.length === 0) {
     return []
   }
@@ -199,6 +209,7 @@ export function buildDashboardOverviewSummary({
   feedbacks,
   logs,
   billingProjects,
+  isAdmin,
 }) {
   const activeProjects = projects.filter((project) => project.status === "ativo").length
   const whatsappChats = chats.filter((chat) => chat.channel === "whatsapp").length
@@ -213,16 +224,18 @@ export function buildDashboardOverviewSummary({
 
   return {
     cards: [
-      { label: "Projetos", value: projects.length, detail: `${activeProjects} ativos` },
-      { label: "Usuarios", value: usersCount, detail: "com acesso ao contexto" },
-      { label: "Chats", value: chats.length, detail: `${whatsappChats} WhatsApp / ${siteChats} web` },
-      { label: "Feedback", value: feedbacks.length, detail: `${pendingFeedbacks} pendentes` },
+      { label: isAdmin ? "Projetos" : "Meus projetos", value: projects.length, detail: `${activeProjects} ativos` },
+      { label: isAdmin ? "Usuarios" : "Perfil", value: usersCount, detail: isAdmin ? "com acesso ao contexto" : "dados da sua conta" },
+      { label: isAdmin ? "Chats" : "Meus chats", value: chats.length, detail: `${whatsappChats} WhatsApp / ${siteChats} web` },
+      { label: isAdmin ? "Feedback" : "Meus feedbacks", value: feedbacks.length, detail: `${pendingFeedbacks} pendentes` },
       { label: "Billing", value: blockedBilling, detail: warningBilling ? `${warningBilling} em alerta` : "sem alerta" },
-      { label: "Erros", value: recentErrors, detail: "ultimos eventos do laboratorio" },
+      { label: "Erros", value: recentErrors, detail: isAdmin ? "ultimos eventos do laboratorio" : "restrito ao admin" },
     ],
     practicalSummary:
       projects.length > 0
-        ? `Base com ${projects.length} projeto(s), ${chats.length} chat(s) recentes e ${pendingFeedbacks} feedback(s) pendente(s) para o admin.`
+        ? isAdmin
+          ? `Base com ${projects.length} projeto(s), ${chats.length} chat(s) recentes e ${pendingFeedbacks} feedback(s) pendente(s) para o admin.`
+          : `Seu painel mostra ${projects.length} projeto(s), ${chats.length} chat(s) e ${feedbacks.length} feedback(s) ligados ao seu acesso.`
         : "Ainda nao existem projetos suficientes para consolidar um dashboard operacional.",
     latestChat,
     channelUsage: buildChannelUsage(chats),
@@ -235,10 +248,10 @@ export async function getDashboardOverview(user) {
   const projects = await listProjectsForUser(user)
   const scopeProjectIds = getScopeProjectIds(user, projects)
   const [usersCount, chats, feedbacks, logs, billingProjects] = await Promise.all([
-    countUsuarios(scopeProjectIds),
-    listScopedChats(scopeProjectIds),
+    countUsuarios(scopeProjectIds, user),
+    listScopedChats(scopeProjectIds, user),
     listScopedFeedbacks(user),
-    listScopedLogs(scopeProjectIds),
+    listScopedLogs(scopeProjectIds, user),
     listScopedBilling(user, projects),
   ])
 
@@ -258,6 +271,7 @@ export async function getDashboardOverview(user) {
       feedbacks,
       logs,
       billingProjects,
+      isAdmin: user?.role === "admin",
     }),
   }
 }

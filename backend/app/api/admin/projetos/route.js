@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { getSessionUser } from "@/lib/session"
-import { createProject, listProjectsForUser, updateProject } from "@/lib/projetos"
+import { canManageProject, createProject, listProjectsForUser, updateProject } from "@/lib/projetos"
 
 export async function GET() {
   const user = await getSessionUser()
@@ -39,14 +39,20 @@ export async function POST(request) {
 export async function PUT(request) {
   const user = await getSessionUser()
 
-  if (user?.role !== "admin") {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
   }
 
   const body = await request.json()
 
   if (!body.id || !body.nome) {
     return NextResponse.json({ error: "Id e nome sao obrigatorios." }, { status: 400 })
+  }
+
+  const canManage = await canManageProject(user, body.id)
+
+  if (!canManage) {
+    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
   }
 
   const project = await updateProject(body)
