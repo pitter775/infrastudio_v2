@@ -13,10 +13,10 @@ import {
 import { cn } from '@/lib/utils'
 
 const fieldClassName =
-  'h-12 w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 text-sm text-white placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400'
+  'h-12 w-full rounded-lg border border-slate-200/80 bg-white/90 px-4 text-sm text-slate-900 placeholder:text-slate-400 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-400 dark:border-white/10 dark:bg-white/[0.04] dark:text-white dark:placeholder:text-slate-500'
 
 const socialButtonClassName =
-  'inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-sm font-medium text-white transition hover:border-cyan-400/25 hover:bg-cyan-500/10 disabled:cursor-not-allowed disabled:opacity-60'
+  'inline-flex h-12 min-w-0 items-center justify-center gap-2 rounded-lg border border-slate-200/80 bg-white/90 px-3 text-sm font-medium text-slate-800 shadow-sm transition hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-white/[0.04] dark:text-white'
 
 function GoogleIcon() {
   return (
@@ -43,7 +43,7 @@ function FacebookIcon({ className }) {
 function Field({ label, id, type, value, onChange, placeholder, autoComplete, inputRef }) {
   return (
     <label htmlFor={id} className="block space-y-2">
-      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</span>
+      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">{label}</span>
       <input
         ref={inputRef}
         id={id}
@@ -68,8 +68,8 @@ function Feedback({ type, children }) {
       className={cn(
         'rounded-lg border px-4 py-3 text-sm',
         type === 'error'
-          ? 'border-rose-500/20 bg-rose-500/10 text-rose-200'
-          : 'border-emerald-500/20 bg-emerald-500/10 text-emerald-200',
+          ? 'border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-200'
+          : 'border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200',
       )}
     >
       {children}
@@ -85,7 +85,7 @@ function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-slate-300">Continuar com</p>
+      <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Continuar com</p>
       <div className="grid grid-cols-2 gap-3">
         {providers.map((provider) => {
           const Icon = provider.icon
@@ -104,7 +104,7 @@ function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
               <span className="truncate">{provider.label}</span>
               {provider.badge ? (
-                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-300">
+                <span className="rounded-full border border-slate-200 bg-slate-100 px-2 py-0.5 text-[10px] uppercase tracking-[0.14em] text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
                   {provider.badge}
                 </span>
               ) : null}
@@ -114,10 +114,10 @@ function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
       </div>
 
       {dividerText ? (
-        <div className="flex items-center gap-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-          <span className="h-px flex-1 bg-white/10" />
+        <div className="flex items-center gap-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+          <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
           <span>{dividerText}</span>
-          <span className="h-px flex-1 bg-white/10" />
+          <span className="h-px flex-1 bg-slate-200 dark:bg-white/10" />
         </div>
       ) : null}
     </div>
@@ -302,21 +302,21 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="infra-overlay-motion fixed inset-0 z-[90] bg-slate-950/80" />
-        <Dialog.Content className="infra-dialog-motion infra-diagonal-shadow fixed left-1/2 top-1/2 z-[100] max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-white/15 bg-[#0f172a] text-white">
-          <Dialog.Close className="absolute right-4 top-4 z-10 rounded-lg border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-white">
+        <Dialog.Overlay className="infra-overlay-motion fixed inset-0 z-[90] bg-slate-950/35 dark:bg-slate-950/80" />
+        <Dialog.Content className="infra-dialog-motion infra-diagonal-shadow fixed left-1/2 top-1/2 z-[100] max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-lg border border-slate-200/90 bg-white text-slate-900 dark:border-white/15 dark:bg-[#0f172a] dark:text-white">
+          <Dialog.Close className="absolute right-4 top-4 z-10 rounded-lg border border-slate-200 bg-white/90 p-2 text-slate-500 transition hover:border-cyan-400/25 hover:bg-cyan-500/10 hover:text-slate-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-300 dark:hover:text-white">
             <X className="h-4 w-4" />
           </Dialog.Close>
 
-          <div className="border-b border-white/10 bg-white/5 px-6 py-5">
+          <div className="border-b border-slate-200 bg-slate-50/90 px-6 py-5 dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-blue-300">
               <Lock className="h-3.5 w-3.5" />
               {mode === 'login' ? 'Acesso rapido' : 'Criar conta'}
             </div>
-            <Dialog.Title className="pr-10 text-2xl font-semibold text-white">
+            <Dialog.Title className="pr-10 text-2xl font-semibold text-slate-900 dark:text-white">
               {mode === 'login' ? 'Acesse sua conta' : 'Crie sua conta'}
             </Dialog.Title>
-            <Dialog.Description className="mt-2 text-sm leading-relaxed text-slate-400">
+            <Dialog.Description className="mt-2 text-sm leading-relaxed text-slate-500 dark:text-slate-400">
               {mode === 'login' ? 'Entre para gerenciar seus projetos.' : 'Crie seu acesso e comece pelo projeto inicial.'}
             </Dialog.Description>
           </div>
@@ -372,14 +372,14 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
                     </button>
 
                     <div className="flex items-center justify-between gap-3 text-sm">
-                      <button type="button" onClick={goToRegister} className="font-medium text-cyan-200 transition hover:text-cyan-100">
+                      <button type="button" onClick={goToRegister} className="font-medium text-cyan-700 transition hover:text-cyan-600 dark:text-cyan-200 dark:hover:text-cyan-100">
                         Criar conta
                       </button>
                       <button
                         type="button"
                         onClick={handleResendVerification}
                         disabled={resendingVerification}
-                        className="font-medium text-slate-400 transition hover:text-slate-200 disabled:opacity-60"
+                        className="font-medium text-slate-500 transition hover:text-slate-700 disabled:opacity-60 dark:text-slate-400 dark:hover:text-slate-200"
                       >
                         {resendingVerification ? 'Reenviando...' : 'Reenviar confirmacao'}
                       </button>
@@ -444,7 +444,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
                       <ArrowRight className="h-4 w-4" />
                     </button>
 
-                    <button type="button" onClick={goToLogin} className="text-sm font-medium text-cyan-200 transition hover:text-cyan-100">
+                    <button type="button" onClick={goToLogin} className="text-sm font-medium text-cyan-700 transition hover:text-cyan-600 dark:text-cyan-200 dark:hover:text-cyan-100">
                       Voltar para login
                     </button>
                   </form>

@@ -38,7 +38,7 @@ async function getFreeBillingPlan(supabase) {
   return data ?? null
 }
 
-async function applyInitialFreePlan({ supabase, projetoId, now }) {
+export async function applyInitialFreePlan({ supabase, projetoId, now }) {
   const freePlan = await getFreeBillingPlan(supabase)
 
   if (!freePlan?.id) {

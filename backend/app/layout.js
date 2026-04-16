@@ -39,8 +39,8 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="pt-BR">
-      <body suppressHydrationWarning>{children}</body>
+    <html lang="pt-BR" className="dark">
+      <body>{children}</body>
     </html>
   )
 }

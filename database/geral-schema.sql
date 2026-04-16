@@ -392,7 +392,7 @@ CREATE TABLE public.projetos_assinaturas (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   projeto_id uuid NOT NULL,
   plano_id uuid NOT NULL,
-  status character varying NOT NULL DEFAULT 'ativo'::character varying CHECK (status::text = ANY (ARRAY['ativo'::character varying, 'cancelado'::character varying, 'trial'::character varying, 'suspenso'::character varying]::text[])),
+  status character varying NOT NULL DEFAULT 'ativo'::character varying CHECK (status::text = ANY (ARRAY['ativo'::character varying::text, 'cancelado'::character varying::text, 'trial'::character varying::text, 'suspenso'::character varying::text, 'aguardando_confirmacao'::character varying::text])),
   data_inicio timestamp without time zone DEFAULT now(),
   data_fim timestamp without time zone,
   renovar_automatico boolean DEFAULT true,
@@ -401,6 +401,31 @@ CREATE TABLE public.projetos_assinaturas (
   CONSTRAINT projetos_assinaturas_pkey PRIMARY KEY (id),
   CONSTRAINT fk_assinatura_projeto FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
   CONSTRAINT fk_assinatura_plano FOREIGN KEY (plano_id) REFERENCES public.planos(id)
+);
+CREATE TABLE public.projetos_checkout_intencoes (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  projeto_id uuid NOT NULL,
+  usuario_id uuid,
+  usuario_email character varying,
+  tipo character varying NOT NULL CHECK (tipo::text = ANY (ARRAY['plan'::character varying::text, 'topup'::character varying::text])),
+  status character varying NOT NULL DEFAULT 'pendente'::character varying CHECK (status::text = ANY (ARRAY['pendente'::character varying::text, 'confirmado'::character varying::text, 'falhou'::character varying::text, 'expirado'::character varying::text])),
+  plano_id uuid,
+  plano_nome character varying,
+  plano_key character varying,
+  valor numeric,
+  tokens integer,
+  checkout_url text,
+  origem character varying NOT NULL DEFAULT 'mercado_pago'::character varying,
+  mercado_pago_recurso_tipo character varying,
+  mercado_pago_recurso_id character varying,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  confirmado_at timestamp without time zone,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  updated_at timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT projetos_checkout_intencoes_pkey PRIMARY KEY (id),
+  CONSTRAINT projetos_checkout_intencoes_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT projetos_checkout_intencoes_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
+  CONSTRAINT projetos_checkout_intencoes_plano_id_fkey FOREIGN KEY (plano_id) REFERENCES public.planos(id)
 );
 CREATE TABLE public.projetos_ciclos_uso (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

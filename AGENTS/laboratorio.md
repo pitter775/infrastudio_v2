@@ -47,6 +47,11 @@ Comando:
 
 - logs de cenario mostram `IA trace`
 - teste manual do editor do agente grava log `lab_agent_test`
+- painel tambem exibe bloco de `Possiveis erros` para consulta rapida
+- esse bloco ja cobre:
+  - falhas de chat/runtime
+  - falhas de billing/checkout/webhook
+  - problemas comuns de configuracao do Mercado Pago
 - simulador usa modo real efemero:
   - IA real
   - APIs reais

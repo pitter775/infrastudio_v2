@@ -6,10 +6,11 @@ import { getProjectBillingSnapshot } from "@/lib/billing"
 import { ensureProjectHasDefaultWidget, listChatWidgetsForUser } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { applyInitialFreePlan } from "@/lib/usuario-project-bootstrap"
 import { listWhatsAppChannelsForUser } from "@/lib/whatsapp-channels"
 
 const projetoFields =
-  "id, nome, tipo, descricao, status, slug, configuracoes, created_at, updated_at, is_demo, owner_user_id, owner:usuarios!projetos_owner_user_id_fkey(id, nome, email, avatar_url)"
+  "id, nome, tipo, descricao, status, slug, configuracoes, created_at, updated_at, is_demo, owner_user_id, owner:usuarios!projetos_owner_user_id_fkey(id, nome, email, avatar_url, role)"
 
 function normalizeProject(row) {
   const slug = row.slug?.trim() || row.id
@@ -32,10 +33,11 @@ function normalizeProject(row) {
     owner: row.owner
       ? {
           id: row.owner.id,
-          name: row.owner.nome?.trim() || row.owner.email?.trim() || "Usuario",
-          email: row.owner.email?.trim() || "",
-          avatarUrl: row.owner.avatar_url || null,
-        }
+        name: row.owner.nome?.trim() || row.owner.email?.trim() || "Usuario",
+        email: row.owner.email?.trim() || "",
+        avatarUrl: row.owner.avatar_url || null,
+        role: row.owner.role === "admin" ? "admin" : "viewer",
+      }
       : null,
     updatedAt: row.updated_at,
     createdAt: row.created_at,
@@ -374,6 +376,51 @@ function sanitizeProjectPayload(input) {
   }
 }
 
+async function createProjectMembership(supabase, { usuarioId, projetoId, papel = "viewer" }) {
+  if (!usuarioId || !projetoId) {
+    return { ok: false, error: new Error("Usuario e projeto sao obrigatorios.") }
+  }
+
+  const { error } = await supabase.from("usuarios_projetos").insert({
+    usuario_id: usuarioId,
+    projeto_id: projetoId,
+    papel: papel === "admin" ? "admin" : "viewer",
+    created_at: new Date().toISOString(),
+  })
+
+  if (error) {
+    return { ok: false, error }
+  }
+
+  return { ok: true }
+}
+
+async function createPendingProjectBilling(supabase, projectId) {
+  const now = new Date().toISOString()
+  const { error } = await supabase.from("projetos_planos").insert({
+    projeto_id: projectId,
+    nome_plano: "Sem plano",
+    modelo_referencia: "gpt-4o-mini",
+    limite_tokens_input_mensal: null,
+    limite_tokens_output_mensal: null,
+    limite_tokens_total_mensal: null,
+    limite_custo_mensal: null,
+    auto_bloquear: true,
+    bloqueado: true,
+    bloqueado_motivo: "Selecione um plano para habilitar este projeto.",
+    observacoes: "Projeto criado sem plano automatico. O plano free fica restrito ao primeiro projeto do cadastro.",
+    plano_id: null,
+    created_at: now,
+    updated_at: now,
+  })
+
+  if (error) {
+    return { ok: false, error }
+  }
+
+  return { ok: true }
+}
+
 export async function createProject(input, user) {
   const payload = sanitizeProjectPayload(input)
 
@@ -383,13 +430,14 @@ export async function createProject(input, user) {
 
   const supabase = getSupabaseAdminClient()
   const slug = await buildUniqueProjectSlug(supabase, input.slug || payload.nome)
+  const ownerUserId = user?.id ?? null
   const { data, error } = await supabase
     .from("projetos")
     .insert({
       ...payload,
       slug,
       configuracoes: {},
-      owner_user_id: user?.id ?? null,
+      owner_user_id: ownerUserId,
       is_demo: false,
       created_at: new Date().toISOString(),
     })
@@ -398,6 +446,27 @@ export async function createProject(input, user) {
 
   if (error || !data) {
     console.error("[projetos] failed to create project", error)
+    return null
+  }
+
+  const membershipResult = await createProjectMembership(supabase, {
+    usuarioId: ownerUserId,
+    projetoId: data.id,
+    papel: user?.role === "admin" ? "admin" : "viewer",
+  })
+
+  if (!membershipResult.ok) {
+    console.error("[projetos] failed to create project membership", membershipResult.error)
+    await supabase.from("projetos").delete().eq("id", data.id)
+    return null
+  }
+
+  const billingResult = await createPendingProjectBilling(supabase, data.id)
+
+  if (!billingResult.ok) {
+    console.error("[projetos] failed to create initial pending billing", billingResult.error)
+    await supabase.from("usuarios_projetos").delete().eq("projeto_id", data.id)
+    await supabase.from("projetos").delete().eq("id", data.id)
     return null
   }
 
@@ -430,6 +499,103 @@ export async function updateProject(input) {
   }
 
   return normalizeProject(data)
+}
+
+export async function transferProjectOwnership({ projectId, targetUserId }) {
+  if (!projectId || !targetUserId) {
+    return null
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const [projectResult, targetUserResult, billingResult, membershipResult] = await Promise.all([
+    supabase
+      .from("projetos")
+      .select("id, nome, owner_user_id")
+      .eq("id", projectId)
+      .maybeSingle(),
+    supabase
+      .from("usuarios")
+      .select("id, role")
+      .eq("id", targetUserId)
+      .maybeSingle(),
+    supabase
+      .from("projetos_planos")
+      .select(
+        "id, plano_id, nome_plano, bloqueado, limite_tokens_input_mensal, limite_tokens_output_mensal, limite_tokens_total_mensal, limite_custo_mensal",
+      )
+      .eq("projeto_id", projectId)
+      .maybeSingle(),
+    supabase
+      .from("usuarios_projetos")
+      .select("id")
+      .eq("usuario_id", targetUserId)
+      .eq("projeto_id", projectId)
+      .maybeSingle(),
+  ])
+
+  if (projectResult.error || !projectResult.data || targetUserResult.error || !targetUserResult.data) {
+    return null
+  }
+
+  const currentOwnerId = projectResult.data.owner_user_id ?? null
+  if (!currentOwnerId || currentOwnerId === targetUserId) {
+    return getProjetoById(projectId)
+  }
+
+  const currentOwnerResult = await supabase
+    .from("usuarios")
+    .select("id, role")
+    .eq("id", currentOwnerId)
+    .maybeSingle()
+
+  const currentOwnerIsAdmin = currentOwnerResult.data?.role === "admin"
+  const targetUserIsAdmin = targetUserResult.data.role === "admin"
+  const billing = billingResult.data ?? null
+  const hasUnlimitedAdminBilling =
+    !billing ||
+    (billing.plano_id == null &&
+      billing.bloqueado !== true &&
+      billing.limite_tokens_input_mensal == null &&
+      billing.limite_tokens_output_mensal == null &&
+      billing.limite_tokens_total_mensal == null &&
+      billing.limite_custo_mensal == null)
+
+  const now = new Date().toISOString()
+
+  const ownershipUpdate = await supabase
+    .from("projetos")
+    .update({
+      owner_user_id: targetUserId,
+      updated_at: now,
+    })
+    .eq("id", projectId)
+
+  if (ownershipUpdate.error) {
+    return null
+  }
+
+  if (!membershipResult.data?.id) {
+    const membershipInsert = await supabase.from("usuarios_projetos").insert({
+      usuario_id: targetUserId,
+      projeto_id: projectId,
+      papel: targetUserIsAdmin ? "admin" : "viewer",
+      created_at: now,
+    })
+
+    if (membershipInsert.error) {
+      return null
+    }
+  }
+
+  if (currentOwnerIsAdmin && !targetUserIsAdmin && hasUnlimitedAdminBilling) {
+    await applyInitialFreePlan({
+      supabase,
+      projetoId: projectId,
+      now,
+    })
+  }
+
+  return getProjetoById(projectId)
 }
 
 export async function canManageProject(user, projectId) {

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, List, LoaderCircle, MessageSquare, Pencil, Plus, Store, Trash2 } from 'lucide-react'
+import { CheckCircle2, List, LoaderCircle, MessageSquare, Pencil, Plus, Repeat, Store, Trash2 } from 'lucide-react'
 import { AdminPageHeader } from '@/components/admin/page-header'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
+import { AppSelect } from '@/components/ui/app-select'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
@@ -60,7 +61,7 @@ function canDeleteProject(user, project, projects) {
   return (projects?.length ?? 0) > 1
 }
 
-export function AdminProjectsPage({ projects: initialProjects, user }) {
+export function AdminProjectsPage({ projects: initialProjects, user, users = [] }) {
   const router = useRouter()
   const [projects, setProjects] = useState(initialProjects)
   const [loadingProjectSlug, setLoadingProjectSlug] = useState(null)
@@ -72,8 +73,28 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
   const [deleteError, setDeleteError] = useState('')
   const [deleting, setDeleting] = useState(false)
+  const [transferTarget, setTransferTarget] = useState(null)
+  const [transferUserId, setTransferUserId] = useState('')
+  const [transferring, setTransferring] = useState(false)
+  const [transferError, setTransferError] = useState('')
   const isAdmin = user?.role === 'admin'
-  const primaryProject = projects[0] || null
+  const orderedProjects = useMemo(() => {
+    if (!isAdmin) {
+      return projects
+    }
+
+    return [...projects].sort((first, second) => {
+      const firstAdminOwned = first.owner?.role === 'admin' ? 1 : 0
+      const secondAdminOwned = second.owner?.role === 'admin' ? 1 : 0
+
+      if (firstAdminOwned !== secondAdminOwned) {
+        return secondAdminOwned - firstAdminOwned
+      }
+
+      return new Date(second.updatedAt || 0).getTime() - new Date(first.updatedAt || 0).getTime()
+    })
+  }, [isAdmin, projects])
+  const primaryProject = orderedProjects[0] || null
   const onboardingStorageKey = useMemo(
     () => (primaryProject ? `infrastudio:onboarding-project:${primaryProject.id || primaryProject.slug || primaryProject.routeKey}` : ''),
     [primaryProject],
@@ -149,6 +170,50 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
     setFeedback(null)
   }
 
+  function handleTransferProject(project) {
+    setTransferTarget(project)
+    setTransferUserId('')
+    setTransferError('')
+    setFeedback(null)
+  }
+
+  async function confirmTransferProject() {
+    if (!transferTarget?.id || !transferUserId) {
+      setTransferError('Selecione o usuario destino.')
+      return
+    }
+
+    setTransferring(true)
+    setTransferError('')
+
+    const response = await fetch(`/api/admin/projetos/${transferTarget.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targetUserId: transferUserId }),
+    })
+    const payload = await response.json()
+
+    if (!response.ok) {
+      setTransferError(payload.error ?? 'Nao foi possivel transferir o projeto.')
+      setTransferring(false)
+      return
+    }
+
+    await refreshProjects()
+    setTransferTarget(null)
+    setTransferUserId('')
+    setTransferError('')
+    setTransferring(false)
+    setFeedback('Projeto transferido com sucesso.')
+  }
+
+  const transferUserOptions = users
+    .filter((item) => item?.id && item.id !== transferTarget?.owner?.id)
+    .map((item) => ({
+      value: item.id,
+      label: `${item.name} (${item.email})`,
+    }))
+
   async function confirmDeleteProject() {
     if (!deleteTarget || deleteConfirmation !== deleteTarget.name) {
       setDeleteError('Digite exatamente o nome do projeto para confirmar.')
@@ -210,15 +275,15 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
         <div className="flex items-center gap-4 text-sm font-medium text-slate-500">
           <div className="flex items-center gap-1.5">
             <List className="h-4 w-4" />
-            <span>{projects.length} projetos</span>
+            <span>{orderedProjects.length} projetos</span>
           </div>
         </div>
       </div>
 
-      {projects.length > 0 ? (
+      {orderedProjects.length > 0 ? (
         <div className="flex flex-col gap-8 xl:flex-row xl:items-start">
           <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-start gap-5">
-            {projects.map((project, index) => (
+            {orderedProjects.map((project, index) => (
               <div key={project.id} className="min-w-0">
                 <AdminProjectCard
                   project={project}
@@ -226,13 +291,14 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                   onSelect={handleProjectSelect}
                   onEdit={canEditProject(user, project) ? handleEditProject : undefined}
                   loading={loadingProjectSlug === (project.routeKey || project.slug || project.id)}
+                  highlighted={isAdmin && project.owner?.role === 'admin'}
                 />
               </div>
             ))}
           </div>
 
           <aside className="w-full xl:sticky xl:top-6 xl:w-[min(40vw,640px)] xl:min-w-[480px]">
-            {showOnboardingHint && primaryProject ? (
+            {showOnboardingHint && primaryProject && orderedProjects.length === 1 ? (
               <div className="px-2 pt-1 text-slate-200 xl:[font-size:clamp(0.84rem,0.68rem+0.34vw,1rem)]">
                 <div className="flex items-center gap-3">
                   <img src="/logo.png" alt="InfraStudio" className="h-8 w-8 object-contain" />
@@ -412,14 +478,16 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                   {isAdmin ? 'Projetos cadastrados' : 'Seus projetos'}
                 </h3>
                 <div className="mt-4 max-h-[calc(100vh-190px)] space-y-2 overflow-y-auto pr-1">
-                  {projects.map((project) => (
+                  {orderedProjects.map((project) => (
                     <div
                       key={project.id}
                       className={cn(
                         'flex items-center justify-between gap-3 rounded-lg border px-3 py-3',
                         form.id === project.id
                           ? 'border-cyan-400/30 bg-cyan-400/10'
-                          : 'border-white/10 bg-white/[0.03]',
+                          : isAdmin && project.owner?.role === 'admin'
+                            ? 'border-cyan-300/30 bg-cyan-500/[0.05]'
+                            : 'border-white/10 bg-white/[0.03]',
                       )}
                     >
                       <div className="min-w-0">
@@ -436,6 +504,17 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
                             title="Editar"
                           >
                             <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : null}
+                        {canEditProject(user, project) ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            onClick={() => handleTransferProject(project)}
+                            className="h-8 rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-3 text-cyan-100 hover:bg-cyan-500/15"
+                            title="Transferir"
+                          >
+                            <Repeat className="h-3.5 w-3.5" />
                           </Button>
                         ) : null}
                         {canEditProject(user, project) ? (
@@ -521,7 +600,62 @@ export function AdminProjectsPage({ projects: initialProjects, user }) {
           </div>
         </div>
       ) : null}
+
+      {transferTarget ? (
+        <div className="fixed inset-0 z-[140] flex items-center justify-center bg-slate-950/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-[520px] rounded-lg border border-cyan-400/20 bg-[#080e1d] p-6 shadow-[0_24px_64px_rgba(0,0,0,0.58)]">
+            <div className="mb-5">
+              <div className="mb-3 inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-cyan-100">
+                Transferencia
+              </div>
+              <h2 className="text-lg font-semibold text-white">Transferir {transferTarget.name}</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">
+                Altera o dono do projeto. Se o projeto estiver ilimitado por ter sido criado por admin e for transferido para usuario comum, ele entra automaticamente no plano free.
+              </p>
+            </div>
+
+            <label className="block space-y-2">
+              <span className="text-sm font-semibold text-slate-300">Usuario destino</span>
+              <AppSelect
+                value={transferUserId}
+                onChangeValue={setTransferUserId}
+                options={transferUserOptions}
+                placeholder="Selecione um usuario"
+              />
+            </label>
+
+            {transferError ? (
+              <div className="mt-4 rounded-lg border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                {transferError}
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex flex-wrap justify-end gap-3">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setTransferTarget(null)
+                  setTransferUserId('')
+                  setTransferError('')
+                }}
+                className="h-10 rounded-lg border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                disabled={!transferUserId || transferring}
+                onClick={confirmTransferProject}
+                className="h-10 rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-4 text-sm text-cyan-100 hover:bg-cyan-500/15 disabled:opacity-40"
+              >
+                {transferring ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Repeat className="mr-1.5 h-4 w-4" />}
+                Transferir projeto
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </motion.div>
   )
 }
-

@@ -313,7 +313,7 @@ export function PremiumHomeChatDemo() {
 
   return (
     <div ref={rootRef} className="relative mx-auto w-full max-w-[420px] [perspective:2400px] lg:mx-0">
-      <div className="pointer-events-none absolute inset-0 -z-10 rounded-[36px] bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.16),transparent_42%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.12),transparent_32%)] blur-2xl" />
+      <div className="pointer-events-none absolute inset-0 -z-10 rounded-[36px] bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.16),transparent_42%),radial-gradient(circle_at_bottom,rgba(16,185,129,0.12),transparent_32%)]" />
 
       <motion.div
         animate={{ rotateY: face === 'back' ? 180 : 0 }}
@@ -323,20 +323,20 @@ export function PremiumHomeChatDemo() {
       >
         <div
           style={{ backfaceVisibility: 'hidden', transformStyle: 'preserve-3d' }}
-          className="absolute inset-0 flex flex-col overflow-hidden rounded-[28px] border border-white/10 bg-[#0d1428]/92 shadow-[0_22px_80px_-34px_rgba(15,23,42,0.9)] backdrop-blur-xl"
+          className="absolute inset-0 flex flex-col overflow-hidden rounded-[28px] border border-slate-200/90 bg-white/98 shadow-[0_22px_80px_-34px_rgba(15,23,42,0.14)] backdrop-blur-xl dark:border-white/10 dark:bg-[#0d1428]/92 dark:shadow-[0_22px_80px_-34px_rgba(15,23,42,0.9)]"
         >
-          <div className="flex items-center justify-between border-b border-white/5 bg-white/[0.045] px-5 py-4">
+          <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50/90 px-5 py-4 dark:border-white/5 dark:bg-white/[0.045]">
             <div>
-              <div className="text-[24px] font-bold leading-none text-white">Atendimento</div>
-              <div className="mt-2 inline-flex rounded-full border border-white/5 bg-white/5 px-3 py-1 text-[11px] font-semibold text-slate-300">
+              <div className="text-[24px] font-bold leading-none text-slate-900 dark:text-white">Atendimento</div>
+              <div className="mt-2 inline-flex rounded-full border border-slate-200 bg-white px-3 py-1 text-[11px] font-semibold text-slate-500 dark:border-white/5 dark:bg-white/5 dark:text-slate-300">
                 Novo
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <div className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-400">
+              <div className="rounded-full border border-slate-200 bg-white p-3 text-slate-400 dark:border-white/10 dark:bg-white/5">
                 <div className="h-3.5 w-3.5 rounded-[4px] border border-current" />
               </div>
-              <div className="rounded-full border border-white/10 bg-white/5 p-3 text-slate-400">
+              <div className="rounded-full border border-slate-200 bg-white p-3 text-slate-400 dark:border-white/10 dark:bg-white/5">
                 <div className="relative h-3.5 w-3.5">
                   <div className="absolute left-1/2 top-0 h-full w-px -translate-x-1/2 bg-current" />
                   <div className="absolute left-0 top-1/2 h-px w-full -translate-y-1/2 bg-current" />
@@ -347,7 +347,7 @@ export function PremiumHomeChatDemo() {
 
           <div
             ref={chatScrollRef}
-            className="chat-demo-scroll min-h-0 flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,rgba(10,18,36,0.96),rgba(8,14,31,0.98))] px-6 py-5"
+            className="chat-demo-scroll min-h-0 flex-1 space-y-4 overflow-y-auto bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(248,250,252,0.98))] px-6 py-5 dark:bg-[linear-gradient(180deg,rgba(10,18,36,0.96),rgba(8,14,31,0.98))]"
           >
             <AnimatePresence initial={false} mode="popLayout">
               {messages.map((message) => (
@@ -359,8 +359,8 @@ export function PremiumHomeChatDemo() {
                   className={cn(
                     'max-w-[88%] whitespace-pre-line rounded-[24px] px-4 py-3 text-[15px] leading-relaxed',
                     message.isAi
-                      ? 'mr-auto bg-transparent text-slate-100 shadow-none'
-                      : 'ml-auto rounded-br-lg border border-blue-400/25 bg-blue-500/18 text-blue-50 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.9)]',
+                      ? 'mr-auto bg-transparent text-slate-700 shadow-none dark:text-slate-100'
+                      : 'ml-auto rounded-br-lg border border-blue-200 bg-blue-50 text-blue-900 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.12)] dark:border-blue-400/25 dark:bg-blue-500/18 dark:text-blue-50 dark:shadow-[0_12px_30px_-20px_rgba(15,23,42,0.9)]',
                   )}
                 >
                   {message.text}
@@ -376,7 +376,7 @@ export function PremiumHomeChatDemo() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97, filter: 'blur(6px)' }}
                   className={cn(
-                    'inline-flex rounded-full border border-emerald-400/30 bg-emerald-500/14 px-4 py-2.5 text-sm font-semibold text-emerald-100 shadow-[0_14px_28px_-20px_rgba(16,185,129,0.85)] backdrop-blur-md transition-all duration-200 hover:scale-[1.01] active:scale-[0.98]',
+                    'inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-[0_14px_28px_-20px_rgba(16,185,129,0.28)] transition-all duration-200 hover:scale-[1.01] active:scale-[0.98] dark:border-emerald-400/30 dark:bg-emerald-500/14 dark:text-emerald-100 dark:shadow-[0_14px_28px_-20px_rgba(16,185,129,0.85)]',
                     chatCtaPressed ? 'scale-[0.985] shadow-[0_8px_18px_-18px_rgba(16,185,129,0.85)]' : '',
                   )}
                 >
@@ -402,8 +402,8 @@ export function PremiumHomeChatDemo() {
             </AnimatePresence>
           </div>
 
-          <div className="flex items-end gap-3 border-t border-white/5 bg-[#0d1428] px-5 py-4">
-            <div className="flex-1 rounded-[20px] border border-white/5 bg-white/[0.045] px-4 py-3 text-base text-slate-500">
+          <div className="flex items-end gap-3 border-t border-slate-200 bg-slate-50/90 px-5 py-4 dark:border-white/5 dark:bg-[#0d1428]">
+            <div className="flex-1 rounded-[20px] border border-slate-200 bg-white px-4 py-3 text-base text-slate-400 dark:border-white/5 dark:bg-white/[0.045] dark:text-slate-500">
               {isTyping ? 'Atendente está digitando...' : 'Digite sua mensagem...'}
             </div>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#2f6fff] text-white shadow-[0_18px_40px_-22px_rgba(47,111,255,0.95)]">

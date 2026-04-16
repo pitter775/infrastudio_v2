@@ -18,6 +18,6 @@ Arquivos:
 
 - [basico.md](C:\Projetos\infrastudio_v2\AGENTS\basico.md): regras base do workspace, stack e limites
 - [chat-runtime.md](C:\Projetos\infrastudio_v2\AGENTS\chat-runtime.md): contrato, arquivos-chave e estado atual do cerebro
-- [laboratorio.md](C:\Projetos\infrastudio_v2\AGENTS\laboratorio.md): baseline, comandos e uso do Laboratorio real do admin
-- [roadmap.md](C:\Projetos\infrastudio_v2\AGENTS\roadmap.md): foco de retomada, backlog principal e ordem de ataque
+- [laboratorio.md](C:\Projetos\infrastudio_v2\AGENTS\laboratorio.md): baseline, comandos, logs reais e pontos de falha mapeados no admin
+- [roadmap.md](C:\Projetos\infrastudio_v2\AGENTS\roadmap.md): foco de retomada, backlog principal, bases entregues e ordem de ataque
 - [melhorias.md](C:\Projetos\infrastudio_v2\AGENTS\melhorias.md): melhorias pendentes e oportunidades de produto/operacao

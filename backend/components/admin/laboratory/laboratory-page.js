@@ -9,6 +9,39 @@ import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { cn } from "@/lib/utils"
 
+const POSSIBLE_LAB_ERRORS = [
+  {
+    title: "OPENAI_API_KEY ausente",
+    source: "chat_orchestrator",
+    detail: "O runtime do chat nao consegue chamar o provedor e o laboratorio passa a registrar falha interna logo no inicio.",
+  },
+  {
+    title: "Projeto ou agente invalido no widget",
+    source: "chat_service",
+    detail: "O embed aponta para projeto/agente inexistente ou inativo e o chat publico nao encontra um contexto valido para responder.",
+  },
+  {
+    title: "Sessao do chat nao localizada",
+    source: "chat_service",
+    detail: "A abertura da conversa falha e o laboratorio tende a mostrar erro de sessao nao iniciada ou nao encontrada.",
+  },
+  {
+    title: "Prompt do agente sem configuracao valida",
+    source: "chat_orchestrator",
+    detail: "O agente existe, mas a configuracao principal esta vazia ou inconsistente e a resposta nao consegue ser montada.",
+  },
+  {
+    title: "Falha para gravar mensagens no banco",
+    source: "chat_service",
+    detail: "O modelo responde, mas a persistencia falha por permissao ou schema e o laboratorio registra erro de gravacao.",
+  },
+  {
+    title: "Erro de runtime em API externa",
+    source: "api_runtime_error",
+    detail: "Uma API conectada retorna timeout, credencial invalida ou payload inesperado e degrada a resposta final do chat.",
+  },
+]
+
 function formatDateTime(value) {
   if (!value) {
     return "-"
@@ -438,6 +471,30 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
             Ainda nao existem execucoes de baseline registradas.
           </div>
         )}
+      </div>
+
+      <div className="mb-6 rounded-xl border border-white/5 bg-[#0b1120] p-5">
+        <div className="mb-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Possiveis erros</div>
+          <div className="mt-2 text-lg font-semibold text-white">Falhas mais provaveis do laboratorio</div>
+          <div className="mt-1 text-sm text-slate-400">
+            Referencia rapida para leitura operacional enquanto voce analisa os eventos reais abaixo.
+          </div>
+        </div>
+
+        <div className="grid gap-3 xl:grid-cols-2">
+          {POSSIBLE_LAB_ERRORS.map((item) => (
+            <div key={item.title} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-semibold text-white">{item.title}</div>
+                <span className="rounded-full border border-white/10 bg-slate-950/40 px-2 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                  {item.source}
+                </span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-400">{item.detail}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <form onSubmit={handleSubmit} className="mb-6 grid gap-4 rounded-xl border border-white/5 bg-[#0b1120] p-5 lg:grid-cols-[1.2fr_repeat(4,minmax(0,1fr))]">

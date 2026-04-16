@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { motion } from 'framer-motion'
 import {
+  ArrowUpRight,
   Bot,
   Bell,
   CreditCard,
@@ -25,6 +26,7 @@ import {
   UserCog,
   Users,
 } from 'lucide-react'
+import { ProjectBillingModal } from '@/components/admin/billing/project-billing-modal'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import {
@@ -127,7 +129,7 @@ function SidebarItem({ item, pathname, collapsed, pendingHref, onNavigate, badge
   )
 }
 
-function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavigate, counts }) {
+function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavigate, counts, projectUsageSummary = null }) {
   const availableNavItems = navItems.filter((item) => !item.adminOnly || user?.role === "admin")
 
   async function handleLogout() {
@@ -182,6 +184,7 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
       </div>
 
       <div className="border-t border-white/5 px-4 pt-6">
+        {!collapsed ? <SidebarProjectUsageCard summary={projectUsageSummary} /> : null}
         <div className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <UserAvatar src={user?.avatarUrl} label={user?.name || user?.email} className="h-8 w-8" />
@@ -208,6 +211,79 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
   )
 }
 
+function formatCycleResetLabel(value) {
+  if (!value) {
+    return 'Renovacao mensal'
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(value))
+}
+
+function openBillingModal() {
+  window.dispatchEvent(
+    new CustomEvent('admin-billing-modal-toggle', {
+      detail: { open: true },
+    }),
+  )
+}
+
+function SidebarProjectUsageCard({ summary }) {
+  if (!summary) {
+    return null
+  }
+
+  const statusLabel =
+    summary.subscriptionStatus === 'aguardando_confirmacao'
+      ? 'Pagamento em confirmacao'
+      : summary.billingBlocked && !summary.planId
+        ? 'Projeto sem plano'
+        : summary.billingBlocked
+          ? 'Projeto bloqueado'
+          : summary.isFree
+            ? 'Plano Free'
+            : summary.planName || 'Plano ativo'
+
+  return (
+    <div className="mb-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <p className="text-sm font-medium text-white">Limites de uso restantes</p>
+      <p className="mt-1 text-xs text-slate-500">{statusLabel}</p>
+
+      <div className="mt-4 flex items-start justify-between gap-3">
+        <div>
+          <p className="text-lg font-semibold text-white">{summary.remainingLabel}</p>
+          <p className="mt-1 text-xs text-slate-500">Mensalmente</p>
+        </div>
+        <div className="text-right">
+          <p className="text-sm font-semibold text-slate-200">{summary.remainingPercentLabel || '--'}</p>
+          <p className="mt-1 text-xs text-slate-500">{formatCycleResetLabel(summary.cycleEndDate)}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 space-y-1">
+        <button
+          type="button"
+          onClick={openBillingModal}
+          className="flex items-center justify-between rounded-xl px-2 py-2 text-sm text-white transition hover:bg-white/[0.04]"
+        >
+          <span>Fazer upgrade para o Plus</span>
+          <ArrowUpRight className="h-4 w-4 text-slate-500" />
+        </button>
+        <button
+          type="button"
+          onClick={openBillingModal}
+          className="flex items-center justify-between rounded-xl px-2 py-2 text-sm text-slate-300 transition hover:bg-white/[0.04] hover:text-white"
+        >
+          <span>Saiba mais</span>
+          <ArrowUpRight className="h-4 w-4 text-slate-500" />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function AdminShell({ user, children }) {
   const pathname = usePathname()
   const attendanceRoute = pathname.startsWith('/admin/atendimento')
@@ -223,6 +299,8 @@ export function AdminShell({ user, children }) {
   const [notificationItems, setNotificationItems] = useState([])
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsLoading, setNotificationsLoading] = useState(false)
+  const [projectUsageSummary, setProjectUsageSummary] = useState(null)
+  const [billingModalOpen, setBillingModalOpen] = useState(false)
   const notificationsRef = useRef(null)
   const contentBackgroundStyle = projectDetailRoute
     ? {
@@ -235,6 +313,9 @@ export function AdminShell({ user, children }) {
     setCollapsed(attendanceRoute || projectDetailRoute)
     setMobileOpen(false)
     setPendingHref(null)
+    if (!projectDetailRoute) {
+      setProjectUsageSummary(null)
+    }
   }, [attendanceRoute, pathname, projectDetailRoute])
 
   function handleNavigate(href) {
@@ -268,6 +349,38 @@ export function AdminShell({ user, children }) {
       }),
     )
   }, [collapsed])
+
+  useEffect(() => {
+    function handleProjectUsageSummary(event) {
+      if (!event.detail) {
+        setProjectUsageSummary(null)
+        return
+      }
+
+      setProjectUsageSummary({
+        ...event.detail,
+        cycleResetLabel: formatCycleResetLabel(event.detail.cycleEndDate),
+      })
+    }
+
+    window.addEventListener('admin-project-usage-summary', handleProjectUsageSummary)
+
+    return () => {
+      window.removeEventListener('admin-project-usage-summary', handleProjectUsageSummary)
+    }
+  }, [])
+
+  useEffect(() => {
+    function handleBillingModalToggle(event) {
+      setBillingModalOpen(Boolean(event.detail?.open))
+    }
+
+    window.addEventListener('admin-billing-modal-toggle', handleBillingModalToggle)
+
+    return () => {
+      window.removeEventListener('admin-billing-modal-toggle', handleBillingModalToggle)
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -450,6 +563,7 @@ export function AdminShell({ user, children }) {
                 pendingHref={pendingHref}
                 onNavigate={handleNavigate}
                 counts={notificationCounts}
+                projectUsageSummary={projectUsageSummary}
               />
             </div>
           </motion.aside>
@@ -470,15 +584,18 @@ export function AdminShell({ user, children }) {
                     </SheetTrigger>
                     <SheetContent side="left" className="py-6">
                       <div className="flex h-full flex-col justify-between">
-                        <SidebarContent
-                          user={user}
-                          pathname={pathname}
-                          pendingHref={pendingHref}
-                          onNavigate={(href) => {
-                            handleNavigate(href)
-                          }}
-                          counts={notificationCounts}
-                        />
+                        <div className="flex h-full flex-col justify-between">
+                          <SidebarContent
+                            user={user}
+                            pathname={pathname}
+                            pendingHref={pendingHref}
+                            onNavigate={(href) => {
+                              handleNavigate(href)
+                            }}
+                            counts={notificationCounts}
+                            projectUsageSummary={projectUsageSummary}
+                          />
+                        </div>
                       </div>
                     </SheetContent>
                   </Sheet>
@@ -500,6 +617,19 @@ export function AdminShell({ user, children }) {
                 </div>
 
                 <div className="flex items-center gap-1">
+                  {projectDetailRoute ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setBillingModalOpen(true)}
+                      className="h-9 rounded-xl px-3 text-slate-400 shadow-none hover:bg-white/[0.04] hover:text-white"
+                    >
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      Billing
+                    </Button>
+                  ) : null}
+
                   <Button
                     asChild
                     variant="ghost"
@@ -618,6 +748,11 @@ export function AdminShell({ user, children }) {
             </div>
           </main>
         </div>
+        <ProjectBillingModal
+          open={billingModalOpen}
+          onOpenChange={setBillingModalOpen}
+          summary={projectUsageSummary}
+        />
       </div>
     </TooltipProvider>
   )

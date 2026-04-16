@@ -141,6 +141,7 @@ export function AdminProjectCard({
   resetDragSignal = 0,
   onDragStateChange,
   statusControl,
+  highlighted = false,
   children,
 }) {
   const icons = Array.isArray(serviceIcons) && serviceIcons.length ? serviceIcons : getProjectServiceIcons(project)
@@ -219,6 +220,7 @@ export function AdminProjectCard({
       <div
         className={cn(
           'relative z-30 flex flex-col overflow-hidden rounded-xl border border-white/5 bg-[#0b1120] transition-[background-color,box-shadow,border-color] duration-200 group-hover:bg-[#0f172a] group-hover:shadow-[0_0_0_1px_rgba(255,255,255,0.04)]',
+          highlighted && 'border-cyan-300/45 shadow-[0_0_0_1px_rgba(103,232,249,0.18),0_0_28px_rgba(34,211,238,0.14)]',
           active && 'border-emerald-400/35 shadow-[0_0_0_1px_rgba(52,211,153,0.16),0_0_24px_rgba(52,211,153,0.18)]',
         )}
       >

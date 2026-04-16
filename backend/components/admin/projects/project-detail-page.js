@@ -29,6 +29,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { HorizontalDragScroll } from '@/components/ui/horizontal-drag-scroll'
 import { JsonCodeBlock } from '@/components/ui/json-code-block'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { formatCredits } from '@/lib/public-planos'
 import { cn } from '@/lib/utils'
 
 const MOBILE_BREAKPOINT = 768
@@ -2220,6 +2221,51 @@ export function AdminProjectDetailPage({ project }) {
       window.removeEventListener('admin-sidebar-state-change', handleSidebarStateChange)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    const monthlyLimit =
+      project.billing?.currentCycle?.limits?.totalTokens ??
+      project.billing?.projectPlan?.limits?.totalTokens ??
+      null
+    const usedTokens = Number(project.billing?.currentCycle?.usage?.totalTokens ?? 0)
+    const remainingTokens = monthlyLimit == null ? null : Math.max(0, Number(monthlyLimit) - usedTokens)
+    const usagePercent = Number(project.billing?.currentCycle?.usagePercent?.totalTokens ?? 0)
+    const planName = project.billing?.projectPlan?.planName || project.billing?.subscription?.plan?.name || 'Sem plano'
+    const planId = project.billing?.projectPlan?.planId || project.billing?.subscription?.plan?.id || null
+
+    window.dispatchEvent(
+      new CustomEvent('admin-project-usage-summary', {
+        detail: {
+          projectId: project.id,
+          projectName: project.name,
+          planId,
+          planName,
+          isFree: Boolean(project.billing?.subscription?.plan?.isFree || project.billing?.projectPlan?.planName?.toLowerCase?.() === 'free'),
+          subscriptionStatus: project.billing?.subscription?.status || '',
+          billingBlocked: Boolean(project.billing?.status?.blocked || project.billing?.projectPlan?.blocked),
+          blockedReason: project.billing?.projectPlan?.blockedReason || '',
+          usedTokens,
+          monthlyLimit,
+          topUpAvailableTokens: Number(project.billing?.topUps?.availableTokens ?? 0),
+          remainingLabel: remainingTokens == null ? 'Sem limite' : formatCredits(remainingTokens),
+          remainingPercentLabel: monthlyLimit == null ? null : `${Math.max(0, Math.round(100 - usagePercent))}%`,
+          cycleEndDate: project.billing?.currentCycle?.endDate ?? null,
+        },
+      }),
+    )
+
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent('admin-project-usage-summary', {
+          detail: null,
+        }),
+      )
+    }
+  }, [project.billing, project.id])
 
   useEffect(() => {
     window.dispatchEvent(

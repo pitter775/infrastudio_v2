@@ -3,6 +3,7 @@ import "server-only"
 import { hashSync } from "bcryptjs"
 
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { applyInitialFreePlan } from "@/lib/usuario-project-bootstrap"
 
 const usuarioSelectFields =
   "id, nome, email, telefone, senha, provider, provider_id, avatar_url, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
@@ -323,6 +324,84 @@ async function syncUsuarioProjetoPapeis({ usuarioId, projetoIds, papel }) {
   }
 }
 
+async function applyFreePlanOnTransferredAdminProject({ supabase, usuarioId, projetoId, papel }) {
+  if (!usuarioId || !projetoId || papel === "admin") {
+    return
+  }
+
+  const [projectResult, billingResult, ownerResult] = await Promise.all([
+    supabase
+      .from("projetos")
+      .select("id, owner_user_id")
+      .eq("id", projetoId)
+      .maybeSingle(),
+    supabase
+      .from("projetos_planos")
+      .select(
+        "id, plano_id, nome_plano, bloqueado, limite_tokens_input_mensal, limite_tokens_output_mensal, limite_tokens_total_mensal, limite_custo_mensal",
+      )
+      .eq("projeto_id", projetoId)
+      .maybeSingle(),
+    supabase
+      .from("usuarios")
+      .select("id, role")
+      .eq("id", usuarioId)
+      .maybeSingle(),
+  ])
+
+  if (projectResult.error || !projectResult.data?.id || ownerResult.error || !ownerResult.data?.id) {
+    return
+  }
+
+  if (projectResult.data.owner_user_id === usuarioId) {
+    return
+  }
+
+  const currentOwnerId = projectResult.data.owner_user_id
+  if (!currentOwnerId) {
+    return
+  }
+
+  const currentOwnerResult = await supabase
+    .from("usuarios")
+    .select("id, role")
+    .eq("id", currentOwnerId)
+    .maybeSingle()
+
+  if (currentOwnerResult.error || !currentOwnerResult.data?.id || currentOwnerResult.data.role !== "admin") {
+    return
+  }
+
+  const billing = billingResult.data ?? null
+  const hasUnlimitedAdminBilling =
+    !billing ||
+    (billing.plano_id == null &&
+      billing.bloqueado !== true &&
+      billing.limite_tokens_input_mensal == null &&
+      billing.limite_tokens_output_mensal == null &&
+      billing.limite_tokens_total_mensal == null &&
+      billing.limite_custo_mensal == null)
+
+  if (!hasUnlimitedAdminBilling) {
+    return
+  }
+
+  const now = new Date().toISOString()
+  await supabase
+    .from("projetos")
+    .update({
+      owner_user_id: usuarioId,
+      updated_at: now,
+    })
+    .eq("id", projetoId)
+
+  await applyInitialFreePlan({
+    supabase,
+    projetoId,
+    now,
+  })
+}
+
 export async function createUsuario(input) {
   const supabase = getSupabaseAdminClient()
   const payload = {
@@ -346,6 +425,15 @@ export async function createUsuario(input) {
     projetoIds: normalizeProjetoIds(input),
     papel: input.papel,
   })
+
+  for (const projetoId of normalizeProjetoIds(input)) {
+    await applyFreePlanOnTransferredAdminProject({
+      supabase,
+      usuarioId: data.id,
+      projetoId,
+      papel: input.papel,
+    })
+  }
 
   return getUsuarioById(data.id)
 }
@@ -379,6 +467,15 @@ export async function updateUsuario(input) {
     projetoIds: normalizeProjetoIds(input),
     papel: input.papel,
   })
+
+  for (const projetoId of normalizeProjetoIds(input)) {
+    await applyFreePlanOnTransferredAdminProject({
+      supabase,
+      usuarioId: data.id,
+      projetoId,
+      papel: input.papel,
+    })
+  }
 
   return getUsuarioById(data.id)
 }

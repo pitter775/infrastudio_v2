@@ -85,6 +85,25 @@ Areas principais:
 - `/admin/usuarios`
 - `/politica-de-privacidade`
 
+## Billing e projetos
+
+- billing esta amarrado por projeto, nao por usuario
+- primeiro projeto do usuario no cadastro recebe `free`
+- projeto criado depois disso nasce bloqueado ate ter plano habilitado
+- projeto criado por perfil `admin` pode ficar sem plano e operar como ilimitado
+- ao transferir projeto de owner `admin` para usuario comum, o projeto entra automaticamente no `free`
+- home publica ja usa planos reais do banco via Supabase
+- checkout e retorno de pagamento ja existem em:
+  - `/api/planos`
+  - `/api/app/projetos/[id]/billing/checkout`
+  - `/pagamento/sucesso`
+  - `/api/mercado-pago/webhook`
+- menu lateral do projeto e modal global de billing ja expõem:
+  - plano atual
+  - uso mensal
+  - upgrade
+  - compra de creditos
+
 ## Comandos uteis
 
 Na raiz:
