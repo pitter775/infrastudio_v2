@@ -184,7 +184,6 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
       </div>
 
       <div className="border-t border-white/5 px-4 pt-6">
-        {!collapsed ? <SidebarProjectUsageCard summary={projectUsageSummary} /> : null}
         <div className="flex items-center justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <UserAvatar src={user?.avatarUrl} label={user?.name || user?.email} className="h-8 w-8" />
@@ -301,13 +300,26 @@ export function AdminShell({ user, children }) {
   const [notificationsLoading, setNotificationsLoading] = useState(false)
   const [projectUsageSummary, setProjectUsageSummary] = useState(null)
   const [billingModalOpen, setBillingModalOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const notificationsRef = useRef(null)
+  const billingHistoryActiveRef = useRef(false)
+  const billingPopClosingRef = useRef(false)
   const contentBackgroundStyle = projectDetailRoute
     ? {
         backgroundImage: 'radial-gradient(rgba(71,85,105,0.18) 1px, transparent 1px)',
         backgroundSize: '36px 36px',
       }
     : undefined
+
+  useEffect(() => {
+    function syncMobileState() {
+      setIsMobile(window.innerWidth < 1024)
+    }
+
+    syncMobileState()
+    window.addEventListener('resize', syncMobileState)
+    return () => window.removeEventListener('resize', syncMobileState)
+  }, [])
 
   useEffect(() => {
     setCollapsed(attendanceRoute || projectDetailRoute)
@@ -371,6 +383,34 @@ export function AdminShell({ user, children }) {
   }, [])
 
   useEffect(() => {
+    if (typeof window === 'undefined' || !isMobile || !billingModalOpen || billingHistoryActiveRef.current) {
+      return
+    }
+
+    window.history.pushState({ adminBillingModal: true }, '')
+    billingHistoryActiveRef.current = true
+  }, [billingModalOpen, isMobile])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    function handlePopState() {
+      if (!billingHistoryActiveRef.current) {
+        return
+      }
+
+      billingPopClosingRef.current = true
+      billingHistoryActiveRef.current = false
+      setBillingModalOpen(false)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  useEffect(() => {
     function handleBillingModalToggle(event) {
       setBillingModalOpen(Boolean(event.detail?.open))
     }
@@ -381,6 +421,20 @@ export function AdminShell({ user, children }) {
       window.removeEventListener('admin-billing-modal-toggle', handleBillingModalToggle)
     }
   }, [])
+
+  function handleBillingModalOpenChange(nextOpen) {
+    if (!nextOpen && isMobile && billingHistoryActiveRef.current && !billingPopClosingRef.current) {
+      window.history.back()
+      return
+    }
+
+    if (!nextOpen) {
+      billingHistoryActiveRef.current = false
+    }
+
+    billingPopClosingRef.current = false
+    setBillingModalOpen(nextOpen)
+  }
 
   useEffect(() => {
     let active = true
@@ -750,7 +804,7 @@ export function AdminShell({ user, children }) {
         </div>
         <ProjectBillingModal
           open={billingModalOpen}
-          onOpenChange={setBillingModalOpen}
+          onOpenChange={handleBillingModalOpenChange}
           summary={projectUsageSummary}
         />
       </div>

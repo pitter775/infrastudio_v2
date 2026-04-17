@@ -569,6 +569,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const [traceErrorFilter, setTraceErrorFilter] = useState("")
   const feedRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
+  const detailsHistoryActiveRef = useRef(false)
+  const detailsPopClosingRef = useRef(false)
   const mediaItems = conversation.mensagens.flatMap((message) =>
     (message.attachments ?? []).map((attachment, index) => ({
       ...attachment,
@@ -626,6 +628,34 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   }, [conversation.id])
 
   useEffect(() => {
+    if (typeof window === "undefined" || !compactMobileHeader || !detailsOpen || detailsHistoryActiveRef.current) {
+      return
+    }
+
+    window.history.pushState({ attendanceDetailsSheet: true }, "")
+    detailsHistoryActiveRef.current = true
+  }, [compactMobileHeader, detailsOpen])
+
+  useEffect(() => {
+    if (typeof window === "undefined") {
+      return undefined
+    }
+
+    function handlePopState() {
+      if (!detailsHistoryActiveRef.current) {
+        return
+      }
+
+      detailsPopClosingRef.current = true
+      detailsHistoryActiveRef.current = false
+      setDetailsOpen(false)
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    return () => window.removeEventListener("popstate", handlePopState)
+  }, [])
+
+  useEffect(() => {
     const container = feedRef.current
     if (!container) {
       return
@@ -677,6 +707,20 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
     if (response.ok) {
       onStatusChanged(conversation.id, nextStatus === "human" ? "humano" : "ia")
     }
+  }
+
+  function handleDetailsOpenChange(nextOpen) {
+    if (!nextOpen && compactMobileHeader && detailsHistoryActiveRef.current && !detailsPopClosingRef.current) {
+      window.history.back()
+      return
+    }
+
+    if (!nextOpen) {
+      detailsHistoryActiveRef.current = false
+    }
+
+    detailsPopClosingRef.current = false
+    setDetailsOpen(nextOpen)
   }
 
   return (
@@ -805,11 +849,14 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
           onStatusChanged={onStatusChanged}
         />
 
-        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <Sheet open={detailsOpen} onOpenChange={handleDetailsOpenChange}>
           <SheetContent
             side="right"
             showCloseButton={false}
-            className="z-[151] w-[92vw] max-w-[420px] border-l border-white/5 overflow-visible"
+            className={cn(
+              "z-[151] border-l border-white/5 overflow-visible",
+              compactMobileHeader ? "inset-y-0 right-0 w-screen max-w-none rounded-none" : "w-[92vw] max-w-[420px]",
+            )}
             overlayClassName="z-[150]"
           >
             <SheetClose className="absolute left-0 top-[96px] z-40 hidden -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none sm:inline-flex">
@@ -850,7 +897,7 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                 <div>
                   <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Midias e arquivos</div>
                   {mediaItems.length ? (
-                    <div className="mt-3 grid gap-3">
+                    <div className="mt-3 grid grid-cols-2 gap-3">
                       {mediaItems.map((attachment) => {
                         const previewable = attachment.category === "image" && attachment.publicUrl
 
@@ -866,10 +913,10 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                               <img
                                 src={attachment.publicUrl}
                                 alt={attachment.name || "Midia"}
-                                className="max-h-56 w-full object-cover"
+                                className="h-28 w-full object-cover"
                               />
                             ) : null}
-                            <div className="px-3 py-3">
+                            <div className="px-3 py-2.5">
                               <div className="flex items-center gap-2 text-sm font-medium text-white">
                                 <FileText className="h-4 w-4" />
                                 <span className="truncate">{attachment.name}</span>

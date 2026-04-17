@@ -111,6 +111,13 @@ export async function GET(request) {
           slug: agente.slug,
           nome: agente.nome,
         },
+        widget: widget
+          ? {
+              id: widget.id,
+              slug: widget.slug,
+              nome: widget.nome,
+            }
+          : null,
         ui: {
           title: widget?.nome ?? agente.nome ?? projeto.nome ?? "Chat",
           theme: widget?.tema ?? null,

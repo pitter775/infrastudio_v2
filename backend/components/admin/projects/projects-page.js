@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
 import { CheckCircle2, ChevronRight, List, LoaderCircle, MessageSquare, Pencil, Plus, Repeat, Store, Trash2 } from 'lucide-react'
@@ -67,6 +67,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
   const [projects, setProjects] = useState(initialProjects)
   const [loadingProjectSlug, setLoadingProjectSlug] = useState(null)
   const [sheetOpen, setSheetOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState(null)
@@ -78,6 +79,8 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
   const [transferUserId, setTransferUserId] = useState('')
   const [transferring, setTransferring] = useState(false)
   const [transferError, setTransferError] = useState('')
+  const sheetHistoryActiveRef = useRef(false)
+  const sheetPopClosingRef = useRef(false)
   const isAdmin = user?.role === 'admin'
   const orderedProjects = useMemo(() => {
     if (!isAdmin) {
@@ -103,6 +106,16 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
   const [showOnboardingHint, setShowOnboardingHint] = useState(false)
 
   useEffect(() => {
+    function syncMobileState() {
+      setIsMobile(window.innerWidth < 1024)
+    }
+
+    syncMobileState()
+    window.addEventListener('resize', syncMobileState)
+    return () => window.removeEventListener('resize', syncMobileState)
+  }, [])
+
+  useEffect(() => {
     if (!onboardingStorageKey || typeof window === 'undefined') {
       setShowOnboardingHint(false)
       return
@@ -111,6 +124,48 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
     const dismissed = window.localStorage.getItem(onboardingStorageKey) === 'done'
     setShowOnboardingHint(!dismissed)
   }, [onboardingStorageKey])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isMobile || !sheetOpen || sheetHistoryActiveRef.current) {
+      return
+    }
+
+    window.history.pushState({ adminProjectsSheet: true }, '')
+    sheetHistoryActiveRef.current = true
+  }, [isMobile, sheetOpen])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined
+    }
+
+    function handlePopState() {
+      if (!sheetHistoryActiveRef.current) {
+        return
+      }
+
+      sheetPopClosingRef.current = true
+      sheetHistoryActiveRef.current = false
+      setSheetOpen(false)
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
+  }, [])
+
+  function handleSheetOpenChange(nextOpen) {
+    if (!nextOpen && isMobile && sheetHistoryActiveRef.current && !sheetPopClosingRef.current) {
+      window.history.back()
+      return
+    }
+
+    if (!nextOpen) {
+      sheetHistoryActiveRef.current = false
+    }
+
+    sheetPopClosingRef.current = false
+    setSheetOpen(nextOpen)
+  }
 
   function handleProjectSelect(project) {
     const projectIdentifier = project.routeKey || project.slug || project.id
@@ -342,17 +397,25 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
         </div>
       )}
 
-        <Sheet open={sheetOpen} onOpenChange={setSheetOpen} modal={false}>
+        <Sheet open={sheetOpen} onOpenChange={handleSheetOpenChange} modal={false}>
           <SheetContent
             side="right"
             showOverlay={false}
             showCloseButton={false}
             closeOnInteractOutside={false}
             closeOnEscapeKeyDown={false}
-            className="right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible rounded-l-lg border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-[-24px_0_48px_rgba(0,0,0,0.42)]"
-            style={{ width: '1040px', maxWidth: 'calc(100vw - 38px)' }}
+            className={cn(
+              'overflow-visible border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-[-24px_0_48px_rgba(0,0,0,0.42)]',
+              isMobile
+                ? 'inset-y-0 right-0 top-0 h-[100dvh] rounded-none'
+                : 'right-[19px] top-[54px] bottom-[18px] h-auto rounded-l-lg',
+            )}
+            style={isMobile ? { width: '100vw', maxWidth: '100vw' } : { width: '1040px', maxWidth: 'calc(100vw - 38px)' }}
           >
-            <SheetClose className="absolute left-0 top-[102px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
+            <SheetClose className={cn(
+              'absolute z-40 inline-flex items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none',
+              isMobile ? 'right-4 top-4' : 'left-0 top-[102px] -translate-x-[60%]',
+            )}>
               <ChevronRight className="h-4 w-4" />
               <span className="sr-only">Fechar painel</span>
             </SheetClose>

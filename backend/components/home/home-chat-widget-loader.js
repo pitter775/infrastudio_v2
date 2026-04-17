@@ -38,12 +38,22 @@ export function HomeChatWidgetLoader({ config }) {
 
     const script = document.createElement("script")
     script.id = SCRIPT_ID
-    script.src = "/chat.js"
+    script.src = "/chat-widget.js"
     script.defer = true
-    script.dataset.projeto = config.projeto
-    script.dataset.agente = config.agente
     script.dataset.widget = config.widget
     script.dataset.apiBase = window.location.origin
+    if (config.title) {
+      script.dataset.title = config.title
+    }
+    if (config.theme) {
+      script.dataset.theme = config.theme
+    }
+    if (config.accent) {
+      script.dataset.accent = config.accent
+    }
+    if (typeof config.transparent === "boolean") {
+      script.dataset.transparent = config.transparent ? "true" : "false"
+    }
     document.body.appendChild(script)
 
     return () => {
