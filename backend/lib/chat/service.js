@@ -1875,7 +1875,16 @@ export async function executeV2RuntimePrelude(body, options = {}) {
       contactSnapshot,
       uploadedInboundAttachments,
       handoffState,
-      result: handoffState.result,
+      result: {
+        ...handoffState.result,
+        handoff: {
+          active: true,
+          paused: true,
+          requested: true,
+          status: handoffState.handoff?.status ?? "active_human",
+          actionLabel: "Atendimento humano",
+        },
+      },
     }
   }
 

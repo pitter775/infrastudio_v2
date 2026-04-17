@@ -117,6 +117,8 @@ function formatWhatsappText(value) {
   const formatted = escaped
     .replace(/```([\s\S]+?)```/g, '<pre class="overflow-x-auto rounded-xl bg-black/20 px-3 py-2 text-[12px] leading-5 text-slate-200">$1</pre>')
     .replace(/`([^`\n]+)`/g, '<code class="rounded bg-black/20 px-1.5 py-0.5 text-[12px] text-slate-100">$1</code>')
+    .replace(/\*\*(?=\S)(.+?)(?<=\S)\*\*/g, "<strong>$1</strong>")
+    .replace(/__(?=\S)(.+?)(?<=\S)__/g, "<strong>$1</strong>")
     .replace(/\*(?=\S)(.+?)(?<=\S)\*/g, "<strong>$1</strong>")
     .replace(/_(?=\S)(.+?)(?<=\S)_/g, "<em>$1</em>")
     .replace(/~(?=\S)(.+?)(?<=\S)~/g, "<s>$1</s>")
@@ -221,17 +223,17 @@ function MessageBubble({ message }) {
     <div className={cn("flex", isAgent ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[78%] rounded-[18px] border px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]",
+          "max-w-[82%] rounded-[14px] border-0 px-3.5 py-3 text-sm shadow-none",
           isAgent
-            ? "border-amber-400/25 bg-[#2a241e] text-amber-50"
-            : "border-sky-400/20 bg-[#0a1728] text-slate-100"
+            ? "rounded-br-md bg-sky-500/55 text-white"
+            : "rounded-bl-md bg-transparent text-slate-200"
         )}
       >
-        <div className="text-[10px] font-semibold uppercase tracking-[0.24em] text-slate-400">
+        <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-500">
           {isAgent ? "Administrador" : "Cliente"}
         </div>
         <div
-          className="mt-3 text-sm leading-6 [&_a]:text-sky-300 [&_code]:font-mono [&_em]:italic [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_s]:line-through"
+          className="mt-2 leading-6 [&_a]:text-sky-300 [&_code]:font-mono [&_em]:italic [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-white [&_s]:line-through"
           dangerouslySetInnerHTML={{ __html: formatWhatsappText(message.texto) }}
         />
         {trace ? (
@@ -338,7 +340,7 @@ function MessageBubble({ message }) {
             })}
           </div>
         ) : null}
-        <div className="mt-3 text-xs text-slate-400">{message.horario}</div>
+        <div className="mt-3 text-[10px] text-slate-500">{message.horario}</div>
       </div>
     </div>
   )
@@ -460,47 +462,11 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
   }
 
   return (
-    <div className="sticky bottom-0 z-10 border-t border-white/5 bg-[#0c1322] px-3 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] lg:px-4 lg:py-3 lg:pb-3">
-      <div className="mb-2 flex items-center gap-1 text-slate-400">
-        {[
-          { label: "B", action: () => wrapSelection("*") },
-          { label: "I", action: () => wrapSelection("_") },
-          { label: "S", action: () => wrapSelection("~") },
-          { label: "{ }", action: () => wrapSelection("`") },
-        ].map((item) => (
-          <button
-            key={item.label}
-            type="button"
-            onClick={item.action}
-            className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-2 text-[11px] font-semibold transition-colors hover:bg-sky-500/10 hover:text-white"
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-      <form onSubmit={handleSubmit} className="flex items-end gap-2">
-        <label className="inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-xl text-slate-300 transition-colors hover:bg-sky-500/10 hover:text-white">
-          <Paperclip className="h-4 w-4" />
-          <input
-            type="file"
-            multiple
-            className="sr-only"
-            onChange={async (event) => {
-              const nextAttachments = await normalizeAttachmentFiles(event.target.files)
-              setAttachments(nextAttachments)
-              event.target.value = ""
-            }}
-          />
-        </label>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-xl text-slate-300 hover:bg-sky-500/10 hover:text-white"
-          onClick={() => wrapSelection("```", "```")}
-        >
-          <Sparkles className="h-4 w-4" />
-        </Button>
+    <div className="sticky bottom-0 z-10 bg-[#0c1322] px-3 py-3 pb-[calc(env(safe-area-inset-bottom,0px)+12px)] lg:px-4 lg:py-3 lg:pb-3">
+      <form
+        onSubmit={handleSubmit}
+        className="rounded-[16px] border border-black/40 bg-[#07101d]/80 px-3 py-2 outline outline-2 outline-transparent transition-colors hover:border-white/20 hover:outline-black/20 focus-within:border-sky-400/30 focus-within:outline-black/20"
+      >
         <textarea
           ref={inputRef}
           value={texto}
@@ -532,26 +498,78 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
           }}
           placeholder="Digite sua resposta manual..."
           rows={1}
-          className="w-full resize-none rounded-2xl border border-white/10 bg-[#09111f] px-3 py-2 text-sm leading-6 text-slate-100 outline-none placeholder:text-slate-500"
+          className="block w-full resize-none border-0 bg-transparent px-0.5 py-1 text-sm leading-6 text-slate-100 outline-none placeholder:text-slate-500"
           style={{ minHeight: 44, maxHeight: 136, overflowY: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}
         />
-        <Button
-          type="submit"
-          disabled={(!texto.trim() && attachments.length === 0) || isSending}
-          className="h-8 w-8 rounded-xl bg-transparent p-0 text-sky-200 shadow-none hover:bg-sky-500/12 hover:text-white"
-        >
-          <SendHorizonal className="h-4 w-4" />
-        </Button>
-      </form>
-      {attachments.length ? (
-        <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
-          {attachments.map((attachment) => (
-            <span key={attachment.name} className="rounded-lg border border-white/10 px-2 py-1">
-              {attachment.name}
-            </span>
-          ))}
+        {attachments.length ? (
+          <div className="mb-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
+            {attachments.map((attachment, index) => (
+              <span key={`${attachment.name}-${index}`} className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1">
+                <span className="truncate">{attachment.name}</span>
+                <button
+                  type="button"
+                  className="rounded-full px-1 text-slate-500 hover:bg-white/10 hover:text-white"
+                  onClick={() => setAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                  aria-label="Remover anexo"
+                >
+                  x
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1 text-slate-400">
+            {[
+              { label: "B", action: () => wrapSelection("**", "**") },
+              { label: "I", action: () => wrapSelection("_") },
+              { label: "S", action: () => wrapSelection("~") },
+              { label: "{ }", action: () => wrapSelection("`") },
+            ].map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={item.action}
+                className="inline-flex h-7 min-w-7 items-center justify-center rounded-lg px-2 text-[11px] font-semibold transition-colors hover:bg-white/[0.08] hover:text-white"
+              >
+                {item.label}
+              </button>
+            ))}
+            <label className="inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-lg text-sky-300 transition-colors hover:bg-white/[0.08] hover:text-white">
+              <Paperclip className="h-4 w-4" />
+              <input
+                type="file"
+                multiple
+                className="sr-only"
+                onChange={async (event) => {
+                  const nextAttachments = await normalizeAttachmentFiles(event.target.files)
+                  setAttachments(nextAttachments)
+                  event.target.value = ""
+                }}
+              />
+            </label>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 rounded-lg text-sky-300 hover:bg-white/[0.08] hover:text-white"
+              onClick={() => wrapSelection("```", "```")}
+            >
+              <Sparkles className="h-4 w-4" />
+            </Button>
+          </div>
+          <Button
+            type="submit"
+            disabled={(!texto.trim() && attachments.length === 0) || isSending}
+            className={cn(
+              "h-10 w-10 rounded-xl bg-transparent p-0 text-sky-200 shadow-none hover:bg-sky-500/12 hover:text-white",
+              (texto.trim() || attachments.length > 0) && "bg-sky-500 text-white hover:bg-sky-400"
+            )}
+          >
+            <SendHorizonal className="h-4 w-4" />
+          </Button>
         </div>
-      ) : null}
+      </form>
     </div>
   )
 }
