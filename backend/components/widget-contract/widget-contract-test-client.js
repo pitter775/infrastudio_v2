@@ -17,6 +17,11 @@ function removeScript(id) {
 }
 
 function destroyInfraChat() {
+  if (window.InfraChatWidget?.destroyAll) {
+    window.InfraChatWidget.destroyAll()
+    return
+  }
+
   if (window.InfraChat?.destroy) {
     window.InfraChat.destroy()
   }

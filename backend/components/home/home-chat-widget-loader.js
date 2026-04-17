@@ -5,14 +5,25 @@ import { usePathname } from "next/navigation"
 
 const SCRIPT_ID = "infrastudio-home-chat-widget-script"
 
-function removeHomeWidget() {
+function destroyChatWidget(widgetSlug) {
+  if (widgetSlug && window.InfraChatWidget?.destroy) {
+    window.InfraChatWidget.destroy(widgetSlug)
+    return
+  }
+
   if (window.InfraChat?.destroy) {
     window.InfraChat.destroy()
   }
+}
 
-  const host = document.getElementById("infrastudio-chat-root")
-  if (host?.parentNode) {
-    host.parentNode.removeChild(host)
+function removeHomeWidget(widgetSlug) {
+  destroyChatWidget(widgetSlug)
+
+  if (widgetSlug) {
+    const host = document.getElementById(`infrastudio-chat-widget-root-${widgetSlug}`)
+    if (host?.parentNode) {
+      host.parentNode.removeChild(host)
+    }
   }
 
   const script = document.getElementById(SCRIPT_ID)
@@ -30,11 +41,11 @@ export function HomeChatWidgetLoader({ config }) {
     }
 
     if (pathname !== "/") {
-      removeHomeWidget()
+      removeHomeWidget(config.widget)
       return undefined
     }
 
-    removeHomeWidget()
+    removeHomeWidget(config.widget)
 
     const script = document.createElement("script")
     script.id = SCRIPT_ID
@@ -57,7 +68,7 @@ export function HomeChatWidgetLoader({ config }) {
     document.body.appendChild(script)
 
     return () => {
-      removeHomeWidget()
+      removeHomeWidget(config.widget)
     }
   }, [config, pathname])
 

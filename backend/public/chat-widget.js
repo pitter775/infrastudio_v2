@@ -5,6 +5,28 @@
     destroyAll: function () {},
   };
   window.InfraChatWidget = globalApi;
+  window.InfraChat = window.InfraChat || {};
+
+  function syncLegacyApi() {
+    window.InfraChat = {
+      ...window.InfraChat,
+      destroy: function (slug) {
+        var key = String(slug || "").trim();
+        if (key) {
+          return globalApi.destroy(key);
+        }
+
+        globalApi.destroyAll();
+        return true;
+      },
+      destroyAll: function () {
+        globalApi.destroyAll();
+        return true;
+      },
+    };
+  }
+
+  syncLegacyApi();
 
   function ready(fn) {
     if (document.readyState === "loading") {
@@ -856,5 +878,6 @@
         globalApi.destroy(key);
       });
     };
+    syncLegacyApi();
   });
 })();
