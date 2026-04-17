@@ -55,7 +55,10 @@
     var widgetTitle = script.getAttribute("data-title") || "Chat";
     var apiBase = script.getAttribute("data-api-base") || new URL(script.src).origin;
     var assetBase = new URL(script.src).origin;
-    var theme = script.getAttribute("data-theme") === "light" ? "light" : "dark";
+    var requestedTheme = String(script.getAttribute("data-theme") || "system").trim().toLowerCase();
+    var theme = requestedTheme === "light" || requestedTheme === "dark"
+      ? requestedTheme
+      : (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
     var accent = script.getAttribute("data-accent") || "#64748b";
     var transparent = script.getAttribute("data-transparent") !== "false";
     var hasAgent = Boolean(agente || script.getAttribute("data-agent-status") === "online");
@@ -64,10 +67,14 @@
     var chatId = null;
     var messages = [];
     var attachments = [];
+    var leadContact = null;
+    var contactBoxOpen = false;
     var open = false;
     var loading = false;
     var expanded = false;
     var humanHandoffActive = false;
+    var lastSyncedMessageAt = null;
+    var pollingMessages = false;
     var mobileCloseGesture = {
       active: false,
       startX: 0,
@@ -104,6 +111,21 @@
     }
 
     var widgetContext = parseContext(rawContext);
+    storageKey = "infrastudio-chat:" + widgetSlug + ":" + (externalIdentifier || "anon");
+    try {
+      var savedState = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+      if (savedState && typeof savedState === "object") {
+        chatId = typeof savedState.chatId === "string" ? savedState.chatId : null;
+        messages = Array.isArray(savedState.messages) ? savedState.messages : [];
+        leadContact = savedState.leadContact && typeof savedState.leadContact === "object" ? savedState.leadContact : null;
+        if (leadContact && typeof leadContact.email === "string" && leadContact.email.trim()) {
+          externalIdentifier = leadContact.email.trim();
+        }
+        lastSyncedMessageAt = typeof savedState.lastSyncedMessageAt === "string" ? savedState.lastSyncedMessageAt : null;
+      }
+    } catch (error) {
+      console.warn("[InfraStudio Chat] failed to restore conversation.", error);
+    }
 
     var host = document.createElement("div");
     host.id = "infrastudio-chat-widget-root-" + widgetSlug;
@@ -188,11 +210,17 @@
       ".chat-action { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; color: rgba(148,163,184,0.86); border-radius: 10px; cursor: pointer; transition: background-color .18s ease, box-shadow .18s ease, transform .18s ease, color .18s ease; }",
       ".chat-action:hover { background: " + (theme === "light" ? "rgba(255,255,255,0.52)" : "rgba(255,255,255,0.09)") + "; color: " + panelText + "; box-shadow: 12px 12px 22px -12px rgba(15,23,42,0.5), 4px 4px 10px -10px rgba(96,165,250,0.34); transform: translate(-1px, -1px); }",
       ".chat-action .chat-icon { width: 16px; height: 16px; }",
-      ".chat-messages { min-height: 0; flex: 1; overflow-y: auto; padding: 16px; background: " + surfaceBg + "; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }",
+      ".chat-messages { min-height: 0; flex: 1; overflow-y: auto; padding: 16px; background: " + surfaceBg + "; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: thin; scrollbar-color: #0f2745 transparent; }",
+      ".chat-messages::-webkit-scrollbar { width: 4px; }",
+      ".chat-messages::-webkit-scrollbar-track { background: transparent; }",
+      ".chat-messages::-webkit-scrollbar-thumb { border-radius: 999px; background: #0f2745; }",
       ".chat-stack { display: flex; flex-direction: column; gap: 12px; }",
       ".chat-bubble { max-width: 88%; border-radius: 14px; border: 0; padding: 12px 14px; font-size: 14px; line-height: 1.65; animation: chatBubbleIn .22s ease both; }",
-      ".chat-bubble.ai { padding: 0; background: transparent; color: " + aiBubbleText + "; border-color: transparent; border-bottom-left-radius: 4px; }",
+      ".chat-bubble.ai { padding: 10px 12px; background: #0b1b32; color: " + aiBubbleText + "; border: 1px solid rgba(96,165,250,0.08); border-bottom-left-radius: 4px; }",
       ".chat-bubble.user { max-width: 80%; margin-left: auto; background: color-mix(in srgb, " + accent + " 42%, transparent); color: rgba(255,255,255,0.92); border-radius: 9px; border-bottom-right-radius: 4px; box-shadow: none; backdrop-filter: none; padding: 10px 12px; }",
+      ".chat-bubble.ai .chat-rich { color: rgba(226,232,240,0.82); }",
+      ".chat-message-meta { margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 9px; line-height: 1; color: rgba(148,163,184,0.72); }",
+      ".chat-message-meta .chat-icon { width: 10px; height: 10px; }",
       ".chat-rich { white-space: normal; }",
       ".chat-rich p { margin: 0; }",
       ".chat-rich p + p, .chat-rich p + ul, .chat-rich p + ol, .chat-rich ul + p, .chat-rich ol + p, .chat-rich ul + ul, .chat-rich ol + ol { margin-top: 10px; }",
@@ -233,9 +261,13 @@
       ".chat-typing-dots span:nth-child(2) { animation-delay: .16s; }",
       ".chat-typing-dots span:nth-child(3) { animation-delay: .32s; }",
       ".chat-input { position: sticky; bottom: 0; z-index: 1; flex-shrink: 0; padding: 14px 16px 10px; border-top: 0; background: " + surfaceBg + "; }",
+      ".chat-scroll-bottom { position: absolute; left: 50%; bottom: 96px; z-index: 3; width: 32px; height: 32px; display: none; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid rgba(96,165,250,0.18); background: #0b1b32; color: rgba(226,232,240,0.88); transform: translateX(-50%); cursor: pointer; box-shadow: 0 10px 24px rgba(2,6,23,0.36); }",
+      ".chat-scroll-bottom.is-visible { display: inline-flex; }",
+      ".chat-scroll-bottom .chat-icon { width: 15px; height: 15px; }",
       ".chat-composer { display: flex; flex-direction: column; gap: 10px; border-radius: 16px; border: 1px solid " + (theme === "light" ? "rgba(15,23,42,0.18)" : "rgba(0,0,0,0.42)") + "; outline: 3px solid transparent; background: color-mix(in srgb, " + inputBg + " 94%, white 6%); padding: 12px 12px 10px; box-shadow: none; transition: border-color .18s ease, outline-color .18s ease, background-color .18s ease; }",
       ".chat-composer:hover { border-color: " + (theme === "light" ? "rgba(15,23,42,0.32)" : "rgba(255,255,255,0.22)") + "; outline-color: rgba(0,0,0,0.16); }",
       ".chat-composer:focus-within { border-color: color-mix(in srgb, " + accent + " 36%, rgba(255,255,255,0.18)); outline-color: rgba(0,0,0,0.2); box-shadow: none; }",
+      ".chat-composer.is-identifying .chat-textarea { display: none; }",
       ".chat-textarea { flex: 0 0 auto; box-sizing: border-box; display: block; width: 100%; height: 22px; min-height: 22px; max-height: 132px; resize: none; overflow-y: hidden; border-radius: 14px; border: 0; outline: none; background: transparent; color: " + inputText + "; padding: 0 2px; font-family: inherit; font-size: 14px; line-height: 22px; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, " + accent + " 26%, transparent) transparent; -ms-overflow-style: auto; transition: color .18s ease; }",
       ".chat-textarea::placeholder { font-size: 13px; color: #94a3b8; }",
       ".chat-textarea:focus { box-shadow: none; background: transparent; }",
@@ -254,7 +286,17 @@
       ".chat-composer-tools { display: inline-flex; align-items: center; gap: 6px; }",
       ".chat-tool { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 10px; background: transparent; color: color-mix(in srgb, " + accent + " 58%, " + panelText + " 42%); opacity: .92; transition: background-color .18s ease, box-shadow .18s ease, transform .18s ease; }",
       ".chat-tool:hover { background: " + (theme === "light" ? "rgba(255,255,255,0.52)" : "rgba(255,255,255,0.09)") + "; box-shadow: 12px 12px 22px -12px rgba(15,23,42,0.5), 4px 4px 10px -10px rgba(96,165,250,0.34); transform: translate(-1px, -1px); }",
+      ".chat-tool.is-active { background: rgba(96,165,250,0.14); color: rgba(226,232,240,0.96); }",
       ".chat-tool .chat-icon { width: 16px; height: 16px; }",
+      ".chat-contact-box { display: none; gap: 8px; min-height: 22px; border-radius: 12px; border: 1px solid rgba(96,165,250,0.14); background: #0b1b32; padding: 10px; }",
+      ".chat-contact-box.is-open { display: grid; }",
+      ".chat-contact-title { font-size: 11px; font-weight: 700; color: rgba(226,232,240,0.9); }",
+      ".chat-contact-fields { display: grid; gap: 7px; }",
+      ".chat-contact-input { width: 100%; box-sizing: border-box; border: 1px solid rgba(148,163,184,0.18); border-radius: 8px; background: rgba(2,6,23,0.28); color: rgba(248,250,252,0.94); padding: 8px 9px; font: inherit; font-size: 12px; outline: none; }",
+      ".chat-contact-input::placeholder { color: rgba(148,163,184,0.76); }",
+      ".chat-contact-actions { display: flex; justify-content: flex-end; gap: 8px; }",
+      ".chat-contact-action { border: 1px solid rgba(148,163,184,0.16); border-radius: 8px; background: transparent; color: rgba(203,213,225,0.88); padding: 7px 10px; font: inherit; font-size: 11px; cursor: pointer; }",
+      ".chat-contact-action.primary { border-color: rgba(96,165,250,0.22); background: rgba(96,165,250,0.14); color: white; }",
       ".chat-send { width: 42px; height: 42px; flex: 0 0 42px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 12px; background: transparent; color: color-mix(in srgb, " + accent + " 78%, white 22%); padding: 0; cursor: pointer; box-shadow: none; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease, background-color .18s ease, color .18s ease; }",
       ".chat-send .chat-icon { width: 18px; height: 18px; }",
       ".chat-send.has-value { background: linear-gradient(180deg, color-mix(in srgb, " + accent + " 92%, white 8%), color-mix(in srgb, " + accent + " 74%, #000 26%)); color: white; box-shadow: none; }",
@@ -269,7 +311,7 @@
       ".chat-credit-logo.color { opacity: 0; transform: scale(.96); }",
       ".chat-credit-link:hover .chat-credit-logo.default { opacity: 0; transform: scale(1.04); }",
       ".chat-credit-link:hover .chat-credit-logo.color { opacity: 1; transform: scale(1); }",
-      "@media (max-width: 640px) { .chat-wrap { right: 12px; left: auto; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); width: 60px; height: 60px; } .chat-wrap.open { top: 20px; right: 8px; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); left: 8px; width: auto; height: auto; transform: none !important; } .chat-wrap.is-expanded .chat-panel { width: 100%; height: calc(100% - 76px); bottom: 68px; } .chat-panel { width: 100%; max-width: 100%; height: calc(100% - 76px); right: 0; bottom: 68px; border-radius: 14px; transform-origin: calc(100% - 30px) calc(100% + 38px); } .chat-panel.open { width: 100%; max-width: none; height: calc(100% - 76px); border-radius: 14px; } .chat-button { right: 0; bottom: 0; } .chat-wrap.open .chat-button { opacity: 0; pointer-events: none; } .chat-maximize, .chat-close { display: none !important; } .chat-header { padding: 14px 14px 12px; cursor: default; } .chat-messages { padding-bottom: 20px; } .chat-input { padding: 12px 12px calc(env(safe-area-inset-bottom, 0px) + 8px); } .chat-composer { border-radius: 14px; padding: 10px 10px 8px; } }",
+      "@media (max-width: 640px) { .chat-wrap { right: 12px; left: auto; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); width: 60px; height: 60px; } .chat-wrap.open { top: 8px; right: 8px; bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); left: 8px; width: auto; height: auto; transform: none !important; } .chat-wrap.is-expanded .chat-panel { width: 100%; height: calc(100% - 68px); bottom: 60px; } .chat-panel { width: 100%; max-width: 100%; height: calc(100% - 68px); right: 0; bottom: 60px; border-radius: 14px; transform-origin: calc(100% - 30px) calc(100% + 38px); } .chat-panel.open { width: 100%; max-width: none; height: calc(100% - 68px); border-radius: 14px; } .chat-button { right: 0; bottom: 0; } .chat-wrap.open .chat-button { opacity: 0; pointer-events: none; } .chat-maximize { display: none !important; } .chat-close { display: inline-flex !important; } .chat-header { padding: 10px 12px; cursor: default; } .chat-messages { padding-bottom: 16px; } .chat-input { padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 8px); } .chat-scroll-bottom { bottom: 86px; } .chat-composer { border-radius: 14px; padding: 10px 10px 8px; } }",
     ].join("");
     shadow.appendChild(style);
 
@@ -333,6 +375,13 @@
     stack.className = "chat-stack";
     messagesWrap.appendChild(stack);
 
+    var scrollBottomButton = document.createElement("button");
+    scrollBottomButton.className = "chat-scroll-bottom";
+    scrollBottomButton.type = "button";
+    scrollBottomButton.setAttribute("aria-label", "Voltar para a ultima mensagem");
+    scrollBottomButton.innerHTML = createChevronDownIcon();
+    panel.appendChild(scrollBottomButton);
+
     var form = document.createElement("form");
     form.className = "chat-input";
     panel.appendChild(form);
@@ -346,6 +395,26 @@
     input.placeholder = "Digite sua mensagem...";
     input.rows = 1;
     composer.appendChild(input);
+
+    var contactBox = document.createElement("div");
+    contactBox.className = "chat-contact-box";
+    contactBox.innerHTML = [
+      '<div class="chat-contact-title">Seu contato</div>',
+      '<div class="chat-contact-fields">',
+      '<input class="chat-contact-input chat-contact-email" type="email" autocomplete="email" placeholder="email@exemplo.com" />',
+      '<input class="chat-contact-input chat-contact-phone" type="tel" autocomplete="tel" placeholder="Celular, se preferir" />',
+      "</div>",
+      '<div class="chat-contact-actions">',
+      '<button type="button" class="chat-contact-action chat-contact-cancel">Cancelar</button>',
+      '<button type="button" class="chat-contact-action primary chat-contact-save">Salvar</button>',
+      "</div>",
+    ].join("");
+    composer.appendChild(contactBox);
+
+    var contactEmailInput = contactBox.querySelector(".chat-contact-email");
+    var contactPhoneInput = contactBox.querySelector(".chat-contact-phone");
+    var contactCancelButton = contactBox.querySelector(".chat-contact-cancel");
+    var contactSaveButton = contactBox.querySelector(".chat-contact-save");
 
     var attachmentInput = document.createElement("input");
     attachmentInput.type = "file";
@@ -372,6 +441,13 @@
     emojiTool.setAttribute("aria-hidden", "true");
     emojiTool.innerHTML = createEmojiIcon();
     tools.appendChild(emojiTool);
+
+    var contactTool = document.createElement("button");
+    contactTool.className = "chat-tool";
+    contactTool.type = "button";
+    contactTool.setAttribute("aria-label", "Adicionar email ou celular");
+    contactTool.innerHTML = createMailIcon();
+    tools.appendChild(contactTool);
 
     var attachTool = document.createElement("button");
     attachTool.className = "chat-tool";
@@ -455,6 +531,10 @@
       return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M8.8 12.4 14.9 6.3a3.1 3.1 0 1 1 4.4 4.4l-8 8a5 5 0 1 1-7.1-7.1l8.3-8.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
     }
 
+    function createMailIcon() {
+      return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4.5 6.5h15v11h-15z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="m5 7 7 6 7-6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+    }
+
     function createAudioIcon() {
       return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13v-2M9 16V8M13 14v-4M17 17V7M21 13v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>';
     }
@@ -473,6 +553,14 @@
 
     function createWhatsAppIcon() {
       return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M6.2 17.8 4.9 21l3.4-1.2A8.2 8.2 0 1 0 3.8 12c0 2.2.9 4.2 2.4 5.8Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M9.2 8.8c.2-.4.4-.5.7-.5h.5c.2 0 .4.1.5.4l.7 1.6c.1.3.1.5-.1.7l-.4.5c.6 1 1.4 1.8 2.5 2.3l.5-.5c.2-.2.5-.3.8-.1l1.5.7c.3.1.4.3.4.6v.4c0 .5-.4.9-.9 1-2.5.2-6-2.3-7.1-5-.4-1-.3-1.7-.1-2.1Z" fill="currentColor"/></svg></span>';
+    }
+
+    function createChevronDownIcon() {
+      return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+    }
+
+    function createClockIcon() {
+      return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v4l2.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
     }
 
     function escapeHtml(value) {
@@ -800,6 +888,8 @@
           JSON.stringify({
             chatId: chatId,
             messages: messages,
+            leadContact: leadContact,
+            lastSyncedMessageAt: lastSyncedMessageAt,
           }),
         );
       } catch (error) {
@@ -808,8 +898,25 @@
     }
 
 
-    function scrollToBottom() {
-      messagesWrap.scrollTop = messagesWrap.scrollHeight;
+    function isNearBottom() {
+      return messagesWrap.scrollHeight - messagesWrap.scrollTop - messagesWrap.clientHeight <= 80;
+    }
+
+    function updateScrollBottomButton() {
+      var hasOverflow = messagesWrap.scrollHeight - messagesWrap.clientHeight > 40;
+      scrollBottomButton.classList.toggle("is-visible", hasOverflow && !isNearBottom());
+    }
+
+    function scrollToBottom(behavior) {
+      if (typeof messagesWrap.scrollTo === "function") {
+        messagesWrap.scrollTo({
+          top: messagesWrap.scrollHeight,
+          behavior: behavior || "auto",
+        });
+      } else {
+        messagesWrap.scrollTop = messagesWrap.scrollHeight;
+      }
+      window.requestAnimationFrame(updateScrollBottomButton);
     }
 
     function autoResizeInput() {
@@ -859,6 +966,40 @@
       sendButton.classList.toggle("has-value", hasValue);
     }
 
+    function syncContactBox() {
+      contactBox.classList.toggle("is-open", contactBoxOpen);
+      composer.classList.toggle("is-identifying", contactBoxOpen);
+      contactTool.classList.toggle("is-active", Boolean(leadContact && (leadContact.email || leadContact.phone)));
+      contactTool.setAttribute(
+        "title",
+        leadContact && (leadContact.email || leadContact.phone) ? "Contato identificado" : "Adicionar email ou celular",
+      );
+      if (contactBoxOpen) {
+        contactEmailInput.value = leadContact?.email || "";
+        contactPhoneInput.value = leadContact?.phone || "";
+        window.requestAnimationFrame(function () {
+          contactEmailInput.focus();
+        });
+      }
+    }
+
+    function buildEffectiveContext() {
+      var baseContext = widgetContext && typeof widgetContext === "object" ? { ...widgetContext } : {};
+      if (!leadContact || (!leadContact.email && !leadContact.phone)) {
+        return baseContext;
+      }
+
+      return {
+        ...baseContext,
+        lead: {
+          ...(baseContext.lead && typeof baseContext.lead === "object" ? baseContext.lead : {}),
+          email: leadContact.email || undefined,
+          telefone: leadContact.phone || undefined,
+          identificacaoOrigem: "chat_widget",
+        },
+      };
+    }
+
     function updateHumanHandoffState(nextActive) {
       humanHandoffActive = nextActive === true;
       wrap.classList.toggle("human-active", humanHandoffActive);
@@ -903,7 +1044,18 @@
       wrap.classList.toggle("is-detached", open && (Math.abs(dragState.offsetX) > 6 || Math.abs(dragState.offsetY) > 6));
     }
 
-    function renderMessages() {
+    function formatMessageTime(message) {
+      var value = message && (message.createdAt || message.time);
+      var date = value ? new Date(value) : new Date();
+      if (Number.isNaN(date.getTime())) {
+        date = new Date();
+      }
+      return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    }
+
+    function renderMessages(options) {
+      var settings = options && typeof options === "object" ? options : {};
+      var shouldStickToBottom = settings.forceScroll === true || isNearBottom();
       stack.innerHTML = "";
 
       if (!messages.length) {
@@ -916,6 +1068,10 @@
           var bubble = document.createElement("div");
           bubble.className = "chat-bubble " + (message.isAi ? "ai" : "user");
           bubble.innerHTML = '<div class="chat-rich">' + formatRichText(message.text) + "</div>";
+          var meta = document.createElement("div");
+          meta.className = "chat-message-meta";
+          meta.innerHTML = createClockIcon() + "<span>" + escapeHtml(formatMessageTime(message)) + "</span>";
+          bubble.appendChild(meta);
           if (message.isAi && message.cta && message.cta.url) {
             var cta = createWhatsAppButton(message.cta);
             if (cta) {
@@ -962,7 +1118,11 @@
         stack.appendChild(typing);
       }
 
-      scrollToBottom();
+      if (shouldStickToBottom) {
+        scrollToBottom(settings.smooth ? "smooth" : "auto");
+      } else {
+        updateScrollBottomButton();
+      }
     }
 
     function syncViewportMetrics() {
@@ -984,6 +1144,7 @@
         panel.classList.add("open");
         autoResizeInput();
         input.focus();
+        void syncServerMessages();
       } else {
         dragState.offsetX = 0;
         dragState.offsetY = 0;
@@ -1013,6 +1174,82 @@
       renderMessages();
     }
 
+    function mapSyncedMessage(message) {
+      return {
+        id: "server-" + message.id,
+        serverId: message.id,
+        text: message.text || "",
+        isAi: true,
+        assets: Array.isArray(message.assets) ? message.assets : [],
+        attachments: Array.isArray(message.attachments) ? message.attachments : [],
+        createdAt: message.createdAt || new Date().toISOString(),
+        manual: message.manual === true,
+      };
+    }
+
+    async function syncServerMessages() {
+      if (!chatId || pollingMessages) {
+        return;
+      }
+
+      pollingMessages = true;
+      try {
+        var params = new URLSearchParams({
+          chatId: chatId,
+          widgetSlug: widgetSlug,
+        });
+        if (projeto) {
+          params.set("projeto", projeto);
+        }
+        if (agente) {
+          params.set("agente", agente);
+        }
+        if (lastSyncedMessageAt) {
+          params.set("after", lastSyncedMessageAt);
+        }
+
+        var response = await fetch(apiBase + "/api/chat?" + params.toString(), {
+          method: "GET",
+          credentials: "omit",
+        });
+        if (!response.ok) {
+          return;
+        }
+
+        var payload = await response.json();
+        var incoming = Array.isArray(payload.messages) ? payload.messages : [];
+        var changed = false;
+        incoming.forEach(function (message) {
+          if (!message || !message.id) {
+            return;
+          }
+
+          var alreadyStored = messages.some(function (current) {
+            return current.serverId === message.id || (current.isAi && current.text === message.text);
+          });
+          if (!alreadyStored) {
+            messages.push(mapSyncedMessage(message));
+            changed = true;
+          }
+
+          if (message.createdAt && (!lastSyncedMessageAt || new Date(message.createdAt).getTime() > new Date(lastSyncedMessageAt).getTime())) {
+            lastSyncedMessageAt = message.createdAt;
+          }
+        });
+
+        if (changed) {
+          persist();
+          renderMessages({ smooth: true });
+        } else if (incoming.length) {
+          persist();
+        }
+      } catch (error) {
+        console.warn("[InfraStudio Chat] failed to sync messages.", error);
+      } finally {
+        pollingMessages = false;
+      }
+    }
+
     async function sendMessage(text, options) {
       var settings = options && typeof options === "object" ? options : {};
       var trimmed = String(text || "").trim();
@@ -1026,6 +1263,7 @@
           id: "user-" + Date.now(),
           text: trimmed || "[Anexo enviado]",
           isAi: false,
+          createdAt: new Date().toISOString(),
           attachments: outboundAttachments.map(function (attachment) {
             return {
               name: attachment.name,
@@ -1036,7 +1274,7 @@
         });
       }
       persist();
-      renderMessages();
+      renderMessages({ forceScroll: true, smooth: true });
       input.value = "";
       attachments = [];
       renderAttachmentsPreview();
@@ -1055,8 +1293,8 @@
             widgetSlug: widgetSlug,
             projeto: projeto || undefined,
             agente: agente || undefined,
-            identificadorExterno: externalIdentifier || undefined,
-            context: widgetContext || undefined,
+            identificadorExterno: leadContact?.email || leadContact?.phone || externalIdentifier || undefined,
+            context: buildEffectiveContext(),
             attachments: outboundAttachments,
           }),
         });
@@ -1071,8 +1309,10 @@
         if (payload.reply || payload.error || (Array.isArray(payload.assets) && payload.assets.length)) {
           messages.push({
             id: "ai-" + Date.now(),
+            serverId: payload.messageId || null,
             text: payload.reply || payload.error || "",
             isAi: true,
+            createdAt: new Date().toISOString(),
             cta: payload.whatsapp && payload.whatsapp.url ? payload.whatsapp : null,
             handoffAction: createHumanHandoffAction(payload.handoff),
             assets: Array.isArray(payload.assets) ? payload.assets : [],
@@ -1083,6 +1323,7 @@
           id: "ai-" + Date.now(),
           text: "Nao consegui responder agora.",
           isAi: true,
+          createdAt: new Date().toISOString(),
           cta: null,
         });
       } finally {
@@ -1124,12 +1365,18 @@
     addListener(resetButton, "click", function () {
       chatId = null;
       messages = [];
+      lastSyncedMessageAt = null;
       input.value = "";
       persist();
-      renderMessages();
+      renderMessages({ forceScroll: true });
       autoResizeInput();
       updateComposerState();
       input.focus();
+    });
+
+    addListener(messagesWrap, "scroll", updateScrollBottomButton);
+    addListener(scrollBottomButton, "click", function () {
+      scrollToBottom("smooth");
     });
 
     addListener(input, "input", function () {
@@ -1144,6 +1391,34 @@
     });
     addListener(attachTool, "click", function () {
       attachmentInput.click();
+    });
+    addListener(contactTool, "click", function () {
+      contactBoxOpen = !contactBoxOpen;
+      syncContactBox();
+    });
+    addListener(contactCancelButton, "click", function () {
+      contactBoxOpen = false;
+      syncContactBox();
+      input.focus();
+    });
+    addListener(contactSaveButton, "click", function () {
+      var email = String(contactEmailInput.value || "").trim().toLowerCase();
+      var phone = String(contactPhoneInput.value || "").trim();
+      if (!email && !phone) {
+        contactEmailInput.focus();
+        return;
+      }
+      leadContact = {
+        email: email || "",
+        phone: phone || "",
+      };
+      if (email) {
+        externalIdentifier = email;
+      }
+      contactBoxOpen = false;
+      persist();
+      syncContactBox();
+      input.focus();
     });
     addListener(attachmentInput, "change", function (event) {
       normalizeAttachmentFiles(event.target.files)
@@ -1162,12 +1437,20 @@
     addListener(input, "keydown", function (event) {
       if (event.key === "Enter" && !event.shiftKey) {
         event.preventDefault();
+        if (contactBoxOpen) {
+          contactSaveButton.click();
+          return;
+        }
         void sendMessage(input.value);
       }
     });
 
     addListener(form, "submit", function (event) {
       event.preventDefault();
+      if (contactBoxOpen) {
+        contactSaveButton.click();
+        return;
+      }
       void sendMessage(input.value);
     });
 
@@ -1314,11 +1597,21 @@
       addListener(window.visualViewport, "scroll", syncViewportMetrics);
     }
 
+    var syncTimer = window.setInterval(function () {
+      if (open) {
+        void syncServerMessages();
+      }
+    }, 4000);
+    addCleanup(function () {
+      window.clearInterval(syncTimer);
+    });
+
     updateLauncherVisual();
     syncViewportMetrics();
     autoResizeInput();
     renderAttachmentsPreview();
     updateComposerState();
+    syncContactBox();
     updateHumanHandoffState(false);
     renderMessages();
     updateExpandState();

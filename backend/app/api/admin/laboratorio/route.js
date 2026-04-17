@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { deleteAdminLogs, listAdminLogs, updateAdminLogPayload } from "@/lib/logs"
+import { cleanupAdminLogs, deleteAdminLogs, listAdminLogs, updateAdminLogPayload } from "@/lib/logs"
 import { LABORATORY_CHAT_SCENARIOS, recordLaboratoryChatScenarioRun, runLaboratoryChatScenario } from "@/lib/laboratory-scenarios"
 import { getSessionUser } from "@/lib/session"
 
@@ -36,6 +36,23 @@ export async function DELETE(request) {
   }
 
   const body = await request.json().catch(() => ({}))
+  if (body.mode === "cleanup") {
+    const result = await cleanupAdminLogs({
+      projectId: String(body.projectId || "").trim(),
+      type: String(body.type || "").trim(),
+      origin: String(body.origin || "").trim(),
+      olderThanDays: Number(body.olderThanDays || 30),
+      dryRun: body.dryRun !== false,
+      limit: Number(body.limit || 500),
+    })
+
+    if (!result) {
+      return NextResponse.json({ error: "Nao foi possivel executar a limpeza operacional." }, { status: 500 })
+    }
+
+    return NextResponse.json({ ok: true, cleanup: result }, { status: 200 })
+  }
+
   const deleted = await deleteAdminLogs({
     projectId: String(body.projectId || "").trim(),
     type: String(body.type || "").trim(),

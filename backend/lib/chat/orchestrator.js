@@ -55,10 +55,12 @@ function isCommercialCapabilityMessage(message) {
 function buildConversationMemory(context = {}) {
   const snippets = []
   const resumo = String(context?.memoria?.resumo || "").trim()
+  const historicoIdentificado = String(context?.memoria?.historicoIdentificado || "").trim()
   const currentProduct = context?.catalogo?.produtoAtual?.nome
   const latestSearch = context?.catalogo?.ultimaBusca
 
   if (resumo) snippets.push(`Resumo de continuidade: ${resumo}`)
+  if (historicoIdentificado) snippets.push(`Historico importado do usuario identificado:\n${historicoIdentificado}`)
   if (currentProduct) snippets.push(`Produto em foco: ${currentProduct}`)
   if (latestSearch) snippets.push(`Busca recente do cliente: ${latestSearch}`)
 

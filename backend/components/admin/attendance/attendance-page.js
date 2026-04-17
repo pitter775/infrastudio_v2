@@ -453,6 +453,7 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
 
       if (messageData.success) {
         onMessageSent(conversation.id, messageData.message)
+        onStatusChanged?.(conversation.id, messageData.status || "humano")
         setTexto("")
         setAttachments([])
       }
@@ -578,7 +579,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const initials = getInitials(conversation.cliente.nome)
   const lastMessage = getLastMessage(conversation)
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
-  const statusLabel = conversation.status === "humano" ? "Humano" : "IA atendendo"
+  const humanInControl = conversation.status === "humano"
+  const statusLabel = humanInControl ? "Humano no comando" : "IA atendendo"
   const compactMobileHeader = Boolean(onCloseMobile)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [traceProviderFilter, setTraceProviderFilter] = useState("")
@@ -784,7 +786,13 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                           <Tag className="border-emerald-400/15 bg-emerald-400/10 text-emerald-200">
                             {originLabel}
                           </Tag>
-                          <Tag className="border-slate-500/20 bg-slate-500/10 text-slate-200">
+                          <Tag
+                            className={
+                              humanInControl
+                                ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
+                                : "border-slate-500/20 bg-slate-500/10 text-slate-200"
+                            }
+                          >
                             {statusLabel}
                           </Tag>
                         </>
@@ -828,6 +836,12 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
             </div>
           </div>
         </div>
+
+        {humanInControl ? (
+          <div className="border-b border-emerald-400/10 bg-emerald-500/[0.06] px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100 lg:px-4">
+            Voce esta no comando da conversa
+          </div>
+        ) : null}
 
         <div ref={feedRef} className="min-h-0 flex-1 overflow-y-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <div className="space-y-5 px-3 py-4 lg:px-4">

@@ -1,4 +1,5 @@
 import { getAgenteAtivo, getAgenteById, getAgenteByIdentifier } from "@/lib/agentes"
+import { createAgendaReservation, listPublicAgendaAvailability } from "@/lib/agenda"
 import { loadAgentRuntimeApis } from "@/lib/apis"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
 import { buildChatUsageTelemetry } from "@/lib/chat-usage-metrics"
@@ -17,7 +18,7 @@ import {
   requestHumanHandoff,
   shouldPauseAssistantForHandoff,
 } from "@/lib/chat-handoffs"
-import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, updateChatContext, updateChatStats } from "@/lib/chats"
+import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier, updateChatContext, updateChatStats } from "@/lib/chats"
 import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { estimateOpenAICostUsd } from "@/lib/openai-pricing"
@@ -28,6 +29,236 @@ import { getActiveWhatsAppChannelByProjectAgent, sendWhatsAppTextMessage } from 
 
 function sanitizePhone(phone) {
   return String(phone || "").replace(/\D/g, "")
+}
+
+function getIdentifiedContactKey(context, fallbackExternalIdentifier) {
+  const lead = isPlainObject(context?.lead) ? context.lead : null
+  const email = typeof lead?.email === "string" ? lead.email.trim().toLowerCase() : ""
+  const phone = sanitizePhone(lead?.telefone || lead?.phone || "")
+
+  if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return email
+  }
+
+  if (phone.length >= 10) {
+    return phone
+  }
+
+  const fallback = String(fallbackExternalIdentifier || "").trim()
+  return fallback.includes("@") || sanitizePhone(fallback).length >= 10 ? fallback : null
+}
+
+function buildImportedHistorySummary(messages) {
+  const normalized = Array.isArray(messages) ? messages.filter((message) => message?.conteudo) : []
+  if (!normalized.length) {
+    return null
+  }
+
+  return normalized
+    .slice(-10)
+    .map((message) => `${message.role === "assistant" ? "Assistente" : "Cliente"}: ${String(message.conteudo).slice(0, 220)}`)
+    .join("\n")
+}
+
+function formatAgendaSlotForContext(slot) {
+  const dayLabel = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"][Number(slot?.diaSemana)] || "data especifica"
+  const dateLabel = slot?.dataInicio ? String(slot.dataInicio).slice(0, 10) : null
+  return {
+    id: slot.id,
+    titulo: slot.titulo,
+    dia: dateLabel || (slot.diaSemana === null || typeof slot.diaSemana === "undefined" ? "data especifica" : dayLabel),
+    data: dateLabel,
+    horaInicio: String(slot.horaInicio || "").slice(0, 5),
+    horaFim: String(slot.horaFim || "").slice(0, 5),
+    timezone: slot.timezone || "America/Sao_Paulo",
+  }
+}
+
+function normalizeSimpleText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function extractLeadContact(context, fallbackExternalIdentifier) {
+  const lead = isPlainObject(context?.lead) ? context.lead : {}
+  const email = typeof lead.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email.trim())
+    ? lead.email.trim().toLowerCase()
+    : ""
+  const phone = sanitizePhone(lead.telefone || lead.phone || "")
+  const fallback = String(fallbackExternalIdentifier || "").trim()
+  const fallbackPhone = sanitizePhone(fallback)
+
+  return {
+    nome: typeof lead.nome === "string" ? lead.nome.trim() : "",
+    email: email || (fallback.includes("@") ? fallback.toLowerCase() : ""),
+    phone: phone.length >= 10 ? phone : fallbackPhone.length >= 10 ? fallbackPhone : "",
+  }
+}
+
+function parseRequestedTime(message) {
+  const match = String(message || "").match(/\b([01]?\d|2[0-3])(?:[:hH]([0-5]\d))?\b/)
+  if (!match) return null
+  return `${String(match[1]).padStart(2, "0")}:${String(match[2] || "00").padStart(2, "0")}`
+}
+
+function isAgendaReservationIntent(message) {
+  const normalized = normalizeSimpleText(message)
+  return /\b(agendar|agenda|reservar|reserva|marcar|confirmar|horario|visita|reuniao)\b/.test(normalized)
+}
+
+function selectAgendaSlot(message, slots) {
+  const requestedTime = parseRequestedTime(message)
+  if (!requestedTime || !Array.isArray(slots)) return null
+
+  return slots.find((slot) => String(slot?.horaInicio || "").slice(0, 5) === requestedTime) ?? null
+}
+
+function nextDateForAgendaSlot(slot, now = new Date()) {
+  const time = String(slot?.horaInicio || "").slice(0, 5)
+  if (!time) return null
+
+  const dateStart = String(slot?.dataInicio || "").slice(0, 10)
+  const baseDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStart) ? new Date(`${dateStart}T${time}:00`) : new Date(now)
+  if (Number.isNaN(baseDate.getTime())) return null
+
+  if (Number.isInteger(slot?.diaSemana)) {
+    const currentDay = baseDate.getDay()
+    const targetDay = Number(slot.diaSemana)
+    let diff = (targetDay - currentDay + 7) % 7
+    const candidate = new Date(baseDate)
+    candidate.setDate(candidate.getDate() + diff)
+    const [hours, minutes] = time.split(":").map(Number)
+    candidate.setHours(hours, minutes, 0, 0)
+    if (candidate.getTime() <= now.getTime()) {
+      candidate.setDate(candidate.getDate() + 7)
+    }
+    return candidate.toISOString()
+  }
+
+  const [hours, minutes] = time.split(":").map(Number)
+  baseDate.setHours(hours, minutes, 0, 0)
+  return baseDate.toISOString()
+}
+
+function formatAgendaOptions(slots) {
+  return slots
+    .slice(0, 6)
+    .map((slot) => `- ${slot.data || slot.dia}, das ${slot.horaInicio} as ${slot.horaFim}`)
+    .join("\n")
+}
+
+function buildAgendaHeuristicReply(reply, metadata = {}) {
+  return {
+    reply,
+    assets: [],
+    usage: {
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+    metadata: {
+      provider: "local_heuristic",
+      model: "agenda_skill",
+      routeStage: "sales",
+      heuristicStage: "agenda_reservation",
+      domainStage: "agenda",
+      ...metadata,
+    },
+  }
+}
+
+async function resolveAgendaReservationSkill(input) {
+  const { message, aiContext, agendaSlots, runtimeState, options } = input
+  if (!isAgendaReservationIntent(message) || !Array.isArray(agendaSlots) || agendaSlots.length === 0) {
+    return null
+  }
+
+  const formattedSlots = aiContext?.agenda?.horariosDisponiveis ?? agendaSlots.slice(0, 12).map(formatAgendaSlotForContext)
+  const selectedSlot = selectAgendaSlot(message, agendaSlots)
+  if (!selectedSlot) {
+    return buildAgendaHeuristicReply(
+      `Tenho estes horarios disponiveis:\n\n${formatAgendaOptions(formattedSlots)}\n\nMe diga qual horario voce quer reservar e informe email ou celular para confirmar.`,
+      {
+        agenteId: runtimeState.resolved?.agente?.id ?? null,
+        agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+      }
+    )
+  }
+
+  const contact = extractLeadContact(aiContext, runtimeState.prelude.normalizedExternalIdentifier)
+  if (!contact.email && !contact.phone) {
+    return buildAgendaHeuristicReply("Para confirmar esse horario, me envie seu email ou celular.", {
+      agenteId: runtimeState.resolved?.agente?.id ?? null,
+      agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+      agendaSlotId: selectedSlot.id,
+    })
+  }
+
+  const horarioReservado = nextDateForAgendaSlot(selectedSlot)
+  if (!horarioReservado) {
+    return buildAgendaHeuristicReply("Encontrei o horario, mas nao consegui montar a data da reserva. Me envie o dia e horario desejado.", {
+      agenteId: runtimeState.resolved?.agente?.id ?? null,
+      agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+    })
+  }
+
+  const summary = runtimeState.history
+    .slice(-6)
+    .map((item) => `${item.role === "assistant" ? "Assistente" : "Cliente"}: ${String(item.conteudo || "").slice(0, 180)}`)
+    .join("\n")
+
+  const { reservation, error } = await (options.createAgendaReservation ?? createAgendaReservation)({
+    projetoId: runtimeState.resolved?.projeto?.id ?? runtimeState.session.chat.projetoId,
+    agenteId: runtimeState.resolved?.agente?.id ?? runtimeState.session.chat.agenteId,
+    horarioId: selectedSlot.id,
+    chatId: runtimeState.session.chat.id,
+    contatoNome: contact.nome || null,
+    contatoEmail: contact.email || null,
+    contatoTelefone: contact.phone || null,
+    resumoConversa: summary || message,
+    dadosContato: {
+      email: contact.email || null,
+      telefone: contact.phone || null,
+    },
+    origem: "chat",
+    canal: runtimeState.prelude.channelKind,
+    horarioReservado,
+    timezone: selectedSlot.timezone || "America/Sao_Paulo",
+    metadata: {
+      source: "chat_agenda_skill",
+      rawMessage: message,
+    },
+  })
+
+  if (error || !reservation) {
+    return buildAgendaHeuristicReply(error || "Nao consegui confirmar a reserva agora. Tente novamente em instantes.", {
+      agenteId: runtimeState.resolved?.agente?.id ?? null,
+      agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+    })
+  }
+
+  const reservedAt = new Date(reservation.horarioReservado).toLocaleString("pt-BR", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: reservation.timezone || "America/Sao_Paulo",
+  })
+
+  return buildAgendaHeuristicReply(`Reserva confirmada para ${reservedAt}. Vou avisar o atendimento com seus dados de contato.`, {
+    agenteId: runtimeState.resolved?.agente?.id ?? null,
+    agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+    agendaReserva: {
+      id: reservation.id,
+      horarioId: reservation.horarioId,
+      horarioReservado: reservation.horarioReservado,
+      status: reservation.status,
+    },
+  })
 }
 
 function normalizeInboundPhoneCandidate(value) {
@@ -780,6 +1011,17 @@ export function updateContextFromAiResult(input) {
     }
   }
 
+  const agendaReservation = input.ai?.metadata?.agendaReserva
+  if (isPlainObject(agendaReservation)) {
+    nextContext.agendaReserva = {
+      id: agendaReservation.id ?? null,
+      horarioId: agendaReservation.horarioId ?? null,
+      horarioReservado: agendaReservation.horarioReservado ?? null,
+      status: agendaReservation.status ?? null,
+      updatedAt: new Date().toISOString(),
+    }
+  }
+
   return nextContext
 }
 
@@ -1460,6 +1702,7 @@ export async function persistUsageRecord(input, deps = {}) {
 export function buildFinalChatResult(input) {
   return {
     chatId: input.chatId,
+    messageId: input.messageId ?? null,
     reply: input.reply,
     followUpReply: input.channelKind === "whatsapp" ? "" : input.followUpReply || "",
     messageSequence: input.channelKind === "whatsapp" ? input.messageSequence ?? [] : [],
@@ -1675,6 +1918,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
 
   return buildFinalChatResult({
     chatId: runtimeState.session.chat.id,
+    messageId: assistantMessage.id,
     channelKind: runtimeState.prelude.channelKind,
     reply:
       runtimeState.prelude.channelKind === "whatsapp"
@@ -1978,19 +2222,79 @@ export async function processChatRequest(body, options = {}) {
       })
     }
 
+    const currentContext = runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {}
+    const identifiedContactKey = getIdentifiedContactKey(
+      currentContext,
+      runtimeState.prelude.normalizedExternalIdentifier,
+    )
+    const importedHistory =
+      identifiedContactKey
+        ? await (options.listRecentMessagesByExternalIdentifier ?? listRecentMessagesByExternalIdentifier)({
+            identificadorExterno: identifiedContactKey,
+            projetoId: runtimeState.resolved?.projeto?.id ?? null,
+            agenteId: runtimeState.resolved?.agente?.id ?? null,
+            excludeChatId: runtimeState.session.chat.id,
+            limit: 18,
+          })
+        : []
+    const importedHistorySummary = buildImportedHistorySummary(importedHistory)
+    let agendaSlots = []
+    try {
+      agendaSlots =
+        runtimeState.resolved?.projeto?.id
+          ? await (options.listPublicAgendaAvailability ?? listPublicAgendaAvailability)({
+              projetoId: runtimeState.resolved.projeto.id,
+              agenteId: runtimeState.resolved?.agente?.id ?? null,
+            })
+          : []
+    } catch (error) {
+      console.warn("[chat-runtime] failed to load agenda availability", error)
+    }
     const aiContext = mergeContext(
-      runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
+      currentContext,
       runtimeApis.length ? { runtimeApis } : null,
+      agendaSlots.length
+        ? {
+            agenda: {
+              horariosDisponiveis: agendaSlots.slice(0, 12).map(formatAgendaSlotForContext),
+              reservaApi: "POST /api/agenda",
+              exigeContato: true,
+            },
+          }
+        : null,
+      importedHistorySummary
+        ? {
+            memoria: {
+              ...(isPlainObject(currentContext?.memoria) ? currentContext.memoria : {}),
+              historicoIdentificado: importedHistorySummary,
+            },
+            usuarioIdentificado: {
+              chave: identifiedContactKey,
+              historicoImportado: true,
+              mensagensImportadas: importedHistory.length,
+            },
+          }
+        : null,
     )
 
-    const aiResult = await executeSalesOrchestrator(
-      runtimeState.history.map((item) => ({
-        role: item.role,
-        content: item.conteudo,
-      })),
+    const agendaSkillResult = await resolveAgendaReservationSkill({
+      message: runtimeState.prelude.message,
       aiContext,
-      options
-    )
+      agendaSlots,
+      runtimeState,
+      options,
+    })
+
+    const aiResult =
+      agendaSkillResult ??
+      (await executeSalesOrchestrator(
+        runtimeState.history.map((item) => ({
+          role: item.role,
+          content: item.conteudo,
+        })),
+        aiContext,
+        options
+      ))
 
     const escalationState = await applyAiHumanEscalation(runtimeState, aiResult, options)
     const effectiveAiResult = escalationState.aiResult ?? aiResult

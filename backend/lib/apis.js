@@ -87,12 +87,42 @@ function normalizeHeaderConfig(headers) {
   }, {})
 }
 
-function getApiRequestHeaders(api) {
+function getApiRequestHeaders(api, overrideHeaders = null) {
   const configuredHeaders = normalizeHeaderConfig(api?.config?.http?.headers)
+  const method = String(api?.method || "GET").toUpperCase()
   return {
     Accept: "application/json, text/plain;q=0.9, */*;q=0.8",
+    ...(method === "GET" ? {} : { "Content-Type": "application/json" }),
     ...configuredHeaders,
+    ...normalizeHeaderConfig(overrideHeaders),
   }
+}
+
+function buildApiRequestBody(api, context = null, overrideBody) {
+  const method = String(api?.method || "GET").toUpperCase()
+  if (method === "GET" || method === "HEAD") {
+    return undefined
+  }
+
+  if (overrideBody !== undefined) {
+    return typeof overrideBody === "string" ? overrideBody : JSON.stringify(overrideBody)
+  }
+
+  const configuredBody = api?.config?.http?.body
+  if (configuredBody == null) {
+    return undefined
+  }
+
+  const body = typeof configuredBody === "string" ? configuredBody : JSON.stringify(configuredBody)
+  return body.replace(/\{\{([^{}]+)\}\}/g, (_match, path) => {
+    const value = getRuntimeContextValue(context, String(path || "").trim())
+    return value == null ? "" : String(value)
+  })
+}
+
+function shouldExecuteRuntimeApi(api) {
+  const method = String(api?.method || "GET").toUpperCase()
+  return method === "GET" || api?.config?.runtime?.autoExecute === true
 }
 
 function tryParseApiPayload(contentType, text) {
@@ -327,8 +357,8 @@ function normalizeApiInput(input) {
     return { error: "URL precisa usar http ou https." }
   }
 
-  if (method !== "GET") {
-    return { error: "O schema atual permite apenas metodo GET." }
+  if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    return { error: "Metodo precisa ser GET, POST, PUT, PATCH ou DELETE." }
   }
 
   const config = input.configuracoes ?? input.config ?? {}
@@ -761,7 +791,7 @@ export async function restoreApiVersionForUser({ apiId, projetoId, versionId }, 
   }
 }
 
-export async function testApiForUser(apiId, projetoId, user) {
+export async function testApiForUser(apiId, projetoId, user, options = {}) {
   if (!apiId || !projetoId || !userCanAccessProject(user, projetoId)) {
     return { result: null, error: "Acesso negado." }
   }
@@ -783,15 +813,48 @@ export async function testApiForUser(apiId, projetoId, user) {
     }
 
     const api = mapApi(data)
+    const runtimeContext =
+      options?.runtimeContext && typeof options.runtimeContext === "object" && !Array.isArray(options.runtimeContext)
+        ? options.runtimeContext
+        : null
+    const testOverrides =
+      options?.testOverrides && typeof options.testOverrides === "object" && !Array.isArray(options.testOverrides)
+        ? options.testOverrides
+        : {}
+    const resolvedRequest = resolveRuntimeApiUrl(api, runtimeContext)
+    const requestBody = buildApiRequestBody(api, runtimeContext, testOverrides.body)
+    const requestHeaders = getApiRequestHeaders(api, testOverrides.headers)
+
+    if (resolvedRequest.missingParams.length) {
+      return {
+        result: {
+          ok: false,
+          status: 0,
+          statusText: "Parametros ausentes",
+          durationMs: null,
+          contentType: "",
+          method: api.method || "GET",
+          url: resolvedRequest.url,
+          missingParams: resolvedRequest.missingParams,
+          requestBody,
+          requestHeaders,
+          preview: `Preencha os parametros obrigatorios: ${resolvedRequest.missingParams.join(", ")}.`,
+          fields: [],
+        },
+        error: null,
+      }
+    }
+
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)
     const startedAt = Date.now()
 
     try {
-      const response = await fetch(api.url, {
-        method: "GET",
+      const response = await fetch(resolvedRequest.url, {
+        method: api.method || "GET",
         signal: controller.signal,
-        headers: getApiRequestHeaders(api),
+        headers: requestHeaders,
+        body: requestBody,
       })
       const contentType = response.headers.get("content-type") || ""
       const text = await response.text()
@@ -805,6 +868,11 @@ export async function testApiForUser(apiId, projetoId, user) {
           statusText: response.statusText,
           durationMs: Date.now() - startedAt,
           contentType,
+          method: api.method || "GET",
+          url: resolvedRequest.url,
+          missingParams: [],
+          requestBody,
+          requestHeaders,
           preview: text.slice(0, 800),
           fields,
         },
@@ -821,6 +889,11 @@ export async function testApiForUser(apiId, projetoId, user) {
         statusText: error.name === "AbortError" ? "Timeout" : "Erro de conexao",
         durationMs: null,
         contentType: "",
+        method: api.method || "GET",
+        url: resolvedRequest.url,
+        missingParams: [],
+        requestBody,
+        requestHeaders,
         preview: error.message,
       },
       error: null,
@@ -878,10 +951,32 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
   const startedAt = Date.now()
 
   try {
+    if (!shouldExecuteRuntimeApi(api)) {
+      return {
+        id: api.id,
+        apiId: api.id,
+        nome: api.name,
+        descricao: api.description,
+        url: rawUrlForDisplay(api, resolvedRequest.url),
+        ok: true,
+        status: 0,
+        durationMs: 0,
+        contentType: "",
+        preview: `API ${api.method} cadastrada. Nao foi executada automaticamente no runtime para evitar efeito colateral.`,
+        campos: [],
+        config: api.config,
+        cache: {
+          hit: false,
+          ttlSeconds: cacheTtlSeconds,
+        },
+      }
+    }
+
     const response = await fetch(resolvedRequest.url, {
-      method: "GET",
+      method: api.method || "GET",
       signal: controller.signal,
       headers: getApiRequestHeaders(api),
+      body: buildApiRequestBody(api, runtimeContext),
     })
     const contentType = response.headers.get("content-type") || ""
     const text = await response.text()

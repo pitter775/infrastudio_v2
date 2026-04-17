@@ -90,6 +90,7 @@ const emptyForm = {
   url: "",
   description: "",
   active: true,
+  method: "GET",
   configText: "{}",
 }
 
@@ -98,6 +99,295 @@ const inputClassName =
 const textareaClassName =
   "mt-1 w-full resize-y rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
 const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+
+function parseObjectText(value, fallback = {}) {
+  try {
+    const parsed = JSON.parse(String(value || "").trim() || "{}")
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function setNestedValue(target, path, value) {
+  const segments = String(path || "")
+    .split(".")
+    .map((segment) => segment.trim())
+    .filter(Boolean)
+
+  if (!segments.length) {
+    return target
+  }
+
+  let current = target
+  segments.forEach((segment, index) => {
+    if (index === segments.length - 1) {
+      current[segment] = value
+      return
+    }
+
+    if (!current[segment] || typeof current[segment] !== "object" || Array.isArray(current[segment])) {
+      current[segment] = {}
+    }
+
+    current = current[segment]
+  })
+
+  return target
+}
+
+function getApiConfigFromForm(form) {
+  return parseObjectText(form?.configText, {})
+}
+
+function stringifyJson(value, fallback = "{}") {
+  try {
+    return JSON.stringify(value ?? {}, null, 2)
+  } catch {
+    return fallback
+  }
+}
+
+function buildLockedTestContext(project) {
+  const widget = Array.isArray(project?.chatWidgets) ? project.chatWidgets.find((item) => item?.slug) : null
+  return {
+    projeto: {
+      id: project?.id || "",
+      slug: project?.slug || project?.routeKey || "",
+      nome: project?.name || "",
+    },
+    agente: {
+      id: project?.agent?.id || "",
+      nome: project?.agent?.name || "",
+    },
+    widget: {
+      id: widget?.id || "",
+      slug: widget?.slug || "",
+      nome: widget?.nome || "",
+    },
+    lead: {
+      nome: "Lead de teste",
+      email: "lead.teste@infrastudio.local",
+      telefone: "11999999999",
+    },
+    memoria: {
+      resumo: "Teste manual disparado pelo painel do projeto.",
+    },
+    agenda: {
+      horarioId: "",
+      horarioReservado: "",
+    },
+  }
+}
+
+function getApiTestFields({ api, form }) {
+  const sourceApi = api || null
+  const url = String(sourceApi?.url || form?.url || "").trim()
+  const config = sourceApi?.config || getApiConfigFromForm(form)
+  const fields = new Map()
+  const configuredParameters = Array.isArray(config?.parametros) ? config.parametros : []
+  const bodyTemplate =
+    config?.http?.body == null
+      ? ""
+      : typeof config.http.body === "string"
+        ? config.http.body
+        : JSON.stringify(config.http.body)
+
+  for (const match of url.matchAll(/\{([^{}]+)\}/g)) {
+    const name = String(match[1] || "").trim()
+    if (!name) continue
+    const configured = configuredParameters.find(
+      (item) => String(item?.nome || item?.name || "").trim() === name
+    )
+    const path = String(configured?.path || configured?.contextPath || configured?.source || name).trim()
+    fields.set(path, {
+      key: path,
+      label: name,
+      path,
+      source: "url",
+      description: configured?.descricao || configured?.description || `Parametro ${name}`,
+    })
+  }
+
+  for (const match of bodyTemplate.matchAll(/\{\{([^{}]+)\}\}/g)) {
+    const path = String(match[1] || "").trim()
+    if (!path) continue
+    if (!fields.has(path)) {
+      fields.set(path, {
+        key: path,
+        label: path.split(".").slice(-1)[0],
+        path,
+        source: "body",
+        description: `Campo ${path} usado no body`,
+      })
+    }
+  }
+
+  return Array.from(fields.values())
+    .filter((field) => !["projeto.id", "agente.id", "projetoId", "agenteId"].includes(field.path))
+}
+
+function buildInitialTestContext({ project, api, form }) {
+  const context = buildLockedTestContext(project)
+  for (const field of getApiTestFields({ api, form })) {
+    const existingValue = field.path.split(".").reduce((current, segment) => {
+      if (current == null || typeof current !== "object") {
+        return undefined
+      }
+      return current[segment]
+    }, context)
+
+    if (existingValue == null) {
+      setNestedValue(context, field.path, "")
+    }
+  }
+  return context
+}
+
+function buildInitialTestHeaders({ api, form }) {
+  const config = api?.config || getApiConfigFromForm(form)
+  return stringifyJson(config?.http?.headers ?? {})
+}
+
+function resolveTemplateWithContext(template, context) {
+  return String(template || "").replace(/\{\{([^{}]+)\}\}/g, (_match, path) => {
+    const segments = String(path || "")
+      .split(".")
+      .map((segment) => segment.trim())
+      .filter(Boolean)
+    let current = context
+    for (const segment of segments) {
+      if (current == null || typeof current !== "object") {
+        current = ""
+        break
+      }
+      current = current[segment]
+    }
+    return current == null ? "" : String(current)
+  })
+}
+
+function buildInitialTestBody({ project, api, form }) {
+  const config = api?.config || getApiConfigFromForm(form)
+  if (config?.http?.body == null) {
+    return ""
+  }
+
+  const context = buildInitialTestContext({ project, api, form })
+  const template =
+    typeof config.http.body === "string" ? config.http.body : JSON.stringify(config.http.body, null, 2)
+
+  return resolveTemplateWithContext(template, context)
+}
+
+function isAgendaApi(api, form) {
+  const sourceApi = api || null
+  const name = String(sourceApi?.name || form?.name || "").toLowerCase()
+  const url = String(sourceApi?.url || form?.url || "").toLowerCase()
+  const config = sourceApi?.config || getApiConfigFromForm(form)
+  const tags = Array.isArray(config?.tags) ? config.tags.map((tag) => String(tag).toLowerCase()) : []
+  return tags.includes("agenda") || name.includes("agenda") || url.includes("/api/agenda")
+}
+
+function getUrlOriginSafe(value, fallback = "") {
+  try {
+    return new URL(String(value || "")).origin
+  } catch {
+    return fallback
+  }
+}
+
+function isLegacyAgendaApi(api, form) {
+  if (!isAgendaApi(api, form)) {
+    return false
+  }
+
+  const sourceApi = api || null
+  const url = String(sourceApi?.url || form?.url || "")
+  const config = sourceApi?.config || getApiConfigFromForm(form)
+  const bodyText =
+    config?.http?.body == null
+      ? ""
+      : typeof config.http.body === "string"
+        ? config.http.body
+        : JSON.stringify(config.http.body)
+
+  return (
+    url.includes("projetoId={projetoId}") ||
+    url.includes("agenteId={agenteId}") ||
+    bodyText.includes("{{projeto.id}}") ||
+    bodyText.includes("{{agente.id}}") ||
+    bodyText.includes('"projetoId"') ||
+    bodyText.includes('"agenteId"')
+  )
+}
+
+function buildAgendaMigrationConfig(api, form) {
+  const sourceApi = api || null
+  const config = sourceApi?.config || getApiConfigFromForm(form)
+  const method = String(sourceApi?.method || form?.method || "GET").toUpperCase()
+  const fallbackOrigin =
+    typeof window !== "undefined" ? window.location.origin : "http://localhost:3000"
+  const origin = getUrlOriginSafe(sourceApi?.url || form?.url, fallbackOrigin)
+  const widgetSlug = String(config?.widgetSlug || "").trim() || "{{widget.slug}}"
+
+  if (method === "GET") {
+    return {
+      url: `${origin}/api/agenda?widgetSlug={widgetSlug}`,
+      config: {
+        parametros: [{ nome: "widgetSlug", path: "widget.slug" }],
+        runtime: {
+          factual: true,
+          cacheTtlSeconds: 60,
+          responsePath: "slots",
+          previewPath: "0",
+          fields: [
+            { nome: "horario_id", tipo: "string", descricao: "ID do horario", path: "0.id" },
+            { nome: "data_inicio", tipo: "string", descricao: "Data do horario", path: "0.dataInicio" },
+            { nome: "hora_inicio", tipo: "string", descricao: "Hora inicial", path: "0.horaInicio" },
+            { nome: "hora_fim", tipo: "string", descricao: "Hora final", path: "0.horaFim" },
+          ],
+        },
+        tags: ["agenda", "slots"],
+        widgetSlug,
+      },
+    }
+  }
+
+  return {
+    url: `${origin}/api/agenda`,
+    config: {
+      http: {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: {
+          widgetSlug: "{{widget.slug}}",
+          horarioId: "{{agenda.horarioId}}",
+          horarioReservado: "{{agenda.horarioReservado}}",
+          contatoNome: "{{lead.nome}}",
+          contatoEmail: "{{lead.email}}",
+          contatoTelefone: "{{lead.telefone}}",
+          resumoConversa: "{{memoria.resumo}}",
+          origem: "chat",
+          canal: "web",
+        },
+      },
+      runtime: {
+        factual: false,
+        autoExecute: false,
+        responsePath: "reservation",
+        previewPath: "id",
+        fields: [
+          { nome: "reserva_id", tipo: "string", descricao: "ID da reserva", path: "id" },
+          { nome: "status", tipo: "string", descricao: "Status da reserva", path: "status" },
+        ],
+      },
+      tags: ["agenda", "reserva"],
+      widgetSlug,
+    },
+  }
+}
 
 function normalizeInitialApi(api) {
   return {
@@ -115,7 +405,7 @@ function normalizeInitialApi(api) {
 export function ApiManager({
   project,
   initialApiId = null,
-  activeTab = "edit",
+  activeTab: controlledActiveTab = "edit",
   onTabChange,
   onDetailOpenChange,
   onDeleteAvailableChange,
@@ -138,8 +428,31 @@ export function ApiManager({
   const [status, setStatus] = useState({ type: "idle", message: "" })
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
   const [restoreTarget, setRestoreTarget] = useState(null)
+  const [internalActiveTab, setInternalActiveTab] = useState(controlledActiveTab || "edit")
+  const [testContextText, setTestContextText] = useState(() =>
+    JSON.stringify(buildInitialTestContext({ project, api: null, form: emptyForm }), null, 2),
+  )
+  const [testHeadersText, setTestHeadersText] = useState(() => buildInitialTestHeaders({ api: null, form: emptyForm }))
+  const [testBodyText, setTestBodyText] = useState(() => buildInitialTestBody({ project, api: null, form: emptyForm }))
+  const [agendaTestSlots, setAgendaTestSlots] = useState([])
+  const [loadingAgendaTestSlots, setLoadingAgendaTestSlots] = useState(false)
 
   const editing = useMemo(() => Boolean(form.id), [form.id])
+  const activeTab = onTabChange ? controlledActiveTab : internalActiveTab
+
+  useEffect(() => {
+    if (onTabChange) {
+      setInternalActiveTab(controlledActiveTab || "edit")
+    }
+  }, [controlledActiveTab, onTabChange])
+
+  function setTab(nextTab) {
+    if (onTabChange) {
+      onTabChange(nextTab)
+      return
+    }
+    setInternalActiveTab(nextTab)
+  }
 
   useEffect(() => {
     onDetailOpenChange?.(Boolean(selectedApiId))
@@ -209,32 +522,42 @@ export function ApiManager({
 
   function startEdit(api) {
     setSelectedApiId(api.id)
-    onTabChange?.("edit")
+    setTab("edit")
     setForm({
       id: api.id,
       name: api.name,
       url: api.url,
       description: api.description || "",
       active: api.active !== false,
+      method: api.method || "GET",
       configText: api.configText || "{}",
     })
     setStatus({ type: "idle", message: "" })
     setTestResult(null)
+    setTestContextText(JSON.stringify(buildInitialTestContext({ project, api, form: null }), null, 2))
+    setTestHeadersText(buildInitialTestHeaders({ api, form: null }))
+    setTestBodyText(buildInitialTestBody({ project, api, form: null }))
   }
 
   function resetForm() {
     setForm(emptyForm)
     setSelectedApiId(null)
-    onTabChange?.("edit")
+    setTab("edit")
     setStatus({ type: "idle", message: "" })
+    setTestContextText(JSON.stringify(buildInitialTestContext({ project, api: null, form: emptyForm }), null, 2))
+    setTestHeadersText(buildInitialTestHeaders({ api: null, form: emptyForm }))
+    setTestBodyText(buildInitialTestBody({ project, api: null, form: emptyForm }))
   }
 
   function startCreate() {
     setSelectedApiId("new")
-    onTabChange?.("edit")
+    setTab("edit")
     setForm(emptyForm)
     setStatus({ type: "idle", message: "" })
     setTestResult(null)
+    setTestContextText(JSON.stringify(buildInitialTestContext({ project, api: null, form: emptyForm }), null, 2))
+    setTestHeadersText(buildInitialTestHeaders({ api: null, form: emptyForm }))
+    setTestBodyText(buildInitialTestBody({ project, api: null, form: emptyForm }))
   }
 
   async function saveApi(event) {
@@ -264,7 +587,7 @@ export function ApiManager({
           url: form.url,
           descricao: form.description,
           ativo: form.active,
-          metodo: "GET",
+          metodo: form.method || "GET",
           configuracoes: parsedConfig,
         }),
       })
@@ -286,6 +609,7 @@ export function ApiManager({
         url: saved.url,
         description: saved.description || "",
         active: saved.active !== false,
+        method: saved.method || "GET",
         configText: saved.configText || "{}",
       })
     } catch (error) {
@@ -300,7 +624,18 @@ export function ApiManager({
     setTestResult(null)
 
     try {
-      const response = await fetch(`${endpoint}/${api.id}/test`, { method: "POST" })
+      const response = await fetch(`${endpoint}/${api.id}/test`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          testOverrides: {
+            headers: parseObjectText(testHeadersText, {}),
+            body: testBodyText || undefined,
+          },
+        }),
+      })
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
@@ -446,12 +781,89 @@ export function ApiManager({
   }
 
   const selectedApi = apis.find((api) => api.id === form.id) || null
+  const testFields = useMemo(() => getApiTestFields({ api: selectedApi, form }), [form, selectedApi])
+  const parsedTestContext = useMemo(() => parseObjectText(testContextText, {}), [testContextText])
+  const resolvedBodyPreview = useMemo(() => testBodyText, [testBodyText])
+  const parsedConfigPreview = useMemo(() => stringifyJson(getApiConfigFromForm(form)), [form])
+  const agendaApiSelected = useMemo(() => isAgendaApi(selectedApi, form), [form, selectedApi])
+  const legacyAgendaApi = useMemo(() => isLegacyAgendaApi(selectedApi, form), [form, selectedApi])
   const detailOpen = Boolean(selectedApiId)
   const tabs = [
     { id: "edit", label: "Criar/Editar", icon: Pencil },
     { id: "json", label: "JSON", icon: Code2 },
     { id: "test", label: "Testar", icon: FlaskConical },
   ]
+
+  useEffect(() => {
+    let active = true
+
+    async function loadAgendaSlotsForTest() {
+      const widgetSlug = parsedTestContext?.widget?.slug
+      if (!agendaApiSelected || !widgetSlug) {
+        if (active) {
+          setAgendaTestSlots([])
+          setLoadingAgendaTestSlots(false)
+        }
+        return
+      }
+
+      setLoadingAgendaTestSlots(true)
+      try {
+        const response = await fetch(`/api/agenda?widgetSlug=${encodeURIComponent(widgetSlug)}`)
+        const data = await response.json().catch(() => ({}))
+        if (!active) {
+          return
+        }
+        if (!response.ok) {
+          setAgendaTestSlots([])
+          return
+        }
+        setAgendaTestSlots(Array.isArray(data.slots) ? data.slots : [])
+      } finally {
+        if (active) {
+          setLoadingAgendaTestSlots(false)
+        }
+      }
+    }
+
+    loadAgendaSlotsForTest()
+
+    return () => {
+      active = false
+    }
+  }, [agendaApiSelected, parsedTestContext])
+
+  function applyAgendaSlotToTest(slot) {
+    const nextContext = parseObjectText(testContextText, {})
+    const nextReservedAt =
+      slot?.dataInicio && slot?.horaInicio
+        ? `${String(slot.dataInicio).slice(0, 10)}T${String(slot.horaInicio).slice(0, 5)}:00.000Z`
+        : ""
+    setNestedValue(nextContext, "agenda.horarioId", slot?.id || "")
+    setNestedValue(nextContext, "agenda.horarioReservado", nextReservedAt)
+    setTestContextText(JSON.stringify(nextContext, null, 2))
+    const sourceApi = selectedApi || null
+    const config = sourceApi?.config || getApiConfigFromForm(form)
+    if (config?.http?.body != null) {
+      const template =
+        typeof config.http.body === "string" ? config.http.body : JSON.stringify(config.http.body, null, 2)
+      setTestBodyText(resolveTemplateWithContext(template, nextContext))
+    }
+  }
+
+  async function migrateAgendaApi() {
+    if (!selectedApi) {
+      return
+    }
+
+    const migration = buildAgendaMigrationConfig(selectedApi, form)
+    setForm((current) => ({
+      ...current,
+      url: migration.url,
+      configText: stringifyJson(migration.config),
+    }))
+    setStatus({ type: "success", message: "Modelo da agenda migrado para widgetSlug. Salve a API." })
+  }
 
   if (!detailOpen) {
     return (
@@ -463,7 +875,7 @@ export function ApiManager({
             </div>
             <div>
               <h2 className="text-base font-semibold text-white">APIs conectadas</h2>
-              <p className="text-sm text-slate-400">Cadastre endpoints GET para uso da inteligencia.</p>
+              <p className="text-sm text-slate-400">Cadastre endpoints GET, POST, PUT, PATCH ou DELETE para uso da inteligencia.</p>
             </div>
           </div>
           <Button type="button" variant="outline" className="gap-2" onClick={startCreate}>
@@ -512,6 +924,9 @@ export function ApiManager({
                       </span>
                     </span>
                     <span className="mt-1 block truncate text-slate-400">{api.url}</span>
+                    <span className="mt-1 inline-flex rounded-md border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] font-semibold text-slate-300">
+                      {api.method || "GET"}
+                    </span>
                     {api.description ? <span className="mt-1 block text-slate-500">{api.description}</span> : null}
                   </span>
                   <span className="self-center justify-self-start rounded-lg border border-white/10 bg-white/[0.03] px-3 py-1 text-xs font-medium text-slate-300 lg:justify-self-end">
@@ -539,7 +954,7 @@ export function ApiManager({
           </div>
           <div>
             <h2 className="text-base font-semibold text-white">APIs conectadas</h2>
-            <p className="text-sm text-slate-400">Cadastre endpoints GET para uso da inteligencia.</p>
+            <p className="text-sm text-slate-400">Cadastre endpoints GET, POST, PUT, PATCH ou DELETE para uso da inteligencia.</p>
           </div>
         </div>
         <Button type="button" variant="outline" className="gap-2" onClick={resetForm}>
@@ -557,7 +972,7 @@ export function ApiManager({
             <button
               key={tab.id}
               type="button"
-              onClick={() => onTabChange?.(tab.id)}
+              onClick={() => setTab(tab.id)}
               className={cn(
                 "infra-tab-motion inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium",
                 active
@@ -574,7 +989,21 @@ export function ApiManager({
 
       {activeTab === "edit" ? (
       <form id="api-editor-form" className="grid gap-4" onSubmit={saveApi}>
-        <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div className="grid gap-3 md:grid-cols-[160px_220px_minmax(0,1fr)]">
+          <label className="block">
+            <span className={labelClassName}>Metodo</span>
+            <select
+              value={form.method}
+              onChange={(event) => updateForm("method", event.target.value)}
+              className={inputClassName}
+            >
+              <option value="GET">GET</option>
+              <option value="POST">POST</option>
+              <option value="PUT">PUT</option>
+              <option value="PATCH">PATCH</option>
+              <option value="DELETE">DELETE</option>
+            </select>
+          </label>
           <label className="block">
             <span className={labelClassName}>Nome</span>
             <input
@@ -585,7 +1014,7 @@ export function ApiManager({
             />
           </label>
           <label className="block">
-            <span className={labelClassName}>URL GET</span>
+            <span className={labelClassName}>URL</span>
             <input
               value={form.url}
               onChange={(event) => updateForm("url", event.target.value)}
@@ -613,6 +1042,23 @@ export function ApiManager({
 
       {activeTab === "json" ? (
         <div className="mt-0 grid gap-5">
+          {legacyAgendaApi ? (
+            <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+              <p className="text-sm font-medium text-amber-100">API de agenda em formato legado</p>
+              <p className="mt-1 text-xs text-amber-200/80">Essa API ainda usa `projetoId/agenteId`. Migre para `widgetSlug` e salve.</p>
+              <div className="mt-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={migrateAgendaApi}
+                  className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 text-sm text-amber-100"
+                >
+                  Migrar para widgetSlug
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
           <label className="block">
             <div className="flex items-center justify-between gap-3">
               <span className={labelClassName}>Configuracao JSON</span>
@@ -624,6 +1070,12 @@ export function ApiManager({
               spellCheck={false}
             />
           </label>
+
+          <div>
+            <p className="text-sm font-medium text-white">Modelo atual da API</p>
+            <p className="mt-1 text-xs text-slate-500">Snapshot do que esta cadastrado agora.</p>
+            <JsonCodeBlock value={parsedConfigPreview} className="mt-3 max-h-72 overflow-y-auto" />
+          </div>
 
           <div>
             <p className="text-sm font-medium text-white">Exemplo JSON de retorno</p>
@@ -754,18 +1206,184 @@ export function ApiManager({
       ) : null}
 
       {activeTab === "test" ? (
-        <div className="mt-0 rounded-lg border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-sm font-medium text-white">Resposta do teste</p>
-          <p className="mt-1 text-xs text-slate-500">Execute o teste para validar retorno, campos extraidos e preview.</p>
-          <form
-            id="api-test-form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              if (selectedApi) {
-                testApi(selectedApi)
-              }
-            }}
-          />
+        <div className="mt-0 space-y-5">
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+            <p className="text-sm font-medium text-white">Opcoes do teste</p>
+            <p className="mt-1 text-xs text-slate-500">Projeto e agente ficam travados. Headers e body podem ser ajustados para testar API externa.</p>
+
+            {legacyAgendaApi ? (
+              <div className="mt-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-4">
+                <p className="text-sm font-medium text-amber-100">API de agenda em formato legado</p>
+                <p className="mt-1 text-xs text-amber-200/80">Migre para `widgetSlug` na aba JSON antes de confiar no teste.</p>
+              </div>
+            ) : null}
+
+            {testFields.length ? (
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {testFields.map((field) => (
+                  <label key={field.key} className="block">
+                    <span className={labelClassName}>
+                      {field.label}
+                      <span className="ml-2 text-[10px] font-medium uppercase tracking-[0.18em] text-slate-600">
+                        {field.source}
+                      </span>
+                    </span>
+                    <input
+                      value={String(
+                        field.path.split(".").reduce((current, segment) => {
+                          if (current == null || typeof current !== "object") {
+                            return ""
+                          }
+                          return current[segment]
+                        }, parsedTestContext) ?? ""
+                      )}
+                      placeholder={field.path}
+                      readOnly
+                      disabled
+                      className={inputClassName}
+                    />
+                    <span className="mt-1 block text-xs text-slate-500">{field.description}</span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <div className="mt-4 rounded-lg border border-dashed border-white/10 bg-[#0a1020] px-4 py-3 text-xs text-slate-500">
+                Esta API nao tem parametros dinamicos cadastrados.
+              </div>
+            )}
+
+            <label className="mt-4 block">
+              <span className={labelClassName}>Contexto JSON do teste</span>
+              <textarea
+                value={testContextText}
+                className={cn(textareaClassName, "min-h-44 break-all font-mono text-xs [overflow-wrap:anywhere]")}
+                spellCheck={false}
+                readOnly
+                disabled
+              />
+            </label>
+
+            <label className="mt-4 block">
+              <span className={labelClassName}>Headers do teste</span>
+              <textarea
+                value={testHeadersText}
+                onChange={(event) => setTestHeadersText(event.target.value)}
+                className={cn(textareaClassName, "min-h-32 break-all font-mono text-xs [overflow-wrap:anywhere]")}
+                spellCheck={false}
+              />
+            </label>
+
+            {agendaApiSelected ? (
+              <div className="mt-4 rounded-lg border border-white/10 bg-[#0a1020] p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">Slots para teste</p>
+                    <p className="mt-1 text-xs text-slate-500">Escolha um horario real para preencher o teste da agenda.</p>
+                  </div>
+                  {loadingAgendaTestSlots ? <span className="text-xs text-slate-500">Carregando...</span> : null}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {agendaTestSlots.slice(0, 12).map((slot) => (
+                    <button
+                      key={slot.id}
+                      type="button"
+                      onClick={() => applyAgendaSlotToTest(slot)}
+                      className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-200 hover:border-sky-400/30 hover:bg-sky-500/10"
+                    >
+                      {String(slot.dataInicio).slice(0, 10)} {String(slot.horaInicio).slice(0, 5)}
+                    </button>
+                  ))}
+                  {!loadingAgendaTestSlots && !agendaTestSlots.length ? (
+                    <div className="text-xs text-slate-500">Nenhum slot encontrado para o widget atual.</div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {resolvedBodyPreview ? (
+              <label className="mt-4 block">
+                <span className={labelClassName}>Body do teste</span>
+                <textarea
+                  value={resolvedBodyPreview}
+                  onChange={(event) => setTestBodyText(event.target.value)}
+                  className={cn(textareaClassName, "min-h-40 break-all font-mono text-xs [overflow-wrap:anywhere]")}
+                  spellCheck={false}
+                />
+              </label>
+            ) : null}
+
+            <form
+              id="api-test-form"
+              onSubmit={(event) => {
+                event.preventDefault()
+                if (selectedApi) {
+                  testApi(selectedApi)
+                }
+              }}
+            />
+          </div>
+
+          {testResult ? (
+            <div className="rounded-lg border border-white/10 bg-white/[0.03] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-sm font-semibold text-white">Teste: {testResult.apiName}</p>
+                <span
+                  className={cn(
+                    "rounded-lg border px-2.5 py-1 text-xs font-medium",
+                    testResult.ok
+                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+                      : "border-red-500/20 bg-red-500/10 text-red-200",
+                  )}
+                >
+                  {testResult.status || 0} {testResult.statusText}
+                </span>
+              </div>
+              {testingId === selectedApi?.id ? (
+                <div className="mt-3 text-xs text-slate-500">Executando teste...</div>
+              ) : null}
+              <div className="mt-3 grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg border border-white/10 bg-[#0a1020] px-3 py-2 text-xs text-slate-400">
+                  <div className="text-slate-500">Metodo</div>
+                  <div className="mt-1 break-all text-slate-200">{testResult.method || selectedApi?.method || "GET"}</div>
+                </div>
+                <div className="rounded-lg border border-white/10 bg-[#0a1020] px-3 py-2 text-xs text-slate-400">
+                  <div className="text-slate-500">Duracao</div>
+                  <div className="mt-1 text-slate-200">
+                    {testResult.durationMs !== null && testResult.durationMs !== undefined ? `${testResult.durationMs}ms` : "Sem medicao"}
+                  </div>
+                </div>
+              </div>
+              {testResult.url ? (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">URL testada</p>
+                  <JsonCodeBlock value={testResult.url} className="mt-2 max-h-32 overflow-y-auto" />
+                </div>
+              ) : null}
+              {testResult.requestBody ? (
+                <div className="mt-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Body enviado</p>
+                  <JsonCodeBlock value={testResult.requestBody} className="mt-2 max-h-48 overflow-y-auto" />
+                </div>
+              ) : null}
+              {Array.isArray(testResult.fields) && testResult.fields.length ? (
+                <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Campos extraidos</p>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {testResult.fields.map((field) => (
+                      <div key={`${field.nome}-${field.valor}`} className="rounded-md border border-white/10 bg-[#0a1020] px-2.5 py-2">
+                        <p className="text-xs font-medium text-slate-300">{field.nome}</p>
+                        <p className="mt-1 text-xs text-slate-500">{String(field.valor)}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+              <div className="mt-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Retorno</p>
+                <JsonCodeBlock value={testResult.preview || "Sem corpo de resposta."} className="mt-2 max-h-56 overflow-y-auto" />
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -795,41 +1413,6 @@ export function ApiManager({
         loading={Boolean(restoringVersionId)}
         onConfirm={() => (restoreTarget ? restoreApiVersion(restoreTarget.api, restoreTarget.versionId) : null)}
       />
-
-      {testResult ? (
-        <div className="mt-4 rounded-lg border border-white/10 bg-white/[0.03] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm font-semibold text-white">Teste: {testResult.apiName}</p>
-            <span
-              className={cn(
-                "rounded-lg border px-2.5 py-1 text-xs font-medium",
-                testResult.ok
-                  ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-                  : "border-red-500/20 bg-red-500/10 text-red-200",
-              )}
-            >
-              {testResult.status || 0} {testResult.statusText}
-            </span>
-          </div>
-          {testResult.durationMs !== null && testResult.durationMs !== undefined ? (
-            <p className="mt-2 text-xs text-slate-500">{testResult.durationMs}ms</p>
-          ) : null}
-          {Array.isArray(testResult.fields) && testResult.fields.length ? (
-            <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Campos extraidos</p>
-              <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                {testResult.fields.map((field) => (
-                  <div key={`${field.nome}-${field.valor}`} className="rounded-md border border-white/10 bg-[#0a1020] px-2.5 py-2">
-                    <p className="text-xs font-medium text-slate-300">{field.nome}</p>
-                    <p className="mt-1 text-xs text-slate-500">{String(field.valor)}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
-          <JsonCodeBlock value={testResult.preview || "Sem corpo de resposta."} className="mt-3 max-h-56 overflow-y-auto" />
-        </div>
-      ) : null}
 
       {detailOpen && !compact ? (
         <div className="mt-5 border-t border-white/5 pt-4">

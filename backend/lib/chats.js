@@ -248,6 +248,55 @@ export async function listChatMessages(chatId) {
   return data.map((row) => mapMensagem(row))
 }
 
+export async function listRecentMessagesByExternalIdentifier(input) {
+  const identifier = normalizeOptionalText(input?.identificadorExterno)
+  if (!identifier) {
+    return []
+  }
+
+  const supabase = getSupabaseAdminClient()
+  let chatQuery = supabase
+    .from("chats")
+    .select("id, created_at, updated_at")
+    .eq("identificador_externo", identifier)
+    .order("updated_at", { ascending: false })
+    .limit(6)
+
+  if (input?.projetoId) {
+    chatQuery = chatQuery.eq("projeto_id", input.projetoId)
+  }
+
+  if (input?.agenteId) {
+    chatQuery = chatQuery.eq("agente_id", input.agenteId)
+  }
+
+  if (input?.excludeChatId) {
+    chatQuery = chatQuery.neq("id", input.excludeChatId)
+  }
+
+  const { data: chats, error: chatsError } = await chatQuery
+  if (chatsError || !chats?.length) {
+    if (chatsError) {
+      console.error("[chats] failed to load contact history chats", chatsError)
+    }
+    return []
+  }
+
+  const { data, error } = await supabase
+    .from("mensagens")
+    .select("id, chat_id, role, conteudo, canal, identificador_externo, tokens_input, tokens_output, custo, metadata, created_at")
+    .in("chat_id", chats.map((chat) => chat.id))
+    .order("created_at", { ascending: false })
+    .limit(input?.limit ?? 18)
+
+  if (error || !data) {
+    console.error("[chats] failed to load contact history messages", error)
+    return []
+  }
+
+  return data.map((row) => mapMensagem(row)).reverse()
+}
+
 export async function updateChatContext(chatId, contexto) {
   const supabase = getSupabaseAdminClient()
   const { error } = await supabase

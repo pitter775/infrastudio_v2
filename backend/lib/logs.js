@@ -303,6 +303,88 @@ export async function deleteAdminLogs(filters = {}, deps = {}) {
   }
 }
 
+export async function cleanupAdminLogs(filters = {}, deps = {}) {
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const olderThanDays = Math.max(1, Number(filters.olderThanDays ?? 30) || 30)
+    const limit = Math.min(Math.max(Number(filters.limit ?? 500) || 500, 1), 2000)
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString()
+
+    let query = supabase
+      .from("logs")
+      .select("id, projeto_id, tipo, origem, descricao, payload, created_at")
+      .lt("created_at", cutoff)
+      .order("created_at", { ascending: true })
+      .limit(limit)
+
+    if (filters.projectId) {
+      query = query.eq("projeto_id", filters.projectId)
+    }
+
+    if (filters.type) {
+      query = query.eq("tipo", filters.type)
+    }
+
+    if (filters.origin) {
+      query = query.eq("origem", filters.origin)
+    }
+
+    const { data, error } = await query
+    if (error) {
+      console.error("[logs] failed to list cleanup candidates", error)
+      return null
+    }
+
+    const candidates = (data ?? []).filter((row) => {
+      const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload) ? row.payload : {}
+      return payload.pinned !== true && payload.keep !== true
+    })
+    const ids = candidates.map((row) => row.id).filter(Boolean)
+
+    if (filters.dryRun === true || !ids.length) {
+      return {
+        dryRun: filters.dryRun === true,
+        cutoff,
+        matched: data?.length ?? 0,
+        protected: (data?.length ?? 0) - ids.length,
+        deleted: 0,
+        candidateIds: ids,
+      }
+    }
+
+    const { error: deleteError } = await supabase.from("logs").delete().in("id", ids)
+    if (deleteError) {
+      console.error("[logs] failed to cleanup logs", deleteError)
+      return null
+    }
+
+    await createLogEntry({
+      type: "logs_cleanup",
+      origin: "laboratorio",
+      level: "info",
+      description: "Limpeza operacional de logs executada.",
+      payload: {
+        olderThanDays,
+        cutoff,
+        deleted: ids.length,
+        protected: (data?.length ?? 0) - ids.length,
+      },
+    })
+
+    return {
+      dryRun: false,
+      cutoff,
+      matched: data?.length ?? 0,
+      protected: (data?.length ?? 0) - ids.length,
+      deleted: ids.length,
+      candidateIds: ids,
+    }
+  } catch (error) {
+    console.error("[logs] failed to cleanup logs", error)
+    return null
+  }
+}
+
 export async function updateAdminLogPayload(logId, updater, deps = {}) {
   try {
     if (!logId) {

@@ -1952,6 +1952,7 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
     ) : panel.id === 'mercado-livre' ? (
       <MercadoLivrePanel project={project} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setMercadoFooter} compact />
     ) : null
+  const contentKey = realPanel ? `${panel.id}:manager` : `${panel.id}:${activeTab}`
 
   return (
     <>
@@ -1960,6 +1961,18 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
         eyebrowIcon={panel.icon}
         description={panel.description}
         statusTone="sky"
+        leftAction={
+          panel.id === 'apis' && apiDetailOpen ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-slate-300"
+              onClick={() => setApiResetSignal((value) => value + 1)}
+            >
+              Voltar para lista
+            </Button>
+          ) : null
+        }
         onCancel={onCloseSheet}
       />
       {panel.id === 'apis' && !apiDetailOpen ? null : (
@@ -1969,7 +1982,7 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
       <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
-            key={`${panel.id}:${activeTab}`}
+            key={contentKey}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}

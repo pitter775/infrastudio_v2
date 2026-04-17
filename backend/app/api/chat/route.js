@@ -6,6 +6,7 @@ import { registerProjectBillingUsage, verifyProjectBillingAccess } from "@/lib/b
 import { recordPublicChatEvent } from "@/lib/chat/diagnostics"
 import { emptyChatOptionsResponse, formatPublicChatResult, jsonChatResponse, normalizePublicChatBody } from "@/lib/chat/http"
 import { createLogEntry } from "@/lib/logs"
+import { getChatById, listChatMessages } from "@/lib/chats"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
@@ -291,6 +292,60 @@ function buildWhatsAppContextWithSavedContactFlags(context, whatsappChannel) {
 
 export async function OPTIONS(request) {
   return emptyChatOptionsResponse(request.headers.get("origin"))
+}
+
+function mapPublicChatMessage(message) {
+  return {
+    id: message.id,
+    role: message.role,
+    text: message.conteudo ?? "",
+    createdAt: message.createdAt,
+    assets: Array.isArray(message.metadata?.assets) ? message.metadata.assets : [],
+    attachments: Array.isArray(message.metadata?.attachments) ? message.metadata.attachments : [],
+    manual: message.metadata?.manual === true,
+  }
+}
+
+export async function GET(request) {
+  const origin = request.headers.get("origin")
+  const url = new URL(request.url)
+  const chatId = String(url.searchParams.get("chatId") || "").trim()
+
+  if (!chatId) {
+    return jsonChatResponse({ error: "chatId obrigatorio." }, { status: 400, origin })
+  }
+
+  const chat = await getChatById(chatId)
+  if (!chat) {
+    return jsonChatResponse({ error: "Conversa nao encontrada." }, { status: 404, origin })
+  }
+
+  const widgetSlug = String(url.searchParams.get("widgetSlug") || "").trim()
+  const projeto = String(url.searchParams.get("projeto") || "").trim()
+  const agente = String(url.searchParams.get("agente") || "").trim()
+  const resolved =
+    widgetSlug || projeto || agente
+      ? await resolveProjectAgent({
+          widgetSlug: widgetSlug || undefined,
+          projeto: projeto || undefined,
+          agente: agente || undefined,
+        })
+      : { projeto: null, agente: null }
+  const projectMatches = !resolved.projeto?.id || !chat.projetoId || resolved.projeto.id === chat.projetoId
+  const agentMatches = !resolved.agente?.id || !chat.agenteId || resolved.agente.id === chat.agenteId
+
+  if ((widgetSlug || projeto || agente) && (!projectMatches || !agentMatches)) {
+    return jsonChatResponse({ error: "Acesso negado." }, { status: 403, origin })
+  }
+
+  const after = String(url.searchParams.get("after") || "").trim()
+  const afterTime = after ? new Date(after).getTime() : null
+  const messages = (await listChatMessages(chatId))
+    .filter((message) => message.role === "assistant")
+    .filter((message) => !afterTime || new Date(message.createdAt).getTime() > afterTime)
+    .map(mapPublicChatMessage)
+
+  return jsonChatResponse({ chatId, messages }, { status: 200, origin })
 }
 
 export async function POST(request) {
