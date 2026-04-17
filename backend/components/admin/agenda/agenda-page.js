@@ -287,6 +287,34 @@ export default function AgendaPage() {
     setSaving(false)
   }
 
+  async function clearAgenda() {
+    if (!projectId || saving) return
+    if (typeof window !== "undefined" && !window.confirm("Remover todos os horarios e reservas deste projeto?")) {
+      return
+    }
+
+    setSaving(true)
+    setFeedback(null)
+    const response = await fetch("/api/admin/agenda", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        projetoId: projectId,
+      }),
+    })
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      setFeedback(data.error || "Nao foi possivel limpar a agenda.")
+      setSaving(false)
+      return
+    }
+
+    setFeedback(`Agenda limpa. ${data.deletedSlots ?? 0} horarios e ${data.deletedReservations ?? 0} reservas removidos.`)
+    await loadAgenda()
+    setSaving(false)
+  }
+
   async function updateSelectedSlots(active) {
     if (!selectedSlotIds.length || !projectId) return
 
@@ -451,10 +479,21 @@ export default function AgendaPage() {
         </div>
 
         <div className="mt-4">
-          <Button type="submit" disabled={saving || !projectId} className="gap-2">
-            {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Gerar horarios
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="submit" disabled={saving || !projectId} className="gap-2">
+              {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Gerar horarios
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={saving || !projectId || (!slots.length && !reservations.length)}
+              onClick={clearAgenda}
+              className="border-red-500/25 bg-red-500/10 text-red-100 hover:border-red-400/35 hover:bg-red-500/15 hover:text-red-50"
+            >
+              Limpar agenda
+            </Button>
+          </div>
         </div>
 
         {replicationOptions.length ? (

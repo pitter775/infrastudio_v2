@@ -663,6 +663,69 @@ export async function reserveAgendaSlotsForUser({ user, input }) {
   return { reservations: (data ?? []).map(mapReservation), error: null }
 }
 
+export async function clearAgendaForUser({ user, projetoId }) {
+  const normalizedProjectId = normalizeText(projetoId)
+  if (!normalizedProjectId || !(await canManageProject(user, normalizedProjectId))) {
+    return { deletedSlots: 0, deletedReservations: 0, error: "Acesso negado." }
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const [{ data: reservationRows, error: reservationListError }, { data: slotRows, error: slotListError }] = await Promise.all([
+    supabase
+      .from("agenda_reservas")
+      .select("id")
+      .eq("projeto_id", normalizedProjectId),
+    supabase
+      .from("agenda_horarios")
+      .select("id")
+      .eq("projeto_id", normalizedProjectId),
+  ])
+
+  if (reservationListError || slotListError) {
+    return {
+      deletedSlots: 0,
+      deletedReservations: 0,
+      error: reservationListError?.message || slotListError?.message || "Nao foi possivel carregar a agenda.",
+    }
+  }
+
+  let deletedReservations = 0
+  if ((reservationRows ?? []).length) {
+    const { data, error } = await supabase
+      .from("agenda_reservas")
+      .delete()
+      .eq("projeto_id", normalizedProjectId)
+      .select("id")
+
+    if (error) {
+      return { deletedSlots: 0, deletedReservations: 0, error: error.message }
+    }
+
+    deletedReservations = data?.length ?? reservationRows.length
+  }
+
+  let deletedSlots = 0
+  if ((slotRows ?? []).length) {
+    const { data, error } = await supabase
+      .from("agenda_horarios")
+      .delete()
+      .eq("projeto_id", normalizedProjectId)
+      .select("id")
+
+    if (error) {
+      return { deletedSlots: 0, deletedReservations, error: error.message }
+    }
+
+    deletedSlots = data?.length ?? slotRows.length
+  }
+
+  return {
+    deletedSlots,
+    deletedReservations,
+    error: null,
+  }
+}
+
 export async function cleanupExpiredAgendaSlots() {
   const supabase = getSupabaseAdminClient()
   const today = new Date().toISOString().slice(0, 10)

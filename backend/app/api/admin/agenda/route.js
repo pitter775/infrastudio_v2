@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import {
+  clearAgendaForUser,
   ensureAgendaApisForProject,
   generateAgendaSlotsForUser,
   listAgendaForUser,
@@ -65,6 +66,24 @@ export async function PATCH(request) {
       : body.type === "reserve_slots"
         ? await reserveAgendaSlotsForUser({ user, input: body })
         : await updateAgendaSlotsStatusForUser({ user, input: body })
+
+  if (result.error) {
+    return NextResponse.json({ error: result.error }, { status: 400 })
+  }
+
+  return NextResponse.json(result, { status: 200 })
+}
+
+export async function DELETE(request) {
+  const user = await getSessionUser()
+  if (!user) {
+    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+  }
+
+  const body = await request.json().catch(() => ({}))
+  const url = new URL(request.url)
+  const projetoId = body.projetoId || url.searchParams.get("projetoId") || ""
+  const result = await clearAgendaForUser({ user, projetoId })
 
   if (result.error) {
     return NextResponse.json({ error: result.error }, { status: 400 })
