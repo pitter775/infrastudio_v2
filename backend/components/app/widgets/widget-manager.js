@@ -16,7 +16,6 @@ const emptyForm = {
   name: "",
   slug: "",
   domain: "",
-  whatsapp: "",
   theme: "dark",
   accent: "#2563eb",
   transparent: true,
@@ -43,7 +42,6 @@ function normalizeWidget(widget) {
     name: widget.nome,
     slug: widget.slug,
     domain: widget.dominio || "",
-    whatsapp: widget.whatsappCelular || "",
     theme: widget.tema || "dark",
     accent: widget.corPrimaria || "#2563eb",
     transparent: widget.fundoTransparente !== false,
@@ -213,7 +211,6 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
           nome: form.name,
           slug: form.slug,
           dominio: form.domain,
-          whatsappCelular: form.whatsapp,
           tema: form.theme,
           corPrimaria: form.accent,
           fundoTransparente: form.transparent,
@@ -359,18 +356,6 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
                 value={form.accent}
                 onChange={(event) => updateForm("accent", event.target.value)}
                 className="mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-2 py-1"
-              />
-            </label>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block">
-              <span className={labelClassName}>WhatsApp de continuidade</span>
-              <input
-                value={form.whatsapp}
-                onChange={(event) => updateForm("whatsapp", event.target.value)}
-                placeholder="5511999999999"
-                className={inputClassName}
               />
             </label>
           </div>

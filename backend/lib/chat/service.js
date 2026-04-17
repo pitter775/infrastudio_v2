@@ -24,7 +24,7 @@ import { estimateOpenAICostUsd } from "@/lib/openai-pricing"
 import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
 import { getConfiguredWhatsAppDestination } from "@/lib/chat/whatsapp-availability"
 import { listActiveHandoffRecipientsByProjectId } from "@/lib/whatsapp-handoff-contatos"
-import { sendWhatsAppTextMessage } from "@/lib/whatsapp-channels"
+import { getActiveWhatsAppChannelByProjectAgent, sendWhatsAppTextMessage } from "@/lib/whatsapp-channels"
 
 function sanitizePhone(phone) {
   return String(phone || "").replace(/\D/g, "")
@@ -679,6 +679,12 @@ export function buildNextContext(input) {
           ...enrichedContextRecord.widget,
         }
       : mergedCurrentContext.widget,
+    whatsapp: isPlainObject(enrichedContextRecord.whatsapp)
+      ? {
+          ...(isPlainObject(mergedCurrentContext.whatsapp) ? mergedCurrentContext.whatsapp : {}),
+          ...enrichedContextRecord.whatsapp,
+        }
+      : mergedCurrentContext.whatsapp,
     catalogo: isPlainObject(mergedCurrentContext.catalogo) ? { ...mergedCurrentContext.catalogo } : {},
   }
 
@@ -770,6 +776,10 @@ function shouldAttachWhatsAppCta(reply) {
 }
 
 function buildWhatsAppContinuationCta(input = {}) {
+  if (input.nextContext?.whatsapp?.ctaEnabled !== true) {
+    return null
+  }
+
   const destination = normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext))
   if (!destination || !shouldAttachWhatsAppCta(`${input.reply || ""}\n${input.followUpReply || ""}`)) {
     return null
@@ -892,6 +902,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   const getWidgetByProjetoAgente = deps.getChatWidgetByProjetoAgente ?? getChatWidgetByProjetoAgente
   const getProjetoByIdResolver = deps.getProjetoById ?? getProjetoById
   const getAgenteByIdResolver = deps.getAgenteById ?? getAgenteById
+  const getActiveWhatsAppChannel = deps.getActiveWhatsAppChannelByProjectAgent ?? getActiveWhatsAppChannelByProjectAgent
 
   if (projetoIdentifier) {
     const projeto = await getProjeto(projetoIdentifier)
@@ -902,11 +913,14 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     }
 
     const widget = projeto?.id && agente?.id ? await getWidgetByProjetoAgente({ projetoId: projeto.id, agenteId: agente.id }) : null
+    const whatsappChannel =
+      projeto?.id && agente?.id ? await getActiveWhatsAppChannel({ projetoId: projeto.id, agenteId: agente.id }) : null
 
     return {
       projeto,
       agente,
       widget,
+      whatsappChannel,
       lockedToAgent: true,
       channel: {
         kind: channelKind,
@@ -951,11 +965,14 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   const projeto = await getProjetoByIdResolver(widget.projetoId)
   const widgetAgent = projeto ? await getAgenteByIdResolver(widget.agenteId) : null
   const agente = widgetAgent && widgetAgent.ativo && widgetAgent.projetoId === projeto?.id ? widgetAgent : null
+  const whatsappChannel =
+    projeto?.id && agente?.id ? await getActiveWhatsAppChannel({ projetoId: projeto.id, agenteId: agente.id }) : null
 
   return {
     projeto,
     agente,
     widget,
+    whatsappChannel,
     lockedToAgent: true,
     channel: {
       kind: channelKind,
@@ -991,6 +1008,8 @@ export function buildCoreChatRequest(body, resolvedProjectAgent) {
 }
 
 export function buildInitialChatContext(input) {
+  const whatsappChannel = isPlainObject(input.resolved?.whatsappChannel) ? input.resolved.whatsappChannel : null
+
   return {
     ...(isPlainObject(input.extraContext) ? input.extraContext : {}),
     projeto: input.resolved?.projeto
@@ -1017,8 +1036,20 @@ export function buildInitialChatContext(input) {
           id: input.resolved.widget.id,
           slug: input.resolved.widget.slug,
           whatsapp_celular: input.resolved.widget.whatsappCelular ?? "",
+          whatsappEnabled: Boolean(whatsappChannel?.id),
         }
       : null,
+    whatsapp: whatsappChannel
+      ? {
+          channelId: whatsappChannel.id,
+          numero: whatsappChannel.number ?? "",
+          number: whatsappChannel.number ?? "",
+          connectionStatus: whatsappChannel.connectionStatus ?? null,
+          ctaEnabled: true,
+        }
+      : {
+          ctaEnabled: false,
+        },
     channel: {
       ...(isPlainObject(input.resolved?.channel) ? input.resolved.channel : {}),
       kind: input.channelKind,
@@ -1263,6 +1294,8 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
   const requestHandoff = deps.requestHumanHandoff ?? requestHumanHandoff
   const listRecipients = deps.listActiveHandoffRecipientsByProjectId ?? listActiveHandoffRecipientsByProjectId
   const sendMessage = deps.sendWhatsAppTextMessage ?? sendWhatsAppTextMessage
+  const loadChatById = deps.getChatById ?? getChatById
+  const loadChatMessages = deps.listChatMessages ?? listChatMessages
   const acknowledgement = input.channelKind === "whatsapp"
     ? "Perfeito. Ja acionei um atendente humano para continuar por aqui. Assim que alguem assumir, seguimos neste mesmo WhatsApp."
     : "Perfeito. Ja acionei um atendente humano para continuar por aqui assim que possivel."
@@ -1270,40 +1303,45 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
   let alertMessage = input.alertMessage ?? null
 
   if (input.channelKind === "whatsapp" && input.chatId && input.projetoId && input.canalWhatsappId) {
-    const chat = await getChatById(input.chatId)
-    const recipients = await listRecipients(input.projetoId, {
-      canalWhatsappId: input.canalWhatsappId,
-    })
-
-    if (chat && recipients.length > 0) {
-      const attendanceUrl = `${getAppUrl().replace(/\/$/, "")}/admin/atendimento?conversa=${encodeURIComponent(input.chatId)}`
-      const customerName = chat.contatoNome?.trim() || chat.titulo?.trim() || "Cliente"
-      const customerPhone = chat.contatoTelefone?.trim() || chat.identificadorExterno?.trim() || ""
-      const lastCustomerMessage = await listChatMessages(input.chatId)
-        .then((messages) =>
-          [...messages]
-            .reverse()
-            .find((message) => message.role === "user" && String(message.conteudo || "").trim())
-        )
-        .catch(() => null)
-
-      alertMessage = buildHumanHandoffAlertMessage({
-        projectName: input.projetoNome || null,
-        customerName,
-        customerPhone,
-        message: String(lastCustomerMessage?.conteudo || "").replace(/\s+/g, " ").trim().slice(0, 280),
-        attendanceUrl,
+    try {
+      const canLoadChatContext = typeof deps.getChatById === "function" || hasSupabaseServerEnv()
+      const chat = canLoadChatContext ? await loadChatById(input.chatId) : null
+      const recipients = await listRecipients(input.projetoId, {
+        canalWhatsappId: input.canalWhatsappId,
       })
 
-      await Promise.all(
-        recipients.map((recipient) =>
-          sendMessage({
-            channelId: input.canalWhatsappId,
-            to: recipient.numero,
-            message: alertMessage,
-          })
+      if (chat && recipients.length > 0) {
+        const attendanceUrl = `${getAppUrl().replace(/\/$/, "")}/admin/atendimento?conversa=${encodeURIComponent(input.chatId)}`
+        const customerName = chat.contatoNome?.trim() || chat.titulo?.trim() || "Cliente"
+        const customerPhone = chat.contatoTelefone?.trim() || chat.identificadorExterno?.trim() || ""
+        const lastCustomerMessage = await loadChatMessages(input.chatId)
+          .then((messages) =>
+            [...messages]
+              .reverse()
+              .find((message) => message.role === "user" && String(message.conteudo || "").trim())
+          )
+          .catch(() => null)
+
+        alertMessage = buildHumanHandoffAlertMessage({
+          projectName: input.projetoNome || null,
+          customerName,
+          customerPhone,
+          message: String(lastCustomerMessage?.conteudo || "").replace(/\s+/g, " ").trim().slice(0, 280),
+          attendanceUrl,
+        })
+
+        await Promise.all(
+          recipients.map((recipient) =>
+            sendMessage({
+              channelId: input.canalWhatsappId,
+              to: recipient.numero,
+              message: alertMessage,
+            })
+          )
         )
-      )
+      }
+    } catch (error) {
+      console.warn("[chat-runtime] failed to build handoff alert context", error)
     }
   }
 

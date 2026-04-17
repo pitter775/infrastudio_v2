@@ -49,6 +49,11 @@
 ## Medio
 
 - Opcao de excluir conta com tudo que o usuario teria acesso, preservando dados administrativos.
+- Chat widget: remover de vez o resquicio legado de `whatsapp_celular` do cadastro, mapeamentos internos e banco quando a compatibilidade deixar de ser necessaria.
+  Objetivo:
+  1. eliminar campo irrelevante do contrato interno
+  2. evitar confusao entre configuracao de widget e disponibilidade real do canal
+  3. manter WhatsApp controlado somente por canal ativo/conectado do agente
 
 ## Baixo
 

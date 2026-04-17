@@ -50,7 +50,7 @@ O foco principal agora e fechar a paridade e o refinamento do cerebro de atendim
 - cache curto de API runtime em memoria
 - observabilidade de IA no atendimento, Laboratorio e simulador
 - simulador de agente real efemero
-- regra de WhatsApp apenas com numero/canal disponivel
+- regra de WhatsApp apenas com canal ativo/conectado do agente
 - billing por projeto com `free` apenas no primeiro projeto do usuario
 - bloqueio de projeto sem plano para projetos criados apos o primeiro
 - home consumindo planos reais do banco

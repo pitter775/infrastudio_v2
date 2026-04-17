@@ -2,18 +2,45 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Bot, History, Link2, MessageSquareText, RotateCcw, Save, Sparkles } from "lucide-react"
+import { Bot, History, Link2, MessageSquareText, RotateCcw, Save, Sparkles, Wand2 } from "lucide-react"
 
 import { AgentSimulator } from "@/components/app/agents/agent-simulator"
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { buildAgentRuntimeConfigTemplate, normalizeAgentRuntimeConfig } from "@/lib/agent-runtime-config"
 import { cn } from "@/lib/utils"
+
+const runtimeConfigTemplateText = JSON.stringify(buildAgentRuntimeConfigTemplate(), null, 2)
+
+function formatRuntimeConfigText(value) {
+  const parsed = typeof value === "string" && value.trim() ? JSON.parse(value) : null
+  const normalized = normalizeAgentRuntimeConfig(parsed)
+  return normalized ? JSON.stringify(normalized, null, 2) : ""
+}
+
+function getRuntimeConfigValidationError(value) {
+  const rawValue = String(value || "")
+  if (!rawValue.trim()) {
+    return ""
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue)
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return "Runtime config precisa ser um objeto JSON."
+    }
+
+    return ""
+  } catch (error) {
+    return `JSON invalido: ${error.message}`
+  }
+}
 
 export function AgentEditor({ project, onAgentSummaryChange }) {
   const router = useRouter()
   const agent = project.agent
   const projectIdentifier = project.routeKey || project.slug || project.id
-  const initialRuntimeConfig = agent?.runtimeConfig ? JSON.stringify(agent.runtimeConfig, null, 2) : ""
+  const initialRuntimeConfig = agent?.runtimeConfig ? JSON.stringify(normalizeAgentRuntimeConfig(agent.runtimeConfig), null, 2) : ""
   const [name, setName] = useState(agent?.name || "")
   const [description, setDescription] = useState(agent?.description || "")
   const [prompt, setPrompt] = useState(agent?.prompt || "")
@@ -28,12 +55,13 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
   const [setupSiteUrl, setSetupSiteUrl] = useState("")
   const [creatingAgent, setCreatingAgent] = useState(false)
   const [restoreConfirmId, setRestoreConfirmId] = useState("")
+  const runtimeConfigValidationError = getRuntimeConfigValidationError(runtimeConfig)
 
   function applyAgentState(nextAgent) {
     setName(nextAgent?.nome || nextAgent?.name || "")
     setDescription(nextAgent?.descricao || nextAgent?.description || "")
     setPrompt(nextAgent?.promptBase || nextAgent?.prompt || "")
-    setRuntimeConfig(nextAgent?.runtimeConfig ? JSON.stringify(nextAgent.runtimeConfig, null, 2) : "")
+    setRuntimeConfig(nextAgent?.runtimeConfig ? JSON.stringify(normalizeAgentRuntimeConfig(nextAgent.runtimeConfig), null, 2) : "")
     setActive(nextAgent?.ativo !== false && nextAgent?.active !== false)
   }
 
@@ -49,9 +77,13 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
     setStatus({ type: "idle", message: "" })
 
     try {
+      if (runtimeConfigValidationError) {
+        throw new Error(runtimeConfigValidationError)
+      }
+
       let parsedRuntimeConfig = null
       if (runtimeConfig.trim()) {
-        parsedRuntimeConfig = JSON.parse(runtimeConfig)
+        parsedRuntimeConfig = normalizeAgentRuntimeConfig(JSON.parse(runtimeConfig))
         if (!parsedRuntimeConfig || typeof parsedRuntimeConfig !== "object" || Array.isArray(parsedRuntimeConfig)) {
           throw new Error("Runtime config precisa ser um objeto JSON.")
         }
@@ -97,6 +129,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
       }
 
       setStatus({ type: "success", message: "Agente salvo." })
+      setRuntimeConfig(parsedRuntimeConfig ? JSON.stringify(parsedRuntimeConfig, null, 2) : "")
       router.refresh()
     } catch (error) {
       setStatus({ type: "error", message: error.message })
@@ -337,15 +370,57 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
 
         <label className="block">
           <span className="text-sm font-medium text-zinc-700">Runtime config JSON</span>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              disabled={Boolean(runtimeConfigValidationError)}
+              onClick={() => {
+                try {
+                  setRuntimeConfig(formatRuntimeConfigText(runtimeConfig))
+                  setStatus({ type: "idle", message: "" })
+                } catch (error) {
+                  setStatus({ type: "error", message: error.message })
+                }
+              }}
+            >
+              <Wand2 className="h-3.5 w-3.5" />
+              Limpar JSON
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setRuntimeConfig(runtimeConfigTemplateText)
+                setStatus({ type: "idle", message: "" })
+              }}
+            >
+              Usar modelo
+            </Button>
+          </div>
           <textarea
             value={runtimeConfig}
             onChange={(event) => setRuntimeConfig(event.target.value)}
-            placeholder='{"leadCapture":{"mode":"after_offer"},"pricingCatalog":{"enabled":true,"items":[]}}'
-            className="mt-1 min-h-44 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
+            placeholder={runtimeConfigTemplateText}
+            className={cn(
+              "mt-1 min-h-44 w-full resize-y rounded-lg border bg-white px-3 py-2 font-mono text-sm outline-none transition focus:ring-2",
+              runtimeConfigValidationError
+                ? "border-red-300 focus:border-red-500 focus:ring-red-500/10"
+                : "border-zinc-300 focus:border-zinc-950 focus:ring-zinc-950/10",
+            )}
           />
-          <p className="mt-2 text-xs text-zinc-500">
-            Configuracao operacional premium do agente. Use JSON valido para regras de oferta, CTA e captura de lead.
-          </p>
+          {runtimeConfigValidationError ? (
+            <p className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+              {runtimeConfigValidationError}
+            </p>
+          ) : null}
+          <div className="mt-2 space-y-2 text-xs text-zinc-500">
+            <p>So estas chaves sao usadas hoje pelo runtime: `business`, `sales`, `leadCapture` e `pricingCatalog`.</p>
+            <p>Ao salvar, o sistema limpa campos vazios e remove chaves que o orquestrador nao consome.</p>
+          </div>
         </label>
 
         <label className="flex items-center gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700">
@@ -372,7 +447,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
         ) : null}
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={saving} className="gap-2">
+          <Button type="submit" disabled={saving || Boolean(runtimeConfigValidationError)} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? "Salvando..." : "Salvar agente"}
           </Button>

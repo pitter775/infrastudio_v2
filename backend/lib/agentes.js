@@ -1,5 +1,6 @@
 import "server-only"
 
+import { normalizeAgentRuntimeConfig } from "@/lib/agent-runtime-config"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const agenteFields =
@@ -28,7 +29,7 @@ function mapAgent(row) {
     siteUrl: typeof brand.siteUrl === "string" ? brand.siteUrl.trim() : "",
     runtimeConfig:
       configuracoes.runtimeConfig && typeof configuracoes.runtimeConfig === "object" && !Array.isArray(configuracoes.runtimeConfig)
-        ? { ...configuracoes.runtimeConfig }
+        ? normalizeAgentRuntimeConfig(configuracoes.runtimeConfig)
         : null,
     ativo: row.ativo !== false,
     projetoId: row.projeto_id ?? null,
@@ -57,7 +58,7 @@ function mapAgentVersion(row) {
     siteUrl: typeof brand.siteUrl === "string" ? brand.siteUrl.trim() : "",
     runtimeConfig:
       configuracoes.runtimeConfig && typeof configuracoes.runtimeConfig === "object" && !Array.isArray(configuracoes.runtimeConfig)
-        ? { ...configuracoes.runtimeConfig }
+        ? normalizeAgentRuntimeConfig(configuracoes.runtimeConfig)
         : null,
     ativo: row.ativo !== false,
     source: row.source || "manual_update",
@@ -84,10 +85,19 @@ function userCanAccessProject(user, projectId) {
   return user?.memberships?.some((item) => item.projetoId === projectId) ?? false
 }
 
-function normalizeAgentUpdate(input) {
-  const configuracoes = normalizeAgentConfigurations(input.configuracoes)
-  if (input.runtimeConfig && typeof input.runtimeConfig === "object" && !Array.isArray(input.runtimeConfig)) {
-    configuracoes.runtimeConfig = input.runtimeConfig
+function normalizeAgentUpdate(input, currentConfiguracoes = {}) {
+  const configuracoes = {
+    ...normalizeAgentConfigurations(currentConfiguracoes),
+    ...normalizeAgentConfigurations(input.configuracoes),
+  }
+
+  if (Object.prototype.hasOwnProperty.call(input, "runtimeConfig")) {
+    const normalizedRuntimeConfig = normalizeAgentRuntimeConfig(input.runtimeConfig)
+    if (normalizedRuntimeConfig) {
+      configuracoes.runtimeConfig = normalizedRuntimeConfig
+    } else {
+      delete configuracoes.runtimeConfig
+    }
   }
 
   return {
@@ -398,12 +408,6 @@ export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao
     return null
   }
 
-  const payload = normalizeAgentUpdate({ nome, descricao, promptBase, ativo, runtimeConfig, configuracoes })
-
-  if (!payload.nome || !payload.prompt_base) {
-    return null
-  }
-
   try {
     const supabase = getSupabaseAdminClient()
     const { data: currentAgent, error: currentAgentError } = await supabase
@@ -417,6 +421,15 @@ export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao
       if (currentAgentError) {
         console.error("[agentes] failed to read agent before update", currentAgentError)
       }
+      return null
+    }
+
+    const payload = normalizeAgentUpdate(
+      { nome, descricao, promptBase, ativo, runtimeConfig, configuracoes },
+      currentAgent.configuracoes,
+    )
+
+    if (!payload.nome || !payload.prompt_base) {
       return null
     }
 

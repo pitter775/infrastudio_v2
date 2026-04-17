@@ -10,7 +10,8 @@
     "test:chat-laboratory:record": "tsx --tsconfig tsconfig.tests.json tests/chat-laboratory.record.ts",
     "test:chat-intelligence": "tsx --tsconfig tsconfig.tests.json tests/chat-intelligence.smoke.ts",
     "test:chat-intelligence:scenarios": "tsx --tsconfig tsconfig.tests.json tests/chat-intelligence.scenarios.ts",
-    "test:chat-intelligence:full": "npm run test:chat-intelligence && npm run test:chat-intelligence:scenarios"
+    "test:chat-intelligence:domain-regression": "tsx --tsconfig tsconfig.tests.json tests/chat-intelligence.domain-regression.ts",
+    "test:chat-intelligence:full": "npm run test:chat-intelligence && npm run test:chat-intelligence:scenarios && npm run test:chat-intelligence:domain-regression"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

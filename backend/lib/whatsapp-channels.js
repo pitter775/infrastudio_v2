@@ -249,6 +249,44 @@ export async function getPrimaryWhatsAppChannelByProjectId(projectId, deps = {})
   }
 }
 
+function isConnectedConnectionStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase()
+  return ["online", "connected", "conectado", "ready", "ativo"].includes(normalized)
+}
+
+export async function getActiveWhatsAppChannelByProjectAgent(input, deps = {}) {
+  if (!input?.projetoId || !input?.agenteId) {
+    return null
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("canais_whatsapp")
+      .select(channelFields)
+      .eq("projeto_id", input.projetoId)
+      .eq("agente_id", input.agenteId)
+      .eq("status", "ativo")
+      .order("updated_at", { ascending: false, nullsFirst: false })
+
+    if (error || !Array.isArray(data)) {
+      if (error) {
+        console.error("[whatsapp] failed to load active agent channel", error)
+      }
+      return null
+    }
+
+    const connectedChannel = data
+      .map(mapChannel)
+      .find((channel) => channel.number && isConnectedConnectionStatus(channel.connectionStatus))
+
+    return connectedChannel ?? null
+  } catch (error) {
+    console.error("[whatsapp] failed to load active agent channel", error)
+    return null
+  }
+}
+
 export async function getWhatsAppChannelById(channelId, deps = {}) {
   if (!channelId) {
     return null

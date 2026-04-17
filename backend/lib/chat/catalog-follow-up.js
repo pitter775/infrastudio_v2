@@ -1,7 +1,27 @@
 import { buildProductSearchCandidates, shouldSearchProducts } from "@/lib/chat/sales-heuristics"
 import { normalizeText } from "@/lib/chat/text-utils"
 
+const RECENT_CATALOG_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 12
+
+function isCatalogSnapshotFresh(context) {
+  const snapshotCreatedAt = context?.catalogo?.snapshotCreatedAt
+  if (!snapshotCreatedAt) {
+    return true
+  }
+
+  const parsed = new Date(snapshotCreatedAt)
+  if (Number.isNaN(parsed.getTime())) {
+    return true
+  }
+
+  return Date.now() - parsed.getTime() <= RECENT_CATALOG_SNAPSHOT_MAX_AGE_MS
+}
+
 export function normalizeRecentCatalogProducts(context) {
+  if (!isCatalogSnapshotFresh(context)) {
+    return []
+  }
+
   return Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
 }
 

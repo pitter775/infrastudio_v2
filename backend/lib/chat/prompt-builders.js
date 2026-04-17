@@ -35,7 +35,9 @@ function buildRuntimeConfigInstructions(context = {}) {
   } else {
     const whatsappDestination = getConfiguredWhatsAppDestination(context)
     if (whatsappDestination && whatsappDestination !== "current_channel") {
+      lines.push(`WhatsApp de continuidade: ${whatsappDestination}`)
       lines.push("WhatsApp cadastrado para continuidade do atendimento.")
+      lines.push("Nunca use placeholder de WhatsApp. Use somente o numero configurado quando isso for necessario em contexto interno.")
       lines.push("Se sugerir continuar no WhatsApp, nao escreva numero, link ou contato em texto.")
       lines.push("Apenas convide de forma curta para continuar no WhatsApp quando fizer sentido.")
     }
@@ -46,6 +48,18 @@ function buildRuntimeConfigInstructions(context = {}) {
   }
 
   return lines.join("\n")
+}
+
+function buildResponseGuardrailInstructions() {
+  return [
+    "Regras de resposta:",
+    "- Responda primeiro a pergunta principal do cliente.",
+    "- Nunca despeje campo cru, JSON, rotulo tecnico ou lista de atributos sem interpretar.",
+    "- Quando a pergunta for factual, responda com o fato mais relevante primeiro e complemente so com contexto util.",
+    "- Quando houver mais de um dado importante, organize em blocos curtos ou lista curta.",
+    "- Se a informacao pedida nao estiver disponivel, diga isso claramente em vez de improvisar.",
+    "- Nao invente valor, prazo, disponibilidade, status, documento ou detalhe tecnico.",
+  ].join("\n")
 }
 
 export function buildSystemPrompt(agent = {}, context = {}, structured = false) {
@@ -85,6 +99,7 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
     `Voce e ${name}.`,
     projetoNome ? `Projeto: ${projetoNome}.` : "",
     base,
+    buildResponseGuardrailInstructions(),
     buildRuntimeConfigInstructions(runtimeContext),
     apiContext,
     structured ? "Responda em formato estruturado quando fizer sentido." : "",
@@ -109,6 +124,8 @@ export function buildRuntimePrompt(agent, context, options = {}) {
 
   return [
     buildRuntimeConfigInstructions(runtimeContext),
+    "Se a pergunta pedir valor, prazo, status, descricao, risco, disponibilidade ou documento, responda isso primeiro.",
+    "Se houver dados factuais no contexto, transforme esses dados em resposta util para o cliente.",
     Boolean(options.structuredResponse) ? "Prefira resposta curta, comercial e organizada." : "",
   ]
     .filter(Boolean)
@@ -124,15 +141,24 @@ export function buildAgentAssetInstruction(assets = []) {
 }
 
 export function buildAnalyticalReplyInstruction() {
-  return "Seja preciso e nao invente dados."
+  return [
+    "Seja preciso e nao invente dados.",
+    "Em perguntas analiticas, entregue conclusao, motivos e proximo passo.",
+    "Em perguntas objetivas, nao transforme tudo em analise longa.",
+  ].join("\n")
 }
 
 export function buildChannelReplyInstruction(channelKind) {
-  return channelKind === "whatsapp" ? "Use mensagens curtas e naturais para WhatsApp." : "Responda de forma clara."
+  return channelKind === "whatsapp"
+    ? "Use mensagens curtas e naturais para WhatsApp. Uma ideia por bloco. Evite resposta longa e robotica."
+    : "Responda de forma clara. Priorize leitura rapida e resposta direta."
 }
 
 export function buildStructuredReplyInstruction() {
-  return "Organize a resposta em blocos curtos."
+  return [
+    "Organize a resposta em blocos curtos.",
+    "Quando fizer sentido, use listas curtas ou rotulos simples como Resposta, Motivos e Proximo passo.",
+  ].join("\n")
 }
 
 export function extractTaggedAssets(reply, assets = []) {

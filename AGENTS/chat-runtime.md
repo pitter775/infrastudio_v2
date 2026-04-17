@@ -67,6 +67,8 @@ Saida comum:
 - atendimento humano agora assume automaticamente ao digitar/enviar mensagem no admin
 - handoff humano volta sozinho para IA apos 5 minutos sem atividade humana
 - widget publico e `chat.js` ja suportam CTA `Chamar humano` quando o runtime oferecer
+- CTA de continuidade para WhatsApp so pode aparecer quando existir canal de WhatsApp ativo/conectado no agente
+- cadastro do chat widget nao controla mais oferta de WhatsApp
 - WhatsApp por canal ja suporta flag `responseOnlyUnsavedContacts`
 - backend do chat ja respeita a regra de responder apenas contatos nao salvos quando a flag vier no canal
 - resumo curto de memoria foi religado

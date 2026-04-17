@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 
+import { normalizeAgentRuntimeConfig } from "@/lib/agent-runtime-config";
 import {
   appendOptionalHumanOffer,
   applyAdminTestContextOverrides,
@@ -126,6 +127,58 @@ const handoffFixture = loadHandoffFixture();
 const whatsappContextFixture = loadWhatsAppContextFixture();
 
 const tests: TestCase[] = [
+  {
+    name: "runtime config do agente normaliza para chaves realmente usadas",
+    run: () => {
+      const normalized = normalizeAgentRuntimeConfig({
+        business: {
+          summary: "  Atendimento consultivo  ",
+          services: ["Site", "Site", "  Chat IA  ", ""],
+        },
+        leadCapture: {
+          deferOnQuestions: true,
+          promptWeb: " Como posso te chamar? ",
+        },
+        pricingCatalog: {
+          enabled: true,
+          items: [
+            {
+              slug: "site",
+              name: "Criacao de site",
+              matchAny: ["site", " site ", ""],
+              priceLabel: "R$300 a R$1000",
+              ignored: "x",
+            },
+          ],
+        },
+        extra: {
+          noise: true,
+        },
+      });
+
+      assert.deepEqual(normalized, {
+        business: {
+          summary: "Atendimento consultivo",
+          services: ["Site", "Chat IA"],
+        },
+        leadCapture: {
+          deferOnQuestions: true,
+          promptWeb: "Como posso te chamar?",
+        },
+        pricingCatalog: {
+          enabled: true,
+          items: [
+            {
+              slug: "site",
+              name: "Criacao de site",
+              matchAny: ["site"],
+              priceLabel: "R$300 a R$1000",
+            },
+          ],
+        },
+      });
+    },
+  },
   {
     name: "observabilidade de ia resume metadata da mensagem",
     run: () => {
@@ -569,6 +622,7 @@ const tests: TestCase[] = [
         } as never,
         {
           widget: { slug: "site", whatsapp_celular: "" },
+          whatsapp: { ctaEnabled: false },
           channel: { kind: "web" },
         } as never,
         false
@@ -592,7 +646,8 @@ const tests: TestCase[] = [
           },
         } as never,
         {
-          widget: { slug: "site", whatsapp_celular: "5511999999999" },
+          widget: { slug: "site", whatsapp_celular: "" },
+          whatsapp: { numero: "5511999999999", ctaEnabled: true },
           channel: { kind: "web" },
         } as never,
         false
@@ -702,7 +757,7 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "orquestrador so direciona para whatsapp quando widget tem numero",
+    name: "orquestrador so direciona para whatsapp quando ha canal ativo",
     run: async () => {
       const baseContext = {
         agente: {
@@ -738,13 +793,15 @@ const tests: TestCase[] = [
         {
           ...baseContext,
           widget: { slug: "site", whatsapp_celular: "" },
+          whatsapp: { ctaEnabled: false },
         } as never
       )
       const withNumber = await executeSalesOrchestrator(
         [{ role: "user", content: "quanto custa um site com chat?" }] as never,
         {
           ...baseContext,
-          widget: { slug: "site", whatsapp_celular: "5511999999999" },
+          widget: { slug: "site", whatsapp_celular: "" },
+          whatsapp: { numero: "5511999999999", ctaEnabled: true },
         } as never
       )
 
@@ -1475,6 +1532,7 @@ const tests: TestCase[] = [
             projetoId,
             agenteId,
           }),
+          getActiveWhatsAppChannelByProjectAgent: async () => null,
         }
       )
 
@@ -1485,6 +1543,7 @@ const tests: TestCase[] = [
         },
         {
           getChatWidgetBySlug: async () => null,
+          getActiveWhatsAppChannelByProjectAgent: async () => null,
         }
       )
 
@@ -1594,6 +1653,11 @@ const tests: TestCase[] = [
         projeto: { id: "proj-20", nome: "Projeto 20", slug: "proj-20" },
         agente: { id: "agent-20", nome: "Agente 20" },
         widget: { id: "widget-20", slug: "widget-20", whatsappCelular: "5511999999999" },
+        whatsappChannel: {
+          id: "wa-20",
+          number: "5511999999999",
+          connectionStatus: "connected",
+        },
         lockedToAgent: true,
         channel: { kind: "whatsapp" },
       }
@@ -1653,6 +1717,8 @@ const tests: TestCase[] = [
       assert.equal(initialContext.channel.kind, "whatsapp")
       assert.equal(initialContext.agente.locked, true)
       assert.equal(initialContext.widget.slug, "widget-20")
+      assert.equal(initialContext.whatsapp.ctaEnabled, true)
+      assert.equal(initialContext.whatsapp.channelId, "wa-20")
       assert.equal(fallbackTitle, "Julia Rodrigues")
       assert.equal(reused.chat.id, "chat-existing")
       assert.equal(reused.created, false)
