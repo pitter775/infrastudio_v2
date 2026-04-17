@@ -103,7 +103,7 @@ export function AdminDashboardPage({ overview, currentUser }) {
         }
       />
 
-      <div className="mb-6 rounded-2xl border border-white/5 bg-[#0b1120] p-4 sm:p-6">
+      <div className="mb-6 hidden rounded-2xl border border-white/5 bg-[#0b1120] p-4 sm:p-6 lg:block">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
@@ -131,7 +131,7 @@ export function AdminDashboardPage({ overview, currentUser }) {
         </div>
       </div>
 
-      <div className="mb-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="mb-6 hidden gap-3 sm:grid-cols-2 xl:grid-cols-3 lg:grid">
         {summary.cards.map((card) => (
           <div key={card.label} className="rounded-xl border border-white/5 bg-[#0b1120] p-3 sm:p-4">
             <div className="text-xs uppercase tracking-[0.18em] text-slate-500">{card.label}</div>
@@ -142,7 +142,46 @@ export function AdminDashboardPage({ overview, currentUser }) {
       </div>
 
       <div className="space-y-4 lg:hidden">
-        <MobileSection title={isAdmin ? "Top projetos por consumo" : "Meus projetos"} subtitle="Toque para expandir." defaultOpen>
+        <MobileSection title="Resumo operacional" subtitle="Toque para expandir.">
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-4">
+              <div className="inline-flex items-center gap-2 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-cyan-200">
+                <ChartColumn className="h-3.5 w-3.5" />
+                Painel consolidado
+              </div>
+              <p className="mt-4 text-sm leading-6 text-slate-300">{summary.practicalSummary}</p>
+            </div>
+
+            <div className="grid gap-3">
+              <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Perfil</div>
+                <div className="mt-1 text-sm font-semibold text-white">{isAdmin ? "Admin" : "Usuario"}</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Usuario</div>
+                <div className="mt-1 text-sm font-semibold text-white">{overview.userName}</div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Ultimo chat</div>
+                <div className="mt-1 text-sm font-semibold text-white">{formatDateTime(summary.latestChat?.updatedAt)}</div>
+              </div>
+            </div>
+          </div>
+        </MobileSection>
+
+        <MobileSection title="Indicadores" subtitle="Toque para expandir.">
+          <div className="grid gap-3">
+            {summary.cards.map((card) => (
+              <div key={card.label} className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">{card.label}</div>
+                <div className="mt-2 text-xl font-semibold text-white">{formatInteger(card.value)}</div>
+                <div className="mt-1 text-xs text-slate-400">{card.detail}</div>
+              </div>
+            ))}
+          </div>
+        </MobileSection>
+
+        <MobileSection title={isAdmin ? "Top projetos por consumo" : "Meus projetos"} subtitle="Toque para expandir.">
           <div className="space-y-3">
             {summary.topProjects.length ? (
               summary.topProjects.map((project) => (

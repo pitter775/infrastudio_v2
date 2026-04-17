@@ -626,7 +626,7 @@ export function AdminShell({ user, children }) {
                       className="h-9 rounded-xl px-3 text-slate-400 shadow-none hover:bg-white/[0.04] hover:text-white"
                     >
                       <CreditCard className="mr-2 h-4 w-4" />
-                      Billing
+                      Meu Plano
                     </Button>
                   ) : null}
 

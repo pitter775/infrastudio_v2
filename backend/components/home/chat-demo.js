@@ -359,7 +359,7 @@ export function PremiumHomeChatDemo() {
                   className={cn(
                     'max-w-[88%] whitespace-pre-line rounded-[24px] px-4 py-3 text-[15px] leading-relaxed',
                     message.isAi
-                      ? 'mr-auto bg-transparent text-slate-700 shadow-none dark:text-slate-100'
+                      ? 'mr-auto border border-white/8 bg-[#121d34] text-slate-100 shadow-[0_18px_30px_-24px_rgba(2,6,23,0.92)]'
                       : 'ml-auto rounded-br-lg border border-blue-200 bg-blue-50 text-blue-900 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.12)] dark:border-blue-400/25 dark:bg-blue-500/18 dark:text-blue-50 dark:shadow-[0_12px_30px_-20px_rgba(15,23,42,0.9)]',
                   )}
                 >

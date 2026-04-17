@@ -1331,7 +1331,7 @@ function ProjectPanel({
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Comportamento do agente
+                    Adiciona seus dados para o agente atender.
                   </label>
                   <Button
                     type="button"
@@ -1707,20 +1707,6 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
           ) : null}
           {step === 1 ? (
             <form id="mercado-livre-resolve-form" className="grid gap-4" onSubmit={handleResolveStore}>
-              <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
-                <p className="font-semibold">Pegue os dados direto no Mercado Livre</p>
-                <p className="mt-1 text-amber-50/80">
-                  Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
-                </p>
-                <a
-                  href="https://developers.mercadolivre.com.br/devcenter"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
-                >
-                  Abrir painel do Mercado Livre
-                </a>
-              </div>
               <label className="block">
                 <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   Produto cadastrado na loja
@@ -1774,6 +1760,20 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
                   <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Seed ID</span>
                   <input value={seedId} onChange={(event) => setSeedId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
                 </label>
+              </div>
+              <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
+                <p className="font-semibold">Pegue os dados direto no Mercado Livre</p>
+                <p className="mt-1 text-amber-50/80">
+                  Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
+                </p>
+                <a
+                  href="https://developers.mercadolivre.com.br/devcenter"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
+                >
+                  Abrir painel do Mercado Livre
+                </a>
               </div>
             </div>
             </>
@@ -1844,6 +1844,28 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
       ) : null}
     </div>
   )
+}
+
+function resolveProjectPlanSummary(project) {
+  const projectPlanName = project.billing?.projectPlan?.planName?.trim?.() || ''
+  const subscriptionPlanName = project.billing?.subscription?.plan?.name?.trim?.() || ''
+  const rawPlanName = projectPlanName || subscriptionPlanName
+  const normalizedPlanName = rawPlanName.toLowerCase()
+  const hasValidPaidPlan =
+    Boolean(project.billing?.projectPlan?.planId || project.billing?.subscription?.plan?.id) &&
+    Boolean(normalizedPlanName) &&
+    !['padrao', 'padrão', 'default'].includes(normalizedPlanName)
+
+  return {
+    planId: hasValidPaidPlan
+      ? project.billing?.projectPlan?.planId || project.billing?.subscription?.plan?.id || null
+      : 'free',
+    planName: hasValidPaidPlan ? rawPlanName : 'Free',
+    isFree:
+      Boolean(project.billing?.subscription?.plan?.isFree) ||
+      normalizedPlanName === 'free' ||
+      !hasValidPaidPlan,
+  }
 }
 
 function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet = null, enabled = true, onIntegrationStatsChange = null }) {
@@ -2227,6 +2249,7 @@ export function AdminProjectDetailPage({ project }) {
       return undefined
     }
 
+    const planSummary = resolveProjectPlanSummary(project)
     const monthlyLimit =
       project.billing?.currentCycle?.limits?.totalTokens ??
       project.billing?.projectPlan?.limits?.totalTokens ??
@@ -2234,17 +2257,15 @@ export function AdminProjectDetailPage({ project }) {
     const usedTokens = Number(project.billing?.currentCycle?.usage?.totalTokens ?? 0)
     const remainingTokens = monthlyLimit == null ? null : Math.max(0, Number(monthlyLimit) - usedTokens)
     const usagePercent = Number(project.billing?.currentCycle?.usagePercent?.totalTokens ?? 0)
-    const planName = project.billing?.projectPlan?.planName || project.billing?.subscription?.plan?.name || 'Sem plano'
-    const planId = project.billing?.projectPlan?.planId || project.billing?.subscription?.plan?.id || null
 
     window.dispatchEvent(
       new CustomEvent('admin-project-usage-summary', {
         detail: {
           projectId: project.id,
           projectName: project.name,
-          planId,
-          planName,
-          isFree: Boolean(project.billing?.subscription?.plan?.isFree || project.billing?.projectPlan?.planName?.toLowerCase?.() === 'free'),
+          planId: planSummary.planId,
+          planName: planSummary.planName,
+          isFree: planSummary.isFree,
           subscriptionStatus: project.billing?.subscription?.status || '',
           billingBlocked: Boolean(project.billing?.status?.blocked || project.billing?.projectPlan?.blocked),
           blockedReason: project.billing?.projectPlan?.blockedReason || '',
@@ -2265,7 +2286,7 @@ export function AdminProjectDetailPage({ project }) {
         }),
       )
     }
-  }, [project.billing, project.id])
+  }, [project])
 
   useEffect(() => {
     window.dispatchEvent(
@@ -2558,6 +2579,7 @@ export function AdminProjectDetailPage({ project }) {
         >
           <AdminProjectCard
             project={project}
+            titleOverride={project.agent?.name || project.name}
             serviceIcons={directCardIcons}
             active={isPanelOpen}
             interactive
@@ -2712,10 +2734,10 @@ export function AdminProjectDetailPage({ project }) {
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activePanel}
-                initial={{ opacity: 0, x: isMobile ? -56 : 56 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: isMobile ? -56 : 56 }}
-                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
                 className="flex h-full min-h-0 flex-col"
               >
                 {selectedPanel ? (

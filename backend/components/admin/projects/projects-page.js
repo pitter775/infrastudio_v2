@@ -3,13 +3,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, List, LoaderCircle, MessageSquare, Pencil, Plus, Repeat, Store, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronRight, List, LoaderCircle, MessageSquare, Pencil, Plus, Repeat, Store, Trash2 } from 'lucide-react'
 import { AdminPageHeader } from '@/components/admin/page-header'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
 import { AppSelect } from '@/components/ui/app-select'
 import { Button } from '@/components/ui/button'
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetTitle,
@@ -341,15 +342,20 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
         </div>
       )}
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen} modal={false}>
+        <Sheet open={sheetOpen} onOpenChange={setSheetOpen} modal={false}>
           <SheetContent
             side="right"
             showOverlay={false}
+            showCloseButton={false}
             closeOnInteractOutside={false}
             closeOnEscapeKeyDown={false}
-            className="right-[19px] top-[54px] bottom-[18px] h-auto overflow-hidden rounded-l-lg border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-[-24px_0_48px_rgba(0,0,0,0.42)]"
+            className="right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible rounded-l-lg border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-[-24px_0_48px_rgba(0,0,0,0.42)]"
             style={{ width: '1040px', maxWidth: 'calc(100vw - 38px)' }}
           >
+            <SheetClose className="absolute left-0 top-[102px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Fechar painel</span>
+            </SheetClose>
             <SheetTitle className="sr-only">
               {form.id ? 'Editar projeto' : 'Novo projeto'}
             </SheetTitle>

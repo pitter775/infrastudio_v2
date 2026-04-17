@@ -145,6 +145,26 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     () => [...plans].sort((first, second) => Number(first?.monthlyPrice || 0) - Number(second?.monthlyPrice || 0)),
     [plans],
   )
+  const freePlan = useMemo(
+    () => plans.find((plan) => plan?.isFree) || null,
+    [plans],
+  )
+  const currentPlanId = useMemo(() => {
+    if (summary?.planId === 'free') {
+      return freePlan?.id || 'free'
+    }
+
+    return summary?.planId || ''
+  }, [freePlan?.id, summary?.planId])
+  const remainingLabel = useMemo(() => {
+    if (!summary?.isFree || !freePlan?.totalTokens) {
+      return summary?.remainingLabel || 'Sem limite'
+    }
+
+    const usedTokens = Number(summary?.usedTokens ?? 0)
+    const freeRemainingTokens = Math.max(0, Number(freePlan.totalTokens) - usedTokens)
+    return formatCredits(freeRemainingTokens)
+  }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.usedTokens])
 
   async function handleCheckout(item) {
     if (!summary?.projectId) {
@@ -171,14 +191,14 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full max-w-[740px] overflow-y-auto border-l border-white/10 bg-[#080e1d] p-0 text-slate-300">
-        <SheetTitle className="sr-only">Billing do projeto</SheetTitle>
-        <SheetDescription className="sr-only">Upgrade de plano e recarga de creditos do projeto atual.</SheetDescription>
+      <SheetContent side="right" className="w-full max-w-[740px] overflow-y-auto border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-[-10px_0_22px_rgba(2,6,23,0.34)]">
+        <SheetTitle className="sr-only">Meu Plano</SheetTitle>
+        <SheetDescription className="sr-only">Plano atual, upgrade e recarga de creditos do projeto.</SheetDescription>
 
         <div className="border-b border-white/5 px-6 py-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Billing do projeto</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Meu plano</p>
               <h2 className="mt-2 text-2xl font-semibold text-white">{summary?.projectName || 'Projeto atual'}</h2>
               <p className="mt-2 max-w-2xl text-sm text-slate-400">
                 Troque o plano ou compre mais creditos sem depender do admin. A liberacao final acontece quando o pagamento for confirmado.
@@ -193,11 +213,11 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Plano atual</div>
-              <div className="mt-1 text-sm font-semibold text-white">{summary?.planName || 'Sem plano'}</div>
+              <div className="mt-1 text-sm font-semibold text-white">{summary?.planName || (summary?.isFree ? 'Free' : 'Sem plano')}</div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Mensal restante</div>
-              <div className="mt-1 text-sm font-semibold text-white">{summary?.remainingLabel || 'Sem limite'}</div>
+              <div className="mt-1 text-sm font-semibold text-white">{remainingLabel}</div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Renovacao</div>
@@ -235,7 +255,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
                 <PlanCard
                   key={plan.id}
                   plan={plan}
-                  currentPlanId={summary?.planId || ''}
+                  currentPlanId={currentPlanId}
                   onCheckout={handleCheckout}
                   loadingKey={actionKey}
                 />

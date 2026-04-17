@@ -102,16 +102,22 @@ export async function findUsuarioByProvider(provider, providerId) {
 
 export async function updateUsuarioProviderAndVerification(input) {
   const supabase = getSupabaseAdminClient()
+  const nextAvatarUrl = String(input.avatarUrl || "").trim()
+  const updatePayload = {
+    provider: input.provider,
+    provider_id: input.providerId,
+    email_verificado: input.emailVerificado === true,
+    ativo: true,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (nextAvatarUrl) {
+    updatePayload.avatar_url = nextAvatarUrl
+  }
+
   const { error } = await supabase
     .from("usuarios")
-    .update({
-      provider: input.provider,
-      provider_id: input.providerId,
-      avatar_url: String(input.avatarUrl || "").trim() || null,
-      email_verificado: input.emailVerificado === true,
-      ativo: true,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("id", input.usuarioId)
 
   if (error) {

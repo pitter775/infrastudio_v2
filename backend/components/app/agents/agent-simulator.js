@@ -238,7 +238,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
       >
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-white">Teste do agente</h3>
-          <p className="mt-0.5 truncate text-xs text-slate-400">Runtime real efemero com APIs vinculadas.</p>
+          <p className="mt-0.5 truncate text-xs text-slate-400">Simule com o agente o que foi salvo.</p>
         </div>
         <div className="flex items-center gap-1" onPointerDown={(event) => event.stopPropagation()}>
           <Button

@@ -52,7 +52,21 @@ function HomeNavbar({ currentUser, onLoginClick }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [projectLoading, setProjectLoading] = useState(false)
+  const [scrolled, setScrolled] = useState(false)
   const userMenuRef = useRef(null)
+
+  useEffect(() => {
+    function syncScrolled() {
+      setScrolled(window.scrollY > 12)
+    }
+
+    syncScrolled()
+    window.addEventListener('scroll', syncScrolled, { passive: true })
+
+    return () => {
+      window.removeEventListener('scroll', syncScrolled)
+    }
+  }, [])
 
   useEffect(() => {
     function handlePointerDown(event) {
@@ -91,7 +105,12 @@ function HomeNavbar({ currentUser, onLoginClick }) {
   }
 
   return (
-    <nav className="home-nav-shell fixed top-0 z-[90] w-full border-b py-4 dark:bg-slate-950/88">
+    <nav
+      className={cn(
+        'home-nav-shell fixed top-0 z-[90] w-full py-4 transition-[background-color,border-color,box-shadow,backdrop-filter] duration-200',
+        scrolled && 'home-nav-shell-scrolled border-b',
+      )}
+    >
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
           <div className="relative h-12 w-12 overflow-hidden p-1">
@@ -129,18 +148,16 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                 <UserAvatar
                   src={currentUser?.avatarUrl}
                   label={displayName}
-                  className={cn(
-                    'h-7 w-7 bg-gradient-to-br from-cyan-400 to-blue-500 text-[11px]',
-                    projectLoading && 'opacity-80',
-                  )}
+                  className="h-7 w-7 bg-gradient-to-br from-cyan-400 to-blue-500 text-[11px]"
                 />
                 {projectLoading ? (
                   <Loader2
-                    size={12}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 animate-spin text-cyan-500 dark:text-cyan-100"
+                    size={14}
+                    className="shrink-0 animate-spin text-cyan-500 dark:text-cyan-100"
                   />
-                ) : null}
-                <span className="max-w-[140px] truncate text-left">{displayName}</span>
+                ) : (
+                  <span className="max-w-[140px] truncate text-left">{displayName}</span>
+                )}
                 <ChevronDown
                   size={16}
                   className={cn('text-slate-400 transition-transform', userMenuOpen && 'rotate-180')}
@@ -221,11 +238,17 @@ function HomeNavbar({ currentUser, onLoginClick }) {
             {currentUser ? (
               <>
                 <div className="mb-2 flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-white/10 dark:bg-white/[0.04]">
-                  <UserAvatar
-                    src={currentUser?.avatarUrl}
-                    label={displayName}
-                    className={cn('h-8 w-8 bg-gradient-to-br from-cyan-400 to-blue-500', projectLoading && 'opacity-80')}
-                  />
+                  {projectLoading ? (
+                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 text-cyan-600 dark:bg-white/10 dark:text-cyan-200">
+                      <Loader2 size={16} className="animate-spin" />
+                    </div>
+                  ) : (
+                    <UserAvatar
+                      src={currentUser?.avatarUrl}
+                      label={displayName}
+                      className="h-8 w-8 bg-gradient-to-br from-cyan-400 to-blue-500"
+                    />
+                  )}
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">{displayName}</p>
                     <p className="truncate text-xs text-slate-500 dark:text-slate-400">
@@ -295,7 +318,7 @@ function ServiceCard({ icon: Icon, title, description, delay }) {
         <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500 transition-transform duration-300 group-hover:scale-110">
           <Icon size={24} />
         </div>
-        <h3 className="mb-4 text-[1.55rem] font-semibold text-slate-900 dark:text-slate-100/88">{title}</h3>
+        <h3 className="mb-4 bg-gradient-to-r from-sky-700 via-blue-600 to-cyan-500 bg-clip-text text-[1.55rem] font-semibold text-transparent dark:from-sky-100 dark:via-cyan-200 dark:to-blue-300">{title}</h3>
         <p className="text-base leading-relaxed text-slate-600 dark:text-slate-400">{description}</p>
       </div>
     </motion.div>
@@ -351,8 +374,10 @@ function buildPlanFeatures(plan) {
   ]
 }
 
-function PricingSection({ plans = [], topUpOffer = null, onPlanSelect }) {
-  const visiblePlans = Array.isArray(plans) ? plans : []
+function PricingSection({ plans = [], onPlanSelect }) {
+  const visiblePlans = Array.isArray(plans)
+    ? plans.filter((plan) => String(plan?.name || '').trim().toLowerCase() !== 'scale')
+    : []
 
   return (
     <section id="planos" className="py-24">
@@ -385,17 +410,17 @@ function PricingSection({ plans = [], topUpOffer = null, onPlanSelect }) {
                   </span>
                 ) : null}
 
-                <div className={cn('flex h-full flex-col rounded-[1.45rem] p-6 text-left', plan.featured ? 'bg-white dark:home-panel-strong' : 'bg-white dark:bg-transparent')}>
+                <div className="flex h-full flex-col rounded-[1.45rem] bg-[rgba(10,18,38,0.78)] p-6 text-left">
                   <span className={cn('font-bold', presentation.nameClassName)}>{plan.name}</span>
-                  <h3 className="mt-2 text-2xl font-bold text-slate-900 dark:text-white">
+                  <h3 className="mt-2 text-2xl font-bold text-white">
                     {formatPlanPrice(plan.monthlyPrice, plan.isFree)}
-                    <span className="text-sm text-slate-500 dark:text-zinc-400">/mês</span>
+                    <span className="text-sm text-slate-400">/mês</span>
                   </h3>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-zinc-400">
+                  <p className="mt-2 text-sm text-slate-300">
                     {plan.description || formatCredits(plan.totalTokens)}
                   </p>
 
-                  <ul className="mt-6 space-y-3 text-sm text-slate-700 dark:text-zinc-300">
+                  <ul className="mt-6 space-y-3 text-sm text-slate-200">
                     {features.map((feature) => (
                       <PlanFeature key={feature}>{feature}</PlanFeature>
                     ))}
@@ -419,28 +444,6 @@ function PricingSection({ plans = [], topUpOffer = null, onPlanSelect }) {
             </div>
           )})}
         </div>
-
-        {topUpOffer ? (
-          <div className="mt-10 rounded-[1.6rem] border border-white/10 bg-white/[0.04] p-6 dark:bg-white/[0.03]">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-slate-500">Recarga de tokens</p>
-                <h3 className="mt-2 text-2xl font-semibold text-slate-900 dark:text-white">Comprar mais créditos</h3>
-                <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                  {`${formatCredits(topUpOffer.tokens)} por ${formatPlanPrice(topUpOffer.price)}`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => onPlanSelect?.({ type: 'topup', ...topUpOffer })}
-                disabled={!topUpOffer.checkoutUrl}
-                className="rounded-xl border border-cyan-300/35 bg-cyan-400/12 px-5 py-3 text-sm font-semibold text-cyan-700 transition hover:bg-cyan-400/18 disabled:cursor-not-allowed disabled:opacity-50 dark:text-cyan-50"
-              >
-                Comprar mais créditos
-              </button>
-            </div>
-          </div>
-        ) : null}
 
         <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
           {NICHE_ITEMS.map((item) => (
@@ -535,7 +538,7 @@ function AboutSection({ onLoginClick }) {
   )
 }
 
-export function LandingPage({ currentUser = null, plans = [], topUpOffer = null }) {
+export function LandingPage({ currentUser = null, plans = [] }) {
   const [loginOpen, setLoginOpen] = useState(false)
   const searchParams = useSearchParams()
   const selectedProjectId =
@@ -597,11 +600,6 @@ export function LandingPage({ currentUser = null, plans = [], topUpOffer = null 
       <HomeNavbar currentUser={currentUser} onLoginClick={() => setLoginOpen(true)} />
       <LoginModal open={loginOpen} onOpenChange={setLoginOpen} initialNotice={authNoticeMessage} />
       <section className="home-hero-light relative overflow-hidden pb-20 pt-32 md:pb-32 md:pt-48">
-        <div className="pointer-events-none absolute left-1/2 top-0 h-full w-full max-w-7xl -translate-x-1/2">
-          <div className="absolute left-[-10%] top-[-10%] h-[40%] w-[40%] rounded-full bg-blue-600/10" />
-          <div className="absolute bottom-[10%] right-[-10%] h-[40%] w-[40%] rounded-full bg-cyan-500/10" />
-        </div>
-
         <div className="relative z-10 mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -741,7 +739,7 @@ export function LandingPage({ currentUser = null, plans = [], topUpOffer = null 
         </div>
       </section>
 
-      <PricingSection plans={plans} topUpOffer={topUpOffer} onPlanSelect={openCheckout} />
+      <PricingSection plans={plans} onPlanSelect={openCheckout} />
       <AboutSection onLoginClick={() => setLoginOpen(true)} />
 
       <footer id="contato" className="home-footer-surface relative z-10 border-t py-20">
@@ -846,7 +844,7 @@ export function LandingPage({ currentUser = null, plans = [], topUpOffer = null 
           <div className="mt-20 flex flex-col items-center justify-between gap-6 border-t border-slate-200/80 pt-8 text-xs font-medium text-slate-500 md:flex-row dark:border-white/5 dark:text-slate-600">
             <p>{`© ${new Date().getFullYear()} InfraStudio. Todos os direitos reservados.`}</p>
             <div className="flex items-center gap-2">
-              Desenvolvido para gerar produtividade.
+              Desenvolvido com carinho pela InfraSudio.
               <ArrowRight size={14} />
             </div>
           </div>
@@ -855,6 +853,4 @@ export function LandingPage({ currentUser = null, plans = [], topUpOffer = null 
     </div>
   )
 }
-
-
 

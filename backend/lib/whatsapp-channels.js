@@ -109,7 +109,8 @@ function mapChannel(row) {
     lastError: session.lastError || "",
     lastInboundAt: session.lastInboundAt || null,
     lastOutboundAt: session.lastOutboundAt || null,
-    onlyReplyToUnsavedContacts: session.responseOnlyUnsavedContacts === true,
+    onlyReplyToUnsavedContacts:
+      session.responseOnlyUnsavedContacts === true || session.onlyReplyToUnsavedContacts === true,
     savedContactFlags,
     sessionData: session,
     createdAt: row.created_at,
@@ -301,6 +302,7 @@ export async function updateWhatsAppChannelForUser(channelId, project, input, us
 
     if (typeof input.onlyReplyToUnsavedContacts === "boolean") {
       nextSession.responseOnlyUnsavedContacts = input.onlyReplyToUnsavedContacts
+      nextSession.onlyReplyToUnsavedContacts = input.onlyReplyToUnsavedContacts
     }
 
     const { data, error } = await supabase

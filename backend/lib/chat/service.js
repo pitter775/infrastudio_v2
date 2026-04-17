@@ -1448,23 +1448,42 @@ export function isSavedWhatsAppContact(context) {
   }
 
   const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
-  const rawName = typeof rawContact?.name === "string" ? rawContact.name.trim() : ""
-  const contactName = typeof context.whatsapp.contactName === "string" ? context.whatsapp.contactName.trim() : ""
+  const contactPhone = normalizeInboundPhoneCandidate(getWhatsAppContactPhoneFromContext(context))
   const pushName = typeof context.whatsapp.pushName === "string" ? context.whatsapp.pushName.trim() : ""
+  const candidateNames = [
+    rawContact?.name,
+    rawContact?.shortName,
+    rawContact?.verifiedName,
+    context.whatsapp.contactName,
+  ]
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
 
-  if (!rawName) {
+  if (!candidateNames.length) {
     return false
   }
 
-  const loweredRawName = rawName.toLowerCase()
-  const loweredContactName = contactName.toLowerCase()
+  const normalizedPhone = contactPhone ? contactPhone.replace(/\D/g, "") : ""
   const loweredPushName = pushName.toLowerCase()
 
-  if (loweredRawName && loweredRawName !== loweredPushName) {
-    return true
-  }
+  return candidateNames.some((name) => {
+    const loweredName = name.toLowerCase()
+    const normalizedNameDigits = name.replace(/\D/g, "")
 
-  return Boolean(loweredRawName && loweredContactName && loweredRawName !== loweredContactName)
+    if (!loweredName) {
+      return false
+    }
+
+    if (normalizedPhone && normalizedNameDigits === normalizedPhone) {
+      return false
+    }
+
+    if (loweredPushName && loweredName === loweredPushName && normalizedNameDigits) {
+      return false
+    }
+
+    return true
+  })
 }
 
 export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {

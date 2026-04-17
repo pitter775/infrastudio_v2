@@ -195,8 +195,7 @@ a {
 
 .infra-diagonal-shadow {
   box-shadow:
-    8px 8px 0 rgba(2, 6, 23, 0.2),
-    0 18px 42px rgba(2, 6, 23, 0.32);
+    0 6px 16px rgba(2, 6, 23, 0.38);
 }
 
 .infra-overlay-motion {
@@ -251,21 +250,33 @@ a {
 }
 
 .home-nav-shell {
-  background: color-mix(in srgb, var(--home-surface-strong) 86%, transparent);
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.home-nav-shell-scrolled {
+  background: color-mix(in srgb, var(--home-surface-strong) 94%, transparent);
   border-color: var(--home-border);
   box-shadow: var(--home-shadow);
+  -webkit-backdrop-filter: blur(16px) saturate(135%);
+  backdrop-filter: blur(16px) saturate(135%);
+}
+
+.dark .home-nav-shell-scrolled {
+  background: rgba(2, 6, 23, 0.72);
 }
 
 .home-pricing-card {
-  background: #ffffff;
-  border: 1px solid rgba(203, 213, 225, 0.9);
-  box-shadow: 0 14px 34px -28px rgba(15, 23, 42, 0.14);
+  background: rgba(8, 15, 33, 0.7);
+  border: 1px solid rgba(96, 165, 250, 0.16);
+  box-shadow: 0 18px 40px -30px rgba(2, 6, 23, 0.72);
 }
 
 .dark .home-pricing-card {
-  background: var(--home-surface-strong);
-  border-color: var(--home-border-strong);
-  box-shadow: var(--home-shadow-strong);
+  background: rgba(8, 15, 33, 0.78);
+  border-color: rgba(96, 165, 250, 0.2);
+  box-shadow: 0 22px 44px -32px rgba(2, 6, 23, 0.82);
 }
 
 .home-panel-strong {
@@ -288,6 +299,15 @@ a {
   background: rgba(255, 255, 255, 0.98);
   border: 1px solid rgba(226, 232, 240, 0.96);
   box-shadow: 0 18px 42px -30px rgba(15, 23, 42, 0.1);
+}
+
+.chat-demo-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-demo-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .dark .home-white-card {
@@ -503,24 +523,24 @@ a {
 @keyframes infra-sheet-left-in {
   from {
     opacity: 0;
-    transform: translate3d(-24px, 0, 0);
+    transform: translateX(-12px);
   }
 
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translateX(0);
   }
 }
 
 @keyframes infra-sheet-right-in {
   from {
     opacity: 0;
-    transform: translate3d(24px, 0, 0);
+    transform: translateX(12px);
   }
 
   to {
     opacity: 1;
-    transform: translate3d(0, 0, 0);
+    transform: translateX(0);
   }
 }
 

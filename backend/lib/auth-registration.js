@@ -129,7 +129,24 @@ export async function loginOrCreateSocialUsuario(input) {
   const existingByProvider = await findUsuarioByProvider(input.provider, input.providerUserId)
 
   if (existingByProvider) {
-    const ensuredUser = await ensureUsuarioHasProjeto(existingByProvider)
+    if (input.avatarUrl && !existingByProvider.avatarUrl) {
+      await updateUsuarioProviderAndVerification({
+        usuarioId: existingByProvider.id,
+        provider: input.provider,
+        providerId: input.providerUserId,
+        avatarUrl: input.avatarUrl,
+        emailVerificado: true,
+      })
+    }
+
+    const refreshedUser = input.avatarUrl && !existingByProvider.avatarUrl
+      ? await getUsuarioById(existingByProvider.id)
+      : existingByProvider
+    if (!refreshedUser) {
+      return { ok: false, reason: "user_reload_failed" }
+    }
+
+    const ensuredUser = await ensureUsuarioHasProjeto(refreshedUser)
     await createSession(ensuredUser)
     return { ok: true, user: ensuredUser, created: false }
   }

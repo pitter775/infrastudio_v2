@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { cn } from "@/lib/utils"
 
 function getInitials(label) {
@@ -19,6 +20,15 @@ function getInitials(label) {
 }
 
 export function UserAvatar({ src, label, className, imageClassName, fallbackClassName }) {
+  const normalizedSrc = typeof src === "string" ? src.trim() : ""
+  const [imageFailed, setImageFailed] = useState(false)
+
+  useEffect(() => {
+    setImageFailed(false)
+  }, [normalizedSrc])
+
+  const showImage = Boolean(normalizedSrc) && !imageFailed
+
   return (
     <div
       className={cn(
@@ -26,8 +36,14 @@ export function UserAvatar({ src, label, className, imageClassName, fallbackClas
         className,
       )}
     >
-      {src ? (
-        <img src={src} alt={label || "Avatar"} className={cn("h-full w-full object-cover", imageClassName)} />
+      {showImage ? (
+        <img
+          src={normalizedSrc}
+          alt={label || "Avatar"}
+          referrerPolicy="no-referrer"
+          onError={() => setImageFailed(true)}
+          className={cn("h-full w-full object-cover", imageClassName)}
+        />
       ) : (
         <span className={fallbackClassName}>{getInitials(label)}</span>
       )}

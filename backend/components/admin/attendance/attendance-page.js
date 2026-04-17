@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronLeft,
+  ChevronRight,
   ChevronDown,
   FileText,
   Globe,
@@ -22,7 +23,7 @@ import {
 import { AdminPageHeader } from "@/components/admin/page-header"
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
-import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 
 const attendanceNav = [
@@ -560,6 +561,7 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const lastMessage = getLastMessage(conversation)
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
   const statusLabel = conversation.status === "humano" ? "Humano" : "IA atendendo"
+  const compactMobileHeader = Boolean(onCloseMobile)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [traceProviderFilter, setTraceProviderFilter] = useState("")
   const [traceStageFilter, setTraceStageFilter] = useState("")
@@ -711,26 +713,32 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                   {initials}
                 </div>
                 <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="truncate text-sm font-semibold text-slate-100">
-                      {conversation.cliente.nome}
-                    </h2>
-                    <Tag className="border-emerald-400/15 bg-emerald-400/10 text-emerald-200">
-                      {originLabel}
-                    </Tag>
-                    <Tag className="border-slate-500/20 bg-slate-500/10 text-slate-200">
-                      {statusLabel}
-                    </Tag>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="truncate text-sm font-semibold text-slate-100">
+                        {conversation.cliente.nome}
+                      </h2>
+                      {compactMobileHeader ? null : (
+                        <>
+                          <Tag className="border-emerald-400/15 bg-emerald-400/10 text-emerald-200">
+                            {originLabel}
+                          </Tag>
+                          <Tag className="border-slate-500/20 bg-slate-500/10 text-slate-200">
+                            {statusLabel}
+                          </Tag>
+                        </>
+                      )}
+                    </div>
+                    <p className="mt-1 truncate text-[11px] text-slate-400">
+                      {compactMobileHeader
+                        ? getConversationPhone(conversation)
+                        : `${getConversationPhone(conversation)} - Ultima atividade em ${lastMessage?.horario}`}
+                    </p>
                   </div>
-                  <p className="mt-1 truncate text-[11px] text-slate-400">
-                    {getConversationPhone(conversation)} - Ultima atividade em {lastMessage?.horario}
-                  </p>
-                </div>
                 </div>
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2">
+            <div className={cn("flex flex-wrap items-center gap-2", compactMobileHeader && "hidden lg:flex")}>
               <Button
                 type="button"
                 onClick={() => updateHandoff("human")}
@@ -800,9 +808,14 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
         <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
           <SheetContent
             side="right"
-            className="z-[151] w-[92vw] max-w-[420px] border-l border-white/5"
+            showCloseButton={false}
+            className="z-[151] w-[92vw] max-w-[420px] border-l border-white/5 overflow-visible"
             overlayClassName="z-[150]"
           >
+            <SheetClose className="absolute left-0 top-[96px] z-40 hidden -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none sm:inline-flex">
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Fechar painel</span>
+            </SheetClose>
             <div className="flex h-full flex-col">
               <div className="border-b border-white/5 px-5 py-5">
                 <SheetTitle className="text-left text-base font-semibold text-white">

@@ -129,6 +129,7 @@ function getOwnerInitials(owner) {
 
 export function AdminProjectCard({
   project,
+  titleOverride,
   serviceIcons,
   index = 0,
   onSelect,
@@ -146,6 +147,7 @@ export function AdminProjectCard({
 }) {
   const icons = Array.isArray(serviceIcons) && serviceIcons.length ? serviceIcons : getProjectServiceIcons(project)
   const projectAvatarUrl = resolveEntityAvatar(project)
+  const cardTitle = titleOverride?.trim() || project.name
   const dragControls = useDragControls()
   const isDraggingRef = useRef(false)
   const dragEndedAtRef = useRef(0)
@@ -227,8 +229,8 @@ export function AdminProjectCard({
         <div className="border-b border-white/5 p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <TinyAvatar src={projectAvatarUrl} fallback={project.name} />
-              <h3 className="truncate font-medium text-white">{project.name}</h3>
+              <TinyAvatar src={projectAvatarUrl} fallback={cardTitle} />
+              <h3 className="truncate font-medium text-white">{cardTitle}</h3>
             </div>
             {loading ? (
               <span className="inline-flex items-center gap-2 rounded-full border border-cyan-400/15 bg-cyan-400/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-200">

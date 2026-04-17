@@ -31,7 +31,7 @@ function SheetDescription(props) {
 function SheetOverlay({ className, ...props }) {
   return (
     <DialogPrimitive.Overlay
-      className={cn('infra-overlay-motion fixed inset-0 z-[80] bg-slate-950/60 backdrop-blur-sm', className)}
+      className={cn('infra-overlay-motion fixed inset-0 z-[80] bg-slate-950/60', className)}
       {...props}
     />
   )
@@ -58,7 +58,7 @@ function SheetContent({
       {showOverlay ? <SheetOverlay className={overlayClassName} /> : null}
       <DialogPrimitive.Content
         className={cn(
-          'infra-diagonal-shadow fixed z-[81] bg-[#080e1d] p-0 text-slate-400 outline-none border-white/5 will-change-transform',
+          'infra-diagonal-shadow fixed z-[81] bg-[#080e1d] p-0 text-slate-400 outline-none border-white/5',
           sideClassName,
           className,
         )}
