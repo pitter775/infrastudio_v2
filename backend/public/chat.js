@@ -60,6 +60,10 @@
     if (widgetSlug.trim()) {
       return {
         widgetSlug: widgetSlug.trim(),
+        projeto: projeto.trim(),
+        agente: agente.trim(),
+        context: script.getAttribute("data-context") || "",
+        externalIdentifier: script.getAttribute("data-identificador-externo") || "",
         title: script.getAttribute("data-title") || "",
         theme: script.getAttribute("data-theme") || "",
         accent: script.getAttribute("data-accent") || "",
@@ -94,6 +98,10 @@
 
     return {
       widgetSlug: payload.widget.slug,
+      projeto: projeto.trim(),
+      agente: agente.trim(),
+      context: script.getAttribute("data-context") || "",
+      externalIdentifier: script.getAttribute("data-identificador-externo") || "",
       title: payload.ui && payload.ui.title ? payload.ui.title : "",
       theme: payload.ui && payload.ui.theme ? payload.ui.theme : "",
       accent: payload.ui && payload.ui.accent ? payload.ui.accent : "",
@@ -116,6 +124,18 @@
     script.defer = true;
     script.setAttribute("data-widget", config.widgetSlug);
     script.setAttribute("data-api-base", config.apiBase);
+    if (config.projeto) {
+      script.setAttribute("data-projeto", config.projeto);
+    }
+    if (config.agente) {
+      script.setAttribute("data-agente", config.agente);
+    }
+    if (config.context) {
+      script.setAttribute("data-context", config.context);
+    }
+    if (config.externalIdentifier) {
+      script.setAttribute("data-identificador-externo", config.externalIdentifier);
+    }
 
     if (config.title) {
       script.setAttribute("data-title", config.title);

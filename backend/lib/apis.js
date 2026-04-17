@@ -161,6 +161,93 @@ function normalizeFieldValue(value) {
   }
 }
 
+function getRuntimeContextValue(context, path) {
+  if (!path) {
+    return undefined
+  }
+
+  const normalizedPath = String(path).trim()
+  if (!normalizedPath) {
+    return undefined
+  }
+
+  if (normalizedPath === "id") {
+    const directCandidates = [
+      context?.id,
+      context?.resource?.id,
+      context?.imovel?.id,
+      context?.property?.id,
+      context?.propertyId,
+    ]
+
+    for (const candidate of directCandidates) {
+      if (candidate != null && String(candidate).trim()) {
+        return candidate
+      }
+    }
+  }
+
+  return readPathValue(context, normalizedPath)
+}
+
+function resolveRuntimeApiParameterValue(api, context, parameterName) {
+  const normalizedName = String(parameterName || "").trim()
+  if (!normalizedName) {
+    return null
+  }
+
+  const configuredParameters = Array.isArray(api?.config?.parametros) ? api.config.parametros : []
+  const configuredParameter = configuredParameters.find(
+    (item) => String(item?.nome || item?.name || "").trim() === normalizedName
+  )
+  const explicitPaths = [
+    configuredParameter?.path,
+    configuredParameter?.contextPath,
+    configuredParameter?.source,
+  ].filter(Boolean)
+  const fallbackPaths = [
+    normalizedName,
+    `resource.${normalizedName}`,
+    `imovel.${normalizedName}`,
+    `property.${normalizedName}`,
+    normalizedName === "id" ? "resource.id" : null,
+    normalizedName === "id" ? "id" : null,
+    normalizedName === "id" ? "propertyId" : null,
+  ].filter(Boolean)
+
+  for (const path of [...explicitPaths, ...fallbackPaths]) {
+    const value = getRuntimeContextValue(context, path)
+    if (value != null && String(value).trim()) {
+      return String(value).trim()
+    }
+  }
+
+  return null
+}
+
+function resolveRuntimeApiUrl(api, context) {
+  const rawUrl = String(api?.url || "").trim()
+  if (!rawUrl) {
+    return { url: "", missingParams: [] }
+  }
+
+  const missingParams = []
+  const resolvedUrl = rawUrl.replace(/\{([^{}]+)\}/g, (match, paramName) => {
+    const value = resolveRuntimeApiParameterValue(api, context, paramName)
+    if (value == null) {
+      missingParams.push(String(paramName || "").trim())
+      return match
+    }
+
+    return encodeURIComponent(value)
+  })
+
+  return {
+    url: resolvedUrl,
+    missingParams,
+  }
+}
+
 function extractConfiguredRuntimeFields(api, payload) {
   const runtimeConfig = api?.config?.runtime
   const responseRoot = runtimeConfig?.responsePath ? readPathValue(payload, runtimeConfig.responsePath) : payload
@@ -741,15 +828,37 @@ export async function testApiForUser(apiId, projetoId, user) {
   }
 }
 
-async function fetchApiPreview(api, timeoutMs = 5000) {
+async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
   const cacheTtlSeconds = Number(api?.config?.runtime?.cacheTtlSeconds ?? 0)
   const safeTtlMs = Number.isFinite(cacheTtlSeconds) ? Math.min(Math.max(cacheTtlSeconds, 0), 3600) * 1000 : 0
+  const resolvedRequest = resolveRuntimeApiUrl(api, runtimeContext)
   const cacheKey = [
     api.id,
     api.updatedAt,
-    api.url,
+    resolvedRequest.url,
     JSON.stringify(api.config?.runtime ?? {}),
   ].join(":")
+
+  if (resolvedRequest.missingParams.length) {
+    return {
+      id: api.id,
+      apiId: api.id,
+      nome: api.name,
+      descricao: api.description,
+      url: rawUrlForDisplay(api, resolvedRequest.url),
+      ok: false,
+      status: 0,
+      durationMs: null,
+      contentType: "",
+      preview: `Parametros ausentes para consultar a API: ${resolvedRequest.missingParams.join(", ")}.`,
+      campos: [],
+      config: api.config,
+      cache: {
+        hit: false,
+        ttlSeconds: cacheTtlSeconds,
+      },
+    }
+  }
 
   if (safeTtlMs > 0) {
     const cached = runtimeApiCache.get(cacheKey)
@@ -769,7 +878,7 @@ async function fetchApiPreview(api, timeoutMs = 5000) {
   const startedAt = Date.now()
 
   try {
-    const response = await fetch(api.url, {
+    const response = await fetch(resolvedRequest.url, {
       method: "GET",
       signal: controller.signal,
       headers: getApiRequestHeaders(api),
@@ -784,7 +893,7 @@ async function fetchApiPreview(api, timeoutMs = 5000) {
       apiId: api.id,
       nome: api.name,
       descricao: api.description,
-      url: api.url,
+      url: rawUrlForDisplay(api, resolvedRequest.url),
       ok: response.ok,
       status: response.status,
       durationMs: Date.now() - startedAt,
@@ -812,7 +921,7 @@ async function fetchApiPreview(api, timeoutMs = 5000) {
       apiId: api.id,
       nome: api.name,
       descricao: api.description,
-      url: api.url,
+      url: rawUrlForDisplay(api, resolvedRequest.url),
       ok: false,
       status: 0,
       durationMs: null,
@@ -824,7 +933,11 @@ async function fetchApiPreview(api, timeoutMs = 5000) {
   }
 }
 
-export async function loadAgentRuntimeApis({ agenteId, projetoId, limit = 4 }) {
+function rawUrlForDisplay(api, resolvedUrl) {
+  return String(resolvedUrl || api?.url || "")
+}
+
+export async function loadAgentRuntimeApis({ agenteId, projetoId, limit = 4, context = null }) {
   if (!agenteId || !projetoId) {
     return []
   }
@@ -849,7 +962,7 @@ export async function loadAgentRuntimeApis({ agenteId, projetoId, limit = 4 }) {
     }
 
     const apis = data.map((item) => mapApi(item.apis)).filter((api) => api.active).slice(0, limit)
-    return Promise.all(apis.map((api) => fetchApiPreview(api)))
+    return Promise.all(apis.map((api) => fetchApiPreview(api, 5000, context)))
   } catch (error) {
     console.error("[apis] failed to load runtime apis", error)
     return []

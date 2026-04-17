@@ -48,6 +48,10 @@
       return;
     }
 
+    var projeto = (script.getAttribute("data-projeto") || "").trim();
+    var agente = (script.getAttribute("data-agente") || "").trim();
+    var externalIdentifier = (script.getAttribute("data-identificador-externo") || "").trim();
+    var rawContext = script.getAttribute("data-context") || "";
     var widgetTitle = script.getAttribute("data-title") || "Chat";
     var apiBase = script.getAttribute("data-api-base") || new URL(script.src).origin;
     var theme = script.getAttribute("data-theme") === "light" ? "light" : "dark";
@@ -71,6 +75,22 @@
     if (globalApi.instances[widgetSlug] && typeof globalApi.instances[widgetSlug].destroy === "function") {
       globalApi.instances[widgetSlug].destroy();
     }
+
+    function parseContext(value) {
+      if (!value) {
+        return null;
+      }
+
+      try {
+        var parsed = JSON.parse(value);
+        return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+      } catch (error) {
+        console.warn("[InfraStudio Chat] invalid data-context payload.", error);
+        return null;
+      }
+    }
+
+    var widgetContext = parseContext(rawContext);
 
     var host = document.createElement("div");
     host.id = "infrastudio-chat-widget-root-" + widgetSlug;
@@ -728,6 +748,10 @@
             chatId: chatId,
             message: trimmed,
             widgetSlug: widgetSlug,
+            projeto: projeto || undefined,
+            agente: agente || undefined,
+            identificadorExterno: externalIdentifier || undefined,
+            context: widgetContext || undefined,
           }),
         });
 

@@ -1870,6 +1870,7 @@ export async function processChatRequest(body, options = {}) {
         ? await (options.loadAgentRuntimeApis ?? loadAgentRuntimeApis)({
             agenteId: runtimeState.resolved.agente.id,
             projetoId: runtimeState.resolved.projeto.id,
+            context: runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
           })
         : []
 
