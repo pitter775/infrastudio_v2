@@ -208,28 +208,28 @@ function formatDirectFieldReply(fieldName, value, deps) {
     return null
   }
 
-  if (normalizedField.endsWith("matricula")) return `A matricula informada e ${formattedValue}.`
-  if (normalizedField.endsWith("cartorio")) return `O cartorio informado e ${formattedValue}.`
-  if (normalizedField.endsWith("riscos") || normalizedField.endsWith("risco")) return `Os riscos informados sao ${formattedValue}.`
-  if (normalizedField.endsWith("ocupacao")) return `A ocupacao informada e ${formattedValue}.`
-  if (normalizedField.endsWith("valor_minimo")) return `O valor minimo informado e ${formattedValue}.`
-  if (normalizedField.endsWith("valor_avaliacao")) return `O valor de avaliacao informado e ${formattedValue}.`
-  if (normalizedField.endsWith("valor_mercado")) return `O valor de mercado informado e ${formattedValue}.`
-  if (normalizedField.endsWith("preco") || normalizedField.endsWith("valor")) return `O valor informado e ${formattedValue}.`
-  if (normalizedField.endsWith("data_leilao")) return `A data informada e ${formattedValue}.`
-  if (normalizedField.endsWith("status")) return `O status atual informado e ${formattedValue}.`
-  if (normalizedField.endsWith("rua")) return `A rua informada e ${formattedValue}.`
-  if (normalizedField.endsWith("numero")) return `O numero informado e ${formattedValue}.`
-  if (normalizedField.endsWith("cep")) return `O CEP informado e ${formattedValue}.`
-  if (normalizedField.endsWith("cidade")) return `A cidade informada e ${formattedValue}.`
-  if (normalizedField.endsWith("estado")) return `O estado informado e ${formattedValue}.`
-  if (normalizedField.endsWith("quartos")) return `A quantidade de quartos informada e ${formattedValue}.`
-  if (normalizedField.endsWith("banheiros")) return `A quantidade de banheiros informada e ${formattedValue}.`
-  if (normalizedField.endsWith("area_total")) return `A area total informada e ${formattedValue}.`
-  if (normalizedField.endsWith("area_construida")) return `A area construida informada e ${formattedValue}.`
-  if (normalizedField.endsWith("descricao")) return `A descricao encontrada e: ${formattedValue}`
-  if (normalizedField.endsWith("resumo")) return `O resumo encontrado e: ${formattedValue}`
-  if (normalizedField.endsWith("analise")) return `A analise encontrada e: ${formattedValue}`
+  if (normalizedField.endsWith("matricula")) return `Matricula: ${formattedValue}`
+  if (normalizedField.endsWith("cartorio")) return `Cartorio: ${formattedValue}`
+  if (normalizedField.endsWith("riscos") || normalizedField.endsWith("risco")) return `Pontos de atencao: ${formattedValue}`
+  if (normalizedField.endsWith("ocupacao")) return `Ocupacao: ${formattedValue}`
+  if (normalizedField.endsWith("valor_minimo")) return `Valor minimo: ${formattedValue}`
+  if (normalizedField.endsWith("valor_avaliacao")) return `Valor de avaliacao: ${formattedValue}`
+  if (normalizedField.endsWith("valor_mercado")) return `Valor de mercado: ${formattedValue}`
+  if (normalizedField.endsWith("preco") || normalizedField.endsWith("valor")) return `Valor: ${formattedValue}`
+  if (normalizedField.endsWith("data_leilao")) return `Data do leilao: ${formattedValue}`
+  if (normalizedField.endsWith("status")) return `Status: ${formattedValue}`
+  if (normalizedField.endsWith("rua")) return `Rua: ${formattedValue}`
+  if (normalizedField.endsWith("numero")) return `Numero: ${formattedValue}`
+  if (normalizedField.endsWith("cep")) return `CEP: ${formattedValue}`
+  if (normalizedField.endsWith("cidade")) return `Cidade: ${formattedValue}`
+  if (normalizedField.endsWith("estado")) return `Estado: ${formattedValue}`
+  if (normalizedField.endsWith("quartos")) return `Quartos: ${formattedValue}`
+  if (normalizedField.endsWith("banheiros")) return `Banheiros: ${formattedValue}`
+  if (normalizedField.endsWith("area_total")) return `Area total: ${formattedValue}`
+  if (normalizedField.endsWith("area_construida")) return `Area construida: ${formattedValue}`
+  if (normalizedField.endsWith("descricao")) return `Detalhes do imovel: ${formattedValue}`
+  if (normalizedField.endsWith("resumo")) return `Resumo: ${formattedValue}`
+  if (normalizedField.endsWith("analise")) return `Analise: ${formattedValue}`
 
   return `${formatApiFieldLabel(fieldName)}: ${formattedValue}`
 }
@@ -318,7 +318,7 @@ function buildContextualDirectReply(primaryField, supportFields, deps) {
     return primaryReply
   }
 
-  return [primaryReply, `Contexto util: ${supportReplies.join(" ")}`].join("\n")
+  return [primaryReply, "", "**Contexto util:**", ...supportReplies.map((reply) => `- ${reply}`)].join("\n")
 }
 
 function getApiFieldIcon(fieldName, deps) {

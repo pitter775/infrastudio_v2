@@ -53,6 +53,9 @@ export function HomeChatWidgetLoader({ config }) {
     script.defer = true
     script.dataset.widget = config.widget
     script.dataset.apiBase = window.location.origin
+    if (config.agente) {
+      script.dataset.agente = config.agente
+    }
     if (config.title) {
       script.dataset.title = config.title
     }

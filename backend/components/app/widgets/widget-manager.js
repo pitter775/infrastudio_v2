@@ -49,12 +49,13 @@ function normalizeWidget(widget) {
   }
 }
 
-function buildWidgetSnippet(widget) {
+function buildWidgetSnippet(project, widget) {
   return [
     "<!-- Cole este script antes de fechar o </body> da pagina -->",
     `<script`,
     `  src="${PUBLIC_DOMAIN}/chat-widget.js"`,
     `  data-widget="${widget.slug}"`,
+    `  data-agente="${project.agent?.slug || project.agent?.id || ""}"`,
     `  data-title="${widget.name}"`,
     `  data-theme="${widget.theme}"`,
     `  data-accent="${widget.accent}"`,
@@ -443,7 +444,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
                     variant="ghost"
                     size="sm"
                     className="gap-2"
-                    onClick={() => copySnippet(buildWidgetSnippet(widget))}
+                    onClick={() => copySnippet(buildWidgetSnippet(project, widget))}
                   >
                     <Copy className="h-4 w-4" />
                     Copiar
@@ -466,7 +467,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
             id="widget-copy-form"
             onSubmit={(event) => {
               event.preventDefault()
-              copySnippet(buildWidgetSnippet(selectedWidget))
+              copySnippet(buildWidgetSnippet(project, selectedWidget))
             }}
           />
           <div>
@@ -476,7 +477,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
                 Snippet recomendado
               </div>
               <div className="flex items-center gap-2">
-                <Button type="button" size="sm" variant="ghost" className="h-8 rounded-lg px-3 text-xs" onClick={() => copySnippet(buildWidgetSnippet(selectedWidget))}>
+                <Button type="button" size="sm" variant="ghost" className="h-8 rounded-lg px-3 text-xs" onClick={() => copySnippet(buildWidgetSnippet(project, selectedWidget))}>
                   <Copy className="mr-1.5 h-3.5 w-3.5" />
                   Copiar
                 </Button>
@@ -491,7 +492,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
               </div>
             </div>
             <JsonCodeBlock
-              value={buildWidgetSnippet(selectedWidget)}
+              value={buildWidgetSnippet(project, selectedWidget)}
               className="rounded-xl border-white/10 bg-transparent p-0"
             />
           </div>

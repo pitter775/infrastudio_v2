@@ -259,6 +259,45 @@ function preserveStructuredWhitespace(value) {
     .replace(/\n[ \t]+/g, "\n")
 }
 
+function normalizeStructuredCustomerReply(reply) {
+  const lines = preserveStructuredWhitespace(reply)
+    .replace(/(^|\n)\s*(\d+)\.\s*\n+(?=\S)/g, "$1$2. ")
+    .replace(/\n{3,}/g, "\n\n")
+    .split("\n")
+
+  return lines
+    .map((rawLine) => {
+      const line = String(rawLine || "").trim()
+      if (!line) {
+        return ""
+      }
+
+      if (/^(https?:\/\/|www\.)/i.test(line)) {
+        return line
+      }
+
+      const bareLabelMatch = line.match(/^([A-Za-z\u00C0-\u00FF$][A-Za-z\u00C0-\u00FF0-9\s/_-]{1,40}:)\s*$/)
+      if (bareLabelMatch) {
+        return `**${bareLabelMatch[1]}**`
+      }
+
+      const inlineLabelMatch = line.match(/^([A-Za-z\u00C0-\u00FF$][A-Za-z\u00C0-\u00FF0-9\s/_-]{1,40}:)\s+(.+)$/)
+      if (inlineLabelMatch) {
+        return `**${inlineLabelMatch[1]}** ${inlineLabelMatch[2].trim()}`
+      }
+
+      const numberedLabelMatch = line.match(/^(\d+\.)\s+([A-Za-z\u00C0-\u00FF$][A-Za-z\u00C0-\u00FF0-9\s/_-]{1,40}:)\s+(.+)$/)
+      if (numberedLabelMatch) {
+        return `${numberedLabelMatch[1]} **${numberedLabelMatch[2]}** ${numberedLabelMatch[3].trim()}`
+      }
+
+      return line
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
 function formatContinuationSummary(rawSummary) {
   const summaryText = String(rawSummary || "").trim()
   if (!summaryText) {
@@ -821,10 +860,16 @@ export function prepareAiReplyPayload(input) {
   const followUpReplyRaw = input.channelKind === "whatsapp" ? "" : splitReply?.followUpReply || ""
   const primaryReplyBase = stripAssistantMetaReply(primaryReplyRaw, input.channelKind)
   const followUpReplyBase = stripAssistantMetaReply(followUpReplyRaw, input.channelKind)
+  const normalizedPrimaryReplyBase = normalizeStructuredCustomerReply(primaryReplyBase)
+  const normalizedFollowUpReplyBase = normalizeStructuredCustomerReply(followUpReplyBase)
   const primaryReply =
-    input.channelKind === "whatsapp" ? sanitizeWhatsAppCustomerFacingReply(primaryReplyBase) : primaryReplyBase
+    input.channelKind === "whatsapp"
+      ? sanitizeWhatsAppCustomerFacingReply(normalizedPrimaryReplyBase)
+      : normalizedPrimaryReplyBase
   const followUpReply =
-    input.channelKind === "whatsapp" ? sanitizeWhatsAppCustomerFacingReply(followUpReplyBase) : followUpReplyBase
+    input.channelKind === "whatsapp"
+      ? sanitizeWhatsAppCustomerFacingReply(normalizedFollowUpReplyBase)
+      : normalizedFollowUpReplyBase
   const whatsappCta =
     input.channelKind === "whatsapp"
       ? null

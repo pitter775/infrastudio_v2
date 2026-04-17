@@ -360,7 +360,7 @@ export function PremiumHomeChatDemo() {
                     'max-w-[88%] whitespace-pre-line rounded-[24px] px-4 py-3 text-[15px] leading-relaxed',
                     message.isAi
                       ? 'mr-auto border border-white/8 bg-[#121d34] text-slate-100 shadow-[0_18px_30px_-24px_rgba(2,6,23,0.92)]'
-                      : 'ml-auto rounded-br-lg border border-blue-200 bg-blue-50 text-blue-900 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.12)] dark:border-blue-400/25 dark:bg-blue-500/18 dark:text-blue-50 dark:shadow-[0_12px_30px_-20px_rgba(15,23,42,0.9)]',
+                      : 'ml-auto rounded-br-lg border border-sky-300/35 bg-[linear-gradient(180deg,rgba(238,244,255,0.92),rgba(229,238,255,0.86))] text-sky-950 shadow-[0_12px_30px_-20px_rgba(15,23,42,0.12)] dark:border-blue-300/10 dark:bg-[linear-gradient(180deg,rgba(78,127,255,0.28),rgba(59,104,219,0.18))] dark:text-blue-50 dark:shadow-[0_12px_30px_-20px_rgba(15,23,42,0.9)]',
                   )}
                 >
                   {message.text}
@@ -376,7 +376,7 @@ export function PremiumHomeChatDemo() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -8, scale: 0.97, filter: 'blur(6px)' }}
                   className={cn(
-                    'inline-flex rounded-full border border-emerald-300 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-[0_14px_28px_-20px_rgba(16,185,129,0.28)] transition-all duration-200 hover:scale-[1.01] active:scale-[0.98] dark:border-emerald-400/30 dark:bg-emerald-500/14 dark:text-emerald-100 dark:shadow-[0_14px_28px_-20px_rgba(16,185,129,0.85)]',
+                    'inline-flex rounded-full border border-emerald-300/45 bg-[linear-gradient(180deg,rgba(236,253,245,0.94),rgba(220,252,231,0.88))] px-4 py-2.5 text-sm font-semibold text-emerald-700 shadow-[0_14px_28px_-20px_rgba(16,185,129,0.22)] transition-all duration-200 hover:scale-[1.01] hover:border-emerald-300/55 hover:bg-[linear-gradient(180deg,rgba(236,253,245,0.98),rgba(220,252,231,0.94))] active:scale-[0.98] dark:border-emerald-400/16 dark:bg-[linear-gradient(180deg,rgba(16,185,129,0.18),rgba(16,185,129,0.12))] dark:text-emerald-100 dark:shadow-[0_14px_28px_-20px_rgba(16,185,129,0.55)]',
                     chatCtaPressed ? 'scale-[0.985] shadow-[0_8px_18px_-18px_rgba(16,185,129,0.85)]' : '',
                   )}
                 >
