@@ -30,7 +30,10 @@ export async function GET(request) {
   }
 
   try {
-    const slots = await listPublicAgendaAvailability(resolved)
+    const slots = await listPublicAgendaAvailability({
+      ...resolved,
+      date: url.searchParams.get("date") || undefined,
+    })
     return NextResponse.json({ slots }, { status: 200 })
   } catch (error) {
     return NextResponse.json(

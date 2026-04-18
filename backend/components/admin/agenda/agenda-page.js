@@ -6,6 +6,7 @@ import { CalendarClock, ChevronDown, Clock, LoaderCircle, Save } from "lucide-re
 import { AdminPageHeader } from "@/components/admin/page-header"
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { cn } from "@/lib/utils"
 
 const statusOptions = [
@@ -131,6 +132,7 @@ export default function AgendaPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [feedback, setFeedback] = useState(null)
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
   const [openMonths, setOpenMonths] = useState({})
   const [openWeeks, setOpenWeeks] = useState({})
   const projectOptions = useMemo(() => getProjectOptions(projects), [projects])
@@ -289,9 +291,6 @@ export default function AgendaPage() {
 
   async function clearAgenda() {
     if (!projectId || saving) return
-    if (typeof window !== "undefined" && !window.confirm("Remover todos os horarios e reservas deste projeto?")) {
-      return
-    }
 
     setSaving(true)
     setFeedback(null)
@@ -310,7 +309,9 @@ export default function AgendaPage() {
       return
     }
 
-    setFeedback(`Agenda limpa. ${data.deletedSlots ?? 0} horarios e ${data.deletedReservations ?? 0} reservas removidos.`)
+    setFeedback(
+      `Agenda limpa. ${data.deletedSlots ?? 0} horarios, ${data.deletedReservations ?? 0} reservas e ${data.deletedApis ?? 0} APIs removidos.`
+    )
     await loadAgenda()
     setSaving(false)
   }
@@ -488,7 +489,7 @@ export default function AgendaPage() {
               type="button"
               variant="outline"
               disabled={saving || !projectId || (!slots.length && !reservations.length)}
-              onClick={clearAgenda}
+              onClick={() => setClearConfirmOpen(true)}
               className="border-red-500/25 bg-red-500/10 text-red-100 hover:border-red-400/35 hover:bg-red-500/15 hover:text-red-50"
             >
               Limpar agenda
@@ -668,6 +669,17 @@ export default function AgendaPage() {
           )}
         </div>
       </section>
+
+      <ConfirmDialog
+        open={clearConfirmOpen}
+        onOpenChange={setClearConfirmOpen}
+        title="Limpar agenda"
+        description="Todos os horarios, reservas e APIs de agenda deste projeto serao removidos. Ao gerar ou cadastrar novamente, as APIs da agenda serao recriadas."
+        confirmText={saving ? "Limpando..." : "Remover tudo"}
+        cancelText="Cancelar"
+        confirmVariant="destructive"
+        onConfirm={clearAgenda}
+      />
     </div>
   )
 }

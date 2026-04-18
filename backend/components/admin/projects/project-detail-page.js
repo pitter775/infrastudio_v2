@@ -20,7 +20,7 @@ import {
   X,
 } from 'lucide-react'
 import { AgentSimulator } from '@/components/app/agents/agent-simulator'
-import { ApiManager } from '@/components/app/apis/api-manager'
+import { ApiSheetManager } from '@/components/app/apis/api-sheet-manager'
 import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
 import { WidgetManager } from '@/components/app/widgets/widget-manager'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
@@ -427,7 +427,7 @@ function buildIntegrationPanels(project) {
       routeY: 292,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'APIs',
-      description: 'Endpoints cadastrados para o agente usar no pipeline.',
+      description: '',
       statusLabel: `${project.integrations.apis} endpoints conectados`,
       isAvailable: (project.apis?.length || 0) > 0 || Number(project.integrations?.apis || 0) > 0,
       items:
@@ -650,6 +650,7 @@ function SheetPanelHeader({
   eyebrow,
   eyebrowIcon: EyebrowIcon = null,
   description,
+  compact = false,
   statusLabel,
   statusTone = 'emerald',
   enabled = true,
@@ -662,7 +663,7 @@ function SheetPanelHeader({
       : { text: 'text-emerald-300', track: 'bg-emerald-500/20', thumb: 'bg-emerald-300' }
 
   return (
-    <div className="px-6 pt-8 pb-5 sm:py-5">
+    <div className={cn('px-6', compact ? 'pt-4 pb-3 sm:py-3' : 'pt-8 pb-5 sm:py-5')}>
       <div className="relative flex flex-col gap-3 pr-14 sm:pr-0">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
@@ -690,7 +691,7 @@ function SheetPanelHeader({
               </div>
             </div>
 
-            <p className="mt-2 hidden text-sm text-slate-400 sm:block">{description}</p>
+            {description ? <p className="mt-2 hidden text-sm text-slate-400 sm:block">{description}</p> : null}
           </div>
         </div>
 
@@ -1590,7 +1591,7 @@ function buildIntegrationTabs(panelId) {
 
 function ManagerFrame({ children }) {
   return (
-    <div className="text-slate-300">
+    <div className="flex h-full min-h-0 flex-col text-slate-300">
       {children}
     </div>
   )
@@ -1870,7 +1871,7 @@ function resolveProjectPlanSummary(project) {
 
 function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet = null, enabled = true, onIntegrationStatsChange = null }) {
   const [apiDetailOpen, setApiDetailOpen] = useState(Boolean(deepLink?.api))
-  const [apiDeleteAvailable, setApiDeleteAvailable] = useState(false)
+  const [apiFooter, setApiFooter] = useState({})
   const [apiResetSignal, setApiResetSignal] = useState(0)
   const [whatsappFooter, setWhatsappFooter] = useState({})
   const [widgetFooter, setWidgetFooter] = useState({})
@@ -1888,12 +1889,7 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
   }, [integrationStats, onIntegrationStatsChange])
   const tabs = useMemo(() => {
     if (panel.id === 'apis') {
-      return [
-        { id: 'edit', label: 'Criar/Editar', icon: Wand2 },
-        { id: 'tutorial', label: 'Tutorial', icon: Files },
-        { id: 'json', label: 'JSON', icon: Files },
-        { id: 'test', label: 'Testar', icon: MessageSquare },
-      ]
+      return []
     }
 
     if (panel.id === 'whatsapp') {
@@ -1927,15 +1923,13 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
   }, [panel.id, tabs])
 
   const realPanel =
-    panel.id === 'apis' && activeTab !== 'tutorial' ? (
+    panel.id === 'apis' ? (
       <ManagerFrame>
-        <ApiManager
+        <ApiSheetManager
           project={project}
           initialApiId={deepLink?.api || null}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
           onDetailOpenChange={setApiDetailOpen}
-          onDeleteAvailableChange={setApiDeleteAvailable}
+          onFooterStateChange={setApiFooter}
           onStatsChange={handleStatsChange}
           resetSignal={apiResetSignal}
           compact
@@ -1960,13 +1954,14 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
         eyebrow={panel.title || panel.label}
         eyebrowIcon={panel.icon}
         description={panel.description}
+        compact={panel.id === 'apis'}
         statusTone="sky"
         leftAction={
           panel.id === 'apis' && apiDetailOpen ? (
             <Button
               type="button"
               variant="ghost"
-              className="h-9 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-sm text-slate-300"
+              className="hidden h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs text-slate-300 md:inline-flex"
               onClick={() => setApiResetSignal((value) => value + 1)}
             >
               Voltar para lista
@@ -1975,11 +1970,16 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
         }
         onCancel={onCloseSheet}
       />
-      {panel.id === 'apis' && !apiDetailOpen ? null : (
+      {panel.id === 'apis' ? null : (
         <SheetInternalTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
       )}
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+      <div
+        className={cn(
+          "min-h-0 flex-1",
+          panel.id === 'apis' ? "overflow-hidden px-0 pb-0 pt-0" : "overflow-y-auto px-6 pb-6 pt-6",
+        )}
+      >
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={contentKey}
@@ -1987,22 +1987,10 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className={cn(panel.id === 'apis' && "flex h-full min-h-0 flex-col")}
           >
         {realPanel ? (
           realPanel
-        ) : panel.id === 'apis' && activeTab === 'tutorial' ? (
-        <PlaceholderPanel
-          title="Tutorial para API autenticada"
-          description="O projeto ja esta preparado para APIs autenticadas via JSON de configuracao. Use `configuracoes.http.headers` para enviar `Authorization`, `x-api-key` ou qualquer header fixo."
-          items={[
-            'Use URL GET valida e retorne JSON.',
-            'No JSON, configure http.headers com Bearer ou x-api-key.',
-            'Use runtime.responsePath para apontar o bloco correto da resposta.',
-            'Defina runtime.previewPath para o resumo rapido exibido no teste.',
-            'Mapeie runtime.fields.path para extrair valores especificos do payload.',
-            'Teste a API antes de vincular ao agente.',
-          ]}
-        />
         ) : (
         <div className="space-y-6 text-sm text-slate-300">
           <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
@@ -2049,56 +2037,23 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
               </Button>
             </div>
             <div className="flex items-center gap-3">
-            {apiDeleteAvailable ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                onClick={() => setApiResetSignal((value) => value + 1)}
+              >
+                Cancelar
+              </Button>
               <Button
                 type="submit"
-                form="api-delete-form"
+                form="api-postman-form"
+                disabled={apiFooter.saving}
                 variant="ghost"
-                className="h-10 rounded-xl border border-red-500/20 bg-red-500/10 px-4 text-sm text-red-200"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                Deletar API
+                {apiFooter.saving ? 'Salvando...' : 'Salvar API'}
               </Button>
-            ) : null}
-            {activeTab === 'edit' ? (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
-                  onClick={onCloseSheet}
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  form="api-editor-form"
-                  variant="ghost"
-                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
-                >
-                  Salvar API
-                </Button>
-              </>
-            ) : null}
-            {activeTab === 'json' ? (
-              <Button
-                type="submit"
-                form="api-editor-form"
-                variant="ghost"
-                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
-              >
-                Salvar JSON
-              </Button>
-            ) : null}
-            {activeTab === 'test' ? (
-              <Button
-                type="submit"
-                form="api-test-form"
-                variant="ghost"
-                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
-              >
-                Testar
-              </Button>
-            ) : null}
             </div>
           </div>
         </div>

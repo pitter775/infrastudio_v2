@@ -380,6 +380,97 @@ function normalizeApiInput(input) {
   }
 }
 
+async function executeApiTestRun(api, options = {}) {
+  const runtimeContext =
+    options?.runtimeContext && typeof options.runtimeContext === "object" && !Array.isArray(options.runtimeContext)
+      ? options.runtimeContext
+      : null
+  const testOverrides =
+    options?.testOverrides && typeof options.testOverrides === "object" && !Array.isArray(options.testOverrides)
+      ? options.testOverrides
+      : {}
+  const resolvedRequest = resolveRuntimeApiUrl(api, runtimeContext)
+  const requestBody = buildApiRequestBody(api, runtimeContext, testOverrides.body)
+  const requestHeaders = getApiRequestHeaders(api, testOverrides.headers)
+
+  if (resolvedRequest.missingParams.length) {
+    return {
+      result: {
+        ok: false,
+        status: 0,
+        statusText: "Parametros ausentes",
+        durationMs: null,
+        contentType: "",
+        method: api.method || "GET",
+        url: resolvedRequest.url,
+        missingParams: resolvedRequest.missingParams,
+        requestBody,
+        requestHeaders,
+        preview: `Preencha os parametros obrigatorios: ${resolvedRequest.missingParams.join(", ")}.`,
+        fields: [],
+      },
+      error: null,
+    }
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 10000)
+  const startedAt = Date.now()
+
+  try {
+    const response = await fetch(resolvedRequest.url, {
+      method: api.method || "GET",
+      signal: controller.signal,
+      headers: requestHeaders,
+      body: requestBody,
+    })
+    const contentType = response.headers.get("content-type") || ""
+    const text = await response.text()
+    const payload = tryParseApiPayload(contentType, text)
+    const fields = extractConfiguredRuntimeFields(api, payload)
+
+    return {
+      result: {
+        ok: response.ok,
+        status: response.status,
+        statusText: response.statusText,
+        durationMs: Date.now() - startedAt,
+        contentType,
+        method: api.method || "GET",
+        url: resolvedRequest.url,
+        missingParams: [],
+        requestBody,
+        requestHeaders,
+        preview: text.slice(0, 800),
+        responseBodyText: text,
+        responseJson: payload,
+        fields,
+      },
+      error: null,
+    }
+  } catch (error) {
+    return {
+      result: {
+        ok: false,
+        status: 0,
+        statusText: error.name === "AbortError" ? "Timeout" : "Erro de conexao",
+        durationMs: null,
+        contentType: "",
+        method: api.method || "GET",
+        url: resolvedRequest.url,
+        missingParams: [],
+        requestBody,
+        requestHeaders,
+        preview: error.message,
+        fields: [],
+      },
+      error: null,
+    }
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 async function getNextApiVersionNumber(supabase, apiId) {
   const { data, error } = await supabase
     .from("api_versoes")
@@ -813,91 +904,43 @@ export async function testApiForUser(apiId, projetoId, user, options = {}) {
     }
 
     const api = mapApi(data)
-    const runtimeContext =
-      options?.runtimeContext && typeof options.runtimeContext === "object" && !Array.isArray(options.runtimeContext)
-        ? options.runtimeContext
-        : null
-    const testOverrides =
-      options?.testOverrides && typeof options.testOverrides === "object" && !Array.isArray(options.testOverrides)
-        ? options.testOverrides
-        : {}
-    const resolvedRequest = resolveRuntimeApiUrl(api, runtimeContext)
-    const requestBody = buildApiRequestBody(api, runtimeContext, testOverrides.body)
-    const requestHeaders = getApiRequestHeaders(api, testOverrides.headers)
-
-    if (resolvedRequest.missingParams.length) {
-      return {
-        result: {
-          ok: false,
-          status: 0,
-          statusText: "Parametros ausentes",
-          durationMs: null,
-          contentType: "",
-          method: api.method || "GET",
-          url: resolvedRequest.url,
-          missingParams: resolvedRequest.missingParams,
-          requestBody,
-          requestHeaders,
-          preview: `Preencha os parametros obrigatorios: ${resolvedRequest.missingParams.join(", ")}.`,
-          fields: [],
-        },
-        error: null,
-      }
-    }
-
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 10000)
-    const startedAt = Date.now()
-
-    try {
-      const response = await fetch(resolvedRequest.url, {
-        method: api.method || "GET",
-        signal: controller.signal,
-        headers: requestHeaders,
-        body: requestBody,
-      })
-      const contentType = response.headers.get("content-type") || ""
-      const text = await response.text()
-      const payload = tryParseApiPayload(contentType, text)
-      const fields = extractConfiguredRuntimeFields(api, payload)
-
-      return {
-        result: {
-          ok: response.ok,
-          status: response.status,
-          statusText: response.statusText,
-          durationMs: Date.now() - startedAt,
-          contentType,
-          method: api.method || "GET",
-          url: resolvedRequest.url,
-          missingParams: [],
-          requestBody,
-          requestHeaders,
-          preview: text.slice(0, 800),
-          fields,
-        },
-        error: null,
-      }
-    } finally {
-      clearTimeout(timeout)
-    }
+    return executeApiTestRun(api, options)
   } catch (error) {
-    return {
-      result: {
-        ok: false,
-        status: 0,
-        statusText: error.name === "AbortError" ? "Timeout" : "Erro de conexao",
-        durationMs: null,
-        contentType: "",
-        method: api.method || "GET",
-        url: resolvedRequest.url,
-        missingParams: [],
-        requestBody,
-        requestHeaders,
-        preview: error.message,
-      },
-      error: null,
-    }
+    console.error("[apis] failed to test api", error)
+    return { result: null, error: "Nao foi possivel testar a API." }
+  }
+}
+
+export async function testApiDraftForUser(projetoId, input, user, options = {}) {
+  if (!projetoId || !userCanAccessProject(user, projetoId)) {
+    return { result: null, error: "Acesso negado." }
+  }
+
+  const normalized = normalizeApiInput(input)
+  if (normalized.error) {
+    return { result: null, error: normalized.error }
+  }
+
+  const draftApi = {
+    id: "__draft__",
+    projetoId,
+    name: normalized.payload.nome,
+    url: normalized.payload.url,
+    method: normalized.payload.metodo,
+    description: normalized.payload.descricao,
+    active: normalized.payload.ativo !== false,
+    config: normalized.payload.configuracoes ?? {},
+    fieldSchema: [],
+    createdAt: null,
+    updatedAt: normalized.payload.updated_at,
+    versions: [],
+  }
+
+  try {
+    return await executeApiTestRun(draftApi, options)
+  } catch (error) {
+    console.error("[apis] failed to test draft api", error)
+    return { result: null, error: "Nao foi possivel testar a API." }
   }
 }
 

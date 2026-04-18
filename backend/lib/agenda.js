@@ -40,6 +40,7 @@ function buildAgendaListApiConfig(widgetSlug) {
   return {
     parametros: [
       { nome: "widgetSlug", path: "widget.slug" },
+      { nome: "date", path: "agenda.dataConsulta" },
     ],
     runtime: {
       factual: true,
@@ -53,7 +54,7 @@ function buildAgendaListApiConfig(widgetSlug) {
         { nome: "hora_fim", tipo: "string", descricao: "Hora final", path: "0.horaFim" },
       ],
     },
-    tags: ["agenda", "slots"],
+    tags: ["internal", "agenda", "slots"],
     widgetSlug,
   }
 }
@@ -86,7 +87,7 @@ function buildAgendaReserveApiConfig(widgetSlug) {
         { nome: "status", tipo: "string", descricao: "Status da reserva", path: "status" },
       ],
     },
-    tags: ["agenda", "reserva"],
+    tags: ["internal", "agenda", "reserva"],
     widgetSlug,
   }
 }
@@ -313,7 +314,7 @@ export async function ensureAgendaApisForProject({ user, projetoId, agenteId = n
     agenteId: resolvedAgentId,
     name: "Agenda - listar horarios",
     method: "GET",
-    url: `${baseUrl}/api/agenda?widgetSlug={widgetSlug}`,
+    url: `${baseUrl}/api/agenda?widgetSlug={widgetSlug}&date={date}`,
     description: "Lista horarios disponiveis da agenda publica via widget.",
     config: buildAgendaListApiConfig(widgetSlug),
   })
@@ -666,7 +667,7 @@ export async function reserveAgendaSlotsForUser({ user, input }) {
 export async function clearAgendaForUser({ user, projetoId }) {
   const normalizedProjectId = normalizeText(projetoId)
   if (!normalizedProjectId || !(await canManageProject(user, normalizedProjectId))) {
-    return { deletedSlots: 0, deletedReservations: 0, error: "Acesso negado." }
+    return { deletedSlots: 0, deletedReservations: 0, deletedApis: 0, error: "Acesso negado." }
   }
 
   const supabase = getSupabaseAdminClient()
@@ -685,6 +686,7 @@ export async function clearAgendaForUser({ user, projetoId }) {
     return {
       deletedSlots: 0,
       deletedReservations: 0,
+      deletedApis: 0,
       error: reservationListError?.message || slotListError?.message || "Nao foi possivel carregar a agenda.",
     }
   }
@@ -698,7 +700,7 @@ export async function clearAgendaForUser({ user, projetoId }) {
       .select("id")
 
     if (error) {
-      return { deletedSlots: 0, deletedReservations: 0, error: error.message }
+      return { deletedSlots: 0, deletedReservations: 0, deletedApis: 0, error: error.message }
     }
 
     deletedReservations = data?.length ?? reservationRows.length
@@ -713,15 +715,51 @@ export async function clearAgendaForUser({ user, projetoId }) {
       .select("id")
 
     if (error) {
-      return { deletedSlots: 0, deletedReservations, error: error.message }
+      return { deletedSlots: 0, deletedReservations, deletedApis: 0, error: error.message }
     }
 
     deletedSlots = data?.length ?? slotRows.length
   }
 
+  let deletedApis = 0
+  const { data: apiRows, error: apiListError } = await supabase
+    .from("apis")
+    .select("id, nome, configuracoes")
+    .eq("projeto_id", normalizedProjectId)
+
+  if (apiListError) {
+    return { deletedSlots, deletedReservations, deletedApis: 0, error: apiListError.message }
+  }
+
+  const agendaApiIds = (apiRows ?? [])
+    .filter((api) => {
+      const tags = Array.isArray(api?.configuracoes?.tags)
+        ? api.configuracoes.tags.map((item) => String(item || "").toLowerCase())
+        : []
+      const name = String(api?.nome || "").toLowerCase()
+      return tags.includes("agenda") || name.startsWith("agenda - ")
+    })
+    .map((api) => api.id)
+
+  if (agendaApiIds.length) {
+    const { data, error } = await supabase
+      .from("apis")
+      .delete()
+      .eq("projeto_id", normalizedProjectId)
+      .in("id", agendaApiIds)
+      .select("id")
+
+    if (error) {
+      return { deletedSlots, deletedReservations, deletedApis: 0, error: error.message }
+    }
+
+    deletedApis = data?.length ?? agendaApiIds.length
+  }
+
   return {
     deletedSlots,
     deletedReservations,
+    deletedApis,
     error: null,
   }
 }
@@ -783,10 +821,11 @@ export async function updateAgendaReservationForUser({ user, input }) {
   return { reservation: mapReservation(data), error: null }
 }
 
-export async function listPublicAgendaAvailability({ projetoId, agenteId }) {
+export async function listPublicAgendaAvailability({ projetoId, agenteId, date = null }) {
   const supabase = getSupabaseAdminClient()
   const todayStartIso = `${new Date().toISOString().slice(0, 10)}T00:00:00.000Z`
-  const query = supabase
+  const normalizedDate = normalizeText(date)?.slice(0, 10)
+  let query = supabase
     .from("agenda_horarios")
     .select("*")
     .eq("projeto_id", projetoId)
@@ -794,6 +833,12 @@ export async function listPublicAgendaAvailability({ projetoId, agenteId }) {
     .gte("data_inicio", todayStartIso)
     .order("data_inicio", { ascending: true, nullsFirst: false })
     .order("hora_inicio")
+
+  if (normalizedDate && /^\d{4}-\d{2}-\d{2}$/.test(normalizedDate)) {
+    query = query
+      .gte("data_inicio", `${normalizedDate}T00:00:00.000Z`)
+      .lte("data_inicio", `${normalizedDate}T23:59:59.999Z`)
+  }
 
   const { data, error } = await query
   if (error) {

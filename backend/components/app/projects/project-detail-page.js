@@ -7,7 +7,7 @@ import { ArrowLeft, Bot, FileText, MessageCircle, PlugZap, Sparkles } from "luci
 import { AgentEditor } from "@/components/app/agents/agent-editor"
 import { ConnectorList } from "@/components/app/apis/connector-list"
 import { BillingSummaryCard } from "@/components/app/billing/billing-summary-card"
-import { ApiManager } from "@/components/app/apis/api-manager"
+import { ApiSheetManager } from "@/components/app/apis/api-sheet-manager"
 import { WidgetManager } from "@/components/app/widgets/widget-manager"
 import { WhatsAppManager } from "@/components/app/whatsapp/whatsapp-manager"
 import { AppPageHeader } from "@/components/app/page-header"
@@ -184,7 +184,7 @@ export function AppProjectDetailPage({ project }) {
       </section>
 
       <div id="apis">
-        <ApiManager project={project} />
+        <ApiSheetManager project={project} />
       </div>
       <ConnectorList project={project} />
       <div id="widgets">
