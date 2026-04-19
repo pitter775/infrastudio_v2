@@ -84,6 +84,11 @@ Ordem recomendada para cada melhoria:
   18. gerar/replicar agenda cadastra automaticamente as APIs publicas de agenda na tabela `apis`, com URL/config dinamica por projeto e agente
   Pendente:
   1. validar reserva via chat em fluxo completo com as APIs de agenda cadastradas automaticamente no projeto
+  2. quando o fluxo atual de agenda estiver maduro, extrair para uma estrutura padronizada por capacidade:
+     - nucleo comum de agendamento no runtime
+     - configuracao por projeto/agente em `runtimeConfig`
+     - extensoes especificas por cliente sem duplicar o fluxo base
+     - manter evolucao rapida no formato atual ate estabilizar comportamento real
 
 ## Trilha 4 - Chat widget e mobile
 

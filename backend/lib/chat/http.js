@@ -52,6 +52,7 @@ export function formatPublicChatResult(result) {
   return {
     chatId: result?.chatId ?? "",
     messageId: result?.messageId ?? null,
+    createdAt: result?.createdAt ?? null,
     reply: result?.reply ?? "",
     followUpReply: result?.followUpReply ?? "",
     messageSequence: Array.isArray(result?.messageSequence) ? result.messageSequence : [],

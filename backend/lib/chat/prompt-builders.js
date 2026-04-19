@@ -107,7 +107,9 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
           ].join(" | ")
         ),
         "Antes de confirmar uma reserva, colete email ou celular do cliente.",
-        "Para reservar, use a API de agenda cadastrada no runtime quando disponivel ou oriente o cliente com o horario escolhido.",
+        "Se o cliente aceitar agendar, conduza a coleta do melhor horario e do contato.",
+        "Antes de concluir, mostre os dados formatados para aprovacao explicita do cliente.",
+        "Depois da aprovacao, confirme o agendamento e continue o atendimento normalmente.",
       ].join("\n")
     : ""
 

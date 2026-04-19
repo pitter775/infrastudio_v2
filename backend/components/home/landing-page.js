@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
 import {
   ArrowRight,
   BriefcaseBusiness,
@@ -21,6 +21,7 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PremiumHomeChatDemo } from '@/components/home/chat-demo'
 import { LoginModal } from '@/components/home/login-modal'
+import { LogoCubo3D } from '@/components/ui/LogoCubo3D'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import {
   BENEFIT_ITEMS,
@@ -113,9 +114,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
     >
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <div className="relative h-12 w-12 overflow-hidden p-1">
-            <img src="/logo.png" alt="InfraStudio" className="h-full w-full object-contain" />
-          </div>
+          <LogoCubo3D animado tamanho={50} velocidade={0.16} />
           <div>
             <span className="block font-bold tracking-tight text-slate-900 dark:text-white">InfraStudio</span>
           </div>
@@ -464,24 +463,33 @@ function PricingSection({ plans = [], onPlanSelect }) {
 }
 
 function AboutSection({ onLoginClick }) {
+  const sectionVisualRef = useRef(null)
+  const sectionVisible = useInView(sectionVisualRef, { once: true, amount: 0.45 })
+
   return (
     <section id="sobre" className="py-24">
       <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-[320px_minmax(0,1fr)] lg:px-8">
-        <div className="flex justify-center lg:justify-start">
-          <div className="group relative">
-            <div className="absolute -inset-3 rounded-full bg-gradient-to-br from-cyan-400/16 via-blue-500/10 to-emerald-400/12" />
-            <div className="relative rounded-full border border-slate-200 bg-white/85 p-2 shadow-lg dark:border-white/10 dark:bg-slate-950/80">
-              <img
-                src="/Pitter Rocha Bico.jpg"
-                alt="Pitter Rocha"
-                className="h-48 w-48 rounded-full object-cover transition-transform duration-300 group-hover:scale-105 sm:h-56 sm:w-56"
-              />
-            </div>
-          </div>
+        <div ref={sectionVisualRef} className="flex justify-center lg:justify-start">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={sectionVisible ? { opacity: 1 } : undefined}
+            transition={{ duration: 0.45, ease: 'easeOut' }}
+            className="relative flex h-[250px] w-[250px] items-center justify-center sm:h-[290px] sm:w-[290px]"
+          >
+            <div className="absolute inset-10 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.22),rgba(6,182,212,0.1)_38%,transparent_72%)] blur-2xl" />
+            <LogoCubo3D
+              animado
+              entrada
+              ativo={sectionVisible}
+              tamanho={220}
+              velocidade={0.11}
+              className="relative z-10 h-full w-full"
+            />
+          </motion.div>
         </div>
 
         <div className="text-left">
-          <img src="/logo.png" alt="InfraStudio" className="mb-5 h-10 w-10 object-contain opacity-90" />
+          
           <h2 className="max-w-2xl text-3xl font-semibold tracking-[-0.04em] text-slate-900 dark:text-white md:text-[2.65rem]">
             <span className="text-gradient">Tecnologia</span> que resolve de verdade
           </h2>
@@ -633,6 +641,15 @@ export function LandingPage({ currentUser = null, plans = [] }) {
           </motion.p>
 
           <motion.div
+            initial={{ opacity: 0, scale: 0.92, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            transition={{ delay: 0.26 }}
+            className="mb-12 flex justify-center"
+          >
+            <LogoCubo3D montarAoEntrar animado tamanho={112} velocidade={0.12} />
+          </motion.div>
+
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
@@ -747,7 +764,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
           <div className="flex flex-col items-start justify-between gap-12 md:flex-row">
             <div className="max-w-sm">
               <Link href="/" className="mb-6 flex items-center gap-2">
-                <img src="/logo.png" alt="InfraStudio" className="h-8 w-8 object-contain" />
+                <LogoCubo3D tamanho={50} />
                 <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">InfraStudio</span>
               </Link>
               <p className="text-sm leading-relaxed text-slate-500">
@@ -853,4 +870,3 @@ export function LandingPage({ currentUser = null, plans = [] }) {
     </div>
   )
 }
-

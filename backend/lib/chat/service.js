@@ -105,16 +105,79 @@ function parseRequestedTime(message) {
   return `${String(match[1]).padStart(2, "0")}:${String(match[2] || "00").padStart(2, "0")}`
 }
 
+function parseRequestedDate(message) {
+  const normalized = String(message || "").trim()
+  const isoMatch = normalized.match(/\b(20\d{2}-\d{2}-\d{2})\b/)
+  if (isoMatch) {
+    return isoMatch[1]
+  }
+
+  const brMatch = normalized.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/)
+  if (!brMatch) {
+    return null
+  }
+
+  const day = String(brMatch[1]).padStart(2, "0")
+  const month = String(brMatch[2]).padStart(2, "0")
+  const currentYear = new Date().getFullYear()
+  let year = brMatch[3] ? Number(brMatch[3]) : currentYear
+  if (year < 100) {
+    year += 2000
+  }
+
+  if (month === "00" || Number(month) > 12 || day === "00" || Number(day) > 31) {
+    return null
+  }
+
+  return `${year}-${month}-${day}`
+}
+
 function isAgendaReservationIntent(message) {
   const normalized = normalizeSimpleText(message)
   return /\b(agendar|agenda|reservar|reserva|marcar|confirmar|horario|visita|reuniao)\b/.test(normalized)
 }
 
-function selectAgendaSlot(message, slots) {
-  const requestedTime = parseRequestedTime(message)
-  if (!requestedTime || !Array.isArray(slots)) return null
+function isAffirmativeMessage(message) {
+  return /\b(sim|s|pode|pode sim|confirmo|confirmar|fechado|ok|okay|perfeito|isso mesmo|pode agendar|quero esse|quero este)\b/i.test(
+    String(message || "")
+  )
+}
 
-  return slots.find((slot) => String(slot?.horaInicio || "").slice(0, 5) === requestedTime) ?? null
+function isNegativeMessage(message) {
+  return /\b(nao|não|outro|mudar|trocar|alterar|cancelar)\b/i.test(String(message || ""))
+}
+
+function selectAgendaSlot(message, slots, options = {}) {
+  const requestedTime = parseRequestedTime(message)
+  const requestedDate = parseRequestedDate(message)
+  if ((!requestedTime && !requestedDate) || !Array.isArray(slots)) return null
+
+  const preferredSlotId = typeof options?.preferredSlotId === "string" ? options.preferredSlotId : null
+
+  const matches = slots.filter((slot) => {
+    const slotTime = String(slot?.horaInicio || "").slice(0, 5)
+    const slotDate = String(slot?.dataInicio || slot?.data || "").slice(0, 10)
+
+    if (requestedTime && slotTime !== requestedTime) {
+      return false
+    }
+
+    if (requestedDate && slotDate !== requestedDate) {
+      return false
+    }
+
+    return true
+  })
+
+  if (!matches.length) {
+    return null
+  }
+
+  if (preferredSlotId) {
+    return matches.find((slot) => slot?.id === preferredSlotId) ?? matches[0]
+  }
+
+  return matches[0]
 }
 
 function nextDateForAgendaSlot(slot, now = new Date()) {
@@ -151,6 +214,52 @@ function formatAgendaOptions(slots) {
     .join("\n")
 }
 
+function formatAgendaDateDisplay(value) {
+  const normalized = String(value || "").slice(0, 10)
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return String(value || "").trim()
+  }
+
+  const [year, month, day] = normalized.split("-")
+  return `${day}/${month}/${year}`
+}
+
+function formatAgendaSlotLabel(slot) {
+  const slotDate = String(slot?.dataInicio || slot?.data || "").slice(0, 10)
+  const displayDate = formatAgendaDateDisplay(slotDate || slot?.dia || "")
+  const start = String(slot?.horaInicio || "").slice(0, 5)
+  const end = String(slot?.horaFim || "").slice(0, 5)
+  return `${displayDate}, das ${start} as ${end}`
+}
+
+function buildAgendaContactSnapshot(contact) {
+  return {
+    nome: typeof contact?.nome === "string" ? contact.nome.trim() : "",
+    email: typeof contact?.email === "string" ? contact.email.trim().toLowerCase() : "",
+    phone: sanitizePhone(contact?.phone || contact?.telefone || ""),
+  }
+}
+
+function buildAgendaApprovalReply(slot, contact) {
+  const lines = [
+    "Confirme estes dados para eu concluir o agendamento:",
+    `- Data e horario: ${formatAgendaSlotLabel(slot)}`,
+  ]
+
+  if (contact.nome) {
+    lines.push(`- Nome: ${contact.nome}`)
+  }
+  if (contact.email) {
+    lines.push(`- Email: ${contact.email}`)
+  }
+  if (contact.phone) {
+    lines.push(`- Telefone: ${contact.phone}`)
+  }
+
+  lines.push('Se estiver certo, responda "sim". Se quiser ajustar, me diga o novo horario ou contato.')
+  return lines.join("\n")
+}
+
 function buildAgendaHeuristicReply(reply, metadata = {}) {
   return {
     reply,
@@ -172,15 +281,50 @@ function buildAgendaHeuristicReply(reply, metadata = {}) {
 
 async function resolveAgendaReservationSkill(input) {
   const { message, aiContext, agendaSlots, runtimeState, options } = input
-  if (!isAgendaReservationIntent(message) || !Array.isArray(agendaSlots) || agendaSlots.length === 0) {
+  if (!Array.isArray(agendaSlots) || agendaSlots.length === 0) {
+    return null
+  }
+
+  const currentContext = runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {}
+  const pendingAgenda = isPlainObject(currentContext?.agenda?.pendente) ? currentContext.agenda.pendente : null
+  const hasAgendaIntent = isAgendaReservationIntent(message)
+  if (!hasAgendaIntent && !pendingAgenda) {
     return null
   }
 
   const formattedSlots = aiContext?.agenda?.horariosDisponiveis ?? agendaSlots.slice(0, 12).map(formatAgendaSlotForContext)
-  const selectedSlot = selectAgendaSlot(message, agendaSlots)
-  if (!selectedSlot) {
+  const contactFromContext = buildAgendaContactSnapshot(
+    extractLeadContact(aiContext, runtimeState.prelude.normalizedExternalIdentifier)
+  )
+  const pendingContact = buildAgendaContactSnapshot(pendingAgenda?.contato)
+  const contact = {
+    nome: contactFromContext.nome || pendingContact.nome || "",
+    email: contactFromContext.email || pendingContact.email || "",
+    phone: contactFromContext.phone || pendingContact.phone || "",
+  }
+  const selectedSlot = selectAgendaSlot(message, agendaSlots, {
+    preferredSlotId: pendingAgenda?.horarioId ?? null,
+  })
+  const activeSlot =
+    selectedSlot ??
+    (pendingAgenda?.horarioId ? agendaSlots.find((slot) => slot?.id === pendingAgenda.horarioId) ?? null : null)
+
+  if (pendingAgenda && isNegativeMessage(message)) {
     return buildAgendaHeuristicReply(
-      `Tenho estes horarios disponiveis:\n\n${formatAgendaOptions(formattedSlots)}\n\nMe diga qual horario voce quer reservar e informe email ou celular para confirmar.`,
+      `Sem problema. Me diga outro horario e, se quiser, ja envie email ou celular.\n\nHorarios disponiveis:\n${formatAgendaOptions(formattedSlots)}`,
+      {
+        agenteId: runtimeState.resolved?.agente?.id ?? null,
+        agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+        agendaFlow: {
+          action: "clear_pending",
+        },
+      }
+    )
+  }
+
+  if (!activeSlot) {
+    return buildAgendaHeuristicReply(
+      `Posso seguir com o agendamento. Me diga o melhor horario e envie email ou celular para contato.\n\nHorarios disponiveis:\n${formatAgendaOptions(formattedSlots)}`,
       {
         agenteId: runtimeState.resolved?.agente?.id ?? null,
         agenteNome: runtimeState.resolved?.agente?.nome ?? null,
@@ -188,20 +332,46 @@ async function resolveAgendaReservationSkill(input) {
     )
   }
 
-  const contact = extractLeadContact(aiContext, runtimeState.prelude.normalizedExternalIdentifier)
-  if (!contact.email && !contact.phone) {
-    return buildAgendaHeuristicReply("Para confirmar esse horario, me envie seu email ou celular.", {
-      agenteId: runtimeState.resolved?.agente?.id ?? null,
-      agenteNome: runtimeState.resolved?.agente?.nome ?? null,
-      agendaSlotId: selectedSlot.id,
-    })
-  }
-
-  const horarioReservado = nextDateForAgendaSlot(selectedSlot)
+  const horarioReservado = nextDateForAgendaSlot(activeSlot)
   if (!horarioReservado) {
     return buildAgendaHeuristicReply("Encontrei o horario, mas nao consegui montar a data da reserva. Me envie o dia e horario desejado.", {
       agenteId: runtimeState.resolved?.agente?.id ?? null,
       agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+      agendaFlow: {
+        action: "clear_pending",
+      },
+    })
+  }
+
+  if (!contact.email && !contact.phone) {
+    return buildAgendaHeuristicReply(
+      `Encontrei este horario: ${formatAgendaSlotLabel(activeSlot)}.\n\nAgora me envie email ou celular para eu preparar a confirmacao final.`,
+      {
+        agenteId: runtimeState.resolved?.agente?.id ?? null,
+        agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+        agendaFlow: {
+          action: "set_pending",
+          status: "awaiting_contact",
+          horarioId: activeSlot.id,
+          horarioReservado,
+          contato: contact,
+        },
+      }
+    )
+  }
+
+  const awaitingApproval = pendingAgenda?.status === "awaiting_approval"
+  if (!awaitingApproval || !isAffirmativeMessage(message)) {
+    return buildAgendaHeuristicReply(buildAgendaApprovalReply(activeSlot, contact), {
+      agenteId: runtimeState.resolved?.agente?.id ?? null,
+      agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+      agendaFlow: {
+        action: "set_pending",
+        status: "awaiting_approval",
+        horarioId: activeSlot.id,
+        horarioReservado,
+        contato: contact,
+      },
     })
   }
 
@@ -213,7 +383,7 @@ async function resolveAgendaReservationSkill(input) {
   const { reservation, error } = await (options.createAgendaReservation ?? createAgendaReservation)({
     projetoId: runtimeState.resolved?.projeto?.id ?? runtimeState.session.chat.projetoId,
     agenteId: runtimeState.resolved?.agente?.id ?? runtimeState.session.chat.agenteId,
-    horarioId: selectedSlot.id,
+    horarioId: activeSlot.id,
     chatId: runtimeState.session.chat.id,
     contatoNome: contact.nome || null,
     contatoEmail: contact.email || null,
@@ -226,7 +396,7 @@ async function resolveAgendaReservationSkill(input) {
     origem: "chat",
     canal: runtimeState.prelude.channelKind,
     horarioReservado,
-    timezone: selectedSlot.timezone || "America/Sao_Paulo",
+    timezone: activeSlot.timezone || "America/Sao_Paulo",
     metadata: {
       source: "chat_agenda_skill",
       rawMessage: message,
@@ -237,6 +407,13 @@ async function resolveAgendaReservationSkill(input) {
     return buildAgendaHeuristicReply(error || "Nao consegui confirmar a reserva agora. Tente novamente em instantes.", {
       agenteId: runtimeState.resolved?.agente?.id ?? null,
       agenteNome: runtimeState.resolved?.agente?.nome ?? null,
+      agendaFlow: {
+        action: "set_pending",
+        status: "awaiting_approval",
+        horarioId: activeSlot.id,
+        horarioReservado,
+        contato: contact,
+      },
     })
   }
 
@@ -249,7 +426,7 @@ async function resolveAgendaReservationSkill(input) {
     timeZone: reservation.timezone || "America/Sao_Paulo",
   })
 
-  return buildAgendaHeuristicReply(`Reserva confirmada para ${reservedAt}. Vou avisar o atendimento com seus dados de contato.`, {
+  return buildAgendaHeuristicReply(`Agendamento confirmado para ${reservedAt}. Vou seguir com o atendimento e deixar seus dados registrados para o retorno.`, {
     agenteId: runtimeState.resolved?.agente?.id ?? null,
     agenteNome: runtimeState.resolved?.agente?.nome ?? null,
     agendaReserva: {
@@ -257,6 +434,9 @@ async function resolveAgendaReservationSkill(input) {
       horarioId: reservation.horarioId,
       horarioReservado: reservation.horarioReservado,
       status: reservation.status,
+    },
+    agendaFlow: {
+      action: "clear_pending",
     },
   })
 }
@@ -371,15 +551,14 @@ export function resolveChatContactSnapshot(context, fallbackExternalIdentifier) 
   }
 }
 
-export function mergeContext(base, extra) {
-  if (!extra) {
-    return base
-  }
-
-  return {
-    ...base,
-    ...extra,
-  }
+export function mergeContext(base, ...extras) {
+  return extras.filter(Boolean).reduce(
+    (accumulator, extra) => ({
+      ...accumulator,
+      ...extra,
+    }),
+    base ?? {}
+  )
 }
 
 export function parseAssetPrice(value) {
@@ -984,6 +1163,7 @@ export function updateContextFromAiResult(input) {
   const nextContext = {
     ...input.nextContext,
     catalogo: isPlainObject(input.nextContext?.catalogo) ? { ...input.nextContext.catalogo } : {},
+    agenda: isPlainObject(input.nextContext?.agenda) ? { ...input.nextContext.agenda } : {},
   }
 
   const recentMercadoLivreProducts = extractRecentMercadoLivreProductsFromAssets(input.ai.assets)
@@ -1019,6 +1199,24 @@ export function updateContextFromAiResult(input) {
       horarioReservado: agendaReservation.horarioReservado ?? null,
       status: agendaReservation.status ?? null,
       updatedAt: new Date().toISOString(),
+    }
+  }
+
+  const agendaFlow = isPlainObject(input.ai?.metadata?.agendaFlow) ? input.ai.metadata.agendaFlow : null
+  if (agendaFlow?.action === "clear_pending") {
+    if (isPlainObject(nextContext.agenda)) {
+      delete nextContext.agenda.pendente
+    }
+  } else if (agendaFlow?.action === "set_pending") {
+    nextContext.agenda = {
+      ...(isPlainObject(nextContext.agenda) ? nextContext.agenda : {}),
+      pendente: {
+        status: typeof agendaFlow.status === "string" ? agendaFlow.status : "awaiting_approval",
+        horarioId: agendaFlow.horarioId ?? null,
+        horarioReservado: agendaFlow.horarioReservado ?? null,
+        contato: isPlainObject(agendaFlow.contato) ? agendaFlow.contato : {},
+        updatedAt: new Date().toISOString(),
+      },
     }
   }
 
@@ -1703,6 +1901,7 @@ export function buildFinalChatResult(input) {
   return {
     chatId: input.chatId,
     messageId: input.messageId ?? null,
+    createdAt: input.createdAt ?? null,
     reply: input.reply,
     followUpReply: input.channelKind === "whatsapp" ? "" : input.followUpReply || "",
     messageSequence: input.channelKind === "whatsapp" ? input.messageSequence ?? [] : [],
@@ -1919,6 +2118,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
   return buildFinalChatResult({
     chatId: runtimeState.session.chat.id,
     messageId: assistantMessage.id,
+    createdAt: assistantMessage.createdAt ?? null,
     channelKind: runtimeState.prelude.channelKind,
     reply:
       runtimeState.prelude.channelKind === "whatsapp"

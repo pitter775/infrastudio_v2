@@ -28,6 +28,7 @@ import {
   Users,
 } from 'lucide-react'
 import { ProjectBillingModal } from '@/components/admin/billing/project-billing-modal'
+import { LogoCubo3D } from '@/components/ui/LogoCubo3D'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import {
@@ -142,19 +143,15 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
   return (
     <>
       <div className="px-4">
-      <div className={cn('mb-10 flex items-center gap-2 px-3', collapsed && 'justify-center px-0')}>
-  <img 
-    src="/logo.png" 
-    alt="InfraStudio Logo"
-    className="h-5 w-5 object-contain"
-  />
+        <div className={cn('mb-10 flex items-center gap-2 px-3', collapsed && 'justify-center px-0')}>
+          <LogoCubo3D tamanho={20} />
 
-  {collapsed ? null : (
-    <span className="text-sm font-semibold text-white">
-      InfraStudio
-    </span>
-  )}
-</div>
+          {collapsed ? null : (
+            <span className="text-sm font-semibold text-white">
+              InfraStudio
+            </span>
+          )}
+        </div>
 
         <nav className="space-y-1">
           {availableNavItems.map((item) => (

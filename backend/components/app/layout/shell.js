@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { House, LayoutGrid, LogOut, Menu, ShieldCheck } from "lucide-react"
 
+import { LogoCubo3D } from "@/components/ui/LogoCubo3D"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { UserAvatar } from "@/components/ui/user-avatar"
@@ -24,7 +25,7 @@ function SidebarContent({ pathname, user, onNavigate }) {
     <div className="flex h-full flex-col justify-between bg-[#080e1d] text-slate-400">
       <div className="px-4 py-6">
         <Link href="/app/projetos" className="flex items-center gap-3" onClick={onNavigate}>
-          <img src="/logo.png" alt="InfraStudio Logo" className="h-5 w-5 object-contain" />
+          <LogoCubo3D tamanho={20} />
           <div>
             <p className="text-sm font-semibold text-white">InfraStudio</p>
             <p className="text-xs text-slate-500">Area do cliente</p>

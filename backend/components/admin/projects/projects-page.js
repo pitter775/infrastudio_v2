@@ -8,6 +8,7 @@ import { AdminPageHeader } from '@/components/admin/page-header'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
 import { AppSelect } from '@/components/ui/app-select'
 import { Button } from '@/components/ui/button'
+import { LogoCubo3D } from '@/components/ui/LogoCubo3D'
 import {
   Sheet,
   SheetClose,
@@ -357,7 +358,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
             {showOnboardingHint && primaryProject && orderedProjects.length === 1 ? (
               <div className="px-2 pt-1 text-slate-200 xl:[font-size:clamp(0.84rem,0.68rem+0.34vw,1rem)]">
                 <div className="flex items-center gap-3">
-                  <img src="/logo.png" alt="InfraStudio" className="h-8 w-8 object-contain" />
+                  <LogoCubo3D tamanho={32} />
                   <div className="text-[clamp(1.5rem,1.2rem+1vw,1.75rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-transparent bg-gradient-to-r from-emerald-300 via-cyan-300 to-sky-400 bg-clip-text">
                     Seu projeto já está pronto
                   </div>
