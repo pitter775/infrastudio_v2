@@ -44,7 +44,6 @@
 
     var widgetSlug = script.getAttribute("data-widget");
     if (!widgetSlug) {
-      console.warn("[InfraStudio Chat] data-widget is required.");
       return;
     }
 
@@ -106,7 +105,6 @@
         var parsed = JSON.parse(value);
         return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
       } catch (error) {
-        console.warn("[InfraStudio Chat] invalid data-context payload.", error);
         return null;
       }
     }
@@ -124,9 +122,7 @@
         }
         lastSyncedMessageAt = typeof savedState.lastSyncedMessageAt === "string" ? savedState.lastSyncedMessageAt : null;
       }
-    } catch (error) {
-      console.warn("[InfraStudio Chat] failed to restore conversation.", error);
-    }
+    } catch (error) {}
 
     var host = document.createElement("div");
     host.id = "infrastudio-chat-widget-root-" + widgetSlug;
@@ -147,9 +143,7 @@
       cleanup.slice().reverse().forEach(function (dispose) {
         try {
           dispose();
-        } catch (error) {
-          console.warn("[InfraStudio Chat] failed to cleanup widget.", error);
-        }
+        } catch (error) {}
       });
       cleanup = [];
 
@@ -893,9 +887,7 @@
             lastSyncedMessageAt: lastSyncedMessageAt,
           }),
         );
-      } catch (error) {
-        console.warn("[InfraStudio Chat] failed to persist conversation.", error);
-      }
+      } catch (error) {}
     }
 
     function normalizeMessageSignature(value) {
@@ -1329,7 +1321,6 @@
           persist();
         }
       } catch (error) {
-        console.warn("[InfraStudio Chat] failed to sync messages.", error);
       } finally {
         pollingMessages = false;
       }
@@ -1512,9 +1503,7 @@
           renderAttachmentsPreview();
           updateComposerState();
         })
-        .catch(function (error) {
-          console.warn("[InfraStudio Chat] failed to read attachments.", error);
-        })
+        .catch(function (error) {})
         .finally(function () {
           attachmentInput.value = "";
         });

@@ -67,11 +67,6 @@ function warnOptionalBillingLoad(label, error) {
   if (!error || isOptionalMissingRowError(error)) {
     return
   }
-
-  console.warn(`[billing] failed to load ${label}`, {
-    code: error.code ?? null,
-    message: error.message ?? String(error),
-  })
 }
 
 export function mapBillingPlan(row) {

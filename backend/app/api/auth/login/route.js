@@ -27,7 +27,6 @@ function passwordMatches(inputPassword, storedPassword) {
   }
 
   if (storedPassword === inputPassword) {
-    console.warn("[auth] usuario with plaintext password detected; migrate this record to bcrypt.")
     return true
   }
 

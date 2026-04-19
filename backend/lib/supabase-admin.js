@@ -23,13 +23,7 @@ function getSupabaseAdminEnv() {
 
 export function getSupabaseAdminClient() {
   if (!adminClient) {
-    const { url, key, usingServiceRole } = getSupabaseAdminEnv()
-
-    if (!usingServiceRole) {
-      console.warn(
-        "[supabase/admin] SUPABASE_SERVICE_ROLE_KEY ausente; usando NEXT_PUBLIC_SUPABASE_ANON_KEY como fallback."
-      )
-    }
+    const { url, key } = getSupabaseAdminEnv()
 
     adminClient = createClient(url, key, {
       auth: {

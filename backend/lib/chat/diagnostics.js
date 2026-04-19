@@ -37,8 +37,6 @@ export function logPublicChatEvent(input = {}) {
   const payload = buildPublicChatRequestDiagnostics(input)
   if (payload.error) {
     console.error("[public-chat]", payload)
-  } else {
-    console.info("[public-chat]", payload)
   }
 }
 
@@ -105,8 +103,6 @@ export function logChatConfigEvent(input = {}) {
   const payload = buildChatConfigDiagnostics(input)
   if (payload.error) {
     console.error("[public-chat-config]", payload)
-  } else {
-    console.info("[public-chat-config]", payload)
   }
 }
 

@@ -11,6 +11,8 @@ import { cn } from "@/lib/utils"
 const inputClassName =
   "mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
 const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+const QR_PENDING_TIMEOUT_MS = 40000
+const QR_POLL_INTERVAL_MS = 5000
 
 function normalizePhoneDigits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 13)
@@ -66,6 +68,8 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   const [busyId, setBusyId] = useState(null)
   const [qrSnapshot, setQrSnapshot] = useState(null)
   const [pendingChannelId, setPendingChannelId] = useState(null)
+  const [pendingQrExpiresAt, setPendingQrExpiresAt] = useState(null)
+  const [pendingQrNow, setPendingQrNow] = useState(Date.now())
   const [hasSeenQr, setHasSeenQr] = useState(false)
   const [connectionHint, setConnectionHint] = useState("")
   const [status, setStatus] = useState({ type: "idle", message: "" })
@@ -127,9 +131,20 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       const currentChannel = nextChannels.find((channel) => channel.id === pendingChannelId)
       if (!currentChannel) {
         setPendingChannelId(null)
+        setPendingQrExpiresAt(null)
         setQrSnapshot(null)
         setHasSeenQr(false)
         setConnectionHint("")
+        return
+      }
+
+      if (pendingQrExpiresAt && Date.now() >= pendingQrExpiresAt) {
+        setPendingChannelId(null)
+        setPendingQrExpiresAt(null)
+        setQrSnapshot(null)
+        setHasSeenQr(false)
+        setConnectionHint("")
+        setStatus({ type: "error", message: "Tempo do QR esgotado. Gere novamente se precisar." })
         return
       }
 
@@ -145,13 +160,14 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         if (snapshot?.qrCodeDataUrl) {
           setQrSnapshot(snapshot)
           setHasSeenQr(true)
-          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo.")
+          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo antes do tempo acabar.")
           return
         }
 
         if (currentChannel.connectionStatus === "online" || snapshot?.status === "online") {
           setQrSnapshot(null)
           setPendingChannelId(null)
+          setPendingQrExpiresAt(null)
           setHasSeenQr(false)
           setConnectionHint("")
           return
@@ -180,13 +196,37 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     }
 
     syncPendingChannel()
-    const intervalId = window.setInterval(syncPendingChannel, 2500)
+    const intervalId = window.setInterval(syncPendingChannel, QR_POLL_INTERVAL_MS)
 
     return () => {
       active = false
       window.clearInterval(intervalId)
     }
-  }, [endpoint, hasSeenQr, pendingChannelId])
+  }, [endpoint, hasSeenQr, pendingChannelId, pendingQrExpiresAt])
+
+  useEffect(() => {
+    if (!pendingQrExpiresAt) {
+      return
+    }
+
+    setPendingQrNow(Date.now())
+    const ticker = window.setInterval(() => {
+      setPendingQrNow(Date.now())
+    }, 1000)
+    const timeout = window.setTimeout(() => {
+      setPendingChannelId(null)
+      setPendingQrExpiresAt(null)
+      setQrSnapshot(null)
+      setHasSeenQr(false)
+      setConnectionHint("")
+      setStatus({ type: "error", message: "Tempo do QR esgotado. Gere novamente se precisar." })
+    }, Math.max(0, pendingQrExpiresAt - Date.now()))
+
+    return () => {
+      window.clearInterval(ticker)
+      window.clearTimeout(timeout)
+    }
+  }, [pendingQrExpiresAt])
 
   useEffect(() => {
     if (!qrSnapshot?.channelId) {
@@ -197,6 +237,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     if (channel?.connectionStatus === "online") {
       setQrSnapshot(null)
       setPendingChannelId(null)
+      setPendingQrExpiresAt(null)
       setHasSeenQr(false)
       setConnectionHint("")
     }
@@ -252,11 +293,13 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
     if (action === "disconnect") {
       setPendingChannelId(null)
+      setPendingQrExpiresAt(null)
       setQrSnapshot(null)
       setHasSeenQr(false)
       setConnectionHint("")
     } else {
       setPendingChannelId(channel.id)
+      setPendingQrExpiresAt(Date.now() + QR_PENDING_TIMEOUT_MS)
       setHasSeenQr(false)
       setConnectionHint(action === "connect" ? "Solicitando conexao ao worker. Aguarde o QR." : "Atualizando QR Code do dispositivo.")
     }
@@ -275,7 +318,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         setQrSnapshot(data.snapshot)
         if (data.snapshot?.qrCodeDataUrl) {
           setHasSeenQr(true)
-          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo.")
+          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo antes do tempo acabar.")
         }
       } else {
         setQrSnapshot(data.snapshot)
@@ -285,7 +328,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         })
         if (action === "connect" && data.snapshot?.qrCodeDataUrl) {
           setHasSeenQr(true)
-          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo.")
+          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo antes do tempo acabar.")
         }
       }
 
@@ -426,6 +469,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     { id: "connect", label: "Conectar", icon: QrCode },
     { id: "attendants", label: "Atendentes", icon: Users },
   ]
+  const pendingQrSeconds = pendingQrExpiresAt ? Math.max(0, Math.ceil((pendingQrExpiresAt - pendingQrNow) / 1000)) : 0
 
   return (
     <section className={cn("mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm", compact && "mt-0 border-0 bg-transparent p-0 text-slate-300 shadow-none")}>
@@ -601,8 +645,17 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
       {qrSnapshot ? (
         <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <p className="text-sm font-semibold text-white">QR Code</p>
-          <p className="mt-1 text-xs text-slate-500">Status: {qrSnapshot.status || "desconhecido"}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-white">QR Code</p>
+              <p className="mt-1 text-xs text-slate-500">Status: {qrSnapshot.status || "desconhecido"}</p>
+            </div>
+            {pendingQrExpiresAt ? (
+              <span className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-2 py-1 text-xs font-semibold text-amber-200">
+                Expira em {pendingQrSeconds}s
+              </span>
+            ) : null}
+          </div>
           {connectionHint ? <p className="mt-2 text-sm text-amber-200">{connectionHint}</p> : null}
           {qrSnapshot.qrCodeDataUrl ? (
             <img src={qrSnapshot.qrCodeDataUrl} alt="QR Code do WhatsApp" className="mt-3 h-56 w-56 rounded-lg border border-zinc-200 bg-white p-2" />

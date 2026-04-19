@@ -172,6 +172,11 @@ export async function createLogEntry(input, deps = {}) {
       return null
     }
 
+    const level = normalizeLogLevel(input?.level ?? input?.payload?.level)
+    if (level !== "error") {
+      return null
+    }
+
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const payload =
       input?.payload && typeof input.payload === "object" && !Array.isArray(input.payload) ? input.payload : {}
@@ -182,7 +187,7 @@ export async function createLogEntry(input, deps = {}) {
       descricao: truncateText(input?.description || payload.error || payload.event || "Evento operacional"),
       payload: {
         ...payload,
-        level: normalizeLogLevel(input?.level ?? payload.level),
+        level,
       },
     }
 

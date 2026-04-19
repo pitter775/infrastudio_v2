@@ -762,7 +762,6 @@ async function deleteFeedbackMessagesForProject(supabase, projectId) {
         /feedback_mensagens/i.test(message) && /does not exist|not found|could not find|relation/i.test(message)
 
       if (missingFeedbackMessagesTable || missingFeedbackMessagesMetadata) {
-        console.warn("[projetos] feedback_mensagens cleanup unavailable; continuing project delete")
         return { ok: true }
       }
 

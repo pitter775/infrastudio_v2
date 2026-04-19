@@ -738,9 +738,7 @@ export async function updateApiForUser(apiId, projetoId, input, user) {
       })
     } catch (versionError) {
       if (isMissingApiVersionTableError(versionError)) {
-        console.warn("[apis] api versioning table not available; update will continue")
       } else if (isApiVersionAccessError(versionError)) {
-        console.warn("[apis] api versioning table access denied; update will continue")
       } else {
         console.error("[apis] failed to create api version", versionError)
         return { api: null, error: "Nao foi possivel versionar a API." }

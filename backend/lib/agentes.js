@@ -441,9 +441,7 @@ export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao
       })
     } catch (versionError) {
       if (isMissingAgentVersionTableError(versionError)) {
-        console.warn("[agentes] agent versioning table not available; update will continue")
       } else if (isAgentVersionAccessError(versionError)) {
-        console.warn("[agentes] agent versioning table access denied; update will continue")
       } else {
         console.error("[agentes] failed to create agent version", versionError)
         return null

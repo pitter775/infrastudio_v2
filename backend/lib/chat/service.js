@@ -1825,9 +1825,7 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
           )
         )
       }
-    } catch (error) {
-      console.warn("[chat-runtime] failed to build handoff alert context", error)
-    }
+    } catch (error) {}
   }
 
   const handoff = await requestHandoff({
@@ -2447,9 +2445,7 @@ export async function processChatRequest(body, options = {}) {
               agenteId: runtimeState.resolved?.agente?.id ?? null,
             })
           : []
-    } catch (error) {
-      console.warn("[chat-runtime] failed to load agenda availability", error)
-    }
+    } catch {}
     const aiContext = mergeContext(
       currentContext,
       runtimeApis.length ? { runtimeApis } : null,

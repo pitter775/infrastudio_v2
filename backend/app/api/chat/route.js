@@ -290,6 +290,21 @@ function buildWhatsAppContextWithSavedContactFlags(context, whatsappChannel) {
   }
 }
 
+function isSavedWhatsAppInboundContext(context, whatsappChannel) {
+  if (isSavedWhatsAppContact(context)) {
+    return true
+  }
+
+  const savedContactFlags = resolveSavedContactFlags(whatsappChannel?.sessionData)
+  if (!savedContactFlags) {
+    return false
+  }
+
+  return [savedContactFlags.isSavedContact, savedContactFlags.isMyContact, savedContactFlags.isSaved].some(
+    (value) => value === true
+  )
+}
+
 export async function OPTIONS(request) {
   return emptyChatOptionsResponse(request.headers.get("origin"))
 }
@@ -414,8 +429,7 @@ export async function POST(request) {
     if (
       effectiveBody?.canal === "whatsapp" &&
       whatsappChannel?.onlyReplyToUnsavedContacts === true &&
-      resolvedProjectAgent?.projeto?.id === whatsappChannel?.projetoId &&
-      isSavedWhatsAppContact(effectiveBody?.context)
+      isSavedWhatsAppInboundContext(effectiveBody?.context, whatsappChannel)
     ) {
       await recordPublicChatEvent({
         event: "completed",
