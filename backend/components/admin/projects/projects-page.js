@@ -341,7 +341,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
         <div className="flex flex-col gap-8 xl:flex-row xl:items-start">
           <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-start gap-5">
             {orderedProjects.map((project, index) => (
-              <div key={project.id} className="min-w-0">
+              <div key={project.id} className="min-w-0 max-w-[720px]">
                 <AdminProjectCard
                   project={project}
                   index={index}

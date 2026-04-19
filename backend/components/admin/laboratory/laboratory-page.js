@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { AlertTriangle, ArrowUpDown, FlaskConical, LoaderCircle, RefreshCcw, Search, Trash2 } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
@@ -53,6 +53,19 @@ function formatDateTime(value) {
     hour: "2-digit",
     minute: "2-digit",
   })
+}
+
+function formatFileSize(value) {
+  const size = Number(value || 0)
+  if (size < 1024) {
+    return `${size} B`
+  }
+
+  if (size < 1024 * 1024) {
+    return `${(size / 1024).toFixed(1)} KB`
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(2)} MB`
 }
 
 function levelClasses(level) {
@@ -201,6 +214,7 @@ function SortHeader({ label, sortKey, sort, onSort }) {
 
 export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
   const [logs, setLogs] = useState(initialLogs)
+  const [payloadDumps, setPayloadDumps] = useState({ enabled: false, files: [] })
   const [filters, setFilters] = useState({
     projectId: "",
     type: "",
@@ -212,9 +226,14 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
   const [feedback, setFeedback] = useState(null)
   const [sort, setSort] = useState({ key: "createdAt", direction: "desc" })
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false)
+  const [dumpBusy, setDumpBusy] = useState(false)
   const [runningScenarioId, setRunningScenarioId] = useState("")
   const [scoringLogId, setScoringLogId] = useState("")
   const isAllowed = currentUser?.role === "admin"
+
+  useEffect(() => {
+    void refreshLogs()
+  }, [])
 
   const availableTypes = useMemo(
     () => [...new Set((logs ?? []).map((entry) => entry.type).filter(Boolean))].sort(),
@@ -258,19 +277,79 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     setLoading(true)
     setFeedback(null)
 
-    const response = await fetch(`/api/admin/laboratorio?${buildQuery(nextFilters)}`, {
-      cache: "no-store",
-    })
-    const data = await response.json()
+    const [logsResponse, dumpsResponse] = await Promise.all([
+      fetch(`/api/admin/laboratorio?${buildQuery(nextFilters)}`, {
+        cache: "no-store",
+      }),
+      fetch("/api/admin/laboratorio/payload-dumps", {
+        cache: "no-store",
+      }),
+    ])
+    const data = await logsResponse.json()
+    const dumpsData = await dumpsResponse.json().catch(() => ({}))
 
-    if (!response.ok) {
+    if (!logsResponse.ok) {
       setFeedback(data.error ?? "Nao foi possivel carregar os logs.")
       setLoading(false)
       return
     }
 
     setLogs(data.logs ?? [])
+    if (dumpsResponse.ok) {
+      setPayloadDumps({
+        enabled: dumpsData.enabled === true,
+        files: Array.isArray(dumpsData.files) ? dumpsData.files : [],
+      })
+    }
     setLoading(false)
+  }
+
+  async function togglePayloadDump(enabled) {
+    setDumpBusy(true)
+    setFeedback(null)
+
+    const response = await fetch("/api/admin/laboratorio/payload-dumps", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled }),
+    })
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      setFeedback(data.error ?? "Nao foi possivel alterar o dump JSON.")
+      setDumpBusy(false)
+      return
+    }
+
+    setPayloadDumps((current) => ({
+      ...current,
+      enabled: data.enabled === true,
+    }))
+    setFeedback(data.enabled ? "Gravacao de dump JSON ativada." : "Gravacao de dump JSON desativada.")
+    setDumpBusy(false)
+  }
+
+  async function clearPayloadDumps() {
+    setDumpBusy(true)
+    setFeedback(null)
+
+    const response = await fetch("/api/admin/laboratorio/payload-dumps", {
+      method: "DELETE",
+    })
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      setFeedback(data.error ?? "Nao foi possivel limpar os dumps JSON.")
+      setDumpBusy(false)
+      return
+    }
+
+    setPayloadDumps((current) => ({
+      ...current,
+      files: [],
+    }))
+    setFeedback(`${data.deleted ?? 0} dump(s) removido(s).`)
+    setDumpBusy(false)
   }
 
   async function handleSubmit(event) {
@@ -391,6 +470,77 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
             <div className="mt-2 text-2xl font-semibold text-white">{value}</div>
           </div>
         ))}
+      </div>
+
+      <div className="mb-6 rounded-xl border border-white/5 bg-[#0b1120] p-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dump JSON do WhatsApp</div>
+            <div className="mt-2 text-lg font-semibold text-white">
+              {payloadDumps.enabled ? "Gravacao ativada" : "Gravacao desativada"}
+            </div>
+            <div className="mt-1 text-sm text-slate-400">
+              Arquivos disponiveis: {payloadDumps.files.length}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <Button
+              type="button"
+              disabled={dumpBusy || payloadDumps.enabled}
+              onClick={() => togglePayloadDump(true)}
+              className="h-10 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 text-sm text-emerald-100"
+            >
+              {dumpBusy ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Ativar gravacao
+            </Button>
+            <Button
+              type="button"
+              disabled={dumpBusy || !payloadDumps.enabled}
+              onClick={() => togglePayloadDump(false)}
+              className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 text-sm text-amber-100"
+            >
+              {dumpBusy ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : null}
+              Desativar gravacao
+            </Button>
+            <Button
+              type="button"
+              disabled={dumpBusy || payloadDumps.files.length === 0}
+              onClick={clearPayloadDumps}
+              className="h-10 rounded-xl border border-rose-400/20 bg-rose-400/10 px-4 text-sm text-rose-100 hover:bg-rose-400/15"
+            >
+              {dumpBusy ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1.5 h-4 w-4" />}
+              Remover todos
+            </Button>
+          </div>
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-xl border border-white/10">
+          <div className="grid grid-cols-[minmax(0,1fr)_110px_120px_120px] gap-3 border-b border-white/5 bg-slate-950/30 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <div>Arquivo</div>
+            <div>Tamanho</div>
+            <div>Atualizado</div>
+            <div>Acao</div>
+          </div>
+          {payloadDumps.files.length ? (
+            payloadDumps.files.map((file) => (
+              <div key={file.name} className="grid grid-cols-[minmax(0,1fr)_110px_120px_120px] gap-3 border-t border-white/5 px-4 py-3 text-sm text-slate-300 first:border-t-0">
+                <div className="truncate">{file.name}</div>
+                <div className="text-slate-400">{formatFileSize(file.size)}</div>
+                <div className="text-slate-400">{formatDateTime(file.updatedAt)}</div>
+                <div>
+                  <a
+                    href={`/api/admin/laboratorio/payload-dumps/${encodeURIComponent(file.name)}`}
+                    className="inline-flex h-8 items-center rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-medium text-sky-100 hover:bg-sky-500/15"
+                  >
+                    Baixar
+                  </a>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="px-4 py-6 text-sm text-slate-500">Nenhum dump JSON gravado.</div>
+          )}
+        </div>
       </div>
 
       <div className="mb-6 rounded-xl border border-white/5 bg-[#0b1120] p-5">
