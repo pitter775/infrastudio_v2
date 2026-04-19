@@ -181,6 +181,12 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
             {collapsed ? null : <span>Sair</span>}
           </button>
         </div>
+
+        {collapsed ? null : (
+          <p className="mt-8 px-3 text-[10px] uppercase tracking-[0.18em] text-slate-600">
+            {APP_BUILD_LABEL}
+          </p>
+        )}
       </div>
 
       <div className="border-t border-white/5 px-4 pt-6">
@@ -205,12 +211,6 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
             </Button>
           )}
         </div>
-
-        {collapsed ? null : (
-          <p className="mt-4 px-1 text-[10px] uppercase tracking-[0.18em] text-slate-600">
-            {APP_BUILD_LABEL}
-          </p>
-        )}
       </div>
     </>
   )

@@ -305,10 +305,119 @@ function isSavedWhatsAppInboundContext(context, whatsappChannel) {
   )
 }
 
+function buildPresentFieldMap(source, keys) {
+  return keys.reduce((accumulator, key) => {
+    const value = source?.[key]
+    const present =
+      value !== null &&
+      typeof value !== "undefined" &&
+      (!(typeof value === "string") || value.trim().length > 0)
+
+    accumulator[key] = present
+    return accumulator
+  }, {})
+}
+
+function measurePayloadSize(value) {
+  try {
+    return JSON.stringify(value).length
+  } catch {
+    return null
+  }
+}
+
+function listPresentKeys(source, keys) {
+  return keys.filter((key) => {
+    const value = source?.[key]
+    return (
+      value !== null &&
+      typeof value !== "undefined" &&
+      (!(typeof value === "string") || value.trim().length > 0)
+    )
+  })
+}
+
 function buildWhatsAppSavedContactDiagnostic(context, whatsappChannel, resolvedProjectAgent) {
   const whatsapp = isPlainObject(context?.whatsapp) ? context.whatsapp : {}
   const rawContact = isPlainObject(whatsapp.rawContact) ? whatsapp.rawContact : {}
   const savedContactFlags = resolveSavedContactFlags(whatsappChannel?.sessionData) ?? null
+  const whatsappFieldPresence = buildPresentFieldMap(whatsapp, [
+    "contactName",
+    "pushName",
+    "shortName",
+    "displayName",
+    "remotePhone",
+    "remoteJid",
+    "profilePicUrl",
+    "isSavedContact",
+    "isMyContact",
+    "isSaved",
+    "savedContactFlags",
+    "rawContact",
+  ])
+  const rawContactFieldPresence = buildPresentFieldMap(rawContact, [
+    "number",
+    "name",
+    "pushname",
+    "shortName",
+    "isMyContact",
+    "isSavedContact",
+    "isSaved",
+    "isUser",
+    "isWAContact",
+    "isBusiness",
+    "isEnterprise",
+    "profilePicUrl",
+    "verifiedName",
+    "labels",
+  ])
+  const minimalCandidate = {
+    remotePhone: typeof whatsapp.remotePhone === "string" ? whatsapp.remotePhone : null,
+    contactName: typeof whatsapp.contactName === "string" ? whatsapp.contactName : null,
+    pushName: typeof whatsapp.pushName === "string" ? whatsapp.pushName : null,
+    shortName: typeof whatsapp.shortName === "string" ? whatsapp.shortName : null,
+    isSavedContact: typeof whatsapp.isSavedContact === "boolean" ? whatsapp.isSavedContact : null,
+    isMyContact: typeof whatsapp.isMyContact === "boolean" ? whatsapp.isMyContact : null,
+    isSaved: typeof whatsapp.isSaved === "boolean" ? whatsapp.isSaved : null,
+    savedContactFlags,
+    rawContact: {
+      number: typeof rawContact.number === "string" ? rawContact.number : null,
+      name: typeof rawContact.name === "string" ? rawContact.name : null,
+      pushname: typeof rawContact.pushname === "string" ? rawContact.pushname : null,
+      shortName: typeof rawContact.shortName === "string" ? rawContact.shortName : null,
+      isMyContact: typeof rawContact.isMyContact === "boolean" ? rawContact.isMyContact : null,
+      isSavedContact: typeof rawContact.isSavedContact === "boolean" ? rawContact.isSavedContact : null,
+      isSaved: typeof rawContact.isSaved === "boolean" ? rawContact.isSaved : null,
+      isUser: typeof rawContact.isUser === "boolean" ? rawContact.isUser : null,
+      isWAContact: typeof rawContact.isWAContact === "boolean" ? rawContact.isWAContact : null,
+      isBusiness: typeof rawContact.isBusiness === "boolean" ? rawContact.isBusiness : null,
+      isEnterprise: typeof rawContact.isEnterprise === "boolean" ? rawContact.isEnterprise : null,
+    },
+  }
+  const minimalWhatsappKeys = listPresentKeys(minimalCandidate, [
+    "remotePhone",
+    "contactName",
+    "pushName",
+    "shortName",
+    "isSavedContact",
+    "isMyContact",
+    "isSaved",
+    "savedContactFlags",
+    "rawContact",
+  ])
+  const minimalRawContactKeys = listPresentKeys(minimalCandidate.rawContact, [
+    "number",
+    "name",
+    "pushname",
+    "shortName",
+    "isMyContact",
+    "isSavedContact",
+    "isSaved",
+    "isUser",
+    "isWAContact",
+    "isBusiness",
+    "isEnterprise",
+  ])
 
   return {
     event: "whatsapp_saved_contact_probe",
@@ -334,6 +443,15 @@ function buildWhatsAppSavedContactDiagnostic(context, whatsappChannel, resolvedP
     channelSavedContactFlags: savedContactFlags,
     inboundWhatsappKeys: Object.keys(whatsapp).sort(),
     inboundRawContactKeys: Object.keys(rawContact).sort(),
+    inboundWhatsappFieldPresence: whatsappFieldPresence,
+    inboundRawContactFieldPresence: rawContactFieldPresence,
+    inboundWhatsappPayloadSize: measurePayloadSize(whatsapp),
+    inboundRawContactPayloadSize: measurePayloadSize(rawContact),
+    minimalCandidatePayloadSize: measurePayloadSize(minimalCandidate),
+    minimalCandidateKeys: {
+      whatsapp: minimalWhatsappKeys,
+      rawContact: minimalRawContactKeys,
+    },
     sessionDataKeys: isPlainObject(whatsappChannel?.sessionData) ? Object.keys(whatsappChannel.sessionData).sort() : [],
   }
 }

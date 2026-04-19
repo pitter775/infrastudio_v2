@@ -67,6 +67,8 @@ function SidebarContent({ pathname, user, onNavigate }) {
             </Link>
           ) : null}
         </nav>
+
+        <p className="mt-8 px-3 text-[10px] uppercase tracking-[0.18em] text-slate-600">{APP_BUILD_LABEL}</p>
       </div>
 
       <div className="border-t border-white/5 px-4 py-6">
@@ -87,7 +89,6 @@ function SidebarContent({ pathname, user, onNavigate }) {
             Sair
           </Button>
         </form>
-        <p className="mt-4 px-1 text-[10px] uppercase tracking-[0.18em] text-slate-600">{APP_BUILD_LABEL}</p>
       </div>
     </div>
   )
