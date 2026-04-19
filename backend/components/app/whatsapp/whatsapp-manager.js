@@ -157,19 +157,20 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           return
         }
 
-        if (snapshot?.qrCodeDataUrl) {
-          setQrSnapshot(snapshot)
-          setHasSeenQr(true)
-          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo antes do tempo acabar.")
-          return
-        }
-
         if (currentChannel.connectionStatus === "online" || snapshot?.status === "online") {
           setQrSnapshot(null)
           setPendingChannelId(null)
           setPendingQrExpiresAt(null)
           setHasSeenQr(false)
           setConnectionHint("")
+          setStatus({ type: "success", message: "WhatsApp conectado com sucesso." })
+          return
+        }
+
+        if (snapshot?.qrCodeDataUrl) {
+          setQrSnapshot(snapshot)
+          setHasSeenQr(true)
+          setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo antes do tempo acabar.")
           return
         }
 
@@ -214,6 +215,17 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setPendingQrNow(Date.now())
     }, 1000)
     const timeout = window.setTimeout(() => {
+      const connectedChannel = channels.find((channel) => channel.id === pendingChannelId && channel.connectionStatus === "online")
+      if (connectedChannel) {
+        setPendingChannelId(null)
+        setPendingQrExpiresAt(null)
+        setQrSnapshot(null)
+        setHasSeenQr(false)
+        setConnectionHint("")
+        setStatus({ type: "success", message: "WhatsApp conectado com sucesso." })
+        return
+      }
+
       setPendingChannelId(null)
       setPendingQrExpiresAt(null)
       setQrSnapshot(null)
@@ -226,7 +238,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       window.clearInterval(ticker)
       window.clearTimeout(timeout)
     }
-  }, [pendingQrExpiresAt])
+  }, [channels, pendingChannelId, pendingQrExpiresAt])
 
   useEffect(() => {
     if (!qrSnapshot?.channelId) {

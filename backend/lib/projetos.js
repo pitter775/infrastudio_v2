@@ -909,6 +909,10 @@ export async function deleteProject(projectId, confirmationName) {
   }
 
   const projectTables = [
+    "agenda_reservas",
+    "agenda_horarios",
+    "agente_versoes",
+    "api_versoes",
     "chat_handoff_eventos",
     "chat_handoffs",
     "whatsapp_handoff_contatos",
@@ -921,6 +925,7 @@ export async function deleteProject(projectId, confirmationName) {
     "tokens_avulsos",
     "usuarios_limites_ia",
     "usuarios_projetos",
+    "projetos_checkout_intencoes",
     "projetos_planos",
     "projetos_assinaturas",
     "projetos_ciclos_uso",
