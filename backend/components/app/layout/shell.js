@@ -8,6 +8,7 @@ import { LogoCubo3D } from "@/components/ui/LogoCubo3D"
 import { Button } from "@/components/ui/button"
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
 import { UserAvatar } from "@/components/ui/user-avatar"
+import { APP_BUILD_LABEL } from "@/lib/build-info"
 import { cn } from "@/lib/utils"
 
 const navigation = [
@@ -86,6 +87,7 @@ function SidebarContent({ pathname, user, onNavigate }) {
             Sair
           </Button>
         </form>
+        <p className="mt-4 px-1 text-[10px] uppercase tracking-[0.18em] text-slate-600">{APP_BUILD_LABEL}</p>
       </div>
     </div>
   )

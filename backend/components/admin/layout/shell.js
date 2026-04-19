@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { UserAvatar } from '@/components/ui/user-avatar'
+import { APP_BUILD_LABEL } from '@/lib/build-info'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -204,6 +205,12 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
             </Button>
           )}
         </div>
+
+        {collapsed ? null : (
+          <p className="mt-4 px-1 text-[10px] uppercase tracking-[0.18em] text-slate-600">
+            {APP_BUILD_LABEL}
+          </p>
+        )}
       </div>
     </>
   )

@@ -305,6 +305,39 @@ function isSavedWhatsAppInboundContext(context, whatsappChannel) {
   )
 }
 
+function buildWhatsAppSavedContactDiagnostic(context, whatsappChannel, resolvedProjectAgent) {
+  const whatsapp = isPlainObject(context?.whatsapp) ? context.whatsapp : {}
+  const rawContact = isPlainObject(whatsapp.rawContact) ? whatsapp.rawContact : {}
+  const savedContactFlags = resolveSavedContactFlags(whatsappChannel?.sessionData) ?? null
+
+  return {
+    event: "whatsapp_saved_contact_probe",
+    onlyReplyToUnsavedContacts: whatsappChannel?.onlyReplyToUnsavedContacts === true,
+    blockedAsSavedContact: isSavedWhatsAppInboundContext(context, whatsappChannel),
+    projectId: resolvedProjectAgent?.projeto?.id ?? whatsappChannel?.projetoId ?? null,
+    agentId: resolvedProjectAgent?.agente?.id ?? whatsappChannel?.agenteId ?? null,
+    channelId: whatsappChannel?.id ?? null,
+    contactName: typeof whatsapp.contactName === "string" ? whatsapp.contactName : null,
+    pushName: typeof whatsapp.pushName === "string" ? whatsapp.pushName : null,
+    remotePhone: typeof whatsapp.remotePhone === "string" ? whatsapp.remotePhone : null,
+    rawContactName: typeof rawContact.name === "string" ? rawContact.name : null,
+    rawContactPushname: typeof rawContact.pushname === "string" ? rawContact.pushname : null,
+    rawContactNumber: typeof rawContact.number === "string" ? rawContact.number : null,
+    explicitFlags: {
+      whatsappIsSavedContact: typeof whatsapp.isSavedContact === "boolean" ? whatsapp.isSavedContact : null,
+      whatsappIsMyContact: typeof whatsapp.isMyContact === "boolean" ? whatsapp.isMyContact : null,
+      whatsappIsSaved: typeof whatsapp.isSaved === "boolean" ? whatsapp.isSaved : null,
+      rawIsSavedContact: typeof rawContact.isSavedContact === "boolean" ? rawContact.isSavedContact : null,
+      rawIsMyContact: typeof rawContact.isMyContact === "boolean" ? rawContact.isMyContact : null,
+      rawIsSaved: typeof rawContact.isSaved === "boolean" ? rawContact.isSaved : null,
+    },
+    channelSavedContactFlags: savedContactFlags,
+    inboundWhatsappKeys: Object.keys(whatsapp).sort(),
+    inboundRawContactKeys: Object.keys(rawContact).sort(),
+    sessionDataKeys: isPlainObject(whatsappChannel?.sessionData) ? Object.keys(whatsappChannel.sessionData).sort() : [],
+  }
+}
+
 export async function OPTIONS(request) {
   return emptyChatOptionsResponse(request.headers.get("origin"))
 }
@@ -425,6 +458,17 @@ export async function POST(request) {
             ...normalizedBody,
             context: effectiveContext,
           }
+
+    if (effectiveBody?.canal === "whatsapp" && whatsappChannel?.onlyReplyToUnsavedContacts === true) {
+      await createLogEntry({
+        projectId: resolvedProjectAgent?.projeto?.id ?? whatsappChannel?.projetoId ?? null,
+        type: "lab_whatsapp_saved_contact_probe",
+        origin: "laboratorio",
+        level: "error",
+        description: "Diagnostico temporario do inbound WhatsApp para contatos salvos.",
+        payload: buildWhatsAppSavedContactDiagnostic(effectiveBody?.context, whatsappChannel, resolvedProjectAgent),
+      })
+    }
 
     if (
       effectiveBody?.canal === "whatsapp" &&
