@@ -72,6 +72,10 @@ export async function recordPublicChatEvent(input = {}) {
   const payload = buildPublicChatRequestDiagnostics(input)
   logPublicChatEvent(input)
 
+  if (!payload.error && Number(payload.status || 0) < 400) {
+    return null
+  }
+
   return createLogEntry({
     projectId: input.projectId ?? payload.projetoId ?? null,
     type: payload.error ? "chat_error" : "chat_event",
@@ -133,6 +137,10 @@ function buildChatConfigLogDescription(payload) {
 export async function recordChatConfigEvent(input = {}) {
   const payload = buildChatConfigDiagnostics(input)
   logChatConfigEvent(input)
+
+  if (!payload.error && Number(payload.status || 0) < 400) {
+    return null
+  }
 
   return createLogEntry({
     projectId: input.projectId ?? payload.projetoId ?? null,

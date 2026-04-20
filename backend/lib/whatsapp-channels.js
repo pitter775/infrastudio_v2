@@ -361,7 +361,16 @@ export async function updateWhatsAppChannelForUser(channelId, project, input, us
       return { channel: null, error: "Nao foi possivel atualizar o canal." }
     }
 
-    return { channel: mapChannel(data), error: null }
+    const channel = mapChannel(data)
+
+    try {
+      await syncWhatsAppWorkerChannelConfig(channel)
+    } catch (error) {
+      console.error("[whatsapp] failed to sync worker channel config", error)
+      return { channel: null, error: "Canal atualizado no banco, mas o worker nao recebeu a configuracao." }
+    }
+
+    return { channel, error: null }
   } catch (error) {
     console.error("[whatsapp] failed to update channel", error)
     return { channel: null, error: "Nao foi possivel atualizar o canal." }
@@ -471,6 +480,23 @@ export async function callWhatsAppWorker(path, init = {}) {
   }
 
   return data
+}
+
+async function syncWhatsAppWorkerChannelConfig(channel) {
+  if (!channel?.id) {
+    return null
+  }
+
+  return callWhatsAppWorker("/channel-config", {
+    method: "POST",
+    body: JSON.stringify({
+      channelId: channel.id,
+      projetoId: channel.projetoId ?? null,
+      agenteId: channel.agenteId ?? null,
+      numero: channel.number ?? null,
+      onlyReplyToUnsavedContacts: channel.onlyReplyToUnsavedContacts === true,
+    }),
+  })
 }
 
 export async function sendWhatsAppTextMessage(input) {

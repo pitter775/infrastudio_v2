@@ -27,6 +27,7 @@ export async function POST(_request, context) {
         projetoId: project.id,
         agenteId: channel.agenteId || project.agent?.id || null,
         numero: channel.number,
+        onlyReplyToUnsavedContacts: channel.onlyReplyToUnsavedContacts === true,
       }),
     })
 
