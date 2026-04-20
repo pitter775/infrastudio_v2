@@ -25,14 +25,38 @@ async function callWorker(path, init = {}) {
   return data
 }
 
-export async function GET() {
+export async function GET(request) {
   const user = await getSessionUser()
 
   if (!canAccessLaboratory(user)) {
     return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
   }
 
+  const requestUrl = request?.url ? new URL(request.url) : null
+  const downloadName = requestUrl?.searchParams.get("download")?.trim() || ""
+
   try {
+    if (downloadName) {
+      const fileName = encodeURIComponent(downloadName)
+      const response = await fetch(`${getWhatsAppWorkerBaseUrl()}/debug/payload-dumps/${fileName}`, {
+        cache: "no-store",
+      })
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}))
+        return NextResponse.json({ error: payload.error || "Nao foi possivel baixar o dump." }, { status: response.status })
+      }
+
+      const buffer = await response.arrayBuffer()
+      return new NextResponse(buffer, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${downloadName.replace(/"/g, "")}"`,
+        },
+      })
+    }
+
     const payload = await callWorker("/debug/payload-dumps")
     return NextResponse.json(payload, { status: 200 })
   } catch (error) {

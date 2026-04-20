@@ -529,7 +529,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
                 <div className="text-slate-400">{formatDateTime(file.updatedAt)}</div>
                 <div>
                   <a
-                    href={`/api/admin/laboratorio/payload-dumps/${encodeURIComponent(file.name)}`}
+                    href={`/api/admin/laboratorio/payload-dumps?download=${encodeURIComponent(file.name)}`}
                     className="inline-flex h-8 items-center rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-medium text-sky-100 hover:bg-sky-500/15"
                   >
                     Baixar
