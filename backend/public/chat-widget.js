@@ -234,6 +234,9 @@
       ".chat-bubble.ai .chat-cta.whatsapp { margin-top: 10px; min-height: 0; gap: 6px; padding: 7px 10px; font-size: 11px; line-height: 1; letter-spacing: .01em; color: #22c55e !important; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); box-shadow: none; }",
       ".chat-bubble.ai .chat-cta.whatsapp:hover { transform: translateY(-1px); color: #16a34a !important; background: rgba(34,197,94,0.14); border-color: rgba(34,197,94,0.32); box-shadow: none; }",
       ".chat-bubble.ai .chat-cta.whatsapp .chat-icon { width: 13px; height: 13px; }",
+      ".chat-day-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: rgba(148,163,184,0.72); }",
+      ".chat-day-divider::before, .chat-day-divider::after { content: ''; height: 1px; flex: 1; background: rgba(148,163,184,0.12); }",
+      ".chat-day-divider-label { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(148,163,184,0.12); background: rgba(15,23,42,0.24); border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }",
       ".chat-assets { margin-top: 10px; display: grid; gap: 10px; }",
       ".chat-asset { display: block; overflow: hidden; border-radius: 16px; border: 1px solid " + headerBorder + "; background: color-mix(in srgb, " + panelBackground + " 88%, transparent); color: inherit; text-decoration: none; }",
       ".chat-asset.image, .chat-asset.video, .chat-asset.preview { padding: 0; }",
@@ -1096,6 +1099,56 @@
       return date.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     }
 
+    function getMessageDayKey(message) {
+      var value = message && (message.createdAt || message.time);
+      var date = value ? new Date(value) : null;
+      if (!date || Number.isNaN(date.getTime())) {
+        return null;
+      }
+
+      var year = date.getFullYear();
+      var month = String(date.getMonth() + 1).padStart(2, "0");
+      var day = String(date.getDate()).padStart(2, "0");
+      return year + "-" + month + "-" + day;
+    }
+
+    function formatMessageDayLabel(message) {
+      var value = message && (message.createdAt || message.time);
+      var date = value ? new Date(value) : null;
+      if (!date || Number.isNaN(date.getTime())) {
+        return "";
+      }
+
+      var today = new Date();
+      var yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      var messageDayKey = getMessageDayKey(message);
+
+      if (messageDayKey === getMessageDayKey({ createdAt: today.toISOString() })) {
+        return "Hoje";
+      }
+
+      if (messageDayKey === getMessageDayKey({ createdAt: yesterday.toISOString() })) {
+        return "Ontem";
+      }
+
+      return date.toLocaleDateString("pt-BR", {
+        day: "2-digit",
+        month: "long",
+        year: "numeric"
+      });
+    }
+
+    function createMessageDayDivider(label) {
+      var divider = document.createElement("div");
+      divider.className = "chat-day-divider";
+      var text = document.createElement("div");
+      text.className = "chat-day-divider-label";
+      text.textContent = label;
+      divider.appendChild(text);
+      return divider;
+    }
+
     function renderMessages(options) {
       var settings = options && typeof options === "object" ? options : {};
       var shouldStickToBottom = settings.forceScroll === true || isNearBottom();
@@ -1107,7 +1160,13 @@
         welcome.textContent = "Oi! Como posso te ajudar agora?";
         stack.appendChild(welcome);
       } else {
+        var previousDayKey = null;
         messages.forEach(function (message) {
+          var currentDayKey = getMessageDayKey(message);
+          if (currentDayKey && currentDayKey !== previousDayKey) {
+            stack.appendChild(createMessageDayDivider(formatMessageDayLabel(message)));
+          }
+
           var bubble = document.createElement("div");
           bubble.className = "chat-bubble " + (message.isAi ? "ai" : "user");
           bubble.innerHTML = '<div class="chat-rich">' + formatRichText(message.text) + "</div>";
@@ -1151,6 +1210,7 @@
             bubble.appendChild(sentAttachments);
           }
           stack.appendChild(bubble);
+          previousDayKey = currentDayKey || previousDayKey;
         });
       }
 

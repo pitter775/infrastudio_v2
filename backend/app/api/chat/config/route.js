@@ -49,7 +49,7 @@ export async function GET(request) {
     let agente = agenteIdentifier ? await getAgenteByIdentifier(agenteIdentifier, projeto.id) : null
     const explicitAgentRequested = Boolean(agenteIdentifier)
 
-    if (agente && (!agente.ativo || agente.projetoId !== projeto.id)) {
+    if (agente && (!agente.active || agente.projectId !== projeto.id)) {
       agente = null
     }
 
@@ -109,7 +109,7 @@ export async function GET(request) {
         agente: {
           id: agente.id,
           slug: agente.slug,
-          nome: agente.nome,
+          nome: agente.name,
         },
         widget: widget
           ? {
@@ -119,7 +119,7 @@ export async function GET(request) {
             }
           : null,
         ui: {
-          title: widget?.nome ?? agente.nome ?? projeto.nome ?? "Chat",
+          title: widget?.nome ?? agente.name ?? projeto.nome ?? "Chat",
           theme: widget?.tema ?? null,
           accent: widget?.corPrimaria ?? null,
           transparent: widget?.fundoTransparente ?? null,

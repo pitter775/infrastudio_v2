@@ -13,6 +13,34 @@ function normalizeAgentConfigurations(configuracoes) {
   return configuracoes && typeof configuracoes === "object" && !Array.isArray(configuracoes) ? { ...configuracoes } : {}
 }
 
+function pickTextField(input, primaryKey, fallbackKey = null) {
+  const primaryValue = input?.[primaryKey]
+  if (typeof primaryValue === "string" && primaryValue.trim()) {
+    return primaryValue.trim()
+  }
+
+  if (fallbackKey) {
+    const fallbackValue = input?.[fallbackKey]
+    if (typeof fallbackValue === "string" && fallbackValue.trim()) {
+      return fallbackValue.trim()
+    }
+  }
+
+  return ""
+}
+
+function pickBooleanField(input, primaryKey, fallbackKey = null, defaultValue = true) {
+  if (typeof input?.[primaryKey] === "boolean") {
+    return input[primaryKey]
+  }
+
+  if (fallbackKey && typeof input?.[fallbackKey] === "boolean") {
+    return input[fallbackKey]
+  }
+
+  return defaultValue
+}
+
 function mapAgent(row) {
   const configuracoes = normalizeAgentConfigurations(row.configuracoes)
   const brand = configuracoes.brand && typeof configuracoes.brand === "object" && !Array.isArray(configuracoes.brand)
@@ -20,10 +48,10 @@ function mapAgent(row) {
     : {}
   return {
     id: row.id,
-    nome: row.nome?.trim() || "Agente sem nome",
+    name: row.nome?.trim() || "Agente sem nome",
     slug: row.slug?.trim() || null,
-    descricao: row.descricao?.trim() || "",
-    promptBase: row.prompt_base?.trim() || "",
+    description: row.descricao?.trim() || "",
+    prompt: row.prompt_base?.trim() || "",
     configuracoes,
     logoUrl: typeof brand.logoUrl === "string" ? brand.logoUrl.trim() : "",
     siteUrl: typeof brand.siteUrl === "string" ? brand.siteUrl.trim() : "",
@@ -31,9 +59,9 @@ function mapAgent(row) {
       configuracoes.runtimeConfig && typeof configuracoes.runtimeConfig === "object" && !Array.isArray(configuracoes.runtimeConfig)
         ? normalizeAgentRuntimeConfig(configuracoes.runtimeConfig)
         : null,
-    ativo: row.ativo !== false,
-    projetoId: row.projeto_id ?? null,
-    modeloId: row.modelo_id ?? null,
+    active: row.ativo !== false,
+    projectId: row.projeto_id ?? null,
+    modelId: row.modelo_id ?? null,
     apiIds: [],
     arquivos: [],
     createdAt: row.created_at ?? new Date().toISOString(),
@@ -47,12 +75,12 @@ function mapAgentVersion(row) {
     : {}
   return {
     id: row.id,
-    agenteId: row.agente_id,
-    projetoId: row.projeto_id,
+    agentId: row.agente_id,
+    projectId: row.projeto_id,
     versionNumber: row.version_number,
-    nome: row.nome?.trim() || "Agente sem nome",
-    descricao: row.descricao?.trim() || "",
-    promptBase: row.prompt_base || "",
+    name: row.nome?.trim() || "Agente sem nome",
+    description: row.descricao?.trim() || "",
+    prompt: row.prompt_base || "",
     configuracoes,
     logoUrl: typeof brand.logoUrl === "string" ? brand.logoUrl.trim() : "",
     siteUrl: typeof brand.siteUrl === "string" ? brand.siteUrl.trim() : "",
@@ -60,7 +88,7 @@ function mapAgentVersion(row) {
       configuracoes.runtimeConfig && typeof configuracoes.runtimeConfig === "object" && !Array.isArray(configuracoes.runtimeConfig)
         ? normalizeAgentRuntimeConfig(configuracoes.runtimeConfig)
         : null,
-    ativo: row.ativo !== false,
+    active: row.ativo !== false,
     source: row.source || "manual_update",
     note: row.note || "",
     createdBy: row.created_by ?? null,
@@ -86,10 +114,10 @@ function userCanAccessProject(user, projectId) {
 }
 
 function normalizeAgentUpdate(input, currentConfiguracoes = {}) {
-  const configuracoes = {
-    ...normalizeAgentConfigurations(currentConfiguracoes),
-    ...normalizeAgentConfigurations(input.configuracoes),
-  }
+  const hasExplicitConfiguracoes = Object.prototype.hasOwnProperty.call(input, "configuracoes")
+  const configuracoes = hasExplicitConfiguracoes
+    ? normalizeAgentConfigurations(input.configuracoes)
+    : normalizeAgentConfigurations(currentConfiguracoes)
 
   if (Object.prototype.hasOwnProperty.call(input, "runtimeConfig")) {
     const normalizedRuntimeConfig = normalizeAgentRuntimeConfig(input.runtimeConfig)
@@ -101,11 +129,11 @@ function normalizeAgentUpdate(input, currentConfiguracoes = {}) {
   }
 
   return {
-    nome: String(input.nome || "").trim(),
-    descricao: String(input.descricao || "").trim(),
-    prompt_base: String(input.promptBase || "").trim(),
+    nome: pickTextField(input, "name", "nome"),
+    descricao: pickTextField(input, "description", "descricao"),
+    prompt_base: pickTextField(input, "prompt", "promptBase"),
     configuracoes,
-    ativo: input.ativo === false ? false : true,
+    ativo: pickBooleanField(input, "active", "ativo", true),
     updated_at: new Date().toISOString(),
   }
 }
@@ -214,7 +242,44 @@ async function createAgentVersionSnapshot(supabase, agentRow, input = {}) {
     throw error
   }
 
+  try {
+    await pruneAgentVersionSnapshots(supabase, agentRow.id, agentRow.projeto_id, 3)
+  } catch (pruneError) {
+    console.error("[agentes] failed to prune agent versions", pruneError)
+  }
+
   return data ? mapAgentVersion(data) : null
+}
+
+async function pruneAgentVersionSnapshots(supabase, agenteId, projetoId, keep = 3) {
+  if (!agenteId || !projetoId || keep < 1) {
+    return
+  }
+
+  const { data, error } = await supabase
+    .from("agente_versoes")
+    .select("id")
+    .eq("agente_id", agenteId)
+    .eq("projeto_id", projetoId)
+    .order("version_number", { ascending: false })
+
+  if (error) {
+    throw error
+  }
+
+  const removableIds = (data ?? []).slice(keep).map((item) => item?.id).filter(Boolean)
+  if (!removableIds.length) {
+    return
+  }
+
+  const { error: deleteError } = await supabase
+    .from("agente_versoes")
+    .delete()
+    .in("id", removableIds)
+
+  if (deleteError) {
+    throw deleteError
+  }
 }
 
 export async function listAgentVersionsForUser({ agenteId, projetoId, limit = 12 }, user) {
@@ -336,7 +401,7 @@ export async function getAgenteByIdentifier(identifier, projetoId) {
       return null
     }
 
-    if (projetoId && byId.projetoId !== projetoId) {
+    if (projetoId && byId.projectId !== projetoId) {
       return null
     }
 
@@ -403,7 +468,22 @@ export async function createDefaultAgenteForUser({ projetoId, projectName, nome,
   }
 }
 
-export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao, promptBase, ativo, runtimeConfig, configuracoes }, user) {
+export async function updateAgenteForUser(input, user) {
+  const {
+    agenteId,
+    projetoId,
+    nome,
+    name,
+    descricao,
+    description,
+    promptBase,
+    prompt,
+    ativo,
+    active,
+    runtimeConfig,
+    configuracoes,
+  } = input || {}
+
   if (!agenteId || !projetoId || !userCanAccessProject(user, projetoId)) {
     return null
   }
@@ -425,7 +505,7 @@ export async function updateAgenteForUser({ agenteId, projetoId, nome, descricao
     }
 
     const payload = normalizeAgentUpdate(
-      { nome, descricao, promptBase, ativo, runtimeConfig, configuracoes },
+      { nome, name, descricao, description, promptBase, prompt, ativo, active, runtimeConfig, configuracoes },
       currentAgent.configuracoes,
     )
 

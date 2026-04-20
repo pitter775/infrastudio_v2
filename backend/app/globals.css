@@ -202,6 +202,10 @@ a {
   animation: infra-overlay-in 180ms ease-out;
 }
 
+.infra-overlay-motion[data-state='closed'] {
+  animation: infra-overlay-out 160ms ease-in forwards;
+}
+
 .infra-dialog-motion {
   animation: infra-dialog-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -212,6 +216,14 @@ a {
 
 .infra-sheet-right {
   animation: infra-sheet-right-in 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.infra-sheet-left[data-state='closed'] {
+  animation: infra-sheet-left-out 180ms ease-in forwards;
+}
+
+.infra-sheet-right[data-state='closed'] {
+  animation: infra-sheet-right-out 180ms ease-in forwards;
 }
 
 .infra-tab-motion {
@@ -508,6 +520,16 @@ a {
   }
 }
 
+@keyframes infra-overlay-out {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
 @keyframes infra-dialog-in {
   from {
     opacity: 0;
@@ -541,6 +563,30 @@ a {
   to {
     opacity: 1;
     transform: translateX(0);
+  }
+}
+
+@keyframes infra-sheet-left-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(-12px);
+  }
+}
+
+@keyframes infra-sheet-right-out {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateX(12px);
   }
 }
 

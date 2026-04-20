@@ -1393,7 +1393,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     const projeto = await getProjeto(projetoIdentifier)
     let agente = agenteIdentifier ? await getAgente(agenteIdentifier, projeto?.id ?? null) : null
 
-    if (agente && (!agente.ativo || agente.projetoId !== projeto?.id)) {
+    if (agente && (!agente.active || agente.projectId !== projeto?.id)) {
       agente = null
     }
 
@@ -1507,10 +1507,10 @@ export function buildInitialChatContext(input) {
     agente: input.resolved?.agente
       ? {
           id: input.resolved.agente.id,
-          nome: input.resolved.agente.nome ?? null,
+          nome: input.resolved.agente.nome ?? input.resolved.agente.name ?? null,
           slug: input.resolved.agente.slug ?? null,
-          descricao: input.resolved.agente.descricao ?? null,
-          promptBase: input.resolved.agente.promptBase ?? null,
+          descricao: input.resolved.agente.descricao ?? input.resolved.agente.description ?? null,
+          promptBase: input.resolved.agente.promptBase ?? input.resolved.agente.prompt ?? null,
           configuracoes: input.resolved.agente.configuracoes ?? {},
           runtimeConfig: input.resolved.agente.runtimeConfig ?? null,
           locked: Boolean(input.resolved?.lockedToAgent),

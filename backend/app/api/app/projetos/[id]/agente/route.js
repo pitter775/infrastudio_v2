@@ -46,8 +46,13 @@ export async function PATCH(request, context) {
   }
 
   const body = await request.json()
+  const agentId = body.agenteId || body.agentId
+  const agentName = body.name || body.nome
+  const agentDescription = body.description || body.descricao
+  const agentPrompt = body.prompt || body.promptBase
+  const agentActive = typeof body.active === "boolean" ? body.active : body.ativo
 
-  if (!body.agenteId || !body.nome || !body.promptBase) {
+  if (!agentId || !agentName || !agentPrompt) {
     return NextResponse.json(
       { error: "Agente, nome e prompt sao obrigatorios." },
       { status: 400 },
@@ -66,12 +71,12 @@ export async function PATCH(request, context) {
 
   const agent = await updateAgenteForUser(
     {
-      agenteId: body.agenteId,
+      agenteId: agentId,
       projetoId: project.id,
-      nome: body.nome,
-      descricao: body.descricao,
-      promptBase: body.promptBase,
-      ativo: body.ativo,
+      name: agentName,
+      description: agentDescription,
+      prompt: agentPrompt,
+      active: agentActive,
       runtimeConfig: runtimeValidation.value,
       configuracoes: configValidation.value,
     },

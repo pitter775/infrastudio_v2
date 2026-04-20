@@ -40,13 +40,22 @@ function PlanCard({ plan, currentPlanId, onCheckout, loadingKey }) {
     <div
       className={cn(
         'rounded-3xl border p-5',
-        plan.featured ? 'border-cyan-400/25 bg-cyan-500/[0.07]' : 'border-white/10 bg-white/[0.03]',
+        isCurrentPlan
+          ? 'border-2 border-emerald-400/70 bg-emerald-500/[0.08] shadow-[0_0_0_1px_rgba(52,211,153,0.24),0_0_28px_rgba(16,185,129,0.14)]'
+          : plan.featured
+            ? 'border-cyan-400/25 bg-cyan-500/[0.07]'
+            : 'border-white/10 bg-white/[0.03]',
       )}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-lg font-semibold text-white">{plan.name}</h3>
+            {isCurrentPlan ? (
+              <span className="rounded-full border border-emerald-400/30 bg-emerald-500/16 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-50">
+                Plano ativo
+              </span>
+            ) : null}
             {plan.featured ? (
               <span className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
                 Mais usado
@@ -80,7 +89,11 @@ function PlanCard({ plan, currentPlanId, onCheckout, loadingKey }) {
       </div>
 
       <div className="mt-4">
-        {plan.isFree ? (
+        {isCurrentPlan ? (
+          <div className="rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm font-medium text-emerald-50">
+            Este e o plano ativo deste projeto.
+          </div>
+        ) : plan.isFree ? (
           <div className="rounded-2xl border border-emerald-400/15 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
             O free fica restrito ao primeiro projeto criado no cadastro.
           </div>

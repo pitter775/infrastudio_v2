@@ -65,6 +65,55 @@ function formatUsd(value) {
   return `US$ ${Number(value ?? 0).toFixed(6)}`
 }
 
+function parseMessageDate(value) {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function getMessageDayKey(message) {
+  const date = parseMessageDate(message?.createdAt)
+  if (!date) {
+    return null
+  }
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, "0")
+  const day = String(date.getDate()).padStart(2, "0")
+  return `${year}-${month}-${day}`
+}
+
+function formatMessageDayLabel(message) {
+  const date = parseMessageDate(message?.createdAt)
+  if (!date) {
+    return ""
+  }
+
+  const today = new Date()
+  const todayKey = getMessageDayKey({ createdAt: today })
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  const yesterdayKey = getMessageDayKey({ createdAt: yesterday })
+  const messageDayKey = getMessageDayKey(message)
+
+  if (messageDayKey === todayKey) {
+    return "Hoje"
+  }
+
+  if (messageDayKey === yesterdayKey) {
+    return "Ontem"
+  }
+
+  return date.toLocaleDateString("pt-BR", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+  })
+}
+
 function normalizeTraceOption(value) {
   return typeof value === "string" && value.trim() ? value.trim() : null
 }
@@ -342,6 +391,22 @@ function MessageBubble({ message }) {
         ) : null}
         <div className="mt-3 text-[10px] text-slate-500">{message.horario}</div>
       </div>
+    </div>
+  )
+}
+
+function MessageDayDivider({ label }) {
+  if (!label) {
+    return null
+  }
+
+  return (
+    <div className="flex items-center gap-3 py-1">
+      <div className="h-px flex-1 bg-white/10" />
+      <div className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+        {label}
+      </div>
+      <div className="h-px flex-1 bg-white/10" />
     </div>
   )
 }
@@ -639,6 +704,32 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
       }),
     [traceCostFilter, traceEntries, traceErrorFilter, traceProviderFilter, traceStageFilter]
   )
+  const timelineItems = useMemo(() => {
+    const items = []
+    let previousDayKey = null
+
+    conversation.mensagens.forEach((message) => {
+      const currentDayKey = getMessageDayKey(message)
+
+      if (currentDayKey && currentDayKey !== previousDayKey) {
+        items.push({
+          id: `day-${currentDayKey}`,
+          type: "day",
+          label: formatMessageDayLabel(message),
+        })
+      }
+
+      items.push({
+        id: message.id,
+        type: "message",
+        message,
+      })
+
+      previousDayKey = currentDayKey || previousDayKey
+    })
+
+    return items
+  }, [conversation.mensagens])
 
   useEffect(() => {
     setTraceProviderFilter("")
@@ -698,13 +789,27 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
       return
     }
 
-    const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-    if (distanceToBottom <= 120) {
-      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
-    } else {
-      setShowScrollButton(true)
+    container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
+    setShowScrollButton(false)
+  }, [conversation.id])
+
+  useEffect(() => {
+    const container = feedRef.current
+    if (!container) {
+      return
     }
-  }, [conversation.id, conversation.mensagens.length])
+
+    const frameId = window.requestAnimationFrame(() => {
+      const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
+      if (distanceToBottom <= 120) {
+        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
+      } else {
+        setShowScrollButton(true)
+      }
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [conversation.mensagens.length])
 
   function scrollToBottom() {
     const container = feedRef.current
@@ -845,16 +950,20 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
 
         <div ref={feedRef} className="min-h-0 flex-1 overflow-y-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <div className="space-y-5 px-3 py-4 lg:px-4">
-            {conversation.mensagens.map((message) => (
-              <motion.div
-                key={message.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.18 }}
-              >
-                <MessageBubble message={message} />
-              </motion.div>
-            ))}
+            {timelineItems.map((item) =>
+              item.type === "day" ? (
+                <MessageDayDivider key={item.id} label={item.label} />
+              ) : (
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.18 }}
+                >
+                  <MessageBubble message={item.message} />
+                </motion.div>
+              )
+            )}
           </div>
         </div>
 
@@ -1232,6 +1341,7 @@ export default function AttendancePage() {
 
     return [{ value: "", label: "Todos os projetos" }, ...Array.from(map.values())]
   }, [conversations, currentUser])
+  const hasMultipleProjects = projectOptions.length > 2
 
   const activeConversation =
     filteredConversations.find((conversation) => conversation.id === selectedConversation?.id) ??
@@ -1368,7 +1478,7 @@ export default function AttendancePage() {
           title="Central de Atendimento"
           description="Fila ativa de conversas com inteligencia do pipeline real."
           actions={
-            currentUser?.role === "admin" ? (
+            currentUser?.role === "admin" && hasMultipleProjects ? (
               <div className="w-full min-w-[230px] lg:w-[280px]">
                 <AppSelect
                   value={projectFilter}

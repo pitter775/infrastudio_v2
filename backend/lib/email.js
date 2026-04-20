@@ -1,11 +1,12 @@
 import "server-only"
 
 const RESEND_API_URL = "https://api.resend.com/emails"
-const DEFAULT_FROM = "contato@infrastudio.pro"
+const DEFAULT_FROM = "onboarding@resend.dev"
 const DEFAULT_REPLY_TO = "pitter775@gmail.com"
+const HARDCODED_RESEND_API_KEY = "re_GASo3ffB_3GGH9PvagKxrtUEwpL6GieDf"
 
 export async function sendEmail(input) {
-  const apiKey = process.env.RESEND_API_KEY?.trim()
+  const apiKey = process.env.RESEND_API_KEY?.trim() || HARDCODED_RESEND_API_KEY
 
   if (!apiKey) {
     throw new Error("RESEND_API_KEY nao configurada.")

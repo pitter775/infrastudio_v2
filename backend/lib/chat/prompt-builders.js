@@ -6,9 +6,17 @@ import {
 
 function buildRuntimeConfigInstructions(context = {}) {
   const runtimeConfig = context?.agente?.runtimeConfig
+  const contactProfile =
+    context?.agente?.configuracoes?.contactProfile &&
+    typeof context.agente.configuracoes.contactProfile === "object" &&
+    !Array.isArray(context.agente.configuracoes.contactProfile)
+      ? context.agente.configuracoes.contactProfile
+      : null
   const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(context)
   if (!runtimeConfig || typeof runtimeConfig !== "object") {
-    return hasWhatsAppDestination ? "" : buildWhatsAppUnavailableInstruction()
+    if (!contactProfile) {
+      return hasWhatsAppDestination ? "" : buildWhatsAppUnavailableInstruction()
+    }
   }
 
   const lines = []
@@ -47,6 +55,32 @@ function buildRuntimeConfigInstructions(context = {}) {
     lines.push(`Politica de lead: ${runtimeConfig.leadCapture.policy}`)
   }
 
+  if (Array.isArray(runtimeConfig?.pricingCatalog?.items) && runtimeConfig.pricingCatalog.items.length) {
+    lines.push("Catalogo de precos estruturado:")
+    lines.push(
+      ...runtimeConfig.pricingCatalog.items
+        .slice(0, 8)
+        .map((item) => `- ${item.name}: ${item.priceLabel}`)
+    )
+  }
+
+  if (Array.isArray(contactProfile?.emails) && contactProfile.emails.length) {
+    lines.push(`Emails de contato: ${contactProfile.emails.slice(0, 4).join(", ")}`)
+  }
+
+  if (Array.isArray(contactProfile?.phones) && contactProfile.phones.length) {
+    lines.push(`Telefones de contato: ${contactProfile.phones.slice(0, 4).join(", ")}`)
+  }
+
+  if (Array.isArray(contactProfile?.whatsappLinks) && contactProfile.whatsappLinks.length) {
+    lines.push(`Links de WhatsApp: ${contactProfile.whatsappLinks.slice(0, 2).join(", ")}`)
+  }
+
+  if (Array.isArray(contactProfile?.addresses) && contactProfile.addresses.length) {
+    lines.push("Enderecos informados:")
+    lines.push(...contactProfile.addresses.slice(0, 3).map((item) => `- ${item}`))
+  }
+
   return lines.join("\n")
 }
 
@@ -62,10 +96,53 @@ function buildResponseGuardrailInstructions() {
   ].join("\n")
 }
 
+function hasStructuredAgentData(runtimeContext = {}) {
+  const runtimeConfig = runtimeContext?.agente?.runtimeConfig
+  const contactProfile = runtimeContext?.agente?.configuracoes?.contactProfile
+  const hasPricing = Array.isArray(runtimeConfig?.pricingCatalog?.items) && runtimeConfig.pricingCatalog.items.length > 0
+  const hasBusiness = Boolean(runtimeConfig?.business?.summary) || (Array.isArray(runtimeConfig?.business?.services) && runtimeConfig.business.services.length > 0)
+  const hasLeadCapture = Boolean(runtimeConfig?.leadCapture?.policy)
+  const hasContacts =
+    Array.isArray(contactProfile?.emails) ||
+    Array.isArray(contactProfile?.phones) ||
+    Array.isArray(contactProfile?.whatsappLinks) ||
+    Array.isArray(contactProfile?.addresses)
+
+  return Boolean(hasPricing || hasBusiness || hasLeadCapture || hasContacts)
+}
+
+function buildCompactAgentBaseInstruction(agent = {}, runtimeContext = {}) {
+  const rawBase = agent.promptBase || agent.prompt || agent.descricao || ""
+  const normalizedBase = String(rawBase || "").trim()
+  if (!normalizedBase) {
+    return "Base do agente: atenda com clareza, objetividade e foco no contexto do cliente."
+  }
+
+  if (!hasStructuredAgentData(runtimeContext)) {
+    return normalizedBase
+  }
+
+  const lines = normalizedBase
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !/r\$\s*\d/i.test(line))
+    .filter((line) => !/(?:planos disponiveis|como usar os planos|servicos sob medida|levar para o whatsapp|diferencial|frase base)/i.test(line))
+
+  const compact = []
+  for (const line of lines) {
+    compact.push(line)
+    if (compact.join(" ").length >= 700) {
+      break
+    }
+  }
+
+  return compact.join("\n")
+}
+
 export function buildSystemPrompt(agent = {}, context = {}, structured = false) {
   const name = agent.nome || agent.name || "Assistente"
   const projetoNome = context?.projeto?.nome || context?.projetoNome
-  const base = agent.promptBase || agent.prompt || agent.descricao || "Atenda com clareza, objetividade e foco no contexto do cliente."
   const runtimeContext = {
     ...context,
     agente: {
@@ -78,6 +155,7 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
         null,
     },
   }
+  const base = buildCompactAgentBaseInstruction(agent, runtimeContext)
   const apiContext = Array.isArray(context?.runtimeApis) && context.runtimeApis.length
     ? [
         "Dados externos consultados agora:",

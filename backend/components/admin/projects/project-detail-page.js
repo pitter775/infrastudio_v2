@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -10,6 +10,7 @@ import {
   Files,
   History,
   LoaderCircle,
+  MessageCircle,
   MessageSquare,
   PackageSearch,
   PlugZap,
@@ -29,6 +30,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { HorizontalDragScroll } from '@/components/ui/horizontal-drag-scroll'
 import { JsonCodeBlock } from '@/components/ui/json-code-block'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
+import { buildAgentRuntimeConfigTemplate } from '@/lib/agent-runtime-config'
 import { formatCredits } from '@/lib/public-planos'
 import { cn } from '@/lib/utils'
 
@@ -314,6 +316,158 @@ function buildMergedAgentSummary(currentHtml, generatedSummary, promptSuggestion
   return plainTextToEditorHtml(mergedText)
 }
 
+function slugifyPricingValue(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60)
+}
+
+function uniquePromptValues(values, limit = 8) {
+  return [...new Set(values.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, limit)
+}
+
+function isLikelyAddressLine(line) {
+  const normalizedLine = String(line || '').trim()
+  if (!normalizedLine) {
+    return false
+  }
+
+  if (!/(?:rua|avenida|av\.|travessa|alameda|rodovia|estrada|bairro|cep|n[ÂºoÂ°]?)/i.test(normalizedLine)) {
+    return false
+  }
+
+  return /\b\d{1,5}\b/.test(normalizedLine) || /\bcep\b/i.test(normalizedLine) || /,\s*\d/.test(normalizedLine)
+}
+
+function extractContactProfileFromPrompt(promptText) {
+  const text = String(promptText || '')
+  const lines = text
+    .split('\n')
+    .map((line) => line.replace(/^[-*]\s+/, '').trim())
+    .filter(Boolean)
+
+  const emails = uniquePromptValues(text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [], 6)
+  const phones = uniquePromptValues(
+    text.match(/(?:\+?55\s*)?(?:\(?\d{2}\)?\s*)?(?:9?\d{4})[-\s]?\d{4}/g) || [],
+    6,
+  )
+  const whatsappLinks = uniquePromptValues(text.match(/https?:\/\/(?:wa\.me|api\.whatsapp\.com)[^\s]+/gi) || [], 4)
+  const addresses = uniquePromptValues(lines.filter((line) => isLikelyAddressLine(line)), 4)
+
+  const contactProfile = {}
+
+  if (emails.length) {
+    contactProfile.emails = emails
+  }
+
+  if (phones.length) {
+    contactProfile.phones = phones
+  }
+
+  if (whatsappLinks.length) {
+    contactProfile.whatsappLinks = whatsappLinks
+  }
+
+  if (addresses.length) {
+    contactProfile.addresses = addresses
+  }
+
+  return Object.keys(contactProfile).length ? contactProfile : null
+}
+
+function buildPricingCatalogFromPrompt(promptText, fallbackPricingCatalog = null) {
+  const lines = String(promptText || '')
+    .split('\n')
+    .map((line) => line.replace(/^[-*]\s+/, '').trim())
+    .filter(Boolean)
+
+  const items = []
+
+  lines.forEach((line) => {
+    if (!/r\$\s*\d/i.test(line)) {
+      return
+    }
+
+    const match =
+      line.match(/^(.{2,80}?)(?:\s*(?:-|—|–|:)\s*|\s{2,})(R\$\s*.+)$/i) ||
+      line.match(/^(.{2,80}?)\s+(R\$\s*.+)$/i)
+
+    if (!match) {
+      return
+    }
+
+    const name = String(match[1] || '').trim().replace(/[.:;-]+$/, '')
+    const priceLabel = String(match[2] || '').trim()
+
+    if (!name || !priceLabel) {
+      return
+    }
+
+    const matchAny = name
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .map((item) => item.trim())
+      .filter((item) => item.length >= 3)
+      .slice(0, 4)
+
+    items.push({
+      slug: slugifyPricingValue(name) || `item-${items.length + 1}`,
+      name,
+      matchAny,
+      priceLabel,
+    })
+  })
+
+  if (!items.length) {
+    return fallbackPricingCatalog && typeof fallbackPricingCatalog === 'object' ? fallbackPricingCatalog : null
+  }
+
+  const templatePricingCatalog = buildAgentRuntimeConfigTemplate().pricingCatalog || {}
+  return {
+    enabled: true,
+    ctaSingle: fallbackPricingCatalog?.ctaSingle || templatePricingCatalog.ctaSingle,
+    ctaMultiple: fallbackPricingCatalog?.ctaMultiple || templatePricingCatalog.ctaMultiple,
+    items,
+  }
+}
+
+function buildAgentDraftConfig({ runtimeConfig, promptText, siteUrl, logoUrl }) {
+  const config = {}
+  const normalizedRuntimeConfig = runtimeConfig && typeof runtimeConfig === 'object' ? runtimeConfig : null
+  const normalizedSiteUrl = String(siteUrl || '').trim()
+  const normalizedLogoUrl = String(logoUrl || '').trim()
+  const nextPricingCatalog = buildPricingCatalogFromPrompt(promptText, normalizedRuntimeConfig?.pricingCatalog || null)
+  const contactProfile = extractContactProfileFromPrompt(promptText)
+
+  if (nextPricingCatalog) {
+    config.runtimeConfig = {
+      pricingCatalog: nextPricingCatalog,
+    }
+  }
+
+  if (contactProfile) {
+    config.contactProfile = contactProfile
+  }
+
+  if (normalizedSiteUrl || normalizedLogoUrl) {
+    config.brand = {}
+
+    if (normalizedSiteUrl) {
+      config.brand.siteUrl = normalizedSiteUrl
+    }
+
+    if (normalizedLogoUrl) {
+      config.brand.logoUrl = normalizedLogoUrl
+    }
+  }
+
+  return config
+}
+
 function buildSiteSummaryHighlights(data) {
   if (!data?.source) {
     return []
@@ -386,15 +540,15 @@ function buildRuntimeConfigDiffSummary(currentConfig, previousConfig) {
 function buildVersionChangeNote(version, compareVersion) {
   const items = []
 
-  if (normalizeVersionText(version.nome) !== normalizeVersionText(compareVersion?.nome)) {
+  if (normalizeVersionText(version.name) !== normalizeVersionText(compareVersion?.name)) {
     items.push('nome alterado')
   }
 
-  if (normalizeVersionText(version.descricao) !== normalizeVersionText(compareVersion?.descricao)) {
+  if (normalizeVersionText(version.description) !== normalizeVersionText(compareVersion?.description)) {
     items.push('descricao alterada')
   }
 
-  const promptDiff = buildPromptDiffSummary(version.promptBase, compareVersion?.promptBase)
+  const promptDiff = buildPromptDiffSummary(version.prompt, compareVersion?.prompt)
   if (promptDiff.changed) {
     items.push(promptDiff.preview)
   }
@@ -414,39 +568,17 @@ function buildVersionChangeNote(version, compareVersion) {
 function buildIntegrationPanels(project) {
   return [
     {
-      id: 'apis',
-      label: 'APIs',
-      shortLabel: 'APIs',
-      icon: PlugZap,
-      colorClassName: 'sky',
-      serviceIconType: 'apis',
+      id: 'whatsapp',
+      label: 'WhatsApp',
+      shortLabel: 'WhatsApp',
+      icon: MessageCircle,
+      colorClassName: 'emerald',
+      serviceIconType: 'whatsapp',
       directToAgent: true,
       mobilePosition: { x: 94, y: 314 },
       desktopPosition: { x: 96, y: 322 },
       cardAnchor: { x: 168, y: CARD_ESTIMATED_HEIGHT },
       routeY: 292,
-      buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
-      title: 'APIs',
-      description: '',
-      statusLabel: `${project.integrations.apis} endpoints conectados`,
-      isAvailable: (project.apis?.length || 0) > 0 || Number(project.integrations?.apis || 0) > 0,
-      items:
-        project.apis.length > 0
-          ? project.apis.map((api) => `${api.method} ${api.name}`)
-          : ['Nenhuma API cadastrada neste projeto.'],
-    },
-    {
-      id: 'whatsapp',
-      label: 'WhatsApp',
-      shortLabel: 'WhatsApp',
-      icon: MessageSquare,
-      colorClassName: 'emerald',
-      serviceIconType: 'whatsapp',
-      directToAgent: true,
-      mobilePosition: { x: 94, y: 392 },
-      desktopPosition: { x: 96, y: 400 },
-      cardAnchor: { x: 112, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 370,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'WhatsApp',
       description: 'Canais WhatsApp vinculados ao projeto.',
@@ -475,11 +607,33 @@ function buildIntegrationPanels(project) {
       items: ['Catalogo', 'Pedidos', 'Reputacao', 'Perguntas'],
     },
     {
+      id: 'apis',
+      label: 'APIs',
+      shortLabel: 'APIs',
+      icon: PlugZap,
+      colorClassName: 'sky',
+      serviceIconType: 'apis',
+      directToAgent: true,
+      mobilePosition: { x: 94, y: 392 },
+      desktopPosition: { x: 96, y: 400 },
+      cardAnchor: { x: 112, y: CARD_ESTIMATED_HEIGHT },
+      routeY: 370,
+      buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
+      title: 'APIs',
+      description: '',
+      statusLabel: `${project.integrations.apis} endpoints conectados`,
+      isAvailable: (project.apis?.length || 0) > 0 || Number(project.integrations?.apis || 0) > 0,
+      items:
+        project.apis.length > 0
+          ? project.apis.map((api) => `${api.method} ${api.name}`)
+          : ['Nenhuma API cadastrada neste projeto.'],
+    },
+    {
       id: 'chat-widget',
       label: 'Chat widget',
       shortLabel: 'Chat widget',
       icon: PackageSearch,
-      colorClassName: 'sky',
+      colorClassName: 'violet',
       serviceIconType: 'chatWidget',
       directToAgent: true,
       mobilePosition: { x: 94, y: 470 },
@@ -502,6 +656,7 @@ function buildTopMenuItems(panels) {
     id: panel.id,
     label: panel.shortLabel || panel.label,
     icon: panel.icon,
+    colorClassName: panel.colorClassName,
   }))
 }
 
@@ -525,11 +680,63 @@ function getPanelAccentClasses(colorClassName) {
         button: 'border-sky-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
         icon: 'text-sky-300',
       }
+    case 'violet':
+      return {
+        connector: 'border-fuchsia-400/80',
+        button: 'border-fuchsia-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(217,70,239,0.24),0_0_44px_rgba(162,28,175,0.16)]',
+        icon: 'text-fuchsia-300',
+      }
     default:
       return {
         connector: 'border-sky-400/80',
         button: 'border-sky-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
         icon: 'text-sky-300',
+      }
+  }
+}
+
+function getToneClasses(colorClassName) {
+  switch (colorClassName) {
+    case 'emerald':
+      return {
+        text: 'text-[#6dff8b]',
+        mutedText: 'text-[#6dff8b]',
+        pill: 'border-[#3f8f2c]/35 bg-[#2d5a12]/32',
+        pillActive: 'border-[#6dff8b]/45 bg-[#214f14]/58 text-[#b7ffc4]',
+        hover: 'hover:border-[#6dff8b]/28 hover:bg-[#214f14]/28 hover:text-[#a6ffb6]',
+        track: 'bg-emerald-500/20',
+        thumb: 'bg-emerald-300',
+      }
+    case 'amber':
+      return {
+        text: 'text-[#ffd84d]',
+        mutedText: 'text-[#ffd84d]',
+        pill: 'border-[#8a7812]/35 bg-[#4b4307]/32',
+        pillActive: 'border-[#ffd84d]/45 bg-[#534900]/58 text-[#fff0a3]',
+        hover: 'hover:border-[#ffd84d]/28 hover:bg-[#534900]/28 hover:text-[#ffe88a]',
+        track: 'bg-amber-500/20',
+        thumb: 'bg-amber-300',
+      }
+    case 'violet':
+      return {
+        text: 'text-[#d86bff]',
+        mutedText: 'text-[#d86bff]',
+        pill: 'border-[#7f2fa7]/35 bg-[#401056]/32',
+        pillActive: 'border-[#d86bff]/45 bg-[#4b1166]/58 text-[#efb4ff]',
+        hover: 'hover:border-[#d86bff]/28 hover:bg-[#4b1166]/28 hover:text-[#e79cff]',
+        track: 'bg-fuchsia-500/20',
+        thumb: 'bg-fuchsia-300',
+      }
+    case 'sky':
+    default:
+      return {
+        text: 'text-[#5fe7ff]',
+        mutedText: 'text-[#5fe7ff]',
+        pill: 'border-[#0e8ca8]/35 bg-[#073544]/32',
+        pillActive: 'border-[#5fe7ff]/45 bg-[#0c4150]/58 text-[#baf8ff]',
+        hover: 'hover:border-[#5fe7ff]/28 hover:bg-[#0c4150]/28 hover:text-[#9ef2ff]',
+        track: 'bg-sky-500/20',
+        thumb: 'bg-sky-300',
       }
   }
 }
@@ -653,14 +860,16 @@ function SheetPanelHeader({
   compact = false,
   statusLabel,
   statusTone = 'emerald',
+  colorClassName = null,
   enabled = true,
   leftAction = null,
   onCancel = null,
 }) {
-  const statusClasses =
-    statusTone === 'sky'
-      ? { text: 'text-sky-300', track: 'bg-sky-500/20', thumb: 'bg-sky-300' }
-      : { text: 'text-emerald-300', track: 'bg-emerald-500/20', thumb: 'bg-emerald-300' }
+  const statusClasses = colorClassName
+    ? getToneClasses(colorClassName)
+    : statusTone === 'sky'
+      ? { text: 'text-sky-300', mutedText: 'text-sky-300', track: 'bg-sky-500/20', thumb: 'bg-sky-300' }
+      : { text: 'text-emerald-300', mutedText: 'text-slate-500', track: 'bg-emerald-500/20', thumb: 'bg-emerald-300' }
 
   return (
     <div className={cn('px-6', compact ? 'pt-4 pb-3 sm:py-3' : 'pt-8 pb-5 sm:py-5')}>
@@ -669,7 +878,7 @@ function SheetPanelHeader({
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-start justify-between gap-3 pr-8 sm:pr-0">
-                <p className={cn('flex items-center gap-2 text-xs uppercase tracking-[0.22em]', statusTone === 'sky' ? 'text-sky-300' : 'text-slate-500')}>
+                <p className={cn('flex items-center gap-2 text-xs uppercase tracking-[0.22em]', statusClasses.mutedText || statusClasses.text)}>
                   {EyebrowIcon ? <EyebrowIcon className="h-3.5 w-3.5" /> : null}
                   {eyebrow}
                 </p>
@@ -856,6 +1065,30 @@ function ProjectPanel({
     { id: 'json', label: 'Ver JSON', icon: Files },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
+  const draftAgentConfig = useMemo(
+    () =>
+      buildAgentDraftConfig({
+        runtimeConfig: agent?.runtimeConfig ?? null,
+        promptText: normalizedPrompt,
+        siteUrl,
+        logoUrl,
+      }),
+    [agent?.runtimeConfig, logoUrl, normalizedPrompt, siteUrl],
+  )
+  const draftAgentJson = useMemo(
+    () => ({
+      id: agent?.id || null,
+      slug: agent?.slug || null,
+      name: agentName.trim() || initialAgentName || agent?.name || agent?.nome || '',
+      description: agent?.description || agent?.descricao || '',
+      prompt: normalizedPrompt,
+      configuracoes: draftAgentConfig,
+      siteUrl: draftAgentConfig.brand?.siteUrl || '',
+      logoUrl: draftAgentConfig.brand?.logoUrl || '',
+      active: agentActive,
+    }),
+    [agent?.description, agent?.descricao, agent?.id, agent?.name, agent?.nome, agent?.slug, agentActive, agentName, draftAgentConfig, initialAgentName, normalizedPrompt],
+  )
   const hasUnsavedChanges =
     agentName.trim() !== initialAgentName.trim() ||
     normalizedPrompt !== initialPrompt.trim() ||
@@ -865,16 +1098,17 @@ function ProjectPanel({
     () => ({
       id: 'current',
       versionNumber: 'Atual',
-      nome: agentName.trim() || initialAgentName,
-      descricao: '',
-      promptBase: normalizedPrompt,
-      runtimeConfig: agent?.runtimeConfig ?? null,
+      name: agentName.trim() || initialAgentName,
+      description: '',
+      prompt: normalizedPrompt,
+      runtimeConfig: draftAgentConfig.runtimeConfig ?? null,
+      configuracoes: draftAgentConfig,
       note: hasUnsavedChanges ? 'rascunho local' : 'estado atual salvo',
       source: hasUnsavedChanges ? 'draft' : 'current',
       createdAt: new Date().toISOString(),
-      ativo: agentActive,
+      active: agentActive,
     }),
-    [agent?.runtimeConfig, agentActive, agentName, hasUnsavedChanges, initialAgentName, normalizedPrompt],
+    [agentActive, agentName, draftAgentConfig, hasUnsavedChanges, initialAgentName, normalizedPrompt],
   )
 
   useEffect(() => {
@@ -996,14 +1230,12 @@ function ProjectPanel({
           descricao: agent.description,
           promptBase: agent.prompt,
           runtimeConfig: agent.runtimeConfig ?? null,
-          configuracoes: {
-            ...(agent.configuracoes ?? {}),
-            brand: {
-              ...((agent.configuracoes?.brand && typeof agent.configuracoes.brand === 'object') ? agent.configuracoes.brand : {}),
-              siteUrl: siteUrl.trim(),
-              logoUrl: logoUrl.trim(),
-            },
-          },
+          configuracoes: buildAgentDraftConfig({
+            runtimeConfig: agent.runtimeConfig ?? null,
+            promptText: agent.prompt,
+            siteUrl,
+            logoUrl,
+          }),
           ativo: nextActive,
         }),
       })
@@ -1092,15 +1324,8 @@ function ProjectPanel({
           nome: nextName,
           descricao: agent.description || '',
           promptBase: nextPrompt,
-          runtimeConfig: agent.runtimeConfig ?? null,
-          configuracoes: {
-            ...(agent.configuracoes ?? {}),
-            brand: {
-              ...((agent.configuracoes?.brand && typeof agent.configuracoes.brand === 'object') ? agent.configuracoes.brand : {}),
-              siteUrl: siteUrl.trim(),
-              logoUrl: logoUrl.trim(),
-            },
-          },
+          runtimeConfig: draftAgentConfig.runtimeConfig ?? null,
+          configuracoes: draftAgentConfig,
           ativo: agentActive,
         }),
       })
@@ -1360,7 +1585,7 @@ function ProjectPanel({
 
         {activeAgentTab === 'json' ? (
           <div className="px-6 py-5">
-            <JsonCodeBlock value={{ projectId: project.id, agent }} />
+            <JsonCodeBlock value={{ projectId: project.id, agent: draftAgentJson }} />
           </div>
         ) : null}
 
@@ -1441,7 +1666,7 @@ function ProjectPanel({
                           <div className="min-w-0">
                             <div className="flex flex-wrap items-center gap-2">
                               <div className="truncate text-sm font-medium text-white">
-                                {isCurrent ? version.versionNumber : `v${version.versionNumber}`} - {version.nome}
+                                {isCurrent ? version.versionNumber : `v${version.versionNumber}`} - {version.name}
                               </div>
                               <span
                                 className={cn(
@@ -1453,7 +1678,7 @@ function ProjectPanel({
                               >
                                 {isCurrent ? "versao atual" : version.source === 'rollback' ? 'rollback' : 'salvamento'}
                               </span>
-                              {!isCurrent && version.ativo === true ? (
+                              {!isCurrent && version.active === true ? (
                                 <span className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100">
                                   ativa na epoca
                                 </span>
@@ -1855,7 +2080,7 @@ function resolveProjectPlanSummary(project) {
   const hasValidPaidPlan =
     Boolean(project.billing?.projectPlan?.planId || project.billing?.subscription?.plan?.id) &&
     Boolean(normalizedPlanName) &&
-    !['padrao', 'padrão', 'default'].includes(normalizedPlanName)
+    !['padrao', 'padrÃ£o', 'default'].includes(normalizedPlanName)
 
   return {
     planId: hasValidPaidPlan
@@ -1956,6 +2181,7 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
         description={panel.description}
         compact={panel.id === 'apis'}
         statusTone="sky"
+        colorClassName={panel.colorClassName}
         leftAction={
           panel.id === 'apis' && apiDetailOpen ? (
             <Button
@@ -2501,6 +2727,7 @@ export function AdminProjectDetailPage({ project }) {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen
               const loading = pendingPanelId === item.id
+              const toneClasses = getToneClasses(item.colorClassName)
 
               return (
                 <button
@@ -2509,10 +2736,10 @@ export function AdminProjectDetailPage({ project }) {
                   type="button"
                   onClick={() => handleOpenPanel(item.id)}
                   className={cn(
-                    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-xl px-2.5 text-xs font-semibold transition-colors',
+                    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold transition-colors',
                     active
-                      ? 'bg-sky-500/15 text-sky-200'
-                      : 'bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
+                      ? toneClasses.pillActive
+                      : cn(toneClasses.pill, toneClasses.text, toneClasses.hover),
                   )}
                 >
                   {loading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : Icon ? <Icon className="h-3.5 w-3.5" /> : null}
@@ -2551,6 +2778,7 @@ export function AdminProjectDetailPage({ project }) {
             serviceIcons={directCardIcons}
             active={isPanelOpen}
             interactive
+            usageBarPlacement="satellite"
             draggableHeader={!isMobile}
             resetDragSignal={dragResetSignal}
             onDragStateChange={setIsCardDragging}
@@ -2735,3 +2963,4 @@ export function AdminProjectDetailPage({ project }) {
     </div>
   )
 }
+

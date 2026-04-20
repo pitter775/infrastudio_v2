@@ -301,11 +301,15 @@ async function buildAgentDirectConnections({ supabase, projectId, agent, apiCoun
 }
 
 async function enrichProjectSummary(supabase, project, user) {
-  const [agent, apiCount, whatsappCount, widgetCount] = await Promise.all([
+  const [agent, apiCount, whatsappCount, widgetCount, billing] = await Promise.all([
     getActiveAgent(supabase, project.id),
     safeCount(supabase, "apis", project.id),
     safeCount(supabase, "canais_whatsapp", project.id),
     safeCount(supabase, "chat_widgets", project.id),
+    getProjectBillingSnapshot(project.id, {
+      supabase,
+      user,
+    }),
   ])
 
   const directConnections = await buildAgentDirectConnections({
@@ -327,6 +331,7 @@ async function enrichProjectSummary(supabase, project, user) {
       chatWidget: widgetCount,
     },
     directConnections,
+    billing,
   }
 }
 
