@@ -505,7 +505,13 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
         onConfirm={() => restoreConfirmId ? handleRestoreVersion(restoreConfirmId) : null}
       />
 
-      <AgentSimulator project={project} agent={agent} open={testOpen} onOpenChange={setTestOpen} />
+      <AgentSimulator
+        project={project}
+        agent={agent}
+        open={testOpen}
+        onOpenChange={setTestOpen}
+        onUsageRecorded={() => router.refresh()}
+      />
     </section>
   )
 }

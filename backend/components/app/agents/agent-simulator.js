@@ -123,7 +123,7 @@ function AgentTestMessage({ message }) {
   )
 }
 
-export function AgentSimulator({ project, agent = project?.agent, open, onOpenChange }) {
+export function AgentSimulator({ project, agent = project?.agent, open, onOpenChange, onUsageRecorded }) {
   const dragControls = useDragControls()
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState("")
@@ -211,6 +211,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
           trace: buildSimulatorTrace(data.diagnostics),
         },
       ])
+      onUsageRecorded?.(data)
     } catch (requestError) {
       setError(requestError.message)
     } finally {

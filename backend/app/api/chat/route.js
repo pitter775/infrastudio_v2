@@ -10,7 +10,6 @@ import { createLogEntry } from "@/lib/logs"
 import { getChatById, listChatMessages } from "@/lib/chats"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
-import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { getWhatsAppChannelById, resolveSavedContactFlags } from "@/lib/whatsapp-channels"
 
 function isPlainObject(value) {
@@ -175,23 +174,12 @@ function createAdminAgentTestRuntimeOptions({ normalizedBody, project, user }) {
       },
       registrarUso: async (projectId, tokens, custo, details = {}) => {
         try {
-          const supabase = getSupabaseAdminClient()
-          const { error } = await supabase.from("consumos").insert({
-            projeto_id: projectId,
-            usuario_id: details.usuarioId ?? user?.id ?? null,
+          return registerProjectBillingUsage(projectId, tokens, custo, {
+            ...details,
+            usuarioId: details.usuarioId ?? user?.id ?? null,
             origem: details.origem ?? "admin_agent_test",
-            tokens_input: details.tokensInput ?? 0,
-            tokens_output: details.tokensOutput ?? 0,
-            custo_total: custo ?? 0,
-            referencia_id: null,
+            referenciaId: null,
           })
-
-          if (error) {
-            console.error("[chat] failed to record admin agent test usage", error)
-            return null
-          }
-
-          return { ok: true, tokens, custo }
         } catch (error) {
           console.error("[chat] failed to record admin agent test usage", error)
           return null

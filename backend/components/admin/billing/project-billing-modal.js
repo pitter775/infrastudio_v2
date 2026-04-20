@@ -178,6 +178,20 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     const freeRemainingTokens = Math.max(0, Number(freePlan.totalTokens) - usedTokens)
     return formatCredits(freeRemainingTokens)
   }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.usedTokens])
+  const usedLabel = useMemo(() => formatCredits(Number(summary?.usedTokens ?? 0)), [summary?.usedTokens])
+  const usagePercentLabel = useMemo(() => {
+    if (summary?.usagePercent != null && Number.isFinite(Number(summary.usagePercent))) {
+      return `${Math.round(Number(summary.usagePercent))}%`
+    }
+
+    const usedTokens = Number(summary?.usedTokens ?? 0)
+    const monthlyLimit = Number(summary?.monthlyLimit ?? 0)
+    if (monthlyLimit > 0) {
+      return `${Math.round((usedTokens / monthlyLimit) * 100)}%`
+    }
+
+    return '--'
+  }, [summary?.monthlyLimit, summary?.usagePercent, summary?.usedTokens])
 
   async function handleCheckout(item) {
     if (!summary?.projectId) {
@@ -223,10 +237,15 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
             </span>
           </div>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
+          <div className="mt-5 grid gap-3 md:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Plano atual</div>
               <div className="mt-1 text-sm font-semibold text-white">{summary?.planName || (summary?.isFree ? 'Free' : 'Sem plano')}</div>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Consumido</div>
+              <div className="mt-1 text-sm font-semibold text-white">{usedLabel}</div>
+              <div className="mt-1 text-xs text-slate-500">{usagePercentLabel} do limite</div>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Mensal restante</div>

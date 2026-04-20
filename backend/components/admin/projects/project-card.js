@@ -148,6 +148,11 @@ function resolveProjectPlanSummary(project) {
   }
 }
 
+function formatPlanBadgeLabel(planName) {
+  const normalizedPlanName = String(planName || 'Free').trim() || 'Free'
+  return `PLANO ${normalizedPlanName}`.toUpperCase()
+}
+
 function buildProjectUsageSummary(project) {
   const planSummary = resolveProjectPlanSummary(project)
   const monthlyLimit =
@@ -173,6 +178,7 @@ function buildProjectUsageSummary(project) {
     projectName: project.name,
     planId: planSummary.planId,
     planName: planSummary.planName,
+    planBadgeLabel: formatPlanBadgeLabel(planSummary.planName),
     isFree: planSummary.isFree,
     subscriptionStatus: project.billing?.subscription?.status || '',
     billingBlocked,
@@ -239,7 +245,9 @@ function ProjectUsageBar({ summary, onClick, variant = 'inside' }) {
   const markerLeft = `${Math.max(0, Math.min(100, usagePercent))}%`
   const tone = getUsageTone(usagePercent, summary.billingBlocked)
   const planName = summary.planName || 'Plano'
-  const usageLabel = hasLimit ? `${planName} · ${Math.round(usagePercent)}% / ${summary.limitLabel}` : `${planName} · Sem limite`
+  const usageLabel = hasLimit
+    ? `${planName} · ${formatCredits(summary.usedTokens)} / ${summary.limitLabel} · ${Math.round(usagePercent)}%`
+    : `${planName} · Sem limite`
   const labelAnchorsRight = hasLimit && usagePercent > 50
   const trackClassName =
     variant === 'satellite'
@@ -316,7 +324,7 @@ function ProjectPlanPill({ summary, className = '' }) {
       )}
       title="Abrir Meu Plano"
     >
-      meu plano
+      {summary.planBadgeLabel || formatPlanBadgeLabel(summary.planName)}
     </button>
   )
 }

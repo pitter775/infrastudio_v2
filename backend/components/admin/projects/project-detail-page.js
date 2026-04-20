@@ -2450,7 +2450,12 @@ export function AdminProjectDetailPage({ project }) {
       null
     const usedTokens = Number(project.billing?.currentCycle?.usage?.totalTokens ?? 0)
     const remainingTokens = monthlyLimit == null ? null : Math.max(0, Number(monthlyLimit) - usedTokens)
-    const usagePercent = Number(project.billing?.currentCycle?.usagePercent?.totalTokens ?? 0)
+    const providedUsagePercent = Number(project.billing?.currentCycle?.usagePercent?.totalTokens)
+    const usagePercent = Number.isFinite(providedUsagePercent)
+      ? providedUsagePercent
+      : monthlyLimit == null
+        ? 0
+        : (usedTokens / Math.max(Number(monthlyLimit), 1)) * 100
 
     window.dispatchEvent(
       new CustomEvent('admin-project-usage-summary', {
@@ -2465,8 +2470,10 @@ export function AdminProjectDetailPage({ project }) {
           blockedReason: project.billing?.projectPlan?.blockedReason || '',
           usedTokens,
           monthlyLimit,
+          usagePercent,
           topUpAvailableTokens: Number(project.billing?.topUps?.availableTokens ?? 0),
           remainingLabel: remainingTokens == null ? 'Sem limite' : formatCredits(remainingTokens),
+          limitLabel: monthlyLimit == null ? 'Sem limite' : formatCredits(monthlyLimit),
           remainingPercentLabel: monthlyLimit == null ? null : `${Math.max(0, Math.round(100 - usagePercent))}%`,
           cycleEndDate: project.billing?.currentCycle?.endDate ?? null,
         },
@@ -2887,7 +2894,13 @@ export function AdminProjectDetailPage({ project }) {
         </motion.div>
       </div>
 
-      <AgentSimulator project={project} agent={project.agent} open={testOpen} onOpenChange={setTestOpen} />
+      <AgentSimulator
+        project={project}
+        agent={project.agent}
+        open={testOpen}
+        onOpenChange={setTestOpen}
+        onUsageRecorded={() => router.refresh()}
+      />
 
       <Sheet
         open={isPanelOpen}
