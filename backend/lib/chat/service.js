@@ -1955,7 +1955,11 @@ export function isSavedWhatsAppContact(context) {
     return false
   }
 
+  const nestedFlags = isPlainObject(context.whatsapp.savedContactFlags) ? context.whatsapp.savedContactFlags : null
   const explicitFlags = [
+    nestedFlags?.isSavedContact,
+    nestedFlags?.isMyContact,
+    nestedFlags?.isSaved,
     context.whatsapp.isSavedContact,
     context.whatsapp.isMyContact,
     context.whatsapp.isSaved,
@@ -1970,76 +1974,7 @@ export function isSavedWhatsAppContact(context) {
     }
   }
 
-  const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
-  const contactPhone = normalizeInboundPhoneCandidate(getWhatsAppContactPhoneFromContext(context))
-  const pushName = typeof context.whatsapp.pushName === "string" ? context.whatsapp.pushName.trim() : ""
-  const rawPushName = typeof rawContact?.pushname === "string" ? rawContact.pushname.trim() : ""
-  const contactName = typeof context.whatsapp.contactName === "string" ? context.whatsapp.contactName.trim() : ""
-  const candidateNames = [
-    rawContact?.name,
-    rawContact?.shortName,
-    rawContact?.verifiedName,
-    contactName,
-  ]
-    .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .filter(Boolean)
-
-  if (!candidateNames.length) {
-    return false
-  }
-
-  const normalizedPhone = contactPhone ? contactPhone.replace(/\D/g, "") : ""
-  const loweredPushName = pushName.toLowerCase()
-  const loweredRawPushName = rawPushName.toLowerCase()
-  const loweredContactName = contactName.toLowerCase()
-
-  if (
-    loweredContactName &&
-    loweredPushName &&
-    loweredContactName !== loweredPushName &&
-    loweredContactName !== normalizedPhone
-  ) {
-    return true
-  }
-
-  if (
-    loweredContactName &&
-    loweredRawPushName &&
-    loweredContactName !== loweredRawPushName &&
-    loweredContactName !== normalizedPhone
-  ) {
-    return true
-  }
-
-  if (typeof rawContact?.name === "string" && rawContact.name.trim()) {
-    const loweredRawName = rawContact.name.trim().toLowerCase()
-    if (
-      loweredRawName !== normalizedPhone &&
-      loweredRawName !== loweredPushName &&
-      loweredRawName !== loweredRawPushName
-    ) {
-      return true
-    }
-  }
-
-  return candidateNames.some((name) => {
-    const loweredName = name.toLowerCase()
-    const normalizedNameDigits = name.replace(/\D/g, "")
-
-    if (!loweredName) {
-      return false
-    }
-
-    if (normalizedPhone && normalizedNameDigits === normalizedPhone) {
-      return false
-    }
-
-    if (loweredPushName && loweredName === loweredPushName && normalizedNameDigits) {
-      return false
-    }
-
-    return true
-  })
+  return false
 }
 
 export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
