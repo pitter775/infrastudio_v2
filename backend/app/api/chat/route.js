@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto"
 import { buildInitialChatContext, buildSilentChatResult, isSavedWhatsAppContact, processChatRequest, resolveProjectAgent } from "@/lib/chat/service"
 import { buildAiObservability } from "@/lib/admin-conversations"
 import { registerProjectBillingUsage, verifyProjectBillingAccess } from "@/lib/billing"
+import { APP_BUILD_LABEL } from "@/lib/build-info"
 import { recordPublicChatEvent } from "@/lib/chat/diagnostics"
 import { emptyChatOptionsResponse, formatPublicChatResult, jsonChatResponse, normalizePublicChatBody } from "@/lib/chat/http"
 import { createLogEntry } from "@/lib/logs"
@@ -341,6 +342,7 @@ function buildWhatsAppSavedContactDiagnostic(context, whatsappChannel, resolvedP
   const whatsapp = isPlainObject(context?.whatsapp) ? context.whatsapp : {}
   const rawContact = isPlainObject(whatsapp.rawContact) ? whatsapp.rawContact : {}
   const savedContactFlags = resolveSavedContactFlags(whatsappChannel?.sessionData) ?? null
+  const blockedAsSavedContact = isSavedWhatsAppInboundContext(context, whatsappChannel)
   const whatsappFieldPresence = buildPresentFieldMap(whatsapp, [
     "contactName",
     "pushName",
@@ -421,11 +423,18 @@ function buildWhatsAppSavedContactDiagnostic(context, whatsappChannel, resolvedP
 
   return {
     event: "whatsapp_saved_contact_probe",
+    buildLabel: APP_BUILD_LABEL,
+    runtimeHost: process.env.RAILWAY_PUBLIC_DOMAIN?.trim() || process.env.VERCEL_URL?.trim() || null,
     onlyReplyToUnsavedContacts: whatsappChannel?.onlyReplyToUnsavedContacts === true,
-    blockedAsSavedContact: isSavedWhatsAppInboundContext(context, whatsappChannel),
+    channelToggleValue: whatsappChannel?.onlyReplyToUnsavedContacts ?? null,
+    blockedAsSavedContact,
     projectId: resolvedProjectAgent?.projeto?.id ?? whatsappChannel?.projetoId ?? null,
     agentId: resolvedProjectAgent?.agente?.id ?? whatsappChannel?.agenteId ?? null,
     channelId: whatsappChannel?.id ?? null,
+    channelProjectId: whatsappChannel?.projetoId ?? null,
+    channelAgentId: whatsappChannel?.agenteId ?? null,
+    channelStatus: whatsappChannel?.status ?? null,
+    hasChannelRecord: Boolean(whatsappChannel?.id),
     contactName: typeof whatsapp.contactName === "string" ? whatsapp.contactName : null,
     pushName: typeof whatsapp.pushName === "string" ? whatsapp.pushName : null,
     remotePhone: typeof whatsapp.remotePhone === "string" ? whatsapp.remotePhone : null,
@@ -454,6 +463,29 @@ function buildWhatsAppSavedContactDiagnostic(context, whatsappChannel, resolvedP
     },
     sessionDataKeys: isPlainObject(whatsappChannel?.sessionData) ? Object.keys(whatsappChannel.sessionData).sort() : [],
   }
+}
+
+async function recordWhatsAppSavedContactDiagnostic(input) {
+  const {
+    context,
+    whatsappChannel,
+    resolvedProjectAgent,
+    host,
+    channelId,
+  } = input
+
+  await createLogEntry({
+    projectId: resolvedProjectAgent?.projeto?.id ?? whatsappChannel?.projetoId ?? null,
+    type: "lab_whatsapp_saved_contact_probe",
+    origin: "laboratorio",
+    level: "error",
+    description: "Diagnostico temporario do inbound WhatsApp para contatos salvos.",
+    payload: {
+      requestHost: host ?? null,
+      requestChannelId: channelId ?? null,
+      ...buildWhatsAppSavedContactDiagnostic(context, whatsappChannel, resolvedProjectAgent),
+    },
+  })
 }
 
 export async function OPTIONS(request) {
@@ -577,14 +609,13 @@ export async function POST(request) {
             context: effectiveContext,
           }
 
-    if (effectiveBody?.canal === "whatsapp" && whatsappChannel?.onlyReplyToUnsavedContacts === true) {
-      await createLogEntry({
-        projectId: resolvedProjectAgent?.projeto?.id ?? whatsappChannel?.projetoId ?? null,
-        type: "lab_whatsapp_saved_contact_probe",
-        origin: "laboratorio",
-        level: "error",
-        description: "Diagnostico temporario do inbound WhatsApp para contatos salvos.",
-        payload: buildWhatsAppSavedContactDiagnostic(effectiveBody?.context, whatsappChannel, resolvedProjectAgent),
+    if (effectiveBody?.canal === "whatsapp") {
+      await recordWhatsAppSavedContactDiagnostic({
+        context: effectiveBody?.context,
+        whatsappChannel,
+        resolvedProjectAgent,
+        host,
+        channelId,
       })
     }
 
