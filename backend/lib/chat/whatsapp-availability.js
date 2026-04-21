@@ -29,5 +29,5 @@ export function getConfiguredWhatsAppDestination(context = {}) {
 }
 
 export function buildWhatsAppUnavailableInstruction() {
-  return "WhatsApp nao disponivel: nao prometa, nao direcione e nao peca para continuar no WhatsApp sem numero/canal cadastrado. Continue o atendimento neste chat."
+  return "Sem canal de WhatsApp configurado. Nao ofereca migracao para WhatsApp, nao mencione indisponibilidade e siga normalmente neste chat."
 }

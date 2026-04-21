@@ -92,9 +92,17 @@ async function loadMessagesForChat(chatId) {
 
 async function loadHandoff(chat) {
   const handoff = await getChatHandoffByChatId(chat.id)
+  const autoPauseActive = handoff?.metadata?.autoPause?.active === true
   return {
     handoff,
-    status: handoff?.status === "human" ? "humano" : handoff?.status === "pending_human" ? "pendente_humano" : "ia",
+    status:
+      handoff?.status === "human"
+        ? "humano"
+        : autoPauseActive
+          ? "pausado_loop"
+          : handoff?.status === "pending_human"
+            ? "pendente_humano"
+            : "ia",
   }
 }
 
@@ -242,6 +250,8 @@ export async function listAdminConversations(user) {
 
       if (item.handoff.status === "humano") {
         currentGroup.status = "humano"
+      } else if (currentGroup.status !== "humano" && item.handoff.status === "pausado_loop") {
+        currentGroup.status = "pausado_loop"
       } else if (currentGroup.status !== "humano" && item.handoff.status === "pendente_humano") {
         currentGroup.status = "pendente_humano"
       }

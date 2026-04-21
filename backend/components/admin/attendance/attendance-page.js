@@ -219,9 +219,26 @@ function Tag({ children, className }) {
   )
 }
 
+function resolveConversationStatusLabel(conversation) {
+  if (conversation?.status === "humano") {
+    return "Humano no comando"
+  }
+
+  if (conversation?.status === "pausado_loop") {
+    return "Pausado por loop"
+  }
+
+  if (conversation?.status === "pendente_humano") {
+    return "Aguardando humano"
+  }
+
+  return "IA atendendo"
+}
+
 function ConversationItem({ conversation, active, onClick }) {
   const lastMessage = getLastMessage(conversation)
   const initials = getInitials(conversation.cliente.nome)
+  const loopPaused = conversation.status === "pausado_loop"
 
   return (
     <button
@@ -250,8 +267,15 @@ function ConversationItem({ conversation, active, onClick }) {
         </div>
         <div className="shrink-0 text-right">
           <div className="text-[10px] text-slate-500">{lastMessage?.horario}</div>
-          <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.12em] text-sky-400">
-            {conversation.mensagens.length} msg
+          <div className="mt-1 flex flex-col items-end gap-1">
+            <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-sky-400">
+              {conversation.mensagens.length} msg
+            </div>
+            {loopPaused ? (
+              <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-200">
+                Loop
+              </span>
+            ) : null}
           </div>
         </div>
       </div>
@@ -460,8 +484,11 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
         body: JSON.stringify(mode === "claim" ? { status: "human" } : { action: "touch" }),
       })
 
-      if (response.ok && mode === "claim") {
-        onStatusChanged?.(conversation.id, "humano")
+      if (response.ok) {
+        const data = await response.json().catch(() => ({}))
+        if (mode === "claim") {
+          onStatusChanged?.(conversation.id, "humano", data.handoff ?? null)
+        }
       }
     } finally {
       if (mode === "claim") {
@@ -518,7 +545,7 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
 
       if (messageData.success) {
         onMessageSent(conversation.id, messageData.message)
-        onStatusChanged?.(conversation.id, messageData.status || "humano")
+        onStatusChanged?.(conversation.id, messageData.status || "humano", messageData.handoff ?? null)
         setTexto("")
         setAttachments([])
       }
@@ -645,7 +672,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const lastMessage = getLastMessage(conversation)
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
   const humanInControl = conversation.status === "humano"
-  const statusLabel = humanInControl ? "Humano no comando" : "IA atendendo"
+  const loopPaused = conversation.status === "pausado_loop"
+  const statusLabel = resolveConversationStatusLabel(conversation)
   const compactMobileHeader = Boolean(onCloseMobile)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [traceProviderFilter, setTraceProviderFilter] = useState("")
@@ -830,7 +858,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
     })
 
     if (response.ok) {
-      onStatusChanged(conversation.id, nextStatus === "human" ? "humano" : "ia")
+      const data = await response.json().catch(() => ({}))
+      onStatusChanged(conversation.id, nextStatus === "human" ? "humano" : "ia", data.handoff ?? null)
     }
   }
 
@@ -895,6 +924,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                             className={
                               humanInControl
                                 ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100"
+                                : loopPaused
+                                  ? "border-amber-400/20 bg-amber-500/10 text-amber-100"
                                 : "border-slate-500/20 bg-slate-500/10 text-slate-200"
                             }
                           >
@@ -929,7 +960,7 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                 className="h-8 rounded-lg px-2.5 text-[11px] text-cyan-200 hover:bg-cyan-500/16 hover:text-white"
               >
                 <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                Liberar IA
+                {loopPaused ? "Reativar bot" : "Liberar IA"}
               </Button>
               <Button
                 variant="ghost"
@@ -945,6 +976,15 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
         {humanInControl ? (
           <div className="border-b border-emerald-400/10 bg-emerald-500/[0.06] px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100 lg:px-4">
             Voce esta no comando da conversa
+          </div>
+        ) : loopPaused ? (
+          <div className="border-b border-amber-400/10 bg-amber-500/[0.08] px-3 py-2 lg:px-4">
+            <div className="flex flex-col gap-1.5 text-[11px] text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+              <div className="font-semibold uppercase tracking-[0.16em]">Pausado por loop</div>
+              <div className="text-amber-50/80">
+                O bot foi pausado automaticamente por suspeita de conversa automatica em ciclo.
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -1435,15 +1475,19 @@ export default function AttendancePage() {
     setConversationQuery(null)
   }
 
-  function updateConversationStatus(conversationId, status) {
+  function updateConversationStatus(conversationId, status, handoff = undefined) {
     setConversations((currentConversations) =>
       currentConversations.map((conversation) =>
-        conversation.id === conversationId ? { ...conversation, status } : conversation
+        conversation.id === conversationId
+          ? { ...conversation, status, ...(typeof handoff !== "undefined" ? { handoff } : {}) }
+          : conversation
       )
     )
 
     setSelectedConversation((currentConversation) =>
-      currentConversation?.id === conversationId ? { ...currentConversation, status } : currentConversation
+      currentConversation?.id === conversationId
+        ? { ...currentConversation, status, ...(typeof handoff !== "undefined" ? { handoff } : {}) }
+        : currentConversation
     )
   }
 

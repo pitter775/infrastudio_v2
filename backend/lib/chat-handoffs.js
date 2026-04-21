@@ -28,7 +28,8 @@ function mapChatHandoff(row) {
 }
 
 export function shouldPauseAssistantForHandoff(handoff) {
-  return handoff?.status === "human"
+  const metadata = handoff?.metadata && typeof handoff.metadata === "object" ? handoff.metadata : {}
+  return handoff?.status === "human" || metadata?.autoPause?.active === true
 }
 
 function normalizeIsoTimestamp(value) {
@@ -166,6 +167,44 @@ export async function requestHumanHandoff(input) {
   return next || current
 }
 
+export async function requestAutoPauseHandoff(input) {
+  const current =
+    (await ensureChatHandoff({
+      chatId: input.chatId,
+      projetoId: input.projetoId,
+      canalWhatsappId: input.canalWhatsappId ?? null,
+    })) ?? (await getChatHandoffByChatId(input.chatId))
+
+  if (!current) {
+    return null
+  }
+
+  const previousAutoPause =
+    current.metadata?.autoPause && typeof current.metadata.autoPause === "object" ? current.metadata.autoPause : {}
+
+  const next = await updateChatHandoffRecord({
+    handoffId: current.id,
+    patch: {
+      projeto_id: input.projetoId ?? current.projetoId ?? null,
+      canal_whatsapp_id: input.canalWhatsappId ?? current.canalWhatsappId ?? null,
+      motivo: input.motivo?.trim() || current.motivo || "Conversa pausada automaticamente por suspeita de loop.",
+      metadata: {
+        ...(current.metadata ?? {}),
+        autoPause: {
+          ...previousAutoPause,
+          active: true,
+          reason: input.reason?.trim() || previousAutoPause.reason || "loop_detected",
+          pausedAt: new Date().toISOString(),
+          triggerMessage: input.triggerMessage?.trim() || previousAutoPause.triggerMessage || null,
+          details: input.details ?? previousAutoPause.details ?? null,
+        },
+      },
+    },
+  })
+
+  return next || current
+}
+
 export async function claimHumanHandoff(input) {
   const current =
     (await ensureChatHandoff({
@@ -190,6 +229,11 @@ export async function claimHumanHandoff(input) {
         ...(current.metadata ?? {}),
         claimedBy: "admin",
         lastHumanActivityAt: new Date().toISOString(),
+        autoPause: {
+          ...(current.metadata?.autoPause ?? {}),
+          active: false,
+          resumedAt: new Date().toISOString(),
+        },
       },
     },
   })
@@ -231,6 +275,11 @@ export async function releaseHumanHandoff(input) {
         releasedBy: "admin",
         lastHumanActivityAt: null,
         autoReleasedAt: input.autoReleased === true ? new Date().toISOString() : current.metadata?.autoReleasedAt ?? null,
+        autoPause: {
+          ...(current.metadata?.autoPause ?? {}),
+          active: false,
+          resumedAt: new Date().toISOString(),
+        },
       },
     },
   })

@@ -15,6 +15,7 @@ import {
   getChatHandoffByChatId,
   isHumanHandoffExpired,
   releaseHumanHandoff,
+  requestAutoPauseHandoff,
   requestHumanHandoff,
   shouldPauseAssistantForHandoff,
 } from "@/lib/chat-handoffs"
@@ -1223,6 +1224,164 @@ export function updateContextFromAiResult(input) {
   return nextContext
 }
 
+const WHATSAPP_LOOP_WINDOW_MS = 3 * 60 * 1000
+const WHATSAPP_LOOP_RAPID_GAP_MS = 25 * 1000
+const WHATSAPP_LOOP_TAIL_GAP_MS = 45 * 1000
+const WHATSAPP_LOOP_PROBE_TEXT = "Voce e humano?"
+
+function normalizeLoopGuardText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function getLoopGuardMessageTimestamp(message) {
+  const timestamp = new Date(message?.createdAt ?? 0).getTime()
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+
+function isManualAssistantMessage(message) {
+  return message?.role === "assistant" && message?.metadata?.manual === true
+}
+
+function isAutomatedAssistantMessage(message) {
+  return message?.role === "assistant" && !isManualAssistantMessage(message)
+}
+
+function isPositiveHumanConfirmation(message) {
+  const normalized = normalizeLoopGuardText(message)
+  return /^(sim|sou humano|sim sou humano|sou uma pessoa|sou atendente|sim sou uma pessoa|sim, sou humano)\b/.test(normalized)
+}
+
+function isLoopGuardProbeMessage(message) {
+  return normalizeLoopGuardText(message) === normalizeLoopGuardText(WHATSAPP_LOOP_PROBE_TEXT)
+}
+
+function detectWhatsAppLoopGuard(history = []) {
+  const messages = Array.isArray(history) ? history.filter(Boolean) : []
+  if (!messages.length) {
+    return { action: "none", metrics: null }
+  }
+
+  const latestMessage = messages[messages.length - 1]
+  const latestTimestamp = getLoopGuardMessageTimestamp(latestMessage) || Date.now()
+  const recent = messages.filter((message) => latestTimestamp - getLoopGuardMessageTimestamp(message) <= WHATSAPP_LOOP_WINDOW_MS)
+  if (recent.length < 2) {
+    return { action: "none", metrics: null }
+  }
+
+  const recentUserCount = recent.filter((message) => message.role === "user").length
+  const recentAutoAssistantCount = recent.filter(isAutomatedAssistantMessage).length
+  const recentManualAssistantCount = recent.filter(isManualAssistantMessage).length
+
+  const recentRapidTransitions = recent.slice(1).reduce((count, message, index) => {
+    const previous = recent[index]
+    const delta = getLoopGuardMessageTimestamp(message) - getLoopGuardMessageTimestamp(previous)
+    return delta > 0 && delta <= WHATSAPP_LOOP_RAPID_GAP_MS ? count + 1 : count
+  }, 0)
+
+  let tailAlternatingCount = 1
+  for (let index = recent.length - 1; index > 0; index -= 1) {
+    const current = recent[index]
+    const previous = recent[index - 1]
+    const delta = getLoopGuardMessageTimestamp(current) - getLoopGuardMessageTimestamp(previous)
+
+    if (delta <= 0 || delta > WHATSAPP_LOOP_TAIL_GAP_MS) {
+      break
+    }
+    if (current.role === previous.role) {
+      break
+    }
+    if (isManualAssistantMessage(current) || isManualAssistantMessage(previous)) {
+      break
+    }
+
+    tailAlternatingCount += 1
+  }
+
+  const previousAssistantMessage = [...messages].reverse().find((message) => message.role === "assistant") ?? null
+  const latestUserText = latestMessage?.role === "user" ? latestMessage?.conteudo ?? "" : ""
+  const previousAssistantWasProbe = isLoopGuardProbeMessage(previousAssistantMessage?.conteudo ?? "")
+  const recentProbeAlreadySent = recent.some(
+    (message) => message.role === "assistant" && isLoopGuardProbeMessage(message?.conteudo ?? "")
+  )
+
+  const metrics = {
+    recentCount: recent.length,
+    recentUserCount,
+    recentAutoAssistantCount,
+    recentManualAssistantCount,
+    recentRapidTransitions,
+    tailAlternatingCount,
+    previousAssistantWasProbe,
+  }
+
+  if (recentManualAssistantCount > 0) {
+    return { action: "none", metrics }
+  }
+
+  if (previousAssistantWasProbe && isPositiveHumanConfirmation(latestUserText)) {
+    return {
+      action: "pause",
+      reason: "probe_confirmed_human_claim",
+      metrics,
+    }
+  }
+
+  if (
+    recent.length >= 12 &&
+    recentUserCount >= 5 &&
+    recentAutoAssistantCount >= 5 &&
+    recentRapidTransitions >= 7 &&
+    tailAlternatingCount >= 8
+  ) {
+    return {
+      action: "pause",
+      reason: "rapid_bidirectional_loop",
+      metrics,
+    }
+  }
+
+  if (
+    !recentProbeAlreadySent &&
+    recent.length >= 8 &&
+    recentUserCount >= 3 &&
+    recentAutoAssistantCount >= 3 &&
+    recentRapidTransitions >= 5 &&
+    tailAlternatingCount >= 6
+  ) {
+    return {
+      action: "probe",
+      reason: "suspected_automation_loop",
+      metrics,
+    }
+  }
+
+  return { action: "none", metrics }
+}
+
+function buildLoopGuardAiResult(reason, metrics = {}) {
+  return {
+    reply: WHATSAPP_LOOP_PROBE_TEXT,
+    assets: [],
+    usage: {
+      inputTokens: 0,
+      outputTokens: 0,
+    },
+    metadata: {
+      provider: "local_guardrail",
+      model: "whatsapp_loop_guard",
+      routeStage: "guardrail",
+      heuristicStage: reason,
+      domainStage: "whatsapp",
+      loopGuard: metrics,
+    },
+  }
+}
+
 function normalizeWhatsAppDestination(value) {
   const digits = sanitizePhone(value)
   if (!digits) {
@@ -1240,8 +1399,8 @@ function normalizeWhatsAppDestination(value) {
   return digits.length >= 10 ? digits : null
 }
 
-function shouldAttachWhatsAppCta(reply) {
-  const normalized = String(reply || "")
+function hasWhatsAppIntentSignal(text) {
+  const normalized = String(text || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
@@ -1249,8 +1408,8 @@ function shouldAttachWhatsAppCta(reply) {
   return (
     /\bwhatsapp\b/.test(normalized) ||
     /wa\.me|api\.whatsapp\.com/i.test(normalized) ||
-    /\bmeu numero\b|\bmeu telefone\b|\bchama\b|\bfalar por la\b|\bcontinuar por la\b/i.test(normalized) ||
-    /(?:\+?\d[\d\s().-]{7,}\d)/.test(String(reply || ""))
+    /\bmeu numero\b|\bmeu telefone\b|\bchama\b|\bfalar por la\b|\bcontinuar por la\b|\bcontinuar no whatsapp\b|\bir pro whatsapp\b|\bquero ir ao whatsapp\b/i.test(normalized) ||
+    /(?:\+?\d[\d\s().-]{7,}\d)/.test(String(text || ""))
   )
 }
 
@@ -1260,7 +1419,11 @@ function buildWhatsAppContinuationCta(input = {}) {
   }
 
   const destination = normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext))
-  if (!destination || !shouldAttachWhatsAppCta(`${input.reply || ""}\n${input.followUpReply || ""}`)) {
+  const combinedReply = `${input.reply || ""}\n${input.followUpReply || ""}`
+  const userAskedForWhatsApp = hasWhatsAppIntentSignal(input.userMessage || "")
+  const assistantSuggestedWhatsApp = hasWhatsAppIntentSignal(combinedReply)
+
+  if (!destination || (!userAskedForWhatsApp && !assistantSuggestedWhatsApp)) {
     return null
   }
 
@@ -1290,6 +1453,18 @@ function sanitizeReplyForWhatsAppCta(reply, label = "Continuar no WhatsApp") {
   return sanitized
 }
 
+function sanitizeReplyWithoutWhatsAppCta(reply) {
+  const sanitized = String(reply || "")
+    .replace(/infelizmente,[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
+    .replace(/nao posso[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
+    .replace(/nao consigo[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
+    .replace(/mas posso continuar te ajudando por aqui[^.!?\n]*[.!?]?/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+
+  return sanitized || "Posso continuar te ajudando por aqui."
+}
+
 export function prepareAiReplyPayload(input) {
   const splitReply =
     input.channelKind === "whatsapp"
@@ -1310,6 +1485,8 @@ export function prepareAiReplyPayload(input) {
     input.channelKind === "whatsapp"
       ? sanitizeWhatsAppCustomerFacingReply(normalizedFollowUpReplyBase)
       : normalizedFollowUpReplyBase
+  const hasWhatsAppDestination = Boolean(normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext)))
+  const userAskedForWhatsApp = hasWhatsAppIntentSignal(input.userMessage || "")
   const whatsappCta =
     input.channelKind === "whatsapp"
       ? null
@@ -1317,11 +1494,18 @@ export function prepareAiReplyPayload(input) {
           nextContext: input.nextContext,
           reply: primaryReply,
           followUpReply,
+          userMessage: input.userMessage,
         })
-  const normalizedPrimaryReply =
-    whatsappCta ? sanitizeReplyForWhatsAppCta(primaryReply, whatsappCta.label) : primaryReply
-  const normalizedFollowUpReply =
-    whatsappCta ? sanitizeReplyForWhatsAppCta(followUpReply, whatsappCta.label) : followUpReply
+  const normalizedPrimaryReply = whatsappCta
+    ? sanitizeReplyForWhatsAppCta(primaryReply, whatsappCta.label)
+    : !hasWhatsAppDestination && userAskedForWhatsApp
+      ? sanitizeReplyWithoutWhatsAppCta(primaryReply)
+      : primaryReply
+  const normalizedFollowUpReply = whatsappCta
+    ? sanitizeReplyForWhatsAppCta(followUpReply, whatsappCta.label)
+    : !hasWhatsAppDestination && userAskedForWhatsApp
+      ? sanitizeReplyWithoutWhatsAppCta(followUpReply)
+      : followUpReply
   const whatsappEmbeddedSequence =
     input.channelKind === "whatsapp" ? buildWhatsAppMessageSequence(normalizedPrimaryReply, input.ai.assets ?? [], null) : []
 
@@ -1868,6 +2052,57 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
   }
 }
 
+export async function applyWhatsAppLoopGuard(runtimeState, deps = {}) {
+  if (runtimeState?.prelude?.channelKind !== "whatsapp") {
+    return { action: "none", result: null, handoff: runtimeState?.handoffState?.handoff ?? null, metrics: null }
+  }
+
+  const detection = detectWhatsAppLoopGuard(runtimeState.history)
+  if (detection.action === "none") {
+    return { action: "none", result: null, handoff: runtimeState?.handoffState?.handoff ?? null, metrics: detection.metrics }
+  }
+
+  const currentHandoff = runtimeState?.handoffState?.handoff ?? null
+  if (currentHandoff?.status === "human") {
+    return { action: "none", result: null, handoff: currentHandoff, metrics: detection.metrics }
+  }
+
+  if (detection.action === "pause") {
+    const handoff = await (deps.requestAutoPauseHandoff ?? requestAutoPauseHandoff)({
+      chatId: runtimeState.session.chat.id,
+      projetoId: runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null,
+      canalWhatsappId: getChatWhatsAppChannelId(runtimeState.session.chat, runtimeState.prelude.effectiveBody),
+      motivo: "Conversa pausada automaticamente por suspeita de loop no WhatsApp.",
+      reason: detection.reason,
+      triggerMessage: runtimeState.prelude.message,
+      details: detection.metrics,
+    })
+
+    return {
+      action: "pause",
+      handoff,
+      metrics: detection.metrics,
+      result: {
+        ...buildSilentChatResult(runtimeState.session.chat.id),
+        handoff: {
+          active: true,
+          paused: true,
+          requested: false,
+          status: handoff?.status ?? "bot",
+          reason: detection.reason,
+        },
+      },
+    }
+  }
+
+  return {
+    action: "probe",
+    handoff: currentHandoff,
+    metrics: detection.metrics,
+    aiResult: buildLoopGuardAiResult(detection.reason, detection.metrics),
+  }
+}
+
 export function buildUsagePersistencePayload(input) {
   const provider = typeof input.aiMetadata?.provider === "string" ? input.aiMetadata.provider : null
   const model = typeof input.aiMetadata?.model === "string" ? input.aiMetadata.model : null
@@ -1944,6 +2179,7 @@ function attachRuntimeDiagnostics(result, runtimeState, extra = {}) {
       failClosed:
         runtimeState?.stage === "billing_blocked" ||
         runtimeState?.stage === "handoff_paused" ||
+        runtimeState?.stage === "whatsapp_loop_paused" ||
         runtimeState?.stage === "isolated",
       projetoId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
       agenteId: runtimeState?.resolved?.agente?.id ?? runtimeState?.session?.chat?.agenteId ?? null,
@@ -2052,6 +2288,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     ai: aiResult,
     nextContext: updatedContext,
     normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
+    userMessage: runtimeState.prelude.message,
   })
   const usagePayload = buildUsagePersistencePayload({
     projetoId: runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null,
@@ -2398,6 +2635,55 @@ export async function processChatRequest(body, options = {}) {
   }
 
   try {
+    const loopGuardState = await applyWhatsAppLoopGuard(runtimeState, options)
+    if (loopGuardState.action === "pause") {
+      runtimeState.stage = "whatsapp_loop_paused"
+
+      await recordChatRuntimeEvent(runtimeState, {
+        type: "chat_loop_guard_event",
+        origin: "chat_runtime",
+        level: "warn",
+        description: "Conversa pausada automaticamente por suspeita de loop no WhatsApp.",
+        payload: {
+          loopGuardAction: "pause",
+          loopGuardMetrics: loopGuardState.metrics,
+        },
+      })
+
+      return attachRuntimeDiagnostics(loopGuardState.result, runtimeState, {
+        handoffDecision: {
+          decision: "whatsapp_loop_pause",
+          reason: "Conversa pausada automaticamente por suspeita de loop.",
+        },
+        handoffRequested: false,
+      })
+    }
+
+    if (loopGuardState.action === "probe" && loopGuardState.aiResult) {
+      runtimeState.stage = "whatsapp_loop_probe"
+
+      await recordChatRuntimeEvent(runtimeState, {
+        type: "chat_loop_guard_event",
+        origin: "chat_runtime",
+        level: "warn",
+        description: "Loop guard enviou pergunta de confirmacao no WhatsApp.",
+        payload: {
+          loopGuardAction: "probe",
+          loopGuardMetrics: loopGuardState.metrics,
+        },
+      })
+
+      const finalProbeResult = await finalizeV2AiTurn(runtimeState, loopGuardState.aiResult, options)
+      return attachRuntimeDiagnostics(finalProbeResult, runtimeState, {
+        aiResult: loopGuardState.aiResult,
+        handoffDecision: {
+          decision: "whatsapp_loop_probe",
+          reason: "Suspeita de loop. Pergunta de confirmacao enviada.",
+        },
+        handoffRequested: false,
+      })
+    }
+
     const runtimeApis =
       runtimeState.resolved?.agente?.id && runtimeState.resolved?.projeto?.id
         ? await (options.loadAgentRuntimeApis ?? loadAgentRuntimeApis)({

@@ -265,14 +265,6 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
-  if (catalogPricingReply && /\b(preco|valor|quanto|custa)\b/i.test(latestUserMessage)) {
-    return buildHeuristicReplyResult(catalogPricingReply, {
-      ...heuristicMetadata,
-      heuristicStage: "catalog_pricing",
-      domainStage: "catalog",
-    })
-  }
-
   if (mercadoLivreReply && /\b(gostei|esse|essa|detalhe|detalhes|link|garantia|frete|estoque|serve|combina)\b/i.test(latestUserMessage)) {
     return buildHeuristicReplyResult(mercadoLivreReply, {
       ...heuristicMetadata,

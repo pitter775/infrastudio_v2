@@ -4,6 +4,11 @@ import {
   hasConfiguredWhatsAppDestination,
 } from "@/lib/chat/whatsapp-availability"
 
+function agentHasEmbeddedPricingInstructions(agent = {}) {
+  const source = String(agent?.promptBase || agent?.prompt || agent?.descricao || "")
+  return /\br\$\s*\d/i.test(source) || /\bplanos?\b/i.test(source)
+}
+
 function buildRuntimeConfigInstructions(context = {}) {
   const runtimeConfig = context?.agente?.runtimeConfig
   const contactProfile =
@@ -55,7 +60,11 @@ function buildRuntimeConfigInstructions(context = {}) {
     lines.push(`Politica de lead: ${runtimeConfig.leadCapture.policy}`)
   }
 
-  if (Array.isArray(runtimeConfig?.pricingCatalog?.items) && runtimeConfig.pricingCatalog.items.length) {
+  if (
+    !agentHasEmbeddedPricingInstructions(context?.agente) &&
+    Array.isArray(runtimeConfig?.pricingCatalog?.items) &&
+    runtimeConfig.pricingCatalog.items.length
+  ) {
     lines.push("Catalogo de precos estruturado:")
     lines.push(
       ...runtimeConfig.pricingCatalog.items
@@ -126,13 +135,11 @@ function buildCompactAgentBaseInstruction(agent = {}, runtimeContext = {}) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .filter((line) => !/r\$\s*\d/i.test(line))
-    .filter((line) => !/(?:planos disponiveis|como usar os planos|servicos sob medida|levar para o whatsapp|diferencial|frase base)/i.test(line))
 
   const compact = []
   for (const line of lines) {
     compact.push(line)
-    if (compact.join(" ").length >= 700) {
+    if (compact.join(" ").length >= 1400) {
       break
     }
   }

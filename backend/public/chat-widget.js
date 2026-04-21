@@ -93,6 +93,8 @@
     var humanHandoffActive = false;
     var lastSyncedMessageAt = null;
     var pollingMessages = false;
+    var requestInFlight = false;
+    var messageOrderCounter = 0;
     var mobileCloseGesture = {
       active: false,
       startX: 0,
@@ -143,6 +145,33 @@
       }
     } catch (error) {}
 
+    function assignMessageOrder(message, preferredOrder) {
+      if (!message || typeof message !== "object") {
+        return message;
+      }
+
+      var resolvedOrder =
+        typeof preferredOrder === "number" && Number.isFinite(preferredOrder)
+          ? preferredOrder
+          : (typeof message.order === "number" && Number.isFinite(message.order) ? message.order : null);
+
+      if (resolvedOrder === null) {
+        messageOrderCounter += 1;
+        resolvedOrder = messageOrderCounter;
+      } else if (resolvedOrder > messageOrderCounter) {
+        messageOrderCounter = resolvedOrder;
+      }
+
+      message.order = resolvedOrder;
+      return message;
+    }
+
+    if (Array.isArray(messages) && messages.length) {
+      messages = messages.map(function (message, index) {
+        return assignMessageOrder(message, index + 1);
+      });
+    }
+
     function getMessageTimestamp(message) {
       var createdAt = message && message.createdAt ? new Date(message.createdAt).getTime() : Number.NaN;
       return Number.isFinite(createdAt) ? createdAt : 0;
@@ -152,12 +181,15 @@
       messages.sort(function (left, right) {
         var leftTime = getMessageTimestamp(left);
         var rightTime = getMessageTimestamp(right);
-        if (leftTime !== rightTime) {
-          return leftTime - rightTime;
+
+        var leftOrder = left && typeof left.order === "number" ? left.order : 0;
+        var rightOrder = right && typeof right.order === "number" ? right.order : 0;
+        if (leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
         }
 
-        if (left && right && left.isAi !== right.isAi) {
-          return left.isAi ? 1 : -1;
+        if (leftTime !== rightTime) {
+          return leftTime - rightTime;
         }
 
         return String(left && left.id ? left.id : "").localeCompare(String(right && right.id ? right.id : ""));
@@ -1225,6 +1257,9 @@
     function renderMessages(options) {
       var settings = options && typeof options === "object" ? options : {};
       var shouldStickToBottom = settings.forceScroll === true || isNearBottom();
+      var previousBottomOffset = shouldStickToBottom
+        ? 0
+        : Math.max(0, messagesWrap.scrollHeight - messagesWrap.scrollTop);
       stack.innerHTML = "";
 
       if (!messages.length) {
@@ -1297,6 +1332,7 @@
       if (shouldStickToBottom) {
         scrollToBottom(settings.smooth ? "smooth" : "auto");
       } else {
+        messagesWrap.scrollTop = Math.max(0, messagesWrap.scrollHeight - previousBottomOffset);
         updateScrollBottomButton();
       }
     }
@@ -1347,11 +1383,11 @@
       sendButton.disabled = nextLoading;
       sendButton.innerHTML = nextLoading ? '<span class="chat-icon" aria-hidden="true">...</span>' : createPlaneIcon();
       updateComposerState();
-      renderMessages();
+      renderMessages({ preservePosition: true });
     }
 
     function mapSyncedMessage(message) {
-      return {
+      return assignMessageOrder({
         id: "server-" + message.id,
         serverId: message.id,
         text: message.text || "",
@@ -1360,7 +1396,7 @@
         attachments: Array.isArray(message.attachments) ? message.attachments : [],
         createdAt: message.createdAt || new Date().toISOString(),
         manual: message.manual === true,
-      };
+      });
     }
 
     function findStoredAssistantMessageIndex(candidate) {
@@ -1385,7 +1421,7 @@
     function upsertAssistantMessage(candidate) {
       var existingIndex = findStoredAssistantMessageIndex(candidate);
       if (existingIndex === -1) {
-        messages.push(candidate);
+        messages.push(assignMessageOrder(candidate));
         sortMessagesChronologically();
         return;
       }
@@ -1394,12 +1430,13 @@
         ...messages[existingIndex],
         ...candidate,
         id: candidate.id || messages[existingIndex].id,
+        order: messages[existingIndex].order,
       };
       sortMessagesChronologically();
     }
 
     async function syncServerMessages() {
-      if (!chatId || pollingMessages) {
+      if (!chatId || pollingMessages || requestInFlight) {
         return;
       }
 
@@ -1445,7 +1482,7 @@
 
         if (changed) {
           persist();
-          renderMessages({ smooth: true });
+          renderMessages({ smooth: isNearBottom() });
         } else if (incoming.length) {
           persist();
         }
@@ -1459,12 +1496,13 @@
       var settings = options && typeof options === "object" ? options : {};
       var trimmed = String(text || "").trim();
       var outboundAttachments = attachments.slice();
-      if ((!trimmed && !outboundAttachments.length) || loading) {
+      if ((!trimmed && !outboundAttachments.length) || loading || requestInFlight) {
         return;
       }
+      requestInFlight = true;
 
       if (!settings.skipUserBubble) {
-        messages.push({
+        messages.push(assignMessageOrder({
           id: "user-" + Date.now(),
           text: trimmed || "[Anexo enviado]",
           isAi: false,
@@ -1476,7 +1514,7 @@
               size: attachment.size,
             };
           }),
-        });
+        }));
       }
       persist();
       renderMessages({ forceScroll: true, smooth: true });
@@ -1508,6 +1546,9 @@
         if (payload.chatId) {
           chatId = payload.chatId;
         }
+        if (payload.createdAt) {
+          lastSyncedMessageAt = payload.createdAt;
+        }
 
         updateHumanHandoffState(resolveHumanHandoffActive(payload.handoff));
 
@@ -1524,14 +1565,15 @@
           });
         }
       } catch (error) {
-        messages.push({
+        messages.push(assignMessageOrder({
           id: "ai-" + Date.now(),
           text: "Nao consegui responder agora.",
           isAi: true,
           createdAt: new Date().toISOString(),
           cta: null,
-        });
+        }));
       } finally {
+        requestInFlight = false;
         persist();
         setLoading(false);
       }

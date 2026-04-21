@@ -33,6 +33,7 @@ Ordem recomendada para cada melhoria:
   2. validar link direto para `/admin/atendimento?conversa=...`
   3. registrar falhas de envio de forma consultavel
   4. garantir que CTA de WhatsApp so aparece com canal ativo/conectado no agente
+  5. destacar no card de detalhes do `/admin/atendimento` quando a conversa estiver `pausado_loop`, exibindo tambem o motivo tecnico salvo em `handoff.metadata.autoPause.reason`
 
 ## Trilha 2 - Identificacao do usuario e memoria
 
