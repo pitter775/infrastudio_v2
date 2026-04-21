@@ -13,7 +13,7 @@ export const TOP_UP_OFFERS = [
     id: "topup-100k",
     price: 20,
     tokens: 100000,
-    checkoutUrl: "https://mpago.la/33wFqKS", //1,00
+    checkoutUrl: "https://mpago.la/2sTv19y", //1,00
     // checkoutUrl: "https://mpago.la/33wFqKS", 20,00
   },
   {
