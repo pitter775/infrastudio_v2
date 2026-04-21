@@ -87,6 +87,8 @@
     var attachments = [];
     var leadContact = null;
     var contactBoxOpen = false;
+    var pendingAgendaSelection = null;
+    var inlineActionState = null;
     var open = false;
     var loading = false;
     var expanded = false;
@@ -312,9 +314,25 @@
       ".chat-bubble.ai .chat-cta { margin-top: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; padding: 12px 16px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: white !important; text-decoration: none; background: linear-gradient(135deg, " + accent + ", color-mix(in srgb, " + accent + " 60%, #000)); border: 1px solid color-mix(in srgb, " + accent + " 40%, transparent); box-shadow: 0 6px 20px color-mix(in srgb, " + accent + " 35%, transparent), inset 0 1px 0 rgba(255,255,255,0.15); transition: all .25s ease; }",
 ".chat-bubble.ai .chat-cta:hover { transform: translateY(-2px) scale(1.02); box-shadow: 0 10px 28px color-mix(in srgb, " + accent + " 45%, transparent), inset 0 1px 0 rgba(255,255,255,0.25); }",
 ".chat-bubble.ai .chat-cta:active { transform: scale(0.96); box-shadow: 0 4px 12px color-mix(in srgb, " + accent + " 30%, transparent), inset 0 2px 4px rgba(0,0,0,0.25); }",
-      ".chat-bubble.ai .chat-cta.whatsapp { margin-top: 10px; min-height: 0; gap: 6px; padding: 7px 10px; font-size: 11px; line-height: 1; letter-spacing: .01em; color: #22c55e !important; background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2); box-shadow: none; }",
+      ".chat-cta-stack { margin-top: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }",
+      ".chat-cta-summary { max-width: 240px; font-size: 10px; line-height: 1.35; color: " + (theme === "light" ? "rgba(71,85,105,0.84)" : "rgba(148,163,184,0.82)") + "; }",
+      ".chat-bubble.ai .chat-cta.whatsapp { margin-top: 0; min-height: 0; width: fit-content; gap: 6px; padding: 7px 10px; font-size: 11px; line-height: 1; letter-spacing: .01em; color: #16a34a !important; background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.22); box-shadow: none; }",
       ".chat-bubble.ai .chat-cta.whatsapp:hover { transform: translateY(-1px); color: #16a34a !important; background: rgba(34,197,94,0.14); border-color: rgba(34,197,94,0.32); box-shadow: none; }",
       ".chat-bubble.ai .chat-cta.whatsapp .chat-icon { width: 13px; height: 13px; }",
+      ".chat-inline-actions { margin-top: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }",
+      ".chat-inline-action-row { display: flex; flex-wrap: wrap; gap: 6px; }",
+      ".chat-inline-action { display: inline-flex; align-items: center; gap: 6px; min-height: 0; padding: 6px 9px; border-radius: 999px; border: 1px solid rgba(148,163,184,0.2); background: " + (theme === "light" ? "rgba(255,255,255,0.92)" : "rgba(15,23,42,0.44)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.88)") + "; font-size: 11px; line-height: 1; text-decoration: none; cursor: pointer; transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease; }",
+      ".chat-inline-action:hover { transform: translateY(-1px); border-color: rgba(148,163,184,0.34); background: " + (theme === "light" ? "rgba(248,250,252,1)" : "rgba(30,41,59,0.72)") + "; }",
+      ".chat-inline-action.is-whatsapp { color: #16a34a; border-color: rgba(34,197,94,0.22); background: rgba(34,197,94,0.08); }",
+      ".chat-inline-action.is-whatsapp:hover { color: #15803d; border-color: rgba(34,197,94,0.34); background: rgba(34,197,94,0.14); }",
+      ".chat-inline-action.is-active { border-color: color-mix(in srgb, " + accent + " 40%, rgba(148,163,184,0.35)); background: color-mix(in srgb, " + accent + " 10%, " + (theme === "light" ? "rgba(255,255,255,0.94)" : "rgba(15,23,42,0.56)") + "); }",
+      ".chat-inline-action .chat-icon { width: 12px; height: 12px; }",
+      ".chat-agenda-picker { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 8px 0 2px; }",
+      ".chat-agenda-picker-label { font-size: 10px; line-height: 1.3; color: " + (theme === "light" ? "rgba(71,85,105,0.84)" : "rgba(148,163,184,0.82)") + "; }",
+      ".chat-agenda-chip-row { display: flex; flex-wrap: wrap; gap: 6px; }",
+      ".chat-agenda-chip { display: inline-flex; align-items: center; justify-content: center; min-height: 0; padding: 6px 9px; border-radius: 999px; border: 1px solid rgba(148,163,184,0.18); background: " + (theme === "light" ? "rgba(255,255,255,0.92)" : "rgba(15,23,42,0.44)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.88)") + "; font-size: 11px; line-height: 1; cursor: pointer; transition: background-color .18s ease, border-color .18s ease, transform .18s ease; }",
+      ".chat-agenda-chip:hover { transform: translateY(-1px); border-color: rgba(148,163,184,0.32); }",
+      ".chat-agenda-chip.is-selected { color: white; border-color: color-mix(in srgb, " + accent + " 35%, transparent); background: linear-gradient(135deg, " + accent + ", color-mix(in srgb, " + accent + " 70%, #000)); }",
       ".chat-day-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: rgba(148,163,184,0.72); }",
       ".chat-day-divider::before, .chat-day-divider::after { content: ''; height: 1px; flex: 1; background: rgba(148,163,184,0.12); }",
       ".chat-day-divider-label { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(148,163,184,0.12); background: rgba(15,23,42,0.24); border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }",
@@ -492,6 +510,7 @@
 
     var contactEmailInput = contactBox.querySelector(".chat-contact-email");
     var contactPhoneInput = contactBox.querySelector(".chat-contact-phone");
+    var contactTitle = contactBox.querySelector(".chat-contact-title");
     var contactCancelButton = contactBox.querySelector(".chat-contact-cancel");
     var contactSaveButton = contactBox.querySelector(".chat-contact-save");
 
@@ -642,6 +661,10 @@
       return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.8"/><path d="M12 8v4l2.5 1.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
     }
 
+    function createCalendarIcon() {
+      return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3.5v3M17 3.5v3M4.75 8.5h14.5M6.5 5.5h11a1.75 1.75 0 0 1 1.75 1.75v10.25A1.75 1.75 0 0 1 17.5 19.25h-11A1.75 1.75 0 0 1 4.75 17.5V7.25A1.75 1.75 0 0 1 6.5 5.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+    }
+
     function escapeHtml(value) {
       return String(value || "")
         .replace(/&/g, "&amp;")
@@ -776,13 +799,237 @@
         return null;
       }
 
+      var wrap = document.createElement("div");
+      wrap.className = "chat-cta-stack";
+
       var link = document.createElement("a");
       link.className = "chat-cta whatsapp";
       link.href = cta.url;
       link.target = "_blank";
       link.rel = "noreferrer noopener";
       link.innerHTML = createWhatsAppIcon() + "<span>" + escapeHtml(cta.label || "WhatsApp") + "</span>";
-      return link;
+      wrap.appendChild(link);
+
+      if (cta.summary) {
+        var summary = document.createElement("div");
+        summary.className = "chat-cta-summary";
+        summary.textContent = cta.summary;
+        wrap.appendChild(summary);
+      }
+
+      return wrap;
+    }
+
+    function getActionIconMarkup(action) {
+      if (action && action.icon === "calendar") {
+        return createCalendarIcon();
+      }
+
+      if (action && action.icon === "whatsapp") {
+        return createWhatsAppIcon();
+      }
+
+      return createChatBubbleIcon();
+    }
+
+    function buildAgendaSelectionLabel(day, slot) {
+      var dayLabel = day && day.label ? String(day.label).trim() : "horario";
+      var timeLabel = slot && slot.label ? String(slot.label).trim() : "";
+      return timeLabel ? dayLabel + " as " + timeLabel : dayLabel;
+    }
+
+    function buildAgendaSelectionMessage(selection) {
+      var dateLabel = selection && selection.date ? String(selection.date).trim() : "";
+      var weekdayLabel = selection && selection.weekdayLabel ? String(selection.weekdayLabel).trim() : "";
+      var timeLabel = selection && selection.time ? String(selection.time).trim() : "";
+      var scheduleLabel = dateLabel || weekdayLabel || "um horario";
+      return "Quero marcar um horario em " + scheduleLabel + (timeLabel ? " as " + timeLabel : "") + ".";
+    }
+
+    function getAgendaPickerDay(action) {
+      if (!inlineActionState || !action || !Array.isArray(action.days)) {
+        return null;
+      }
+
+      for (var index = 0; index < action.days.length; index += 1) {
+        var candidate = action.days[index];
+        if (candidate && candidate.key === inlineActionState.dayKey) {
+          return candidate;
+        }
+      }
+
+      return action.days[0] || null;
+    }
+
+    function handleAgendaSlotSelection(day, slot) {
+      if (!day || !slot) {
+        return;
+      }
+
+      var selection = {
+        slotId: slot.id,
+        date: slot.date || day.date || null,
+        time: slot.time || null,
+        weekdayLabel: slot.weekdayLabel || day.weekdayLabel || day.label || null,
+        label: buildAgendaSelectionLabel(day, slot),
+      };
+
+      inlineActionState = null;
+
+      if (leadContact && (leadContact.email || leadContact.phone)) {
+        void sendMessage(buildAgendaSelectionMessage(selection), {
+          userBubbleText: "Quero agendar " + selection.label,
+          extraContext: {
+            agendaSelection: {
+              slotId: selection.slotId,
+              date: selection.date,
+              time: selection.time,
+              weekdayLabel: selection.weekdayLabel,
+            },
+          },
+        });
+        return;
+      }
+
+      pendingAgendaSelection = selection;
+      contactBoxOpen = true;
+      syncContactBox();
+      renderMessages({ preservePosition: true });
+    }
+
+    function createAgendaPicker(message, action) {
+      if (!message || !action || !Array.isArray(action.days) || !action.days.length) {
+        return null;
+      }
+
+      var picker = document.createElement("div");
+      picker.className = "chat-agenda-picker";
+
+      var dayLabel = document.createElement("div");
+      dayLabel.className = "chat-agenda-picker-label";
+      dayLabel.textContent = "Escolha o dia";
+      picker.appendChild(dayLabel);
+
+      var dayRow = document.createElement("div");
+      dayRow.className = "chat-agenda-chip-row";
+      picker.appendChild(dayRow);
+
+      var selectedDay = getAgendaPickerDay(action);
+      action.days.forEach(function (day) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "chat-agenda-chip" + (selectedDay && selectedDay.key === day.key ? " is-selected" : "");
+        button.textContent = day.label || "Dia";
+        button.addEventListener("click", function () {
+          inlineActionState = {
+            messageId: message.id,
+            type: "agenda_schedule",
+            dayKey: day.key,
+          };
+          renderMessages({ preservePosition: true });
+        });
+        dayRow.appendChild(button);
+      });
+
+      if (!selectedDay || !Array.isArray(selectedDay.slots) || !selectedDay.slots.length) {
+        return picker;
+      }
+
+      var slotLabel = document.createElement("div");
+      slotLabel.className = "chat-agenda-picker-label";
+      slotLabel.textContent = "Escolha o horario";
+      picker.appendChild(slotLabel);
+
+      var slotRow = document.createElement("div");
+      slotRow.className = "chat-agenda-chip-row";
+      picker.appendChild(slotRow);
+
+      selectedDay.slots.forEach(function (slot) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "chat-agenda-chip";
+        button.textContent = slot.label || slot.time || "Horario";
+        button.addEventListener("click", function () {
+          handleAgendaSlotSelection(selectedDay, slot);
+        });
+        slotRow.appendChild(button);
+      });
+
+      return picker;
+    }
+
+    function createMessageActions(message) {
+      if (!message || !message.isAi || !Array.isArray(message.actions) || !message.actions.length) {
+        return null;
+      }
+
+      var wrap = document.createElement("div");
+      wrap.className = "chat-inline-actions";
+
+      var row = document.createElement("div");
+      row.className = "chat-inline-action-row";
+      wrap.appendChild(row);
+
+      message.actions.forEach(function (action) {
+        if (!action || !action.type) {
+          return;
+        }
+
+        var isAgenda = action.type === "agenda_schedule";
+        var isActive = Boolean(
+          isAgenda &&
+          inlineActionState &&
+          inlineActionState.messageId === message.id &&
+          inlineActionState.type === "agenda_schedule"
+        );
+
+        if (action.type === "whatsapp_link" && action.url) {
+          var link = document.createElement("a");
+          link.className = "chat-inline-action is-whatsapp";
+          link.href = action.url;
+          link.target = "_blank";
+          link.rel = "noreferrer noopener";
+          link.innerHTML = getActionIconMarkup(action) + "<span>" + escapeHtml(action.label || "WhatsApp") + "</span>";
+          row.appendChild(link);
+          return;
+        }
+
+        if (isAgenda) {
+          var button = document.createElement("button");
+          button.type = "button";
+          button.className = "chat-inline-action" + (isActive ? " is-active" : "");
+          button.innerHTML = getActionIconMarkup(action) + "<span>" + escapeHtml(action.label || "Agendar") + "</span>";
+          button.addEventListener("click", function () {
+            inlineActionState = isActive
+              ? null
+              : {
+                  messageId: message.id,
+                  type: "agenda_schedule",
+                  dayKey: action.days && action.days[0] ? action.days[0].key : null,
+                };
+            renderMessages({ preservePosition: true });
+          });
+          row.appendChild(button);
+        }
+      });
+
+      var activeAgendaAction = message.actions.find(function (action) {
+        return action && action.type === "agenda_schedule";
+      });
+
+      if (
+        activeAgendaAction &&
+        inlineActionState &&
+        inlineActionState.messageId === message.id &&
+        inlineActionState.type === "agenda_schedule"
+      ) {
+        var picker = createAgendaPicker(message, activeAgendaAction);
+        if (picker) {
+          wrap.appendChild(picker);
+        }
+      }
+
+      return wrap;
     }
 
     function createHumanHandoffAction(handoff) {
@@ -1125,6 +1372,9 @@
         "title",
         leadContact && (leadContact.email || leadContact.phone) ? "Contato identificado" : "Adicionar email ou celular",
       );
+      if (contactTitle) {
+        contactTitle.textContent = pendingAgendaSelection ? "Seu contato para agendar" : "Seu contato";
+      }
       if (contactBoxOpen) {
         contactEmailInput.value = leadContact?.email || "";
         contactPhoneInput.value = leadContact?.phone || "";
@@ -1134,8 +1384,14 @@
       }
     }
 
-    function buildEffectiveContext() {
+    function buildEffectiveContext(extraContext) {
       var baseContext = widgetContext && typeof widgetContext === "object" ? { ...widgetContext } : {};
+      if (extraContext && typeof extraContext === "object") {
+        baseContext = {
+          ...baseContext,
+          ...extraContext,
+        };
+      }
       if (!leadContact || (!leadContact.email && !leadContact.phone)) {
         return baseContext;
       }
@@ -1288,6 +1544,12 @@
               bubble.appendChild(cta);
             }
           }
+          if (message.isAi && Array.isArray(message.actions) && message.actions.length) {
+            var actions = createMessageActions(message);
+            if (actions) {
+              bubble.appendChild(actions);
+            }
+          }
           if (message.isAi && message.handoffAction && message.handoffAction.requested !== true) {
             var handoffButton = document.createElement("button");
             handoffButton.type = "button";
@@ -1394,6 +1656,8 @@
         isAi: true,
         assets: Array.isArray(message.assets) ? message.assets : [],
         attachments: Array.isArray(message.attachments) ? message.attachments : [],
+        cta: message.whatsapp && message.whatsapp.url ? message.whatsapp : null,
+        actions: Array.isArray(message.actions) ? message.actions : [],
         createdAt: message.createdAt || new Date().toISOString(),
         manual: message.manual === true,
       });
@@ -1504,7 +1768,7 @@
       if (!settings.skipUserBubble) {
         messages.push(assignMessageOrder({
           id: "user-" + Date.now(),
-          text: trimmed || "[Anexo enviado]",
+          text: String(settings.userBubbleText || trimmed || "[Anexo enviado]"),
           isAi: false,
           createdAt: new Date().toISOString(),
           attachments: outboundAttachments.map(function (attachment) {
@@ -1537,7 +1801,7 @@
             projeto: projeto || undefined,
             agente: agente || undefined,
             identificadorExterno: leadContact?.email || leadContact?.phone || externalIdentifier || undefined,
-            context: buildEffectiveContext(),
+            context: buildEffectiveContext(settings.extraContext),
             attachments: outboundAttachments,
           }),
         });
@@ -1560,6 +1824,7 @@
             isAi: true,
             createdAt: payload.createdAt || new Date().toISOString(),
             cta: payload.whatsapp && payload.whatsapp.url ? payload.whatsapp : null,
+            actions: Array.isArray(payload.actions) ? payload.actions : [],
             handoffAction: createHumanHandoffAction(payload.handoff),
             assets: Array.isArray(payload.assets) ? payload.assets : [],
           });
@@ -1665,6 +1930,22 @@
       contactBoxOpen = false;
       persist();
       syncContactBox();
+      if (pendingAgendaSelection) {
+        var selectedAgenda = pendingAgendaSelection;
+        pendingAgendaSelection = null;
+        void sendMessage(buildAgendaSelectionMessage(selectedAgenda), {
+          userBubbleText: "Quero agendar " + selectedAgenda.label,
+          extraContext: {
+            agendaSelection: {
+              slotId: selectedAgenda.slotId,
+              date: selectedAgenda.date,
+              time: selectedAgenda.time,
+              weekdayLabel: selectedAgenda.weekdayLabel,
+            },
+          },
+        });
+        return;
+      }
       input.focus();
     });
     addListener(attachmentInput, "change", function (event) {

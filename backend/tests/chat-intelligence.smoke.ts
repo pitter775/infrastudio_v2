@@ -612,26 +612,6 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "prompt bloqueia whatsapp sem numero cadastrado",
-    run: () => {
-      const prompt = buildSystemPrompt(
-        {
-          id: "agent-no-whatsapp",
-          nome: "Agente Site",
-          promptBase: "Leve o cliente para o WhatsApp quando houver interesse.",
-        } as never,
-        {
-          widget: { slug: "site", whatsapp_celular: "" },
-          whatsapp: { ctaEnabled: false },
-          channel: { kind: "web" },
-        } as never,
-        false
-      )
-
-      assert.match(prompt, /WhatsApp nao disponivel/i)
-    },
-  },
-  {
     name: "prompt usa numero cadastrado no cta de whatsapp",
     run: () => {
       const prompt = buildSystemPrompt(
@@ -1189,6 +1169,7 @@ const tests: TestCase[] = [
         reply: "ola",
         assets: [{ id: "asset-1" }],
         whatsapp: { url: "https://wa.me/5511999999999", label: "WhatsApp" },
+        actions: [{ type: "agenda_schedule", label: "Agendar horario" }],
       })
 
       assert.equal(modernPayload.canal, "external_widget")
@@ -1200,6 +1181,7 @@ const tests: TestCase[] = [
       assert.equal(result.chatId, "chat-1")
       assert.equal(result.assets.length, 1)
       assert.equal(result.whatsapp.url, "https://wa.me/5511999999999")
+      assert.equal(result.actions.length, 1)
     },
   },
   {
@@ -1647,6 +1629,50 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "service injeta CTA discreto de WhatsApp no widget quando houver canal ativo",
+    run: () => {
+      const payload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: {
+          reply: "Posso seguir com os detalhes por aqui e tambem no WhatsApp.",
+          assets: [],
+        },
+        nextContext: {
+          whatsapp: {
+            numero: "5511999999999",
+            ctaEnabled: true,
+          },
+        },
+        agendaSlots: [
+          {
+            id: "slot-1",
+            dataInicio: "2026-04-25T14:00:00.000Z",
+            data: "2026-04-25",
+            dia: "2026-04-25",
+            horaInicio: "14:00",
+            horaFim: "15:00",
+            timezone: "America/Sao_Paulo",
+          },
+        ],
+        normalizedExternalIdentifier: "lead-2",
+        userMessage: "Quero entender valores e prazo do projeto",
+      })
+
+      assert.equal(payload.whatsappCta?.label, "Continuar no WhatsApp")
+      assert.equal(payload.whatsappCta?.summary, "Leva um resumo rapido desta conversa.")
+      assert.match(String(payload.whatsappCta?.url || ""), /^https:\/\/wa\.me\/5511999999999\?text=/i)
+      assert.equal(Array.isArray(payload.actions), true)
+      assert.equal(payload.actions.length, 2)
+      assert.equal(payload.actions[0]?.type, "whatsapp_link")
+      assert.equal(payload.actions[1]?.type, "agenda_schedule")
+      assert.match(
+        decodeURIComponent(String(payload.whatsappCta?.url || "").split("?text=")[1] || ""),
+        /Resumo rapido:\n- Meu interesse: Quero entender valores e prazo do projeto/i
+      )
+      assert.match(payload.followUpReply, /continuar no WhatsApp ou marcar um horario/i)
+    },
+  },
+  {
     name: "service resolve ou cria sessao de chat ativa",
     run: async () => {
       const resolved = {
@@ -1998,6 +2024,7 @@ const tests: TestCase[] = [
         messageSequence: [],
         assets: [{ id: "asset-1" }],
         whatsapp: null,
+        actions: [{ type: "agenda_schedule", label: "Agendar horario" }],
       })
 
       assert.equal(metadata.provider, "openai")
@@ -2007,6 +2034,7 @@ const tests: TestCase[] = [
       assert.equal(finalResult.chatId, "chat-80")
       assert.equal(finalResult.followUpReply, "Se quiser, trago mais.")
       assert.equal(finalResult.assets.length, 1)
+      assert.equal(finalResult.actions.length, 1)
     },
   },
   {

@@ -280,6 +280,64 @@ function buildAgendaHeuristicReply(reply, metadata = {}) {
   }
 }
 
+function buildAgendaDayBuckets(slots) {
+  const buckets = []
+  const bucketIndex = new Map()
+
+  for (const slot of Array.isArray(slots) ? slots : []) {
+    if (!slot?.id || !slot?.horaInicio) {
+      continue
+    }
+
+    const key = String(slot.data || slot.dia || slot.id)
+    if (!bucketIndex.has(key)) {
+      bucketIndex.set(key, buckets.length)
+      buckets.push({
+        key,
+        label: formatAgendaDateDisplay(slot.data || slot.dia || ""),
+        date: slot.data || null,
+        weekdayLabel: slot.dia || null,
+        slots: [],
+      })
+    }
+
+    const bucket = buckets[bucketIndex.get(key)]
+    bucket.slots.push({
+      id: slot.id,
+      label: String(slot.horaInicio || "").slice(0, 5),
+      time: String(slot.horaInicio || "").slice(0, 5),
+      date: slot.data || null,
+      weekdayLabel: slot.dia || null,
+    })
+  }
+
+  return buckets
+    .map((bucket) => ({
+      ...bucket,
+      slots: bucket.slots.slice(0, 6),
+    }))
+    .filter((bucket) => bucket.slots.length > 0)
+    .slice(0, 5)
+}
+
+function buildAgendaActionPayload(agendaSlots) {
+  const dayBuckets = buildAgendaDayBuckets(
+    (Array.isArray(agendaSlots) ? agendaSlots : []).map(formatAgendaSlotForContext)
+  )
+
+  if (!dayBuckets.length) {
+    return null
+  }
+
+  return {
+    type: "agenda_schedule",
+    label: "Agendar horario",
+    icon: "calendar",
+    summary: "Escolha um dia e depois o horario.",
+    days: dayBuckets,
+  }
+}
+
 async function resolveAgendaReservationSkill(input) {
   const { message, aiContext, agendaSlots, runtimeState, options } = input
   if (!Array.isArray(agendaSlots) || agendaSlots.length === 0) {
@@ -303,12 +361,17 @@ async function resolveAgendaReservationSkill(input) {
     email: contactFromContext.email || pendingContact.email || "",
     phone: contactFromContext.phone || pendingContact.phone || "",
   }
+  const preferredAgendaSelection = isPlainObject(aiContext?.agendaSelection) ? aiContext.agendaSelection : null
   const selectedSlot = selectAgendaSlot(message, agendaSlots, {
-    preferredSlotId: pendingAgenda?.horarioId ?? null,
+    preferredSlotId: pendingAgenda?.horarioId ?? preferredAgendaSelection?.slotId ?? null,
   })
   const activeSlot =
     selectedSlot ??
-    (pendingAgenda?.horarioId ? agendaSlots.find((slot) => slot?.id === pendingAgenda.horarioId) ?? null : null)
+    (
+      pendingAgenda?.horarioId || preferredAgendaSelection?.slotId
+        ? agendaSlots.find((slot) => slot?.id === (pendingAgenda?.horarioId ?? preferredAgendaSelection?.slotId)) ?? null
+        : null
+    )
 
   if (pendingAgenda && isNegativeMessage(message)) {
     return buildAgendaHeuristicReply(
@@ -834,6 +897,7 @@ export function buildSilentChatResult(chatId) {
     messageSequence: [],
     assets: [],
     whatsapp: null,
+    actions: [],
   }
 }
 
@@ -845,6 +909,7 @@ export function buildBillingBlockedResult(chatId, message) {
     messageSequence: [],
     assets: [],
     whatsapp: null,
+    actions: [],
   }
 }
 
@@ -866,6 +931,7 @@ export function buildIsolatedChatResult(body, message) {
     messageSequence: [],
     assets: [],
     whatsapp: null,
+    actions: [],
   }
 }
 
@@ -1413,24 +1479,131 @@ function hasWhatsAppIntentSignal(text) {
   )
 }
 
-function buildWhatsAppContinuationCta(input = {}) {
-  if (input.nextContext?.whatsapp?.ctaEnabled !== true) {
+function summarizeTextForWhatsApp(value, maxLength = 180) {
+  const sanitized = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!sanitized) {
+    return ""
+  }
+
+  if (sanitized.length <= maxLength) {
+    return sanitized
+  }
+
+  return `${sanitized.slice(0, Math.max(0, maxLength - 3)).trim()}...`
+}
+
+function buildWhatsAppPrefilledMessage(input = {}) {
+  const userSummary = summarizeTextForWhatsApp(input.userMessage, 180)
+  const assistantSummary = summarizeTextForWhatsApp(
+    sanitizeReplyForWhatsAppCta(`${input.reply || ""}\n${input.followUpReply || ""}`, "Continuar no WhatsApp"),
+    220
+  )
+
+  const lines = ["Oi! Vim do chat do site e quero continuar por aqui."]
+
+  if (userSummary || assistantSummary) {
+    lines.push("", "Resumo rapido:")
+  }
+
+  if (userSummary) {
+    lines.push(`- Meu interesse: ${userSummary}`)
+  }
+
+  if (assistantSummary) {
+    lines.push(`- Contexto do atendimento: ${assistantSummary}`)
+  }
+
+  return lines.join("\n").trim()
+}
+
+function buildWhatsAppActionPayload(input = {}) {
+  const destination = normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext))
+  if (!destination) {
     return null
   }
 
-  const destination = normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext))
-  const combinedReply = `${input.reply || ""}\n${input.followUpReply || ""}`
-  const userAskedForWhatsApp = hasWhatsAppIntentSignal(input.userMessage || "")
-  const assistantSuggestedWhatsApp = hasWhatsAppIntentSignal(combinedReply)
+  const prefilledMessage = buildWhatsAppPrefilledMessage(input)
 
-  if (!destination || (!userAskedForWhatsApp && !assistantSuggestedWhatsApp)) {
+  return {
+    type: "whatsapp_link",
+    label: "WhatsApp",
+    icon: "whatsapp",
+    url: `https://wa.me/${destination}${prefilledMessage ? `?text=${encodeURIComponent(prefilledMessage)}` : ""}`,
+    summary: "Leva um resumo rapido desta conversa.",
+  }
+}
+
+function buildWhatsAppContinuationCta(input = {}) {
+  if (input.channelKind === "whatsapp" || input.nextContext?.whatsapp?.ctaEnabled !== true) {
+    return null
+  }
+
+  const action = buildWhatsAppActionPayload(input)
+  if (!action?.url) {
     return null
   }
 
   return {
     label: "Continuar no WhatsApp",
-    url: `https://wa.me/${destination}`,
+    url: action.url,
+    summary: action.summary,
   }
+}
+
+function buildChatWidgetActions(input = {}) {
+  if (input.channelKind === "whatsapp") {
+    return []
+  }
+
+  const actions = []
+  const whatsappAction = buildWhatsAppActionPayload(input)
+  const agendaAction = buildAgendaActionPayload(input.agendaSlots)
+
+  if (whatsappAction) {
+    actions.push(whatsappAction)
+  }
+
+  if (agendaAction) {
+    actions.push(agendaAction)
+  }
+
+  return actions
+}
+
+function buildActionSuggestionReply(actions, baseText = "") {
+  if (!Array.isArray(actions) || !actions.length) {
+    return String(baseText || "").trim()
+  }
+
+  const hasWhatsApp = actions.some((action) => action?.type === "whatsapp_link")
+  const hasAgenda = actions.some((action) => action?.type === "agenda_schedule")
+  let suggestion = ""
+
+  if (hasWhatsApp && hasAgenda) {
+    suggestion = "Podemos continuar no WhatsApp ou marcar um horario para entrar em contato com voce."
+  } else if (hasWhatsApp) {
+    suggestion = "Se preferir, podemos continuar no WhatsApp."
+  } else if (hasAgenda) {
+    suggestion = "Se preferir, voce pode marcar um horario para contato."
+  }
+
+  if (!suggestion) {
+    return String(baseText || "").trim()
+  }
+
+  const normalizedBase = String(baseText || "").trim()
+  if (!normalizedBase) {
+    return suggestion
+  }
+
+  if (normalizedBase.toLowerCase().includes(suggestion.toLowerCase())) {
+    return normalizedBase
+  }
+
+  return `${normalizedBase}\n\n${suggestion}`.trim()
 }
 
 function sanitizeReplyForWhatsAppCta(reply, label = "Continuar no WhatsApp") {
@@ -1487,15 +1660,22 @@ export function prepareAiReplyPayload(input) {
       : normalizedFollowUpReplyBase
   const hasWhatsAppDestination = Boolean(normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext)))
   const userAskedForWhatsApp = hasWhatsAppIntentSignal(input.userMessage || "")
+  const actions = buildChatWidgetActions({
+    channelKind: input.channelKind,
+    nextContext: input.nextContext,
+    reply: primaryReply,
+    followUpReply,
+    userMessage: input.userMessage,
+    agendaSlots: input.agendaSlots,
+  })
   const whatsappCta =
-    input.channelKind === "whatsapp"
-      ? null
-      : buildWhatsAppContinuationCta({
-          nextContext: input.nextContext,
-          reply: primaryReply,
-          followUpReply,
-          userMessage: input.userMessage,
-        })
+    buildWhatsAppContinuationCta({
+      channelKind: input.channelKind,
+      nextContext: input.nextContext,
+      reply: primaryReply,
+      followUpReply,
+      userMessage: input.userMessage,
+    })
   const normalizedPrimaryReply = whatsappCta
     ? sanitizeReplyForWhatsAppCta(primaryReply, whatsappCta.label)
     : !hasWhatsAppDestination && userAskedForWhatsApp
@@ -1506,15 +1686,20 @@ export function prepareAiReplyPayload(input) {
     : !hasWhatsAppDestination && userAskedForWhatsApp
       ? sanitizeReplyWithoutWhatsAppCta(followUpReply)
       : followUpReply
+  const actionAwareFollowUpReply =
+    input.channelKind === "whatsapp"
+      ? normalizedFollowUpReply
+      : buildActionSuggestionReply(actions, normalizedFollowUpReply)
   const whatsappEmbeddedSequence =
     input.channelKind === "whatsapp" ? buildWhatsAppMessageSequence(normalizedPrimaryReply, input.ai.assets ?? [], null) : []
 
   return {
     primaryReply: normalizedPrimaryReply,
-    followUpReply: normalizedFollowUpReply,
+    followUpReply: actionAwareFollowUpReply,
     whatsappEmbeddedSequence,
     whatsappEmbeddedMessage: whatsappEmbeddedSequence[0] ?? "",
     whatsappCta,
+    actions,
     contactSnapshot: resolveChatContactSnapshot(input.nextContext, input.normalizedExternalIdentifier),
     whatsappContactNameForTitle: getWhatsAppContactNameFromContext(input.nextContext),
     leadNameForTitle:
@@ -1827,6 +2012,8 @@ export function buildAssistantMessageMetadata(input) {
     ...(isPlainObject(input.aiMetadata) ? input.aiMetadata : {}),
     ...(input.usageTelemetry ? { usageTelemetry: input.usageTelemetry } : {}),
     assets: Array.isArray(input.assets) ? input.assets : [],
+    whatsappCta: isPlainObject(input.whatsapp) ? input.whatsapp : null,
+    actions: Array.isArray(input.actions) ? input.actions : [],
     ...(input.followUpReply ? { followUpReply: true } : {}),
   }
 }
@@ -1873,6 +2060,8 @@ export async function persistAssistantTurn(input, deps = {}) {
       aiMetadata: input.aiMetadata,
       usageTelemetry: input.usageTelemetry,
       assets: input.assets,
+      whatsapp: input.whatsapp,
+      actions: input.actions,
       followUpReply: input.followUpReply,
     }),
   })
@@ -2164,6 +2353,7 @@ export function buildFinalChatResult(input) {
     messageSequence: input.channelKind === "whatsapp" ? input.messageSequence ?? [] : [],
     assets: input.channelKind === "whatsapp" ? [] : input.assets ?? [],
     whatsapp: input.whatsapp ?? null,
+    actions: input.channelKind === "whatsapp" ? [] : input.actions ?? [],
     handoff: input.handoff ?? null,
   }
 }
@@ -2289,6 +2479,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     nextContext: updatedContext,
     normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
     userMessage: runtimeState.prelude.message,
+    agendaSlots: runtimeState.agendaSlots ?? [],
   })
   const usagePayload = buildUsagePersistencePayload({
     projetoId: runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null,
@@ -2305,7 +2496,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
       content:
         runtimeState.prelude.channelKind === "whatsapp"
           ? replyPayload.whatsappEmbeddedMessage || replyPayload.primaryReply
-          : replyPayload.primaryReply,
+          : [replyPayload.primaryReply, replyPayload.followUpReply].filter(Boolean).join("\n\n"),
       channelKind: runtimeState.prelude.channelKind,
       normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
       tokensInput: aiResult?.usage?.inputTokens ?? 0,
@@ -2314,6 +2505,8 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
       aiMetadata: aiResult?.metadata ?? {},
       usageTelemetry: usagePayload.usageTelemetry,
       assets: aiResult?.assets ?? [],
+      whatsapp: replyPayload.whatsappCta,
+      actions: replyPayload.actions,
       followUpReply: false,
     },
     options
@@ -2355,6 +2548,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     messageSequence: replyPayload.whatsappEmbeddedSequence,
     assets: aiResult?.assets ?? [],
     whatsapp: replyPayload.whatsappCta,
+    actions: replyPayload.actions,
     handoff: aiResult?.handoff ?? null,
   })
 }
@@ -2733,6 +2927,7 @@ export async function processChatRequest(body, options = {}) {
     } catch {}
     const aiContext = mergeContext(
       currentContext,
+      isPlainObject(runtimeState.prelude.effectiveBody.context) ? runtimeState.prelude.effectiveBody.context : null,
       runtimeApis.length ? { runtimeApis } : null,
       agendaSlots.length
         ? {
@@ -2757,6 +2952,7 @@ export async function processChatRequest(body, options = {}) {
           }
         : null,
     )
+    runtimeState.agendaSlots = agendaSlots
 
     const agendaSkillResult = await resolveAgendaReservationSkill({
       message: runtimeState.prelude.message,

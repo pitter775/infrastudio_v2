@@ -488,6 +488,8 @@ function mapPublicChatMessage(message) {
     createdAt: message.createdAt,
     assets: Array.isArray(message.metadata?.assets) ? message.metadata.assets : [],
     attachments: Array.isArray(message.metadata?.attachments) ? message.metadata.attachments : [],
+    whatsapp: message.metadata?.whatsappCta ?? null,
+    actions: Array.isArray(message.metadata?.actions) ? message.metadata.actions : [],
     manual: message.metadata?.manual === true,
   }
 }

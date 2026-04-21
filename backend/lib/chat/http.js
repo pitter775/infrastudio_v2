@@ -58,6 +58,7 @@ export function formatPublicChatResult(result) {
     messageSequence: Array.isArray(result?.messageSequence) ? result.messageSequence : [],
     assets: Array.isArray(result?.assets) ? result.assets : [],
     whatsapp: result?.whatsapp ?? null,
+    actions: Array.isArray(result?.actions) ? result.actions : [],
     handoff: result?.handoff ?? null,
   }
 }
