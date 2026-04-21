@@ -112,6 +112,10 @@ function mapChannel(row) {
     lastOutboundAt: session.lastOutboundAt || null,
     onlyReplyToUnsavedContacts:
       session.responseOnlyUnsavedContacts === true || session.onlyReplyToUnsavedContacts === true,
+    manualDisconnect: session.manualDisconnect === true,
+    autoReconnectScheduled: session.autoReconnectScheduled === true,
+    reconnectAttempt: Number(session.reconnectAttempt || 0),
+    terminalDisconnect: session.terminalDisconnect === true,
     savedContactFlags,
     sessionData: session,
     createdAt: row.created_at,
@@ -287,6 +291,37 @@ export async function getPrimaryWhatsAppChannelByProjectId(projectId, deps = {})
 function isConnectedConnectionStatus(value) {
   const normalized = String(value || "").trim().toLowerCase()
   return ["online", "connected", "conectado", "ready", "ativo"].includes(normalized)
+}
+
+function isDisconnectedConnectionStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase()
+  return ["offline", "desconectado"].includes(normalized)
+}
+
+function shouldKeepChannelActive(sessionData) {
+  if (!isPlainObject(sessionData)) {
+    return true
+  }
+
+  const connectionStatus = String(sessionData.connectionStatus || sessionData.status || "").trim().toLowerCase()
+
+  if (isConnectedConnectionStatus(connectionStatus)) {
+    return true
+  }
+
+  if (["connecting", "aguardando_qr", "reconnecting"].includes(connectionStatus)) {
+    return true
+  }
+
+  if (isDisconnectedConnectionStatus(connectionStatus)) {
+    if (sessionData.manualDisconnect === true || sessionData.terminalDisconnect === true) {
+      return false
+    }
+
+    return sessionData.autoReconnectScheduled === true
+  }
+
+  return true
 }
 
 export async function getActiveWhatsAppChannelByProjectAgent(input, deps = {}) {
@@ -469,10 +504,7 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
         : {}),
       updatedAt: new Date().toISOString(),
     }
-    const nextStatus =
-      normalizedPatch.connectionStatus === "offline" || normalizedPatch.connectionStatus === "desconectado"
-        ? "inativo"
-        : "ativo"
+    const nextStatus = shouldKeepChannelActive(nextSession) ? "ativo" : "inativo"
 
     const { data, error } = await supabase
       .from("canais_whatsapp")

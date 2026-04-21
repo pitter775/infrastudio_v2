@@ -184,6 +184,12 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           return
         }
 
+        if (currentChannel.connectionStatus === "reconnecting" || snapshot?.status === "reconnecting") {
+          setQrSnapshot(snapshot)
+          setConnectionHint("Conexao perdida. O worker esta tentando reconectar automaticamente.")
+          return
+        }
+
         if (currentChannel.connectionStatus === "aguardando_qr") {
           setQrSnapshot(snapshot)
           setConnectionHint("Aguardando o QR ser gerado pelo worker.")
@@ -626,6 +632,8 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
             ) : null}
             {channels.map((channel) => {
               const online = channel.connectionStatus === "online"
+              const reconnecting = channel.connectionStatus === "reconnecting"
+              const transitional = reconnecting || channel.connectionStatus === "connecting" || channel.connectionStatus === "aguardando_qr"
 
               return (
                 <div
@@ -633,6 +641,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                   className={cn(
                     "grid gap-3 p-4 text-sm xl:grid-cols-[minmax(0,1fr)_320px]",
                     online && "bg-emerald-500/10",
+                    reconnecting && "bg-amber-500/10",
                     initialChannelId === channel.id && "bg-sky-500/10",
                   )}
                 >
@@ -644,10 +653,14 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                           "inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium",
                           online
                             ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-                            : "border-white/10 bg-white/[0.03] text-slate-400",
+                            : reconnecting
+                              ? "border-amber-500/20 bg-amber-500/10 text-amber-200"
+                              : transitional
+                                ? "border-sky-500/20 bg-sky-500/10 text-sky-200"
+                                : "border-white/10 bg-white/[0.03] text-slate-400",
                         )}
                       >
-                        {online ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
+                        {online ? <CheckCircle2 className="h-3 w-3" /> : reconnecting ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
                         {channel.connectionStatus}
                       </span>
                     </div>

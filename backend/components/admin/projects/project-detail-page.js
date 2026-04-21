@@ -2564,15 +2564,22 @@ export function AdminProjectDetailPage({ project }) {
       const params = new URLSearchParams(window.location.search)
       const nextTab = resolveAgentTab(params.get('tab'))
       const panel = params.get('panel')
+      const allowAutoOpenSheet = !isMobile
 
       if (nextTab) {
         setAgentTabFromUrl(nextTab)
-        setActivePanel(DEFAULT_PANEL)
-        setIsPanelOpen(true)
+        if (allowAutoOpenSheet) {
+          setActivePanel(DEFAULT_PANEL)
+          setIsPanelOpen(true)
+        }
         return
       }
 
       if (panel && [DEFAULT_PANEL, ...integrationPanels.map((item) => item.id)].includes(panel)) {
+        if (!allowAutoOpenSheet) {
+          return
+        }
+
         setDeepLink({
           api: params.get('api') || null,
           channel: params.get('channel') || null,
