@@ -89,6 +89,7 @@
     var contactBoxOpen = false;
     var pendingAgendaSelection = null;
     var inlineActionState = null;
+    var emojiPickerOpen = false;
     var open = false;
     var loading = false;
     var expanded = false;
@@ -385,6 +386,10 @@
       ".chat-tool:hover { background: " + (theme === "light" ? "rgba(255,255,255,0.52)" : "rgba(255,255,255,0.09)") + "; box-shadow: 12px 12px 22px -12px rgba(15,23,42,0.5), 4px 4px 10px -10px rgba(96,165,250,0.34); transform: translate(-1px, -1px); }",
       ".chat-tool.is-active { background: rgba(96,165,250,0.14); color: rgba(226,232,240,0.96); }",
       ".chat-tool .chat-icon { width: 16px; height: 16px; }",
+      ".chat-emoji-picker { display: none; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-top: 8px; padding: 8px; border-radius: 12px; border: 1px solid rgba(96,165,250,0.14); background: " + (theme === "light" ? "rgba(255,255,255,0.92)" : "#0b1b32") + "; }",
+      ".chat-emoji-picker.is-open { display: grid; }",
+      ".chat-emoji-button { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; border: 0; border-radius: 10px; background: " + (theme === "light" ? "rgba(248,250,252,1)" : "rgba(255,255,255,0.06)") + "; font-size: 18px; cursor: pointer; transition: transform .18s ease, background-color .18s ease; }",
+      ".chat-emoji-button:hover { transform: translateY(-1px) scale(1.03); background: " + (theme === "light" ? "rgba(241,245,249,1)" : "rgba(255,255,255,0.12)") + "; }",
       ".chat-contact-box { display: none; gap: 8px; min-height: 22px; border-radius: 12px; border: 1px solid rgba(96,165,250,0.14); background: #0b1b32; padding: 10px; }",
       ".chat-contact-box.is-open { display: grid; }",
       ".chat-contact-title { font-size: 11px; font-weight: 700; color: rgba(226,232,240,0.9); }",
@@ -535,10 +540,13 @@
     var emojiTool = document.createElement("button");
     emojiTool.className = "chat-tool";
     emojiTool.type = "button";
-    emojiTool.tabIndex = -1;
-    emojiTool.setAttribute("aria-hidden", "true");
+    emojiTool.setAttribute("aria-label", "Inserir emoji");
     emojiTool.innerHTML = createEmojiIcon();
     tools.appendChild(emojiTool);
+
+    var emojiPicker = document.createElement("div");
+    emojiPicker.className = "chat-emoji-picker";
+    composer.appendChild(emojiPicker);
 
     var contactTool = document.createElement("button");
     contactTool.className = "chat-tool";
@@ -665,6 +673,10 @@
       return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3.5v3M17 3.5v3M4.75 8.5h14.5M6.5 5.5h11a1.75 1.75 0 0 1 1.75 1.75v10.25A1.75 1.75 0 0 1 17.5 19.25h-11A1.75 1.75 0 0 1 4.75 17.5V7.25A1.75 1.75 0 0 1 6.5 5.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
     }
 
+    function getAvailableEmojis() {
+      return ["🙂", "😊", "😉", "😄", "🥹", "🤝", "👍", "👋", "🙏", "🤗"];
+    }
+
     function escapeHtml(value) {
       return String(value || "")
         .replace(/&/g, "&amp;")
@@ -728,6 +740,40 @@
         chip.appendChild(removeButton);
         attachmentsPreview.appendChild(chip);
       });
+    }
+
+    function insertEmojiAtCursor(emoji) {
+      var value = String(input.value || "");
+      var start = typeof input.selectionStart === "number" ? input.selectionStart : value.length;
+      var end = typeof input.selectionEnd === "number" ? input.selectionEnd : start;
+      input.value = value.slice(0, start) + emoji + value.slice(end);
+      var nextCursor = start + emoji.length;
+      input.setSelectionRange(nextCursor, nextCursor);
+      autoResizeInput();
+      updateComposerState();
+      input.focus();
+    }
+
+    function renderEmojiPicker() {
+      emojiPicker.innerHTML = "";
+      getAvailableEmojis().forEach(function (emoji) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "chat-emoji-button";
+        button.textContent = emoji;
+        button.setAttribute("aria-label", "Inserir " + emoji);
+        button.addEventListener("click", function () {
+          insertEmojiAtCursor(emoji);
+          emojiPickerOpen = false;
+          syncEmojiPicker();
+        });
+        emojiPicker.appendChild(button);
+      });
+    }
+
+    function syncEmojiPicker() {
+      emojiPicker.classList.toggle("is-open", emojiPickerOpen);
+      emojiTool.classList.toggle("is-active", emojiPickerOpen);
     }
 
     function formatInline(value) {
@@ -1902,9 +1948,20 @@
       window.requestAnimationFrame(autoResizeInput);
     });
     addListener(attachTool, "click", function () {
+      emojiPickerOpen = false;
+      syncEmojiPicker();
       attachmentInput.click();
     });
+    addListener(emojiTool, "click", function () {
+      emojiPickerOpen = !emojiPickerOpen;
+      syncEmojiPicker();
+      if (!emojiPickerOpen) {
+        input.focus();
+      }
+    });
     addListener(contactTool, "click", function () {
+      emojiPickerOpen = false;
+      syncEmojiPicker();
       contactBoxOpen = !contactBoxOpen;
       syncContactBox();
     });
@@ -1969,6 +2026,11 @@
         }
         void sendMessage(input.value);
       }
+
+      if (event.key === "Escape" && emojiPickerOpen) {
+        emojiPickerOpen = false;
+        syncEmojiPicker();
+      }
     });
 
     addListener(form, "submit", function (event) {
@@ -1979,6 +2041,22 @@
       }
       void sendMessage(input.value);
     });
+
+    addListener(document, "click", function (event) {
+      if (!emojiPickerOpen) {
+        return;
+      }
+
+      if (composer.contains(event.target)) {
+        return;
+      }
+
+      emojiPickerOpen = false;
+      syncEmojiPicker();
+    });
+
+    renderEmojiPicker();
+    syncEmojiPicker();
 
     function canStartDrag(eventTarget) {
       if (!open || window.innerWidth <= 640 || expanded) {

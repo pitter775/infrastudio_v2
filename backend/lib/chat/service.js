@@ -338,6 +338,12 @@ function buildAgendaActionPayload(agendaSlots) {
   }
 }
 
+function hasConfirmedAgendaReservation(context) {
+  const reservation = isPlainObject(context?.agendaReserva) ? context.agendaReserva : null
+  const status = String(reservation?.status || "").trim().toLowerCase()
+  return ["reservado", "confirmado", "concluido"].includes(status)
+}
+
 async function resolveAgendaReservationSkill(input) {
   const { message, aiContext, agendaSlots, runtimeState, options } = input
   if (!Array.isArray(agendaSlots) || agendaSlots.length === 0) {
@@ -424,21 +430,6 @@ async function resolveAgendaReservationSkill(input) {
     )
   }
 
-  const awaitingApproval = pendingAgenda?.status === "awaiting_approval"
-  if (!awaitingApproval || !isAffirmativeMessage(message)) {
-    return buildAgendaHeuristicReply(buildAgendaApprovalReply(activeSlot, contact), {
-      agenteId: runtimeState.resolved?.agente?.id ?? null,
-      agenteNome: runtimeState.resolved?.agente?.nome ?? null,
-      agendaFlow: {
-        action: "set_pending",
-        status: "awaiting_approval",
-        horarioId: activeSlot.id,
-        horarioReservado,
-        contato: contact,
-      },
-    })
-  }
-
   const summary = runtimeState.history
     .slice(-6)
     .map((item) => `${item.role === "assistant" ? "Assistente" : "Cliente"}: ${String(item.conteudo || "").slice(0, 180)}`)
@@ -490,7 +481,9 @@ async function resolveAgendaReservationSkill(input) {
     timeZone: reservation.timezone || "America/Sao_Paulo",
   })
 
-  return buildAgendaHeuristicReply(`Agendamento confirmado para ${reservedAt}. Vou seguir com o atendimento e deixar seus dados registrados para o retorno.`, {
+  return buildAgendaHeuristicReply(
+    `Agendamento confirmado para ${reservedAt}. Seus dados ja foram registrados para o retorno.`,
+    {
     agenteId: runtimeState.resolved?.agente?.id ?? null,
     agenteNome: runtimeState.resolved?.agente?.nome ?? null,
     agendaReserva: {
@@ -502,7 +495,7 @@ async function resolveAgendaReservationSkill(input) {
     agendaFlow: {
       action: "clear_pending",
     },
-  })
+    })
 }
 
 function normalizeInboundPhoneCandidate(value) {
@@ -1560,7 +1553,7 @@ function buildChatWidgetActions(input = {}) {
 
   const actions = []
   const whatsappAction = buildWhatsAppActionPayload(input)
-  const agendaAction = buildAgendaActionPayload(input.agendaSlots)
+  const agendaAction = hasConfirmedAgendaReservation(input.nextContext) ? null : buildAgendaActionPayload(input.agendaSlots)
 
   if (whatsappAction) {
     actions.push(whatsappAction)
@@ -1668,8 +1661,11 @@ export function prepareAiReplyPayload(input) {
     userMessage: input.userMessage,
     agendaSlots: input.agendaSlots,
   })
+  const hasWhatsAppAction = actions.some((action) => action?.type === "whatsapp_link")
   const whatsappCta =
-    buildWhatsAppContinuationCta({
+    hasWhatsAppAction
+      ? null
+      : buildWhatsAppContinuationCta({
       channelKind: input.channelKind,
       nextContext: input.nextContext,
       reply: primaryReply,

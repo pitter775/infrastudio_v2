@@ -229,6 +229,25 @@ async function notifyReservationCreated(reservation) {
     }
   }
 
+  if (context.whatsappChannel?.id && reservation.contatoTelefone) {
+    const customerMessage = [
+      `Seu horario em ${projectName} foi registrado com sucesso.`,
+      `Data: ${new Date(reservation.horarioReservado).toLocaleString("pt-BR")}`,
+      reservation.contatoNome ? `Contato informado: ${reservation.contatoNome}` : null,
+      "Se precisar alterar, responda nesta conversa ou fale com nossa equipe.",
+    ].filter(Boolean).join("\n")
+
+    const customerResult = await sendWhatsAppTextMessage({
+      channelId: context.whatsappChannel.id,
+      to: reservation.contatoTelefone,
+      message: customerMessage,
+    })
+
+    if (!customerResult.ok) {
+      failures.push({ channel: "whatsapp_customer", to: reservation.contatoTelefone, error: customerResult.error })
+    }
+  }
+
   await createLogEntry({
     projectId: reservation.projetoId,
     type: "agenda_reserva",
