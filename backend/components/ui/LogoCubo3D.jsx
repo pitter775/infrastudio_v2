@@ -182,7 +182,14 @@ function Cubie({ position, stickers, entryOffset, entrySpin, delay, introProgres
     <group ref={groupRef} position={finalPosition}>
       <mesh>
         <boxGeometry args={[pieceSize, pieceSize, pieceSize]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.7} metalness={0.16} />
+        <meshStandardMaterial
+          color="#0f172a"
+          roughness={0.7}
+          metalness={0.16}
+          transparent
+          opacity={0.42}
+          depthWrite={false}
+        />
       </mesh>
 
       {stickers.map((sticker) => (
@@ -198,6 +205,9 @@ function Cubie({ position, stickers, entryOffset, entrySpin, delay, introProgres
             metalness={0.1}
             emissive={sticker.color}
             emissiveIntensity={0.08}
+            transparent
+            opacity={0.74}
+            depthWrite={false}
           />
         </mesh>
       ))}

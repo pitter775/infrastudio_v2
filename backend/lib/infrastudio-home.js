@@ -25,9 +25,7 @@ export async function getInfraStudioHomeChatConfig() {
   const agenteIdentifier = agente?.id || null
 
   if (
-    projeto.id !== INFRASTUDIO_HOME_PROJECT_ID ||
     !agenteIdentifier ||
-    agente.id !== INFRASTUDIO_HOME_AGENT_ID ||
     agente.projetoId !== projeto.id ||
     !agente.ativo
   ) {

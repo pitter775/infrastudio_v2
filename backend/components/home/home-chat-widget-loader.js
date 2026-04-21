@@ -2,6 +2,7 @@
 
 import { useEffect } from "react"
 import { usePathname } from "next/navigation"
+import Script from "next/script"
 
 const SCRIPT_ID = "infrastudio-home-chat-widget-script"
 
@@ -36,7 +37,7 @@ export function HomeChatWidgetLoader({ config }) {
   const pathname = usePathname()
 
   useEffect(() => {
-    if (!config?.widget || !config?.projeto || !config?.agente) {
+    if (!config?.widget) {
       return undefined
     }
 
@@ -45,35 +46,30 @@ export function HomeChatWidgetLoader({ config }) {
       return undefined
     }
 
-    removeHomeWidget(config.widget)
-
-    const script = document.createElement("script")
-    script.id = SCRIPT_ID
-    script.src = "/chat-widget.js"
-    script.defer = true
-    script.dataset.widget = config.widget
-    script.dataset.apiBase = window.location.origin
-    if (config.agente) {
-      script.dataset.agente = config.agente
-    }
-    if (config.title) {
-      script.dataset.title = config.title
-    }
-    if (config.theme) {
-      script.dataset.theme = config.theme
-    }
-    if (config.accent) {
-      script.dataset.accent = config.accent
-    }
-    if (typeof config.transparent === "boolean") {
-      script.dataset.transparent = config.transparent ? "true" : "false"
-    }
-    document.body.appendChild(script)
-
     return () => {
       removeHomeWidget(config.widget)
     }
-  }, [config, pathname])
+  }, [config?.widget, pathname])
 
-  return null
+  if (pathname !== "/" || !config?.widget) {
+    return null
+  }
+
+  return (
+    <Script
+      id={SCRIPT_ID}
+      src={config.src || "https://www.infrastudio.pro/chat-widget.js"}
+      strategy="afterInteractive"
+      data-widget={config.widget}
+      data-api-base={config.apiBase || undefined}
+      data-projeto={config.projeto || undefined}
+      data-agente={config.agente || undefined}
+      data-title={config.title || undefined}
+      data-theme={config.theme || undefined}
+      data-accent={config.accent || undefined}
+      data-transparent={
+        typeof config.transparent === "boolean" ? (config.transparent ? "true" : "false") : undefined
+      }
+    />
+  )
 }
