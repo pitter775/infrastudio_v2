@@ -81,17 +81,37 @@ function buildCubies() {
   return cubies
 }
 
-function CuboMagico({ animado = false, velocidade = 0.32, ativo = true, montarAoEntrar = false }) {
+function CuboMagico({
+  animado = false,
+  velocidade = 0.32,
+  ativo = true,
+  montarAoEntrar = false,
+  interativo = false,
+  pointerRef,
+  interactionRef,
+}) {
   const groupRef = useRef(null)
   const cubies = useMemo(() => buildCubies(), [])
   const elapsedRef = useRef(Math.random() * Math.PI * 2)
   const introProgressRef = useRef(montarAoEntrar ? 0 : 1)
+  const frozenRotationRef = useRef(null)
   const baseRotationX = animado ? -0.42 : -1.56
   const baseRotationY = animado ? 0.68 : 0.88
 
   useEffect(() => {
     introProgressRef.current = montarAoEntrar && ativo ? 0 : 1
   }, [ativo, montarAoEntrar])
+
+  useEffect(() => {
+    if (!interativo) {
+      frozenRotationRef.current = null
+      return
+    }
+
+    if (interactionRef?.current === 0) {
+      frozenRotationRef.current = null
+    }
+  }, [interativo, interactionRef])
 
   useFrame((_, delta) => {
     if (!groupRef.current) {
@@ -108,18 +128,42 @@ function CuboMagico({ animado = false, velocidade = 0.32, ativo = true, montarAo
 
     const introEase = 1 - Math.pow(1 - introProgressRef.current, 3)
     const introTilt = (1 - introEase) * 0.18
+    const isInteracting =
+      interativo &&
+      interactionRef?.current &&
+      performance.now() - interactionRef.current < 2000
     const moveFactor = animado ? 1 : 0.35
 
-    groupRef.current.rotation.x =
+    const autoRotationX =
       baseRotationX +
       introTilt +
       moveFactor * (Math.sin(tempo * 0.9) * 0.16 + Math.cos(tempo * 0.37) * 0.08)
-    groupRef.current.rotation.y =
+    const autoRotationY =
       baseRotationY +
       moveFactor * (drift + Math.sin(tempo * 0.58) * 0.28)
-    groupRef.current.rotation.z =
+    const autoRotationZ =
       (1 - introEase) * -0.22 +
       moveFactor * (Math.cos(tempo * 0.74) * 0.12 + Math.sin(tempo * 0.21) * 0.06)
+
+    if (isInteracting && pointerRef?.current) {
+      if (!frozenRotationRef.current) {
+        frozenRotationRef.current = {
+          x: groupRef.current.rotation.x,
+          y: groupRef.current.rotation.y,
+          z: groupRef.current.rotation.z,
+        }
+      }
+
+      groupRef.current.rotation.x = frozenRotationRef.current.x + pointerRef.current.y * 0.34
+      groupRef.current.rotation.y = frozenRotationRef.current.y + pointerRef.current.x * 0.54
+      groupRef.current.rotation.z = frozenRotationRef.current.z
+      return
+    }
+
+    frozenRotationRef.current = null
+    groupRef.current.rotation.x = autoRotationX
+    groupRef.current.rotation.y = autoRotationY
+    groupRef.current.rotation.z = autoRotationZ
   })
 
   return (
@@ -215,14 +259,22 @@ function Cubie({ position, stickers, entryOffset, entrySpin, delay, introProgres
   )
 }
 
-function Scene({ animado, velocidade, ativo, montarAoEntrar }) {
+function Scene({ animado, velocidade, ativo, montarAoEntrar, interativo, pointerRef, interactionRef }) {
   return (
     <>
       <ambientLight intensity={1.1} color="#dbeafe" />
       <directionalLight position={[5, 6, 7]} intensity={2.2} color="#ffffff" />
       <directionalLight position={[-4, -2, 3]} intensity={0.7} color="#c4b5fd" />
       <pointLight position={[0, 2.5, 3.5]} intensity={0.9} color="#67e8f9" />
-      <CuboMagico animado={animado} velocidade={velocidade} ativo={ativo} montarAoEntrar={montarAoEntrar} />
+      <CuboMagico
+        animado={animado}
+        velocidade={velocidade}
+        ativo={ativo}
+        montarAoEntrar={montarAoEntrar}
+        interativo={interativo}
+        pointerRef={pointerRef}
+        interactionRef={interactionRef}
+      />
     </>
   )
 }
@@ -236,16 +288,55 @@ export const LogoCubo3D = memo(function LogoCubo3D({
   tamanho = 48,
   velocidade,
   className,
+  interativo = false,
+  cameraPosition,
+  cameraFov,
 }) {
   const safeSize = Math.max(24, Number(tamanho) || 48)
   const resolvedSpeed = velocidade ?? (pausado ? 0.18 : 0.28)
   const shouldMountIntro = entrada ?? montarAoEntrar
-  const containerClassName = cn("inline-flex shrink-0 overflow-hidden rounded-[18%] pointer-events-none select-none", className)
+  const pointerRef = useRef({ x: 0, y: 0 })
+  const interactionRef = useRef(0)
+  const containerClassName = cn(
+    "inline-flex shrink-0 overflow-hidden rounded-[18%] select-none",
+    interativo ? "cursor-grab touch-none" : "pointer-events-none",
+    className,
+  )
   const containerStyle = {
     width: safeSize,
     height: safeSize,
     maxWidth: "100%",
     maxHeight: "100%",
+  }
+  const resolvedCameraPosition = cameraPosition ?? (interativo ? [5.6, 4.3, 6.4] : [4.2, 3.2, 4.8])
+  const resolvedCameraFov = cameraFov ?? (interativo ? 30 : 34)
+
+  function handlePointerMove(event) {
+    if (!interativo) {
+      return
+    }
+
+    const rect = event.currentTarget.getBoundingClientRect()
+    if (!rect.width || !rect.height) {
+      return
+    }
+
+    const normalizedX = ((event.clientX - rect.left) / rect.width - 0.5) * 2
+    const normalizedY = ((event.clientY - rect.top) / rect.height - 0.5) * 2
+    pointerRef.current = {
+      x: Math.max(-1, Math.min(1, normalizedX)),
+      y: Math.max(-1, Math.min(1, normalizedY)),
+    }
+    interactionRef.current = performance.now()
+  }
+
+  function handlePointerLeave() {
+    if (!interativo) {
+      return
+    }
+
+    pointerRef.current = { x: 0, y: 0 }
+    interactionRef.current = performance.now()
   }
 
   return (
@@ -253,14 +344,24 @@ export const LogoCubo3D = memo(function LogoCubo3D({
       className={containerClassName}
       style={containerStyle}
       aria-hidden="true"
+      onPointerMove={handlePointerMove}
+      onPointerLeave={handlePointerLeave}
     >
       <Canvas
         dpr={[1, 1.75]}
-        frameloop={animado || shouldMountIntro ? "always" : "demand"}
+        frameloop={animado || shouldMountIntro || interativo ? "always" : "demand"}
         gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
-        camera={{ position: [4.2, 3.2, 4.8], fov: 34 }}
+        camera={{ position: resolvedCameraPosition, fov: resolvedCameraFov }}
       >
-        <Scene animado={animado} velocidade={resolvedSpeed} ativo={ativo} montarAoEntrar={shouldMountIntro} />
+        <Scene
+          animado={animado}
+          velocidade={resolvedSpeed}
+          ativo={ativo}
+          montarAoEntrar={shouldMountIntro}
+          interativo={interativo}
+          pointerRef={pointerRef}
+          interactionRef={interactionRef}
+        />
       </Canvas>
     </div>
   )

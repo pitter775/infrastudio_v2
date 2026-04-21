@@ -6,13 +6,17 @@ import { getSessionUser } from "@/lib/session"
 
 const HOME_CHAT_WIDGET_FALLBACK = {
   widget: "infrastudio-home",
+  projeto: "infrastudio",
   agente: "e0c00703-726d-477e-926d-9e9986a67db0",
   title: "InfraStudio Home",
   theme: "dark",
   accent: "#2563eb",
   transparent: true,
-  src: "https://www.infrastudio.pro/chat-widget.js",
-  apiBase: "https://www.infrastudio.pro",
+  src: "/chat-widget.js",
+  apiBase:
+    process.env.NODE_ENV === "development"
+      ? "https://www.infrastudio.pro"
+      : undefined,
 }
 
 export default async function Home() {

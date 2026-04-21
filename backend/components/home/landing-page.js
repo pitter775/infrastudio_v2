@@ -476,7 +476,6 @@ function AboutSection({ onLoginClick }) {
             transition={{ duration: 0.45, ease: 'easeOut' }}
             className="relative flex h-[250px] w-[250px] items-center justify-center sm:h-[290px] sm:w-[290px]"
           >
-            <div className="absolute inset-10 rounded-full bg-[radial-gradient(circle,rgba(59,130,246,0.22),rgba(6,182,212,0.1)_38%,transparent_72%)] blur-2xl" />
             <LogoCubo3D
               animado
               entrada
@@ -495,12 +494,12 @@ function AboutSection({ onLoginClick }) {
           </h2>
           <div className="mt-6 max-w-3xl space-y-4 text-base leading-8 text-slate-600 dark:text-slate-300 md:text-lg">
             <p>
-              A InfraStudio resolve um problema comum: empresas que perdem tempo e vendas
-              com atendimento manual.
+              A InfraStudio resolve um problema comum como empresas que perdem tempo e vendas
+              com atendimento manual ou algo mais complexo entre uma integracao ou sistemas completos.
             </p>
             <p>
-              Por trás está Pitter Rocha, desenvolvedor com mais de 18 anos de experiência,
-              focado em criar sistemas, integrações e automações que funcionam na prática.
+              Temos mais de 18 anos de experiência, focado em criar sistemas, 
+              integrações e automações que funcionam na prática.
             </p>
             <p>
               Ao longo do tempo, diversos sistemas foram desenvolvidos e colocados em uso,
@@ -508,18 +507,18 @@ function AboutSection({ onLoginClick }) {
               direto nas operações.
             </p>
             <p>
-              O que você está vendo aqui é reflexo desse trabalho: soluções que já estão
+              O que você está vendo aqui é reflexo desse trabalho com soluções que já estão
               rodando, sendo usadas e evoluindo continuamente.
             </p>
             <p>
-              A proposta é simples: automatizar o que é repetitivo, organizar o atendimento
+              A proposta é simples, automatizar o que é repetitivo, organizar o atendimento
               e ajudar empresas a crescer com mais controle e menos esforço.
             </p>
           </div>
 
           <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
             <p className="max-w-2xl text-sm font-medium text-cyan-700 dark:text-cyan-200 sm:text-base">
-              Comece testando grátis ou fale direto com a gente no WhatsApp.
+              Comece testando grátis ou fale direto com representante no WhatsApp.
             </p>
             <div className="flex flex-wrap gap-3">
               <button
