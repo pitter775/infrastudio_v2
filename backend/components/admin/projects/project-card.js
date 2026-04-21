@@ -246,7 +246,7 @@ function ProjectUsageBar({ summary, onClick, variant = 'inside' }) {
   const tone = getUsageTone(usagePercent, summary.billingBlocked)
   const planName = summary.planName || 'Plano'
   const usageLabel = hasLimit
-    ? `${planName} · ${formatCredits(summary.usedTokens)} / ${summary.limitLabel} · ${Math.round(usagePercent)}%`
+    ? `${planName} · ${Math.round(usagePercent)}%`
     : `${planName} · Sem limite`
   const labelAnchorsRight = hasLimit && usagePercent > 50
   const trackClassName =

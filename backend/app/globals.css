@@ -407,6 +407,35 @@ a {
   pointer-events: none;
 }
 
+.infra-rich-editor p + p,
+.infra-rich-editor ul + p,
+.infra-rich-editor ol + p,
+.infra-rich-editor p + ul,
+.infra-rich-editor p + ol,
+.infra-rich-editor ul + ul,
+.infra-rich-editor ul + ol,
+.infra-rich-editor ol + ul,
+.infra-rich-editor ol + ol {
+  margin-top: 0.85rem;
+}
+
+.infra-rich-editor ul,
+.infra-rich-editor ol {
+  padding-left: 1.35rem;
+}
+
+.infra-rich-editor ul {
+  list-style: disc;
+}
+
+.infra-rich-editor ol {
+  list-style: decimal;
+}
+
+.infra-rich-editor li + li {
+  margin-top: 0.35rem;
+}
+
 .agent-simulator-message p + p,
 .agent-simulator-message ul + p,
 .agent-simulator-message p + ul,

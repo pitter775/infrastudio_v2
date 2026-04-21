@@ -3,6 +3,7 @@ import "server-only"
 import { listBillingPlans } from "@/lib/billing"
 import {
   TOP_UP_OFFER,
+  TOP_UP_OFFERS,
   getPlanCheckoutUrl,
   getTopUpCheckoutUrl,
   normalizePlanKey,
@@ -36,4 +37,12 @@ export function getPublicTopUpOffer() {
     ...TOP_UP_OFFER,
     checkoutUrl: getTopUpCheckoutUrl(),
   }
+}
+
+export function getPublicTopUpOffers() {
+  return TOP_UP_OFFERS.map((offer, index) => ({
+    ...offer,
+    type: "topup",
+    featured: index === 0,
+  }))
 }

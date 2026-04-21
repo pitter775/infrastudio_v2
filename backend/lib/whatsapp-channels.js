@@ -1,6 +1,7 @@
 import "server-only"
 
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { saveWhatsAppHandoffContactForUser } from "@/lib/whatsapp-handoff-contatos"
 
 const channelFields =
   "id, projeto_id, agente_id, numero, session_data, status, created_at, updated_at"
@@ -163,11 +164,12 @@ export async function createWhatsAppChannelForUser(project, input, user) {
 
   try {
     const supabase = getSupabaseAdminClient()
+    const agenteId = input.agenteId === null ? null : input.agenteId || project.agent?.id || null
     const { data, error } = await supabase
       .from("canais_whatsapp")
       .insert({
         projeto_id: project.id,
-        agente_id: input.agenteId === null ? null : input.agenteId || project.agent?.id || null,
+        agente_id: agenteId,
         numero: number,
         status: input.status === "inativo" ? "inativo" : "ativo",
         session_data: {
@@ -185,7 +187,40 @@ export async function createWhatsAppChannelForUser(project, input, user) {
       return { channel: null, error: "Nao foi possivel criar o canal." }
     }
 
-    return { channel: mapChannel(data), error: null }
+    const channel = mapChannel(data)
+    const existingContact = await supabase
+      .from("whatsapp_handoff_contatos")
+      .select("id")
+      .eq("projeto_id", project.id)
+      .eq("numero", number)
+      .limit(1)
+      .maybeSingle()
+
+    let contact = null
+
+    if (!existingContact.data?.id) {
+      const preferredAttendantName =
+        project.agent?.name?.trim() ||
+        project.agent?.nome?.trim() ||
+        `Atendente ${project.name?.trim() || "WhatsApp"}`
+      const createdContact = await saveWhatsAppHandoffContactForUser(
+        project,
+        {
+          nome: preferredAttendantName,
+          numero: number,
+          papel: "Atendimento",
+          observacoes: "Criado automaticamente junto com o canal do WhatsApp.",
+          ativo: true,
+          receberAlertas: true,
+          canalWhatsappId: channel.id,
+        },
+        user,
+      )
+
+      contact = createdContact.contact ?? null
+    }
+
+    return { channel, contact, error: null }
   } catch (error) {
     console.error("[whatsapp] failed to create channel", error)
     return { channel: null, error: "Nao foi possivel criar o canal." }

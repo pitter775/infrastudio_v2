@@ -8,11 +8,29 @@ export const PLAN_CHECKOUT_URLS = {
   pro: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=214f913e06ba4a549c98453adbcd6f9c",
 }
 
-export const TOP_UP_OFFER = {
-  price: 20,
-  tokens: 50000,
-  checkoutUrl: "https://mpago.la/2KSzEEJ",
-}
+export const TOP_UP_OFFERS = [
+  {
+    id: "topup-100k",
+    price: 20,
+    tokens: 100000,
+    checkoutUrl: "https://mpago.la/33wFqKS", //1,00
+    // checkoutUrl: "https://mpago.la/33wFqKS", 20,00
+  },
+  {
+    id: "topup-200k",
+    price: 40,
+    tokens: 200000,
+    checkoutUrl: "https://mpago.la/114CqDS",
+  },
+  {
+    id: "topup-300k",
+    price: 60,
+    tokens: 300000,
+    checkoutUrl: "https://mpago.la/2nPcQjp",
+  },
+]
+
+export const TOP_UP_OFFER = TOP_UP_OFFERS[0]
 
 export function normalizePlanKey(value) {
   const normalized = String(value || "")

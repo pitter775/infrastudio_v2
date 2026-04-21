@@ -144,7 +144,7 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
     <>
       <div className="px-4">
         <div className={cn('mb-10 flex items-center gap-2 px-3', collapsed && 'justify-center px-0')}>
-          <LogoCubo3D tamanho={20} />
+          <LogoCubo3D animado tamanho={20} velocidade={0.16} />
 
           {collapsed ? null : (
             <span className="text-sm font-semibold text-white">
@@ -622,7 +622,7 @@ export function AdminShell({ user, children }) {
           </motion.aside>
 
           <main className="flex min-h-screen min-w-0 flex-1 flex-col pt-16 lg:min-h-0 lg:pt-0">
-            <header className="fixed inset-x-0 top-0 z-50 h-16 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-20 lg:h-12">
+            <header className="fixed inset-x-0 top-0 z-[220] h-16 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-[220] lg:h-12">
               <div className="flex h-full items-center justify-end">
                 <div className="mr-auto lg:hidden">
                   <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -694,7 +694,7 @@ export function AdminShell({ user, children }) {
                     </Link>
                   </Button>
 
-                  <div ref={notificationsRef} className="relative">
+                  <div ref={notificationsRef} className="relative z-[230]">
                     <Button
                       type="button"
                       variant="ghost"
@@ -712,7 +712,7 @@ export function AdminShell({ user, children }) {
                     </Button>
 
                     {notificationsOpen ? (
-                      <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[140] w-[360px] overflow-hidden rounded-2xl border border-white/10 bg-[#0d1424] shadow-2xl">
+                      <div className="absolute right-0 top-[calc(100%+0.5rem)] z-[240] w-[360px] overflow-hidden rounded-2xl border border-white/10 bg-[#0d1424] shadow-2xl">
                         <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
                           <div>
                             <div className="text-sm font-semibold text-white">Avisos</div>
@@ -810,4 +810,3 @@ export function AdminShell({ user, children }) {
     </TooltipProvider>
   )
 }
-

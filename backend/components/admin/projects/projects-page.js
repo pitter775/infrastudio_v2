@@ -358,7 +358,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
             {showOnboardingHint && primaryProject && orderedProjects.length === 1 ? (
               <div className="px-2 pt-1 text-slate-200 xl:[font-size:clamp(0.84rem,0.68rem+0.34vw,1rem)]">
                 <div className="flex items-center gap-3">
-                  <LogoCubo3D tamanho={32} />
+                  <LogoCubo3D animado velocidade={0.16} tamanho={32} />
                   <div className="text-[clamp(1.5rem,1.2rem+1vw,1.75rem)] font-semibold leading-[1.02] tracking-[-0.04em] text-transparent bg-gradient-to-r from-emerald-300 via-cyan-300 to-sky-400 bg-clip-text">
                     Seu projeto já está pronto
                   </div>

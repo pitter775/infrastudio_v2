@@ -764,7 +764,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
           <div className="flex flex-col items-start justify-between gap-12 md:flex-row">
             <div className="max-w-sm">
               <Link href="/" className="mb-6 flex items-center gap-2">
-                <LogoCubo3D tamanho={50} />
+                <LogoCubo3D velocidade={0.16} animado tamanho={50} />
                 <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">InfraStudio</span>
               </Link>
               <p className="text-sm leading-relaxed text-slate-500">

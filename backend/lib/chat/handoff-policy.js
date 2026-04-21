@@ -2,10 +2,23 @@ export function isHumanHandoffIntent(message) {
   return /\b(atendente|humano|pessoa|falar com alguem|suporte)\b/i.test(String(message || ""))
 }
 
-export function buildHumanHandoffReply(channelKind = "web") {
-  return channelKind === "whatsapp"
-    ? "Perfeito. Ja acionei um atendente humano para continuar por aqui no WhatsApp."
-    : "Perfeito. Ja acionei um atendente humano para continuar por aqui."
+export function buildHumanHandoffReply(channelKind = "web", options = {}) {
+  const hasRecipients = options.hasRecipients === true
+  const hasWhatsAppDestination = options.hasWhatsAppDestination === true
+
+  if (hasRecipients) {
+    return channelKind === "whatsapp"
+      ? "Perfeito. Ja acionei um atendente humano para continuar por aqui no WhatsApp."
+      : "Perfeito. Ja acionei um atendente humano para continuar por aqui."
+  }
+
+  if (hasWhatsAppDestination) {
+    return channelKind === "whatsapp"
+      ? "Consigo continuar por aqui no WhatsApp, mas este projeto ainda nao tem um atendente configurado para receber o chamado humano."
+      : "Consigo te direcionar para o WhatsApp, mas este projeto ainda nao tem um atendente configurado para receber o chamado humano."
+  }
+
+  return "Este projeto ainda nao tem um atendente configurado para receber o chamado humano."
 }
 
 export function appendOptionalHumanOffer(reply, channelKind = "web") {

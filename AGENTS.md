@@ -12,10 +12,14 @@ Se a tarefa envolver chat/IA:
 3. [AGENTS/chat-runtime.md](C:\Projetos\infrastudio_v2\AGENTS\chat-runtime.md)
 4. [AGENTS/laboratorio.md](C:\Projetos\infrastudio_v2\AGENTS\laboratorio.md)
 
+Se a tarefa envolver planos, checkout ou recarga de tokens:
+
+5. [backend/lib/public-planos.js](C:\Projetos\infrastudio_v2\backend\lib\public-planos.js) - https://mpago.la/2sTv19y (1 real pra teste)
+
 Se a tarefa envolver continuidade, backlog ou prioridades:
 
-5. [AGENTS/roadmap.md](C:\Projetos\infrastudio_v2\AGENTS\roadmap.md)
-6. [AGENTS/melhorias.md](C:\Projetos\infrastudio_v2\AGENTS\melhorias.md)
+6. [AGENTS/roadmap.md](C:\Projetos\infrastudio_v2\AGENTS\roadmap.md)
+7. [AGENTS/melhorias.md](C:\Projetos\infrastudio_v2\AGENTS\melhorias.md)
 
 Regras minimas que nunca mudam:
 

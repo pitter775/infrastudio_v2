@@ -41,11 +41,11 @@ export async function POST(request, context) {
   }
 
   const body = await request.json()
-  const { channel, error } = await createWhatsAppChannelForUser(loaded.project, body, loaded.user)
+  const { channel, contact, error } = await createWhatsAppChannelForUser(loaded.project, body, loaded.user)
 
   if (error) {
     return NextResponse.json({ error }, { status: 400 })
   }
 
-  return NextResponse.json({ channel }, { status: 201 })
+  return NextResponse.json({ channel, contact }, { status: 201 })
 }

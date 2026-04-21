@@ -113,9 +113,56 @@ function PlanCard({ plan, currentPlanId, onCheckout, loadingKey }) {
   )
 }
 
+function TopUpCard({ offer, onCheckout, loadingKey }) {
+  const isLoading = loadingKey === offer.id
+  const hasCheckoutUrl = Boolean(String(offer?.checkoutUrl || "").trim())
+
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-white">{formatPlanPrice(offer.price)}</h3>
+            {offer.featured ? (
+              <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-100">
+                Recarga
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-2 text-sm text-slate-400">+ {formatCredits(offer.tokens)}</p>
+        </div>
+        <ArrowUpRight className="mt-1 h-4 w-4 text-amber-300" />
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-3">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Tokens</div>
+          <div className="mt-1 text-sm font-semibold text-white">{formatCredits(offer.tokens)}</div>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-3">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Pagamento</div>
+          <div className="mt-1 text-sm font-semibold text-white">{hasCheckoutUrl ? 'Disponivel agora' : 'Aguardando link'}</div>
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <Button
+          type="button"
+          onClick={() => onCheckout(offer)}
+          disabled={isLoading || !hasCheckoutUrl}
+          className="h-11 w-full rounded-2xl border border-amber-400/20 bg-amber-500/10 text-sm font-semibold text-amber-50 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isLoading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ArrowUpRight className="mr-2 h-4 w-4" />}
+          {hasCheckoutUrl ? 'Comprar mais creditos' : 'Link pendente'}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function ProjectBillingModal({ open, onOpenChange, summary }) {
   const [plans, setPlans] = useState([])
-  const [topUpOffer, setTopUpOffer] = useState(null)
+  const [topUpOffers, setTopUpOffers] = useState([])
   const [loading, setLoading] = useState(false)
   const [actionKey, setActionKey] = useState('')
   const [feedback, setFeedback] = useState('')
@@ -139,7 +186,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
 
       if (response?.ok) {
         setPlans(payload?.plans || [])
-        setTopUpOffer(payload?.topUpOffer || null)
+        setTopUpOffers(payload?.topUpOffers || (payload?.topUpOffer ? [payload.topUpOffer] : []))
       } else {
         setFeedback('Nao foi possivel carregar os planos.')
       }
@@ -282,7 +329,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
               Carregando planos reais do banco...
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="grid gap-4 md:grid-cols-2">
               {orderedPlans.map((plan) => (
                 <PlanCard
                   key={plan.id}
@@ -295,27 +342,21 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
             </div>
           )}
 
-          {topUpOffer ? (
-            <div className="mt-6 rounded-3xl border border-white/10 bg-white/[0.03] p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="h-4 w-4 text-amber-300" />
-                    <h3 className="text-lg font-semibold text-white">Comprar mais creditos</h3>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-400">
-                    {`${formatCredits(topUpOffer.tokens)} por ${formatPlanPrice(topUpOffer.price)}`}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => handleCheckout({ ...topUpOffer, type: 'topup' })}
-                  disabled={actionKey === 'topup'}
-                  className="h-11 rounded-2xl border border-amber-400/20 bg-amber-500/10 px-5 text-sm font-semibold text-amber-50 hover:bg-amber-500/15"
-                >
-                  {actionKey === 'topup' ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ArrowUpRight className="mr-2 h-4 w-4" />}
-                  Comprar mais creditos
-                </Button>
+          {topUpOffers.length ? (
+            <div className="mt-6">
+              <div className="mb-4 flex items-center gap-2">
+                <Clock3 className="h-4 w-4 text-amber-300" />
+                <h3 className="text-lg font-semibold text-white">Comprar mais creditos</h3>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
+                {topUpOffers.map((offer) => (
+                  <TopUpCard
+                    key={offer.id || `${offer.price}-${offer.tokens}`}
+                    offer={{ ...offer, type: 'topup' }}
+                    onCheckout={handleCheckout}
+                    loadingKey={actionKey}
+                  />
+                ))}
               </div>
             </div>
           ) : null}

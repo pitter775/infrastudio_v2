@@ -231,6 +231,12 @@ function AgentRichEditor({ value, onChange, placeholder }) {
       className: '',
       onClick: () => editor?.chain().focus().toggleBulletList().run(),
     },
+    {
+      label: '1.',
+      name: 'orderedList',
+      className: '',
+      onClick: () => editor?.chain().focus().toggleOrderedList().run(),
+    },
   ]
 
   return (

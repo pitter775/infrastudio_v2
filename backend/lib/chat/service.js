@@ -1781,19 +1781,32 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
   const sendMessage = deps.sendWhatsAppTextMessage ?? sendWhatsAppTextMessage
   const loadChatById = deps.getChatById ?? getChatById
   const loadChatMessages = deps.listChatMessages ?? listChatMessages
-  const acknowledgement = input.channelKind === "whatsapp"
-    ? "Perfeito. Ja acionei um atendente humano para continuar por aqui. Assim que alguem assumir, seguimos neste mesmo WhatsApp."
-    : "Perfeito. Ja acionei um atendente humano para continuar por aqui assim que possivel."
-
+  const getActiveWhatsAppChannel = deps.getActiveWhatsAppChannelByProjectAgent ?? getActiveWhatsAppChannelByProjectAgent
   let alertMessage = input.alertMessage ?? null
+  let recipientsCount = 0
+  let hasWhatsAppDestination = false
+  let resolvedChannelId = input.canalWhatsappId ?? null
 
-  if (input.channelKind === "whatsapp" && input.chatId && input.projetoId && input.canalWhatsappId) {
+  if (!resolvedChannelId && input.projetoId && input.agenteId) {
+    try {
+      const activeChannel = await getActiveWhatsAppChannel({
+        projetoId: input.projetoId,
+        agenteId: input.agenteId,
+      })
+      resolvedChannelId = activeChannel?.id ?? null
+      hasWhatsAppDestination = Boolean(resolvedChannelId)
+    } catch (error) {}
+  }
+
+  if (resolvedChannelId && input.chatId && input.projetoId) {
     try {
       const canLoadChatContext = typeof deps.getChatById === "function" || hasSupabaseServerEnv()
       const chat = canLoadChatContext ? await loadChatById(input.chatId) : null
       const recipients = await listRecipients(input.projetoId, {
-        canalWhatsappId: input.canalWhatsappId,
+        canalWhatsappId: resolvedChannelId,
       })
+      recipientsCount = recipients.length
+      hasWhatsAppDestination = true
 
       if (chat && recipients.length > 0) {
         const attendanceUrl = `${getAppUrl().replace(/\/$/, "")}/admin/atendimento?conversa=${encodeURIComponent(input.chatId)}`
@@ -1818,7 +1831,7 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
         await Promise.all(
           recipients.map((recipient) =>
             sendMessage({
-              channelId: input.canalWhatsappId,
+              channelId: resolvedChannelId,
               to: recipient.numero,
               message: alertMessage,
             })
@@ -1831,7 +1844,7 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
   const handoff = await requestHandoff({
     chatId: input.chatId,
     projetoId: input.projetoId,
-    canalWhatsappId: input.canalWhatsappId ?? null,
+    canalWhatsappId: resolvedChannelId ?? input.canalWhatsappId ?? null,
     requestedBy: "agent",
     motivo: input.motivo ?? "Cliente pediu atendimento humano.",
     metadata: input.metadata ?? {},
@@ -1840,7 +1853,18 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
 
   return {
     handoff,
-    acknowledgement,
+    acknowledgement:
+      recipientsCount > 0
+        ? input.channelKind === "whatsapp"
+          ? "Perfeito. Ja acionei um atendente humano para continuar por aqui. Assim que alguem assumir, seguimos neste mesmo WhatsApp."
+          : "Perfeito. Ja acionei um atendente humano para continuar por aqui assim que possivel."
+        : hasWhatsAppDestination
+          ? input.channelKind === "whatsapp"
+            ? "Consigo seguir por aqui no WhatsApp, mas este projeto ainda nao tem um atendente configurado para receber o chamado humano."
+            : "Consigo te levar para o WhatsApp, mas este projeto ainda nao tem um atendente configurado para receber o chamado humano."
+          : "Este projeto ainda nao tem um atendente configurado para receber o chamado humano.",
+    recipientsCount,
+    hasWhatsAppDestination,
   }
 }
 
@@ -2152,6 +2176,7 @@ export async function applyAiHumanEscalation(runtimeState, aiResult, options = {
     {
       chatId: runtimeState.session.chat.id,
       projetoId: runtimeState.session.chat.projetoId,
+      agenteId: runtimeState.resolved?.agente?.id ?? runtimeState.session.chat.agenteId ?? null,
       canalWhatsappId: getChatWhatsAppChannelId(runtimeState.session.chat, runtimeState.prelude.effectiveBody),
       channelKind: runtimeState.prelude.channelKind,
       projetoNome: runtimeState.resolved?.projeto?.nome ?? null,
@@ -2171,7 +2196,13 @@ export async function applyAiHumanEscalation(runtimeState, aiResult, options = {
   return {
     aiResult: {
       ...aiResult,
-      reply: buildHumanHandoffReply(runtimeState.prelude.channelKind),
+      reply: buildHumanHandoffReply(runtimeState.prelude.channelKind, {
+        hasRecipients: Number(handoffResponse?.recipientsCount ?? 0) > 0,
+        hasWhatsAppDestination:
+          handoffResponse?.hasWhatsAppDestination === true ||
+          runtimeState.session.chat.contexto?.whatsapp?.ctaEnabled === true ||
+          runtimeState.session.initialContext?.whatsapp?.ctaEnabled === true,
+      }),
       assets: [],
       handoff: {
         offered: true,

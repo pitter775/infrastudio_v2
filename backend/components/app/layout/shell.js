@@ -25,7 +25,8 @@ function SidebarContent({ pathname, user, onNavigate }) {
     <div className="flex h-full flex-col justify-between bg-[#080e1d] text-slate-400">
       <div className="px-4 py-6">
         <Link href="/app/projetos" className="flex items-center gap-3" onClick={onNavigate}>
-          <LogoCubo3D tamanho={20} />
+          <LogoCubo3D  animado tamanho={20} velocidade={0.16} />
+          
           <div>
             <p className="text-sm font-semibold text-white">InfraStudio</p>
             <p className="text-xs text-slate-500">Area do cliente</p>

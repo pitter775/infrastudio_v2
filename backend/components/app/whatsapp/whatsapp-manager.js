@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { CheckCircle2, LoaderCircle, MessageCircle, Pencil, Plus, Power, QrCode, RotateCcw, Trash2, Users, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle2, LoaderCircle, MessageCircle, Pencil, Plus, Power, QrCode, RotateCcw, Trash2, Users, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -75,6 +75,10 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   const [status, setStatus] = useState({ type: "idle", message: "" })
   const [deleteContactTarget, setDeleteContactTarget] = useState(null)
   const [deleteChannelTarget, setDeleteChannelTarget] = useState(null)
+  const connectedChannels = channels.filter((channel) => channel.connectionStatus === "online")
+  const activeAlertContacts = contacts.filter((contact) => contact.ativo !== false && contact.receberAlertas !== false)
+  const primaryConnectedChannel = connectedChannels[0] || channels[0] || null
+  const shouldWarnMissingAttendant = connectedChannels.length > 0 && activeAlertContacts.length === 0
 
   async function loadChannels(options = {}) {
     if (!options.silent) {
@@ -290,8 +294,14 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       }
 
       setChannels((current) => [data.channel, ...current])
+      if (data.contact) {
+        setContacts((current) => [data.contact, ...current.filter((item) => item.id !== data.contact.id)])
+      }
       setNumber("")
-      setStatus({ type: "success", message: "Canal criado." })
+      setStatus({
+        type: "success",
+        message: data.contact ? "Canal criado com atendente automatico." : "Canal criado.",
+      })
     } catch (error) {
       setStatus({ type: "error", message: error.message })
     } finally {
@@ -369,6 +379,21 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     setStatus({ type: "idle", message: "" })
   }
 
+  function applyConnectedChannelAsAttendant() {
+    if (!primaryConnectedChannel?.number) {
+      return
+    }
+
+    setContactForm((current) => ({
+      ...current,
+      numero: formatWhatsappPhone(primaryConnectedChannel.number),
+      nome: current.nome || "Meu WhatsApp",
+      receberAlertas: true,
+      ativo: true,
+    }))
+    setStatus({ type: "idle", message: "" })
+  }
+
   async function saveContact(event) {
     event.preventDefault()
     setSavingContact(true)
@@ -383,7 +408,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         body: JSON.stringify({
           ...contactForm,
           numero: normalizePhoneDigits(contactForm.numero),
-          canalWhatsappId: channels[0]?.id || null,
+          canalWhatsappId: primaryConnectedChannel?.id || null,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -573,6 +598,32 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
         {channels.length ? (
           <div className="divide-y divide-zinc-200">
+            {shouldWarnMissingAttendant ? (
+              <div className="border-b border-amber-400/15 bg-amber-500/10 p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-amber-100">Canal conectado sem atendente</p>
+                    <p className="mt-1 text-sm text-amber-100/90">
+                      O agente pode oferecer atendimento humano, mas ainda nao existe nenhum atendente configurado para receber esse chamado.
+                    </p>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="mt-3 h-8 rounded-lg border border-amber-300/20 bg-amber-500/10 px-3 text-amber-50 hover:bg-amber-500/20"
+                      onClick={() => {
+                        setActiveTab("attendants")
+                        onTabChange?.("attendants")
+                        applyConnectedChannelAsAttendant()
+                      }}
+                    >
+                      Configurar atendente
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ) : null}
             {channels.map((channel) => {
               const online = channel.connectionStatus === "online"
 
@@ -605,8 +656,8 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                       <ToggleSwitchButton
                         checked={channel.onlyReplyToUnsavedContacts === true}
                         disabled={busyId === channel.id}
-                        labelOn="Responder so nao salvos"
-                        labelOff="Responder todos"
+                        labelOn="Não responder contatos salvos"
+                        labelOff="Responder incluindo contatos salvos"
                         onChange={(nextValue) =>
                           updateChannel(
                             channel.id,
@@ -740,6 +791,16 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                 labelOn="Recebe alertas"
                 labelOff="Sem alertas"
               />
+              {primaryConnectedChannel?.number ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200"
+                  onClick={applyConnectedChannelAsAttendant}
+                >
+                  Usar numero conectado
+                </Button>
+              ) : null}
               {!compact ? <Button
                 type="submit"
                 disabled={savingContact}
@@ -751,6 +812,12 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
               </Button> : null}
             </div>
           </form>
+
+          {shouldWarnMissingAttendant ? (
+            <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-amber-100">
+              Nenhum atendente esta configurado para receber alerta humano deste projeto. Se quiser, voce pode usar o mesmo numero do canal conectado.
+            </div>
+          ) : null}
 
           <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
             {contacts.length ? (
