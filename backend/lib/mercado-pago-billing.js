@@ -3,7 +3,7 @@ import "server-only"
 import crypto from "node:crypto"
 
 import { createLogEntry } from "@/lib/logs"
-import { listBillingPlans, updateProjectBillingSettings } from "@/lib/billing"
+import { listBillingPlans, refreshProjectBillingState, updateProjectBillingSettings } from "@/lib/billing"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 function normalizeEmail(value) {
@@ -366,6 +366,8 @@ async function confirmProjectTopUp({ supabase, intent, resourceId, resourcePaylo
     })
     .eq("id", intent.id)
 
+  const billingState = await refreshProjectBillingState(intent.projeto_id, { supabase })
+
   await createLogEntry(
     {
       projectId: intent.projeto_id,
@@ -376,6 +378,8 @@ async function confirmProjectTopUp({ supabase, intent, resourceId, resourcePaylo
       payload: {
         tokens,
         cost,
+        billingState,
+        intentId: intent.id,
         mercadoPagoResourceId: String(resourceId || ""),
       },
     },

@@ -368,7 +368,28 @@ function buildEffectiveLimits(config, topUps) {
   }
 }
 
+function isRuntimeManagedProjectBlock(config) {
+  if (!config?.blocked || config?.autoBlock === false || !config?.planId) {
+    return false
+  }
+
+  const reason = String(config?.blockedReason || "").trim().toLowerCase()
+
+  if (!reason) {
+    return true
+  }
+
+  return (
+    reason.includes("limite mensal") ||
+    reason.includes("limite atingido") ||
+    reason.includes("limite de tokens") ||
+    reason.includes("pagamento") ||
+    reason.includes("confirmacao")
+  )
+}
+
 function computeCycleStatus({ config, cycleRow, topUps, nextUsage, nextCost }) {
+  const stickyConfigBlock = config?.blocked === true && !isRuntimeManagedProjectBlock(config)
   const effectiveLimits = buildEffectiveLimits(config, topUps)
   const percentTokens = percentage(nextUsage.totalTokens, effectiveLimits.totalTokens)
   const percentCost = percentage(nextCost, effectiveLimits.monthlyCost)
@@ -379,7 +400,7 @@ function computeCycleStatus({ config, cycleRow, topUps, nextUsage, nextCost }) {
   const exceededCost =
     effectiveLimits.monthlyCost == null ? 0 : Math.max(0, nextCost - effectiveLimits.monthlyCost)
   const shouldBlock =
-    config?.blocked === true ||
+    stickyConfigBlock ||
     (config?.autoBlock !== false &&
       !config?.allowOverage &&
       ((effectiveLimits.totalTokens != null && nextUsage.totalTokens >= effectiveLimits.totalTokens) ||
@@ -395,6 +416,94 @@ function computeCycleStatus({ config, cycleRow, topUps, nextUsage, nextCost }) {
     previousBlocked: Boolean(cycleRow?.bloqueado),
     previousWarning80: Boolean(cycleRow?.alerta_80),
     previousWarning100: Boolean(cycleRow?.alerta_100),
+  }
+}
+
+export async function refreshProjectBillingState(projectId, deps = {}) {
+  if (!projectId) {
+    return null
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const runtime = await ensureOpenBillingCycle(projectId, { supabase })
+    const cycleUsage = {
+      inputTokens: normalizeNumber(runtime.cycleRow?.tokens_input, 0),
+      outputTokens: normalizeNumber(runtime.cycleRow?.tokens_output, 0),
+      totalTokens: normalizeNumber(runtime.cycleRow?.tokens_input, 0) + normalizeNumber(runtime.cycleRow?.tokens_output, 0),
+    }
+    const totalCost = normalizeNumber(runtime.cycleRow?.custo_total, 0)
+    const status = computeCycleStatus({
+      config: runtime.config,
+      cycleRow: runtime.cycleRow,
+      topUps: runtime.topUps,
+      nextUsage: cycleUsage,
+      nextCost: totalCost,
+    })
+    const now = new Date().toISOString()
+    const runtimeManagedConfigBlock = isRuntimeManagedProjectBlock(runtime.config)
+
+    if (runtime.cycleRow?.id) {
+      const { error: cycleError } = await supabase
+        .from("projetos_ciclos_uso")
+        .update({
+          alerta_80: status.warning80,
+          alerta_100: status.warning100,
+          bloqueado: status.blocked,
+          excedente_tokens: status.exceededTokens,
+          excedente_custo: status.exceededCost,
+        })
+        .eq("id", runtime.cycleRow.id)
+
+      if (cycleError) {
+        console.error("[billing] failed to refresh billing cycle state", cycleError)
+      }
+    }
+
+    if (runtime.config?.id && runtimeManagedConfigBlock && !status.blocked) {
+      const { error: projectPlanError } = await supabase
+        .from("projetos_planos")
+        .update({
+          bloqueado: false,
+          bloqueado_motivo: null,
+          updated_at: now,
+        })
+        .eq("id", runtime.config.id)
+
+      if (projectPlanError) {
+        console.error("[billing] failed to clear stale project billing block", projectPlanError)
+      } else {
+        await createLogEntry(
+          {
+            projectId,
+            type: "billing_project_unblocked",
+            origin: "billing_runtime",
+            level: "info",
+            description: "Projeto liberado automaticamente apos reavaliacao de billing.",
+            payload: {
+              totalTokens: cycleUsage.totalTokens,
+              totalCost,
+              availableCreditTokens: runtime.topUps.availableTokens,
+              effectiveTokenLimit: status.effectiveLimits.totalTokens,
+            },
+          },
+          { supabase },
+        ).catch(() => null)
+      }
+    }
+
+    return {
+      blocked: status.blocked,
+      warning80: status.warning80,
+      warning100: status.warning100,
+      availableCreditTokens: runtime.topUps.availableTokens,
+      effectiveTokenLimit: status.effectiveLimits.totalTokens,
+      totalTokens: cycleUsage.totalTokens,
+      totalCost,
+    }
+  } catch (error) {
+    console.error("[billing] failed to refresh project billing state", error)
+    return null
   }
 }
 

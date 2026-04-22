@@ -780,6 +780,16 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
                         {entry.payload?.appErrorCode ? <div>codigo: {entry.payload.appErrorCode}</div> : null}
                         {entry.payload?.errorCode ? <div>db: {entry.payload.errorCode}</div> : null}
                         {entry.payload?.status ? <div>status: {entry.payload.status}</div> : null}
+                        {entry.payload?.tokens != null ? <div>tokens: {Number(entry.payload.tokens).toLocaleString("pt-BR")}</div> : null}
+                        {entry.payload?.cost != null ? <div>valor: R$ {Number(entry.payload.cost).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div> : null}
+                        {entry.payload?.mercadoPagoResourceId ? <div>mp resource: {entry.payload.mercadoPagoResourceId}</div> : null}
+                        {entry.payload?.intentId ? <div>intent: {entry.payload.intentId}</div> : null}
+                        {entry.payload?.billingState?.blocked != null ? (
+                          <div>billing desbloqueado: {entry.payload.billingState.blocked ? "nao" : "sim"}</div>
+                        ) : null}
+                        {entry.payload?.billingState?.availableCreditTokens != null ? (
+                          <div>credito disponivel: {Number(entry.payload.billingState.availableCreditTokens).toLocaleString("pt-BR")}</div>
+                        ) : null}
                         {entry.payload?.widgetSlug ? <div>widget: {entry.payload.widgetSlug}</div> : null}
                         {entry.payload?.agente ? <div>agente: {entry.payload.agente}</div> : null}
                         {entry.payload?.chatId ? <div>chatId: {entry.payload.chatId}</div> : null}
