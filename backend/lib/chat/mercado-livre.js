@@ -12,6 +12,11 @@ function sanitizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function hasMercadoLivreConnection(project, context) {
+  const directConnections = project?.directConnections ?? context?.projeto?.directConnections
+  return Number(directConnections?.mercadoLivre ?? 0) > 0
+}
+
 function formatCurrency(value, currencyId = "BRL") {
   const parsed = Number(value ?? 0)
   if (!Number.isFinite(parsed)) {
@@ -145,7 +150,7 @@ export function resolveMercadoLivreFlowState(input = {}) {
   const loadMoreCatalogRequested = /\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || ""))
 
   return {
-    productSearchRequested: Boolean(input.detectProductSearch?.(input.latestUserMessage) || productSearchCandidates.length),
+    productSearchRequested: Boolean(input.detectProductSearch?.(input.latestUserMessage)),
     genericMercadoLivreListingRequested: Boolean(
       input.isMercadoLivreListingIntent?.(input.latestUserMessage) ?? isMercadoLivreListingIntent(input.latestUserMessage)
     ),
@@ -165,6 +170,7 @@ export function resolveMercadoLivreFlowState(input = {}) {
 
 export async function resolveMercadoLivreHeuristicState(input = {}) {
   const currentProduct = input.currentCatalogProduct ?? input.referencedCatalogProducts?.[0] ?? input.context?.catalogo?.produtoAtual
+  const projectHasMercadoLivre = hasMercadoLivreConnection(input.project, input.context)
 
   if (currentProduct && (isMercadoLivreDetailIntent(input.latestUserMessage) || isMercadoLivrePurchaseIntent(input.latestUserMessage))) {
     const productAsset = currentProduct.link
@@ -197,6 +203,16 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   }
 
   if (!input.project?.id) {
+    return {
+      selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct) : null,
+      mercadoLivreHeuristicReply: null,
+      mercadoLivreProducts: input.mercadoLivreProducts ?? [],
+      mercadoLivreAssets: [],
+      catalogSearchState: null,
+    }
+  }
+
+  if (!projectHasMercadoLivre) {
     return {
       selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct) : null,
       mercadoLivreHeuristicReply: null,
@@ -247,9 +263,17 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   )
 
   if (error) {
+    const normalizedError = sanitizeString(error).toLowerCase()
+    const shouldSilence =
+      normalizedError.includes("nao encontrado para este projeto") ||
+      normalizedError.includes("conta do mercado livre ainda nao autorizada") ||
+      normalizedError.includes("salve a conexao do mercado livre primeiro")
+
     return {
       selectedProductSalesReply: null,
-      mercadoLivreHeuristicReply: "A loja esta conectada, mas nao consegui buscar os produtos agora. Tente novamente em instantes.",
+      mercadoLivreHeuristicReply: shouldSilence
+        ? null
+        : "A loja esta conectada, mas nao consegui buscar os produtos agora. Tente novamente em instantes.",
       mercadoLivreProducts: [],
       mercadoLivreAssets: [],
       catalogSearchState: null,

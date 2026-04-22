@@ -1907,6 +1907,10 @@ export function buildInitialChatContext(input) {
           id: input.resolved.projeto.id,
           nome: input.resolved.projeto.nome ?? null,
           slug: input.resolved.projeto.slug ?? null,
+          directConnections:
+            input.resolved.projeto.directConnections && typeof input.resolved.projeto.directConnections === "object"
+              ? { ...input.resolved.projeto.directConnections }
+              : null,
         }
       : null,
     agente: input.resolved?.agente

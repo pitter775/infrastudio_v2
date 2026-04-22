@@ -461,6 +461,7 @@ async function ensureMercadoLivreAccessToken(connector, deps = {}) {
   const config = getConnectorConfig(connector)
   const accessToken = sanitizeString(config.oauthAccessToken)
   const expiresAt = sanitizeString(config.oauthExpiresAt)
+  const refreshToken = sanitizeString(config.oauthRefreshToken)
 
   if (accessToken && expiresAt) {
     const expiresMs = new Date(expiresAt).getTime()
@@ -469,7 +470,7 @@ async function ensureMercadoLivreAccessToken(connector, deps = {}) {
     }
   }
 
-  if (accessToken && !expiresAt) {
+  if (accessToken && !expiresAt && !refreshToken) {
     return { connector, accessToken }
   }
 
@@ -485,6 +486,50 @@ async function ensureMercadoLivreAccessToken(connector, deps = {}) {
     connector: refreshedConnector,
     accessToken: refreshedAccessToken,
   }
+}
+
+function isMercadoLivreInvalidTokenError(value) {
+  const normalized = sanitizeString(
+    typeof value === "string"
+      ? value
+      : value?.message || value?.error || value?.cause || value?.error_description || value?.status
+  ).toLowerCase()
+
+  return Boolean(
+    normalized &&
+      (normalized.includes("invalid access token") ||
+        normalized.includes("invalid_token") ||
+        normalized.includes("expired_token") ||
+        normalized.includes("token expired") ||
+        normalized.includes("not valid access token"))
+  )
+}
+
+async function withMercadoLivreAuthorizedOperation(connector, deps = {}, operation) {
+  const runOperation = async (activeConnector) => {
+    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(activeConnector, deps)
+    const result = await operation({
+      connector: resolvedConnector,
+      accessToken,
+    })
+
+    return {
+      ...result,
+      connector: result?.connector ?? resolvedConnector,
+    }
+  }
+
+  const firstAttempt = await runOperation(connector)
+  if (!isMercadoLivreInvalidTokenError(firstAttempt?.error)) {
+    return firstAttempt
+  }
+
+  const refreshedConnector = await refreshMercadoLivreToken(firstAttempt.connector ?? connector, deps)
+  if (!refreshedConnector?.id) {
+    return firstAttempt
+  }
+
+  return runOperation(refreshedConnector)
 }
 
 function mapMercadoLivreItem(payload) {
@@ -864,31 +909,32 @@ export async function listMercadoLivreTestItemsForUser(project, user, options = 
       return { items: [], connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
     }
 
-    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
-    const config = getConnectorConfig(resolvedConnector)
-    const userId = sanitizeString(config.oauthUserId)
-
-    if (!userId) {
-      return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
-    }
-
     const limit = Math.min(Math.max(Number(options.limit ?? 8) || 8, 1), 12)
-    const { itemIds, error: searchError } = await listMercadoLivreUserItemIds(userId, accessToken, { limit }, deps)
-    if (searchError) {
-      return {
-        items: [],
-        connector: resolvedConnector,
-        error: searchError,
+    return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
+      const config = getConnectorConfig(resolvedConnector)
+      const userId = sanitizeString(config.oauthUserId)
+
+      if (!userId) {
+        return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
       }
-    }
 
-    const items = await loadMercadoLivreItems(itemIds.slice(0, limit), accessToken, deps)
+      const { itemIds, error: searchError } = await listMercadoLivreUserItemIds(userId, accessToken, { limit }, deps)
+      if (searchError) {
+        return {
+          items: [],
+          connector: resolvedConnector,
+          error: searchError,
+        }
+      }
 
-    return {
-      items,
-      connector: resolvedConnector,
-      error: null,
-    }
+      const items = await loadMercadoLivreItems(itemIds.slice(0, limit), accessToken, deps)
+
+      return {
+        items,
+        connector: resolvedConnector,
+        error: null,
+      }
+    })
   } catch (error) {
     console.error("[mercado-livre] failed to list test items", error)
     return {
@@ -911,22 +957,23 @@ export async function listMercadoLivreOrdersForUser(project, user, options = {},
       return { orders: [], paging: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
     }
 
-    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
-    const config = getConnectorConfig(resolvedConnector)
-    const userId = sanitizeString(config.oauthUserId)
+    return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
+      const config = getConnectorConfig(resolvedConnector)
+      const userId = sanitizeString(config.oauthUserId)
 
-    if (!userId) {
-      return { orders: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
-    }
+      if (!userId) {
+        return { orders: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+      }
 
-    const { orders, paging, error } = await listMercadoLivreOrders(userId, accessToken, options, deps)
+      const { orders, paging, error } = await listMercadoLivreOrders(userId, accessToken, options, deps)
 
-    return {
-      orders,
-      paging,
-      connector: resolvedConnector,
-      error,
-    }
+      return {
+        orders,
+        paging,
+        connector: resolvedConnector,
+        error,
+      }
+    })
   } catch (error) {
     console.error("[mercado-livre] failed to list orders", error)
     return {
@@ -950,22 +997,23 @@ export async function listMercadoLivreQuestionsForUser(project, user, options = 
       return { questions: [], paging: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
     }
 
-    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
-    const config = getConnectorConfig(resolvedConnector)
-    const userId = sanitizeString(config.oauthUserId)
+    return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
+      const config = getConnectorConfig(resolvedConnector)
+      const userId = sanitizeString(config.oauthUserId)
 
-    if (!userId) {
-      return { questions: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
-    }
+      if (!userId) {
+        return { questions: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+      }
 
-    const { questions, paging, error } = await listMercadoLivreQuestions(userId, accessToken, options, deps)
+      const { questions, paging, error } = await listMercadoLivreQuestions(userId, accessToken, options, deps)
 
-    return {
-      questions,
-      paging,
-      connector: resolvedConnector,
-      error,
-    }
+      return {
+        questions,
+        paging,
+        connector: resolvedConnector,
+        error,
+      }
+    })
   } catch (error) {
     console.error("[mercado-livre] failed to list questions", error)
     return {
@@ -996,35 +1044,36 @@ export async function answerMercadoLivreQuestionForUser(project, user, input = {
       return { question: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
     }
 
-    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
-    const fetchImpl = deps.fetchImpl ?? fetch
-    const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/answers`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        question_id: Number(questionId),
-        text,
-      }),
-    })
+    return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
+      const fetchImpl = deps.fetchImpl ?? fetch
+      const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/answers`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          question_id: Number(questionId),
+          text,
+        }),
+      })
 
-    const payload = await response.json().catch(() => ({}))
-    if (!response.ok) {
-      return {
-        question: null,
-        connector: resolvedConnector,
-        error: payload?.message || payload?.error || "Nao foi possivel responder a pergunta no Mercado Livre.",
+      const payload = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        return {
+          question: null,
+          connector: resolvedConnector,
+          error: payload?.message || payload?.error || "Nao foi possivel responder a pergunta no Mercado Livre.",
+        }
       }
-    }
 
-    return {
-      question: mapMercadoLivreQuestion(payload),
-      connector: resolvedConnector,
-      error: null,
-    }
+      return {
+        question: mapMercadoLivreQuestion(payload),
+        connector: resolvedConnector,
+        error: null,
+      }
+    })
   } catch (error) {
     console.error("[mercado-livre] failed to answer question", error)
     return {
@@ -1063,60 +1112,61 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
       return { items: [], connector: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
     }
 
-    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
-    const config = getConnectorConfig(resolvedConnector)
-    const userId = sanitizeString(config.oauthUserId)
-    if (!userId) {
-      return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
-    }
-
     const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 6)
     const poolLimit = Math.min(Math.max(Number(options.poolLimit ?? 24) || 24, requestedLimit), 50)
     const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
     const searchTerm = sanitizeString(options.searchTerm)
-    const { itemIds, paging, error: searchError } = await listMercadoLivreUserItemIds(
-      userId,
-      accessToken,
-      {
-        limit: poolLimit,
-        offset,
-      },
-      deps
-    )
+    return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
+      const config = getConnectorConfig(resolvedConnector)
+      const userId = sanitizeString(config.oauthUserId)
+      if (!userId) {
+        return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+      }
 
-    if (searchError) {
-      return { items: [], connector: resolvedConnector, error: searchError }
-    }
+      const { itemIds, paging, error: searchError } = await listMercadoLivreUserItemIds(
+        userId,
+        accessToken,
+        {
+          limit: poolLimit,
+          offset,
+        },
+        deps
+      )
 
-    const loadedItems = await loadMercadoLivreItems(itemIds, accessToken, deps)
-    const rankedItems = loadedItems
-      .map((item) => ({
-        ...item,
-        _score: searchTerm ? scoreMercadoLivreItem(item, searchTerm) : 0,
-      }))
-      .filter((item) => !searchTerm || item._score > 0)
-      .sort((left, right) => {
-        if (right._score !== left._score) {
-          return right._score - left._score
-        }
-        return String(left.title || "").localeCompare(String(right.title || ""), "pt-BR")
-      })
-      .slice(0, requestedLimit)
-      .map(({ _score, ...item }) => item)
+      if (searchError) {
+        return { items: [], connector: resolvedConnector, error: searchError }
+      }
 
-    return {
-      items: rankedItems,
-      connector: resolvedConnector,
-      paging: {
-        total: Number(paging?.total ?? 0) || 0,
-        offset,
-        poolLimit,
-        requestedLimit,
-        nextOffset: offset + poolLimit,
-        hasMore: Number(paging?.total ?? 0) > offset + poolLimit,
-      },
-      error: null,
-    }
+      const loadedItems = await loadMercadoLivreItems(itemIds, accessToken, deps)
+      const rankedItems = loadedItems
+        .map((item) => ({
+          ...item,
+          _score: searchTerm ? scoreMercadoLivreItem(item, searchTerm) : 0,
+        }))
+        .filter((item) => !searchTerm || item._score > 0)
+        .sort((left, right) => {
+          if (right._score !== left._score) {
+            return right._score - left._score
+          }
+          return String(left.title || "").localeCompare(String(right.title || ""), "pt-BR")
+        })
+        .slice(0, requestedLimit)
+        .map(({ _score, ...item }) => item)
+
+      return {
+        items: rankedItems,
+        connector: resolvedConnector,
+        paging: {
+          total: Number(paging?.total ?? 0) || 0,
+          offset,
+          poolLimit,
+          requestedLimit,
+          nextOffset: offset + poolLimit,
+          hasMore: Number(paging?.total ?? 0) > offset + poolLimit,
+        },
+        error: null,
+      }
+    })
   } catch (error) {
     console.error("[mercado-livre] failed to search products", error)
     return {
