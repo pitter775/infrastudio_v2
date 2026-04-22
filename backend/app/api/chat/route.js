@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 
-import { buildInitialChatContext, buildSilentChatResult, isSavedWhatsAppContact, processChatRequest, resolveProjectAgent } from "@/lib/chat/service"
+import { buildSilentChatResult } from "@/lib/chat/result-builders"
+import { buildInitialChatContext, isSavedWhatsAppContact, processChatRequest, resolveProjectAgent } from "@/lib/chat/service"
 import { buildAiObservability } from "@/lib/admin-conversations"
 import { registerProjectBillingUsage, verifyProjectBillingAccess } from "@/lib/billing"
 import { APP_BUILD_LABEL } from "@/lib/build-info"

@@ -1,7 +1,14 @@
-import "server-only"
+﻿import "server-only"
 
 import { SignJWT, jwtVerify } from "jose"
 
+import {
+  mapMercadoLivreItem,
+  mapMercadoLivreOrder,
+  mapMercadoLivreQuestion,
+  scoreMercadoLivreItem,
+} from "@/lib/mercado-livre/mappers"
+import { resolveMercadoLivreProductInternal } from "@/lib/mercado-livre/resolve-product"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const CONNECTOR_FIELDS =
@@ -11,8 +18,6 @@ const MERCADO_LIVRE_SLUG = "mercado-livre"
 const MERCADO_LIVRE_TYPE = "mercado_livre"
 const MERCADO_LIVRE_API_BASE = "https://api.mercadolibre.com"
 const MERCADO_LIVRE_AUTH_BASE = "https://auth.mercadolivre.com.br"
-const MERCADO_LIVRE_RESOLVE_MAX_ATTEMPTS = 4
-const MERCADO_LIVRE_RESOLVE_DELAY_MS = 1500
 
 function getAppAuthSecret() {
   const secret = process.env.APP_AUTH_SECRET?.trim()
@@ -44,70 +49,6 @@ function userCanAccessProject(user, projectId) {
 function sanitizeString(value) {
   const normalized = String(value || "").trim()
   return normalized || ""
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-function extractMercadoLivreProductId(value) {
-  const normalized = sanitizeString(value)
-  const match = normalized.match(/MLB-?(\d+)/i)
-  return match ? `MLB${match[1]}` : ""
-}
-
-function detectMercadoLivreSourceType(value) {
-  const normalized = sanitizeString(value).toLowerCase()
-  if (normalized.includes("/pagina/")) {
-    return "store_page"
-  }
-  if (extractMercadoLivreProductId(normalized)) {
-    return "product_page"
-  }
-  return "unknown"
-}
-
-function extractMercadoLivreSellerId(value) {
-  const normalized = sanitizeString(value)
-  const patterns = [
-    /(?:seller_id|sellerId|official_store_id)=([^&]+)/i,
-    /"seller_id"\s*:\s*"?(?<value>\d+)"?/i,
-    /"sellerId"\s*:\s*"?(?<value>\d+)"?/i,
-    /"official_store_id"\s*:\s*"?(?<value>\d+)"?/i,
-    /seller_id["'\s:=]+(\d+)/i,
-    /sellerId["'\s:=]+(\d+)/i,
-  ]
-
-  for (const pattern of patterns) {
-    const match = normalized.match(pattern)
-    const candidate = sanitizeString(match?.groups?.value || match?.[1])
-    if (candidate) {
-      return candidate
-    }
-  }
-
-  return ""
-}
-
-function extractMercadoLivreStoreName(value) {
-  const normalized = sanitizeString(value)
-  const patterns = [
-    /"shop_name"\s*:\s*"(?<value>[^"]+)"/i,
-    /"seller_name"\s*:\s*"(?<value>[^"]+)"/i,
-    /<meta\s+name="title"\s+content="(?<value>[^"]+?)\s+em\s+Mercado\s+Livre"/i,
-    /<meta\s+property="og:title"\s+content="(?<value>[^"]+?)\s+em\s+Mercado\s+Livre"/i,
-    /<title[^>]*>(?<value>[^<|]+?)\s+\|\s+P[aá]gina do vendedor<\/title>/i,
-  ]
-
-  for (const pattern of patterns) {
-    const match = normalized.match(pattern)
-    const candidate = sanitizeString(match?.groups?.value || match?.[1])
-    if (candidate) {
-      return candidate
-    }
-  }
-
-  return ""
 }
 
 function mapConnector(row) {
@@ -532,98 +473,6 @@ async function withMercadoLivreAuthorizedOperation(connector, deps = {}, operati
   return runOperation(refreshedConnector)
 }
 
-function mapMercadoLivreItem(payload) {
-  return {
-    id: sanitizeString(payload?.id),
-    title: sanitizeString(payload?.title),
-    price: Number(payload?.price ?? 0),
-    currencyId: sanitizeString(payload?.currency_id),
-    availableQuantity: Number(payload?.available_quantity ?? 0),
-    status: sanitizeString(payload?.status),
-    permalink: sanitizeString(payload?.permalink),
-    thumbnail: sanitizeString(payload?.thumbnail),
-    sellerId: sanitizeString(payload?.seller_id),
-    sellerName: sanitizeString(payload?.seller_name),
-  }
-}
-
-function mapMercadoLivreOrder(payload) {
-  const buyer = payload?.buyer && typeof payload.buyer === "object" ? payload.buyer : {}
-  const orderItems = Array.isArray(payload?.order_items) ? payload.order_items : []
-  const firstItem = orderItems[0]?.item && typeof orderItems[0].item === "object" ? orderItems[0].item : {}
-  const totalItems = orderItems.reduce((sum, item) => sum + (Number(item?.quantity ?? 0) || 0), 0)
-
-  return {
-    id: String(payload?.id ?? "").trim(),
-    status: sanitizeString(payload?.status),
-    statusDetail: sanitizeString(payload?.status_detail),
-    totalAmount: Number(payload?.total_amount ?? 0),
-    currencyId: sanitizeString(payload?.currency_id || "BRL"),
-    dateCreated: sanitizeString(payload?.date_created),
-    dateClosed: sanitizeString(payload?.date_closed),
-    buyerNickname: sanitizeString(buyer?.nickname),
-    buyerFirstName: sanitizeString(buyer?.first_name),
-    buyerLastName: sanitizeString(buyer?.last_name),
-    buyerId: String(buyer?.id ?? "").trim(),
-    shippingId: String(payload?.shipping?.id ?? "").trim(),
-    totalItems,
-    firstItemTitle: sanitizeString(firstItem?.title),
-    firstItemId: sanitizeString(firstItem?.id),
-    tags: Array.isArray(payload?.tags) ? payload.tags.map((tag) => sanitizeString(tag)).filter(Boolean) : [],
-  }
-}
-
-function mapMercadoLivreQuestion(payload) {
-  return {
-    id: String(payload?.id ?? "").trim(),
-    itemId: sanitizeString(payload?.item_id),
-    sellerId: String(payload?.seller_id ?? "").trim(),
-    status: sanitizeString(payload?.status),
-    text: sanitizeString(payload?.text),
-    dateCreated: sanitizeString(payload?.date_created),
-    answerText: sanitizeString(payload?.answer?.text),
-    answerStatus: sanitizeString(payload?.answer?.status),
-    answerDateCreated: sanitizeString(payload?.answer?.date_created),
-    fromId: String(payload?.from?.id ?? "").trim(),
-    fromNickname: sanitizeString(payload?.from?.nickname),
-  }
-}
-
-function normalizeSearchTokens(value) {
-  return sanitizeString(value)
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .split(/\s+/)
-    .filter((token) => token.length >= 3)
-}
-
-function scoreMercadoLivreItem(item, searchTerm) {
-  const tokens = normalizeSearchTokens(searchTerm)
-  if (!tokens.length) {
-    return 0
-  }
-
-  const haystack = normalizeSearchTokens([item?.title, item?.sellerName].filter(Boolean).join(" "))
-  if (!haystack.length) {
-    return 0
-  }
-
-  let score = 0
-  for (const token of tokens) {
-    if (haystack.includes(token)) {
-      score += token.length >= 6 ? 3 : 2
-      continue
-    }
-
-    if (haystack.some((hay) => hay.includes(token) || token.includes(hay))) {
-      score += 1
-    }
-  }
-
-  return score
-}
-
 async function listMercadoLivreUserItemIds(userId, accessToken, options = {}, deps = {}) {
   const limit = Math.min(Math.max(Number(options.limit ?? 24) || 24, 1), 50)
   const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
@@ -752,148 +601,6 @@ async function listMercadoLivreQuestions(userId, accessToken, options = {}, deps
       offset,
     },
     error: null,
-  }
-}
-
-function mapMercadoLivreResolvedProduct(payload, fallback = {}) {
-  return {
-    seedId: sanitizeString(payload?.seller_id || payload?.sellerId || payload?.official_store_id || fallback.seedId),
-    productId: sanitizeString(payload?.id || fallback.productId),
-    storeName: sanitizeString(payload?.seller_custom_field || payload?.seller_name || payload?.nickname || fallback.storeName),
-    title: sanitizeString(payload?.title || fallback.title),
-    permalink: sanitizeString(payload?.permalink || fallback.permalink),
-    sourceType: sanitizeString(fallback.sourceType || "unknown"),
-    source: sanitizeString(fallback.source || "api"),
-  }
-}
-
-async function fetchMercadoLivrePublicItem(itemId, fetchImpl = fetch) {
-  const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}`, {
-    headers: {
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  })
-
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok || !payload?.id) {
-    return null
-  }
-
-  return payload
-}
-
-async function fetchMercadoLivrePageSource(productUrl, fetchImpl = fetch) {
-  const response = await fetchImpl(productUrl, {
-    headers: {
-      Accept: "text/html,application/xhtml+xml",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-    },
-    cache: "no-store",
-  })
-
-  if (!response.ok) {
-    return ""
-  }
-
-  return response.text().catch(() => "")
-}
-
-async function resolveMercadoLivreProductInternal(productUrl, deps = {}) {
-  const normalizedUrl = sanitizeString(productUrl)
-  if (!normalizedUrl) {
-    return { product: null, error: "Cole a URL de um produto da loja." }
-  }
-
-  const fetchImpl = deps.fetchImpl ?? fetch
-  const sellerIdFromUrl = extractMercadoLivreSellerId(normalizedUrl)
-  const productId = extractMercadoLivreProductId(normalizedUrl)
-  const sourceType = detectMercadoLivreSourceType(normalizedUrl)
-  let pageSource = ""
-
-  async function getPageSource() {
-    if (!pageSource) {
-      pageSource = await fetchMercadoLivrePageSource(normalizedUrl, fetchImpl)
-    }
-    return pageSource
-  }
-
-  if (productId) {
-    const itemPayload = await fetchMercadoLivrePublicItem(productId, fetchImpl)
-    const initialStoreName = extractMercadoLivreStoreName(await getPageSource())
-    const resolvedFromApi = mapMercadoLivreResolvedProduct(itemPayload, {
-      seedId: sellerIdFromUrl,
-      productId,
-      storeName: initialStoreName,
-      permalink: normalizedUrl,
-      sourceType,
-      source: initialStoreName ? "api_html" : "api",
-    })
-
-    if (resolvedFromApi.seedId) {
-      return { product: resolvedFromApi, error: null }
-    }
-  }
-
-  if (sellerIdFromUrl) {
-    const storeName = extractMercadoLivreStoreName(await getPageSource())
-    return {
-      product: {
-        seedId: sellerIdFromUrl,
-        productId,
-        storeName,
-        title: "",
-        permalink: normalizedUrl,
-        sourceType,
-        source: storeName ? "url_html" : "url",
-      },
-      error: null,
-    }
-  }
-
-  for (let attempt = 0; attempt < MERCADO_LIVRE_RESOLVE_MAX_ATTEMPTS; attempt += 1) {
-    const source =
-      attempt === 0 && pageSource
-        ? pageSource
-        : await fetchMercadoLivrePageSource(normalizedUrl, fetchImpl)
-    if (!pageSource && source) {
-      pageSource = source
-    }
-    const sellerId = extractMercadoLivreSellerId(source)
-    const storeName = extractMercadoLivreStoreName(source)
-
-    if (sellerId || storeName) {
-      return {
-        product: {
-          seedId: sellerId,
-          productId: extractMercadoLivreProductId(source) || productId,
-          storeName,
-          title: "",
-          permalink: normalizedUrl,
-          sourceType,
-          source: attempt === 0 ? "html" : "html_retry",
-        },
-        error: null,
-      }
-    }
-
-    if (attempt < MERCADO_LIVRE_RESOLVE_MAX_ATTEMPTS - 1) {
-      await sleep(MERCADO_LIVRE_RESOLVE_DELAY_MS)
-    }
-  }
-
-  return {
-    product: {
-      seedId: "",
-      productId,
-      storeName: "",
-      title: "",
-      permalink: normalizedUrl,
-      sourceType,
-      source: "",
-    },
-    error: "Nao foi possivel localizar o seller_id automaticamente. Preencha manualmente.",
   }
 }
 

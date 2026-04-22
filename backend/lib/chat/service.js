@@ -1,612 +1,117 @@
 import { getAgenteAtivo, getAgenteById, getAgenteByIdentifier } from "@/lib/agentes"
-import { createAgendaReservation, listPublicAgendaAvailability } from "@/lib/agenda"
+import { listPublicAgendaAvailability } from "@/lib/agenda"
 import { loadAgentRuntimeApis } from "@/lib/apis"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
-import { buildChatUsageTelemetry } from "@/lib/chat-usage-metrics"
+import {
+  formatAgendaSlotForContext,
+  resolveAgendaReservationSkill,
+} from "@/lib/chat/agenda-skill"
 import {
   appendOptionalHumanOffer,
   buildHumanHandoffReply,
   classifyHumanEscalationNeed,
   isHumanHandoffIntent,
 } from "@/lib/chat/handoff-policy"
+import {
+  applyBillingGuardrail,
+  applyHandoffGuardrail,
+} from "@/lib/chat/guardrails"
 import { enrichLeadContext, executeSalesOrchestrator } from "@/lib/chat/orchestrator"
+import {
+  buildImportedHistorySummary,
+  getIdentifiedContactKey,
+  getWhatsAppContactNameFromContext,
+  resolveCanonicalWhatsAppExternalIdentifier,
+  resolveChatContactSnapshot,
+} from "@/lib/chat/contact"
+import {
+  buildBillingBlockedResult,
+  buildFinalChatResult,
+  buildIsolatedChatResult,
+  buildSilentChatResult,
+} from "@/lib/chat/result-builders"
+import {
+  loadChatHistory,
+  persistAssistantState,
+  persistAssistantTurn,
+  persistUserTurn,
+} from "@/lib/chat/persistence"
+import {
+  buildContinuationMessage,
+  buildWhatsAppMessageSequence,
+  extractRecentMercadoLivreProductsFromAssets,
+  formatWhatsAppHumanOutboundText,
+  isCatalogLoadMoreMessage,
+  isCatalogSearchMessage,
+  normalizeStructuredCustomerReply,
+  parseAssetPrice,
+  sanitizeWhatsAppCustomerFacingReply,
+  splitCatalogReplyForWhatsApp,
+  stripAssistantMetaReply,
+} from "@/lib/chat/reply-formatting"
 import { shouldRefreshSummary, summarizeConversation } from "@/lib/chat/summary-stage"
 import {
-  getChatHandoffByChatId,
-  isHumanHandoffExpired,
-  releaseHumanHandoff,
   requestAutoPauseHandoff,
   requestHumanHandoff,
-  shouldPauseAssistantForHandoff,
 } from "@/lib/chat-handoffs"
-import { appendMessage, createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier, updateChatContext, updateChatStats } from "@/lib/chats"
+import { createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier } from "@/lib/chats"
 import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
-import { estimateOpenAICostUsd } from "@/lib/openai-pricing"
 import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
-import { getConfiguredWhatsAppDestination } from "@/lib/chat/whatsapp-availability"
+import {
+  buildActionSuggestionReply,
+  buildChatWidgetActions,
+  buildWhatsAppContinuationCta,
+  hasConfiguredWhatsAppDestination,
+  hasWhatsAppIntentSignal,
+  sanitizeReplyForWhatsAppCta,
+  sanitizeReplyWithoutWhatsAppCta,
+} from "@/lib/chat/whatsapp-cta"
+import {
+  buildLoopGuardAiResult,
+  detectWhatsAppLoopGuard,
+} from "@/lib/chat/whatsapp-loop-guard"
+import {
+  buildUsagePersistencePayload,
+  persistUsageRecord,
+} from "@/lib/chat/usage-persistence"
 import { listActiveHandoffRecipientsByProjectId } from "@/lib/whatsapp-handoff-contatos"
 import { getActiveWhatsAppChannelByProjectAgent, sendWhatsAppTextMessage } from "@/lib/whatsapp-channels"
 
-function sanitizePhone(phone) {
-  return String(phone || "").replace(/\D/g, "")
-}
-
-function getIdentifiedContactKey(context, fallbackExternalIdentifier) {
-  const lead = isPlainObject(context?.lead) ? context.lead : null
-  const email = typeof lead?.email === "string" ? lead.email.trim().toLowerCase() : ""
-  const phone = sanitizePhone(lead?.telefone || lead?.phone || "")
-
-  if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return email
-  }
-
-  if (phone.length >= 10) {
-    return phone
-  }
-
-  const fallback = String(fallbackExternalIdentifier || "").trim()
-  return fallback.includes("@") || sanitizePhone(fallback).length >= 10 ? fallback : null
-}
-
-function buildImportedHistorySummary(messages) {
-  const normalized = Array.isArray(messages) ? messages.filter((message) => message?.conteudo) : []
-  if (!normalized.length) {
-    return null
-  }
-
-  return normalized
-    .slice(-10)
-    .map((message) => `${message.role === "assistant" ? "Assistente" : "Cliente"}: ${String(message.conteudo).slice(0, 220)}`)
-    .join("\n")
-}
-
-function formatAgendaSlotForContext(slot) {
-  const dayLabel = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"][Number(slot?.diaSemana)] || "data especifica"
-  const dateLabel = slot?.dataInicio ? String(slot.dataInicio).slice(0, 10) : null
-  return {
-    id: slot.id,
-    titulo: slot.titulo,
-    dia: dateLabel || (slot.diaSemana === null || typeof slot.diaSemana === "undefined" ? "data especifica" : dayLabel),
-    data: dateLabel,
-    horaInicio: String(slot.horaInicio || "").slice(0, 5),
-    horaFim: String(slot.horaFim || "").slice(0, 5),
-    timezone: slot.timezone || "America/Sao_Paulo",
-  }
-}
-
-function normalizeSimpleText(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-function extractLeadContact(context, fallbackExternalIdentifier) {
-  const lead = isPlainObject(context?.lead) ? context.lead : {}
-  const email = typeof lead.email === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email.trim())
-    ? lead.email.trim().toLowerCase()
-    : ""
-  const phone = sanitizePhone(lead.telefone || lead.phone || "")
-  const fallback = String(fallbackExternalIdentifier || "").trim()
-  const fallbackPhone = sanitizePhone(fallback)
-
-  return {
-    nome: typeof lead.nome === "string" ? lead.nome.trim() : "",
-    email: email || (fallback.includes("@") ? fallback.toLowerCase() : ""),
-    phone: phone.length >= 10 ? phone : fallbackPhone.length >= 10 ? fallbackPhone : "",
-  }
-}
-
-function parseRequestedTime(message) {
-  const match = String(message || "").match(/\b([01]?\d|2[0-3])(?:[:hH]([0-5]\d))?\b/)
-  if (!match) return null
-  return `${String(match[1]).padStart(2, "0")}:${String(match[2] || "00").padStart(2, "0")}`
-}
-
-function parseRequestedDate(message) {
-  const normalized = String(message || "").trim()
-  const isoMatch = normalized.match(/\b(20\d{2}-\d{2}-\d{2})\b/)
-  if (isoMatch) {
-    return isoMatch[1]
-  }
-
-  const brMatch = normalized.match(/\b(\d{1,2})[\/.-](\d{1,2})(?:[\/.-](\d{2,4}))?\b/)
-  if (!brMatch) {
-    return null
-  }
-
-  const day = String(brMatch[1]).padStart(2, "0")
-  const month = String(brMatch[2]).padStart(2, "0")
-  const currentYear = new Date().getFullYear()
-  let year = brMatch[3] ? Number(brMatch[3]) : currentYear
-  if (year < 100) {
-    year += 2000
-  }
-
-  if (month === "00" || Number(month) > 12 || day === "00" || Number(day) > 31) {
-    return null
-  }
-
-  return `${year}-${month}-${day}`
-}
-
-function isAgendaReservationIntent(message) {
-  const normalized = normalizeSimpleText(message)
-  return /\b(agendar|agenda|reservar|reserva|marcar|confirmar|horario|visita|reuniao)\b/.test(normalized)
-}
-
-function isAffirmativeMessage(message) {
-  return /\b(sim|s|pode|pode sim|confirmo|confirmar|fechado|ok|okay|perfeito|isso mesmo|pode agendar|quero esse|quero este)\b/i.test(
-    String(message || "")
-  )
-}
-
-function isNegativeMessage(message) {
-  return /\b(nao|não|outro|mudar|trocar|alterar|cancelar)\b/i.test(String(message || ""))
-}
-
-function selectAgendaSlot(message, slots, options = {}) {
-  const requestedTime = parseRequestedTime(message)
-  const requestedDate = parseRequestedDate(message)
-  if ((!requestedTime && !requestedDate) || !Array.isArray(slots)) return null
-
-  const preferredSlotId = typeof options?.preferredSlotId === "string" ? options.preferredSlotId : null
-
-  const matches = slots.filter((slot) => {
-    const slotTime = String(slot?.horaInicio || "").slice(0, 5)
-    const slotDate = String(slot?.dataInicio || slot?.data || "").slice(0, 10)
-
-    if (requestedTime && slotTime !== requestedTime) {
-      return false
-    }
-
-    if (requestedDate && slotDate !== requestedDate) {
-      return false
-    }
-
-    return true
-  })
-
-  if (!matches.length) {
-    return null
-  }
-
-  if (preferredSlotId) {
-    return matches.find((slot) => slot?.id === preferredSlotId) ?? matches[0]
-  }
-
-  return matches[0]
-}
-
-function nextDateForAgendaSlot(slot, now = new Date()) {
-  const time = String(slot?.horaInicio || "").slice(0, 5)
-  if (!time) return null
-
-  const dateStart = String(slot?.dataInicio || "").slice(0, 10)
-  const baseDate = /^\d{4}-\d{2}-\d{2}$/.test(dateStart) ? new Date(`${dateStart}T${time}:00`) : new Date(now)
-  if (Number.isNaN(baseDate.getTime())) return null
-
-  if (Number.isInteger(slot?.diaSemana)) {
-    const currentDay = baseDate.getDay()
-    const targetDay = Number(slot.diaSemana)
-    let diff = (targetDay - currentDay + 7) % 7
-    const candidate = new Date(baseDate)
-    candidate.setDate(candidate.getDate() + diff)
-    const [hours, minutes] = time.split(":").map(Number)
-    candidate.setHours(hours, minutes, 0, 0)
-    if (candidate.getTime() <= now.getTime()) {
-      candidate.setDate(candidate.getDate() + 7)
-    }
-    return candidate.toISOString()
-  }
-
-  const [hours, minutes] = time.split(":").map(Number)
-  baseDate.setHours(hours, minutes, 0, 0)
-  return baseDate.toISOString()
-}
-
-function formatAgendaOptions(slots) {
-  return slots
-    .slice(0, 6)
-    .map((slot) => `- ${slot.data || slot.dia}, das ${slot.horaInicio} as ${slot.horaFim}`)
-    .join("\n")
-}
-
-function formatAgendaDateDisplay(value) {
-  const normalized = String(value || "").slice(0, 10)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
-    return String(value || "").trim()
-  }
-
-  const [year, month, day] = normalized.split("-")
-  return `${day}/${month}/${year}`
-}
-
-function formatAgendaSlotLabel(slot) {
-  const slotDate = String(slot?.dataInicio || slot?.data || "").slice(0, 10)
-  const displayDate = formatAgendaDateDisplay(slotDate || slot?.dia || "")
-  const start = String(slot?.horaInicio || "").slice(0, 5)
-  const end = String(slot?.horaFim || "").slice(0, 5)
-  return `${displayDate}, das ${start} as ${end}`
-}
-
-function buildAgendaContactSnapshot(contact) {
-  return {
-    nome: typeof contact?.nome === "string" ? contact.nome.trim() : "",
-    email: typeof contact?.email === "string" ? contact.email.trim().toLowerCase() : "",
-    phone: sanitizePhone(contact?.phone || contact?.telefone || ""),
-  }
-}
-
-function buildAgendaApprovalReply(slot, contact) {
-  const lines = [
-    "Confirme estes dados para eu concluir o agendamento:",
-    `- Data e horario: ${formatAgendaSlotLabel(slot)}`,
-  ]
-
-  if (contact.nome) {
-    lines.push(`- Nome: ${contact.nome}`)
-  }
-  if (contact.email) {
-    lines.push(`- Email: ${contact.email}`)
-  }
-  if (contact.phone) {
-    lines.push(`- Telefone: ${contact.phone}`)
-  }
-
-  lines.push('Se estiver certo, responda "sim". Se quiser ajustar, me diga o novo horario ou contato.')
-  return lines.join("\n")
-}
-
-function buildAgendaHeuristicReply(reply, metadata = {}) {
-  return {
-    reply,
-    assets: [],
-    usage: {
-      inputTokens: 0,
-      outputTokens: 0,
-    },
-    metadata: {
-      provider: "local_heuristic",
-      model: "agenda_skill",
-      routeStage: "sales",
-      heuristicStage: "agenda_reservation",
-      domainStage: "agenda",
-      ...metadata,
-    },
-  }
-}
-
-function buildAgendaDayBuckets(slots) {
-  const buckets = []
-  const bucketIndex = new Map()
-
-  for (const slot of Array.isArray(slots) ? slots : []) {
-    if (!slot?.id || !slot?.horaInicio) {
-      continue
-    }
-
-    const key = String(slot.data || slot.dia || slot.id)
-    if (!bucketIndex.has(key)) {
-      bucketIndex.set(key, buckets.length)
-      buckets.push({
-        key,
-        label: formatAgendaDateDisplay(slot.data || slot.dia || ""),
-        date: slot.data || null,
-        weekdayLabel: slot.dia || null,
-        slots: [],
-      })
-    }
-
-    const bucket = buckets[bucketIndex.get(key)]
-    bucket.slots.push({
-      id: slot.id,
-      label: String(slot.horaInicio || "").slice(0, 5),
-      time: String(slot.horaInicio || "").slice(0, 5),
-      date: slot.data || null,
-      weekdayLabel: slot.dia || null,
-    })
-  }
-
-  return buckets
-    .map((bucket) => ({
-      ...bucket,
-      slots: bucket.slots.slice(0, 6),
-    }))
-    .filter((bucket) => bucket.slots.length > 0)
-    .slice(0, 5)
-}
-
-function buildAgendaActionPayload(agendaSlots) {
-  const dayBuckets = buildAgendaDayBuckets(
-    (Array.isArray(agendaSlots) ? agendaSlots : []).map(formatAgendaSlotForContext)
-  )
-
-  if (!dayBuckets.length) {
-    return null
-  }
-
-  return {
-    type: "agenda_schedule",
-    label: "Agendar horario",
-    icon: "calendar",
-    summary: "Escolha um dia e depois o horario.",
-    days: dayBuckets,
-  }
-}
-
-function hasConfirmedAgendaReservation(context) {
-  const reservation = isPlainObject(context?.agendaReserva) ? context.agendaReserva : null
-  const status = String(reservation?.status || "").trim().toLowerCase()
-  return ["reservado", "confirmado", "concluido"].includes(status)
-}
-
-async function resolveAgendaReservationSkill(input) {
-  const { message, aiContext, agendaSlots, runtimeState, options } = input
-  if (!Array.isArray(agendaSlots) || agendaSlots.length === 0) {
-    return null
-  }
-
-  const currentContext = runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {}
-  const pendingAgenda = isPlainObject(currentContext?.agenda?.pendente) ? currentContext.agenda.pendente : null
-  const hasAgendaIntent = isAgendaReservationIntent(message)
-  if (!hasAgendaIntent && !pendingAgenda) {
-    return null
-  }
-
-  const formattedSlots = aiContext?.agenda?.horariosDisponiveis ?? agendaSlots.slice(0, 12).map(formatAgendaSlotForContext)
-  const contactFromContext = buildAgendaContactSnapshot(
-    extractLeadContact(aiContext, runtimeState.prelude.normalizedExternalIdentifier)
-  )
-  const pendingContact = buildAgendaContactSnapshot(pendingAgenda?.contato)
-  const contact = {
-    nome: contactFromContext.nome || pendingContact.nome || "",
-    email: contactFromContext.email || pendingContact.email || "",
-    phone: contactFromContext.phone || pendingContact.phone || "",
-  }
-  const preferredAgendaSelection = isPlainObject(aiContext?.agendaSelection) ? aiContext.agendaSelection : null
-  const selectedSlot = selectAgendaSlot(message, agendaSlots, {
-    preferredSlotId: pendingAgenda?.horarioId ?? preferredAgendaSelection?.slotId ?? null,
-  })
-  const activeSlot =
-    selectedSlot ??
-    (
-      pendingAgenda?.horarioId || preferredAgendaSelection?.slotId
-        ? agendaSlots.find((slot) => slot?.id === (pendingAgenda?.horarioId ?? preferredAgendaSelection?.slotId)) ?? null
-        : null
-    )
-
-  if (pendingAgenda && isNegativeMessage(message)) {
-    return buildAgendaHeuristicReply(
-      `Sem problema. Me diga outro horario e, se quiser, ja envie email ou celular.\n\nHorarios disponiveis:\n${formatAgendaOptions(formattedSlots)}`,
-      {
-        agenteId: runtimeState.resolved?.agente?.id ?? null,
-        agenteNome: runtimeState.resolved?.agente?.nome ?? null,
-        agendaFlow: {
-          action: "clear_pending",
-        },
-      }
-    )
-  }
-
-  if (!activeSlot) {
-    return buildAgendaHeuristicReply(
-      `Posso seguir com o agendamento. Me diga o melhor horario e envie email ou celular para contato.\n\nHorarios disponiveis:\n${formatAgendaOptions(formattedSlots)}`,
-      {
-        agenteId: runtimeState.resolved?.agente?.id ?? null,
-        agenteNome: runtimeState.resolved?.agente?.nome ?? null,
-      }
-    )
-  }
-
-  const horarioReservado = nextDateForAgendaSlot(activeSlot)
-  if (!horarioReservado) {
-    return buildAgendaHeuristicReply("Encontrei o horario, mas nao consegui montar a data da reserva. Me envie o dia e horario desejado.", {
-      agenteId: runtimeState.resolved?.agente?.id ?? null,
-      agenteNome: runtimeState.resolved?.agente?.nome ?? null,
-      agendaFlow: {
-        action: "clear_pending",
-      },
-    })
-  }
-
-  if (!contact.email && !contact.phone) {
-    return buildAgendaHeuristicReply(
-      `Encontrei este horario: ${formatAgendaSlotLabel(activeSlot)}.\n\nAgora me envie email ou celular para eu preparar a confirmacao final.`,
-      {
-        agenteId: runtimeState.resolved?.agente?.id ?? null,
-        agenteNome: runtimeState.resolved?.agente?.nome ?? null,
-        agendaFlow: {
-          action: "set_pending",
-          status: "awaiting_contact",
-          horarioId: activeSlot.id,
-          horarioReservado,
-          contato: contact,
-        },
-      }
-    )
-  }
-
-  const summary = runtimeState.history
-    .slice(-6)
-    .map((item) => `${item.role === "assistant" ? "Assistente" : "Cliente"}: ${String(item.conteudo || "").slice(0, 180)}`)
-    .join("\n")
-
-  const { reservation, error } = await (options.createAgendaReservation ?? createAgendaReservation)({
-    projetoId: runtimeState.resolved?.projeto?.id ?? runtimeState.session.chat.projetoId,
-    agenteId: runtimeState.resolved?.agente?.id ?? runtimeState.session.chat.agenteId,
-    horarioId: activeSlot.id,
-    chatId: runtimeState.session.chat.id,
-    contatoNome: contact.nome || null,
-    contatoEmail: contact.email || null,
-    contatoTelefone: contact.phone || null,
-    resumoConversa: summary || message,
-    dadosContato: {
-      email: contact.email || null,
-      telefone: contact.phone || null,
-    },
-    origem: "chat",
-    canal: runtimeState.prelude.channelKind,
-    horarioReservado,
-    timezone: activeSlot.timezone || "America/Sao_Paulo",
-    metadata: {
-      source: "chat_agenda_skill",
-      rawMessage: message,
-    },
-  })
-
-  if (error || !reservation) {
-    return buildAgendaHeuristicReply(error || "Nao consegui confirmar a reserva agora. Tente novamente em instantes.", {
-      agenteId: runtimeState.resolved?.agente?.id ?? null,
-      agenteNome: runtimeState.resolved?.agente?.nome ?? null,
-      agendaFlow: {
-        action: "set_pending",
-        status: "awaiting_approval",
-        horarioId: activeSlot.id,
-        horarioReservado,
-        contato: contact,
-      },
-    })
-  }
-
-  const reservedAt = new Date(reservation.horarioReservado).toLocaleString("pt-BR", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: reservation.timezone || "America/Sao_Paulo",
-  })
-
-  return buildAgendaHeuristicReply(
-    `Agendamento confirmado para ${reservedAt}. Seus dados ja foram registrados para o retorno.`,
-    {
-    agenteId: runtimeState.resolved?.agente?.id ?? null,
-    agenteNome: runtimeState.resolved?.agente?.nome ?? null,
-    agendaReserva: {
-      id: reservation.id,
-      horarioId: reservation.horarioId,
-      horarioReservado: reservation.horarioReservado,
-      status: reservation.status,
-    },
-    agendaFlow: {
-      action: "clear_pending",
-    },
-    })
-}
-
-function normalizeInboundPhoneCandidate(value) {
-  const raw = String(value || "").trim()
-  if (!raw || raw.includes("@")) {
-    return null
-  }
-
-  const digits = raw.replace(/\D/g, "")
-  if (digits.length < 10 || digits.length > 13) {
-    return null
-  }
-
-  return digits
-}
-
-function isPlainObject(value) {
-  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
-}
-
-function buildRuntimeLogContext(runtimeState, extra = {}) {
-  return {
-    projetoId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
-    agenteId: runtimeState?.resolved?.agente?.id ?? runtimeState?.session?.chat?.agenteId ?? null,
-    projectSlug: runtimeState?.resolved?.projeto?.slug ?? null,
-    agentName: runtimeState?.resolved?.agente?.nome ?? null,
-    widgetSlug: runtimeState?.resolved?.widget?.slug ?? null,
-    channelKind: runtimeState?.prelude?.channelKind ?? null,
-    chatId: runtimeState?.session?.chat?.id ?? null,
-    stage: runtimeState?.stage ?? null,
-    ...extra,
-  }
-}
-
-async function recordChatRuntimeEvent(runtimeState, input = {}) {
-  const payload = buildRuntimeLogContext(runtimeState, input.payload ?? {})
-  return createLogEntry({
-    projectId: payload.projetoId,
-    type: input.type ?? "chat_runtime_event",
-    origin: input.origin ?? "chat_runtime",
-    level: input.level ?? "info",
-    description: input.description ?? "Evento interno do runtime do chat.",
-    payload,
-  })
-}
-
-export function getWhatsAppContactNameFromContext(context) {
-  if (!isPlainObject(context?.whatsapp)) {
-    return null
-  }
-
-  const value = context.whatsapp.contactName
-  return typeof value === "string" && value.trim() ? value.trim() : null
-}
-
-function getWhatsAppContactPhoneFromContext(context) {
-  if (!isPlainObject(context?.lead) && !isPlainObject(context?.whatsapp)) {
-    return null
-  }
-
-  const leadPhone = isPlainObject(context?.lead) ? context.lead.telefone : null
-  const normalizedLeadPhone = normalizeInboundPhoneCandidate(typeof leadPhone === "string" ? leadPhone : null)
-  if (normalizedLeadPhone) {
-    return normalizedLeadPhone
-  }
-
-  if (!isPlainObject(context?.whatsapp)) {
-    return null
-  }
-
-  const remotePhone = context.whatsapp.remotePhone
-  const normalizedRemotePhone = normalizeInboundPhoneCandidate(typeof remotePhone === "string" ? remotePhone : null)
-  if (normalizedRemotePhone) {
-    return normalizedRemotePhone
-  }
-
-  const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
-  const rawContactNumber = rawContact?.number
-  const normalizedRawContactNumber = normalizeInboundPhoneCandidate(
-    typeof rawContactNumber === "string" ? rawContactNumber : null
-  )
-  if (normalizedRawContactNumber) {
-    return normalizedRawContactNumber
-  }
-
-  const senderPhone = context.whatsapp.remetente
-  return normalizeInboundPhoneCandidate(typeof senderPhone === "string" ? senderPhone : null)
-}
-
-export function getWhatsAppContactAvatarFromContext(context) {
-  if (!isPlainObject(context?.whatsapp)) {
-    return null
-  }
-
-  const value = context.whatsapp.profilePicUrl
-  if (typeof value === "string" && value.trim()) {
-    return value.trim()
-  }
-
-  const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
-  const fallbackValue = rawContact?.profilePicUrl
-  return typeof fallbackValue === "string" && fallbackValue.trim() ? fallbackValue.trim() : null
-}
-
-export function resolveChatContactSnapshot(context, fallbackExternalIdentifier) {
-  return {
-    contatoNome: getWhatsAppContactNameFromContext(context),
-    contatoTelefone: getWhatsAppContactPhoneFromContext(context) ?? normalizeInboundPhoneCandidate(fallbackExternalIdentifier),
-    contatoAvatarUrl: getWhatsAppContactAvatarFromContext(context),
-  }
-}
+export {
+  applyBillingGuardrail,
+  applyHandoffGuardrail,
+} from "@/lib/chat/guardrails"
+
+export {
+  getWhatsAppContactAvatarFromContext,
+  getWhatsAppContactNameFromContext,
+  resolveCanonicalWhatsAppExternalIdentifier,
+  resolveChatContactSnapshot,
+} from "@/lib/chat/contact"
+
+export {
+  buildAssistantMessageMetadata,
+  buildUserMessageMetadata,
+  loadChatHistory,
+  persistAssistantState,
+  persistAssistantTurn,
+  persistUserTurn,
+} from "@/lib/chat/persistence"
+
+export {
+  buildContinuationMessage,
+  buildWhatsAppMessageSequence,
+  extractRecentMercadoLivreProductsFromAssets,
+  formatWhatsAppHumanOutboundText,
+  isCatalogLoadMoreMessage,
+  isCatalogSearchMessage,
+  normalizeStructuredCustomerReply,
+  parseAssetPrice,
+  sanitizeWhatsAppCustomerFacingReply,
+  splitCatalogReplyForWhatsApp,
+  stripAssistantMetaReply,
+} from "@/lib/chat/reply-formatting"
 
 export function mergeContext(base, ...extras) {
   return extras.filter(Boolean).reduce(
@@ -616,414 +121,6 @@ export function mergeContext(base, ...extras) {
     }),
     base ?? {}
   )
-}
-
-export function parseAssetPrice(value) {
-  if (typeof value !== "string") {
-    return null
-  }
-
-  const numeric = value.replace(/[^\d,.-]/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".")
-  const parsed = Number(numeric)
-  return Number.isFinite(parsed) ? parsed : null
-}
-
-export function extractRecentMercadoLivreProductsFromAssets(assets) {
-  if (!Array.isArray(assets)) {
-    return []
-  }
-
-  return assets
-    .filter(
-      (asset) =>
-        isPlainObject(asset) &&
-        typeof asset.id === "string" &&
-        (asset.id.startsWith("mercado-livre-") || /^MLB\d+$/i.test(asset.id))
-    )
-      .map((asset, index) => ({
-        id: typeof asset.id === "string" ? asset.id : null,
-        nome: typeof asset.nome === "string" ? asset.nome : null,
-        descricao: typeof asset.descricao === "string" ? asset.descricao : null,
-        preco: parseAssetPrice(asset.priceLabel || asset.descricao),
-        link: typeof asset.targetUrl === "string" ? asset.targetUrl : null,
-        imagem: typeof asset.publicUrl === "string" ? asset.publicUrl : null,
-        sellerId: typeof asset.metadata?.sellerId === "string" ? asset.metadata.sellerId : null,
-        sellerName: typeof asset.metadata?.sellerName === "string" ? asset.metadata.sellerName : null,
-        availableQuantity:
-          Number.isFinite(Number(asset.metadata?.availableQuantity)) ? Number(asset.metadata.availableQuantity) : 0,
-        status: typeof asset.metadata?.status === "string" ? asset.metadata.status : null,
-        cardIndex: index,
-      }))
-      .filter((asset) => asset.nome)
-  }
-
-function formatWhatsAppOutboundTextSafe(reply) {
-  return String(reply || "")
-    .replace(/\r\n/g, "\n")
-    .replace(/([.!?])\s+(?=[A-Z0-9*])/g, "$1\n\n")
-    .replace(/\*\*(.+?)\*\*/g, "*$1*")
-    .replace(/__(.+?)__/g, "*$1*")
-    .replace(/^[\-\*]\s+/gm, "- ")
-    .replace(/^(\d+)\)\s+/gm, "$1. ")
-    .replace(/^([A-Za-z\u00C0-\u00FF][A-Za-z\u00C0-\u00FF0-9\s]{1,28}):\s*/gm, (match, label) => {
-      const normalizedLabel = String(label || "").trim().toLowerCase()
-      if (["http", "https", "www"].includes(normalizedLabel)) {
-        return match
-      }
-
-      return `*${String(label || "").trim()}:* `
-    })
-    .replace(/:\s+(?=(?:\d+\.|\*[A-Z0-9]))/g, ":\n")
-    .replace(/\s+\./g, ".")
-    .replace(/\s+,/g, ",")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-}
-
-function stripAssistantMetaArtifacts(reply) {
-  let sanitized = String(reply || "")
-
-  const forbiddenPatterns = [
-    /Seu atendimento acontece exclusivamente via WhatsApp[^\n]*?/gi,
-    /Seu atendimento ocorre exclusivamente via WhatsApp[^\n]*?/gi,
-    /de forma natural,\s*simp(?:a|\u00E1)t(?:i|\u00ED)ca e acolhedora[^\n]*?/gi,
-    /de forma natural,\s*simpat(?:i|\u00ED)ca e acolhedora[^\n]*?/gi,
-    /de forma natural[^\n]*?acolhedora[^\n]*?/gi,
-    /como se fosse uma pessoa real atendendo[^\n]*?/gi,
-    /voce esta falando com (uma )?ia[^\n]*?/gi,
-    /minha funcao aqui e te atender[^\n]*?/gi,
-  ]
-
-  for (const pattern of forbiddenPatterns) {
-    sanitized = sanitized.replace(pattern, "")
-  }
-
-  return sanitized
-    .replace(/\s+,/g, ",")
-    .replace(/,\s*,+/g, ", ")
-    .replace(/,\s*\./g, ".")
-    .replace(/\.\s*,/g, ".")
-    .replace(/\s+\./g, ".")
-    .replace(/\s+,/g, ",")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/([.!?])\s+(?=[A-Z0-9*])/g, "$1\n\n")
-    .replace(/^([A-Za-z0-9][A-Za-z0-9\s]{1,28}):\s*/gm, "$1:\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n[ \t]+/g, "\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-}
-
-function stripAssistantMetaReply(reply, channelKind) {
-  const sanitized = stripAssistantMetaArtifacts(reply)
-  return channelKind === "whatsapp" ? formatWhatsAppOutboundTextSafe(sanitized) : sanitized
-}
-
-function preserveStructuredWhitespace(value) {
-  return String(value || "")
-    .split("\n")
-    .map((line) => line.replace(/\s+\./g, ".").replace(/\s+,/g, ",").replace(/[ \t]{2,}/g, " ").trimEnd())
-    .join("\n")
-    .replace(/[ \t]+\n/g, "\n")
-    .replace(/\n[ \t]+/g, "\n")
-}
-
-function normalizeStructuredCustomerReply(reply) {
-  const lines = preserveStructuredWhitespace(reply)
-    .replace(/(^|\n)\s*(\d+)\.\s*\n+(?=\S)/g, "$1$2. ")
-    .replace(/\n{3,}/g, "\n\n")
-    .split("\n")
-
-  return lines
-    .map((rawLine) => {
-      const line = String(rawLine || "").trim()
-      if (!line) {
-        return ""
-      }
-
-      if (/^(https?:\/\/|www\.)/i.test(line)) {
-        return line
-      }
-
-      const bareLabelMatch = line.match(/^([A-Za-z\u00C0-\u00FF$][A-Za-z\u00C0-\u00FF0-9\s/_-]{1,40}:)\s*$/)
-      if (bareLabelMatch) {
-        return `**${bareLabelMatch[1]}**`
-      }
-
-      const inlineLabelMatch = line.match(/^([A-Za-z\u00C0-\u00FF$][A-Za-z\u00C0-\u00FF0-9\s/_-]{1,40}:)\s+(.+)$/)
-      if (inlineLabelMatch) {
-        return `**${inlineLabelMatch[1]}** ${inlineLabelMatch[2].trim()}`
-      }
-
-      const numberedLabelMatch = line.match(/^(\d+\.)\s+([A-Za-z\u00C0-\u00FF$][A-Za-z\u00C0-\u00FF0-9\s/_-]{1,40}:)\s+(.+)$/)
-      if (numberedLabelMatch) {
-        return `${numberedLabelMatch[1]} **${numberedLabelMatch[2]}** ${numberedLabelMatch[3].trim()}`
-      }
-
-      return line
-    })
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-}
-
-function formatContinuationSummary(rawSummary) {
-  const summaryText = String(rawSummary || "").trim()
-  if (!summaryText) {
-    return ""
-  }
-
-  try {
-    const parsed = JSON.parse(summaryText)
-    const snippets = []
-    const objetivo = typeof parsed.objetivo === "string" ? parsed.objetivo.trim() : ""
-    const proximoPasso = typeof parsed.proximo_passo === "string" ? parsed.proximo_passo.trim() : ""
-    const restricoes = typeof parsed.restricoes === "string" ? parsed.restricoes.trim() : ""
-    const dorPrincipal = typeof parsed.dor_principal === "string" ? parsed.dor_principal.trim() : ""
-
-    if (objetivo) snippets.push(`objetivo: ${objetivo}`)
-    if (dorPrincipal) snippets.push(`dor: ${dorPrincipal}`)
-    if (restricoes) snippets.push(`pontos de atencao: ${restricoes}`)
-    if (proximoPasso) snippets.push(`proximo passo: ${proximoPasso}`)
-
-    const compact = snippets.join(" | ").trim()
-    if (compact) {
-      return compact.slice(0, 280)
-    }
-  } catch {
-    // fallback para texto livre
-  }
-
-  return summaryText.replace(/\s+/g, " ").trim().slice(0, 280)
-}
-
-export function resolveCanonicalWhatsAppExternalIdentifier(input) {
-  const contextPhone = getWhatsAppContactPhoneFromContext(input.context)
-  if (contextPhone) {
-    return contextPhone
-  }
-
-  const normalizedExternal = normalizeInboundPhoneCandidate(input.identificadorExterno)
-  if (normalizedExternal) {
-    return normalizedExternal
-  }
-
-  const normalizedFallback = normalizeInboundPhoneCandidate(input.identificador)
-  if (normalizedFallback) {
-    return normalizedFallback
-  }
-
-  return sanitizePhone(input.identificadorExterno ?? input.identificador)
-}
-
-export function formatWhatsAppHumanOutboundText(reply) {
-  return formatWhatsAppOutboundTextSafe(reply)
-}
-
-export function sanitizeWhatsAppCustomerFacingReply(reply) {
-  let sanitized = stripAssistantMetaArtifacts(reply)
-
-  const promisePatterns = [
-    /\b(?:deixa|deixe)\s+eu\s+(?:ver|verificar|consultar|olhar)\b[^.!?\n]*[.!?]?/gi,
-    /\b(?:eu\s+)?vou\s+(?:ver|verificar|consultar|olhar)\b[^.!?\n]*[.!?]?/gi,
-    /\b(?:eu\s+)?ja\s+(?:vejo|verifico|consulto|olho)\b[^.!?\n]*[.!?]?/gi,
-    /\b(?:posso|consigo)\s+(?:ver|verificar|consultar|olhar)\s+(?:o\s+)?status\b[^.!?\n]*[.!?]?/gi,
-  ]
-
-  for (const pattern of promisePatterns) {
-    sanitized = sanitized.replace(pattern, " ")
-  }
-
-  return preserveStructuredWhitespace(sanitized)
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-}
-
-export function buildWhatsAppMessageSequence(reply, assets, followUpReply) {
-  const messages = []
-  const intro = formatWhatsAppOutboundTextSafe(reply)
-  if (intro) {
-    messages.push(intro)
-  }
-
-  const assetMessages = Array.isArray(assets)
-    ? assets
-        .slice(0, 3)
-        .map((asset, index) => {
-          if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
-            return ""
-          }
-
-          const nome = "nome" in asset ? String(asset.nome || "").trim() : ""
-          const targetUrl = "targetUrl" in asset ? String(asset.targetUrl || "").trim() : ""
-          const whatsappText = "whatsappText" in asset ? String(asset.whatsappText || "").trim() : ""
-          const descricao = "descricao" in asset ? String(asset.descricao || "").trim() : ""
-          const supportText = whatsappText || descricao
-
-          if (!targetUrl && !supportText) {
-            return ""
-          }
-
-          const parts = [formatWhatsAppOutboundTextSafe(`*${index + 1}. ${nome || "Produto"}*`)]
-          if (supportText) {
-            parts.push(formatWhatsAppOutboundTextSafe(supportText))
-          }
-          if (targetUrl) {
-            parts.push(targetUrl)
-          }
-
-          return parts.join("\n").trim()
-        })
-        .filter(Boolean)
-    : []
-
-  if (followUpReply && String(followUpReply).trim()) {
-    messages.push(formatWhatsAppOutboundTextSafe(followUpReply))
-  }
-
-  return [...messages, ...assetMessages]
-}
-
-export function buildSilentChatResult(chatId) {
-  return {
-    chatId: chatId ?? "",
-    reply: "",
-    followUpReply: "",
-    messageSequence: [],
-    assets: [],
-    whatsapp: null,
-    actions: [],
-  }
-}
-
-export function buildBillingBlockedResult(chatId, message) {
-  return {
-    chatId: chatId ?? "",
-    reply: String(message || "").trim(),
-    followUpReply: "",
-    messageSequence: [],
-    assets: [],
-    whatsapp: null,
-    actions: [],
-  }
-}
-
-export function buildIsolatedChatResult(body, message) {
-  const chatId =
-    body?.chatId?.trim() ||
-    body?.identificadorExterno?.trim() ||
-    body?.identificador?.trim() ||
-    "isolated-chat"
-  const sanitizedMessage = String(message || "").replace(/\s+/g, " ").trim()
-  const reply = sanitizedMessage
-    ? `Recebi sua mensagem: "${sanitizedMessage}". O chat esta rodando em modo isolado, sem Supabase, WhatsApp ou handoff.`
-    : "O chat esta rodando em modo isolado, sem Supabase, WhatsApp ou handoff."
-
-  return {
-    chatId,
-    reply,
-    followUpReply: "",
-    messageSequence: [],
-    assets: [],
-    whatsapp: null,
-    actions: [],
-  }
-}
-
-export function isCatalogSearchMessage(message) {
-  const latestNormalizedMessage = String(message || "").toLowerCase()
-  const catalogSignals = ["tem ", "produto", "produtos", "catalogo", "loja", "vende", "procuro", "estou procurando"]
-
-  return catalogSignals.some((signal) => latestNormalizedMessage.includes(signal)) || /^\s*e\s+\S+/i.test(message)
-}
-
-export function isCatalogLoadMoreMessage(message) {
-  const normalized = String(message || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-
-  if (!normalized) {
-    return false
-  }
-
-  if (["mais", "outras", "outros", "mais opcoes", "outras opcoes", "mais modelos", "outros modelos"].includes(normalized)) {
-    return true
-  }
-
-  return [
-    /\btem mais\b/,
-    /\bquero mais\b/,
-    /\bme mostra mais\b/,
-    /\bmostra mais\b/,
-    /\btraz mais\b/,
-    /\bmanda mais\b/,
-    /\bver mais\b/,
-    /\boutras opcoes\b/,
-    /\boutros modelos\b/,
-    /\bmais modelos\b/,
-    /\bmais opcoes\b/,
-  ].some((pattern) => pattern.test(normalized))
-}
-
-export function splitCatalogReplyForWhatsApp(reply, hasAssets) {
-  const normalizedReply = String(reply || "").trim()
-  if (!hasAssets || !normalizedReply) {
-    return {
-      mainReply: normalizedReply,
-      followUpReply: "",
-    }
-  }
-
-  const followUpPatterns = [
-    /Me diga se gostou de algum ou se quer que eu traga mais opcoes parecidas\.?/i,
-    /Me diga se gostou de algum ou se quer que eu traga mais opcoes nesse estilo\.?/i,
-    /Se gostar desse estilo, eu posso te mostrar outras opcoes parecidas tambem\.?/i,
-    /Se gostar desse estilo, eu posso te trazer outras opcoes parecidas tambem\.?/i,
-    /Se quiser, eu tambem posso buscar outras opcoes parecidas ou seguir com este item por aqui\.?/i,
-  ]
-
-  const matchedPattern = followUpPatterns.find((pattern) => pattern.test(normalizedReply))
-  if (!matchedPattern) {
-    return {
-      mainReply: normalizedReply,
-      followUpReply: "",
-    }
-  }
-
-  const followUpReply = normalizedReply.match(matchedPattern)?.[0]?.trim() ?? ""
-  const mainReply = normalizedReply.replace(matchedPattern, "").replace(/\n{3,}/g, "\n\n").trim()
-
-  return {
-    mainReply: mainReply || normalizedReply,
-    followUpReply,
-  }
-}
-
-export function buildContinuationMessage(input) {
-  const resumoLimpo = formatContinuationSummary(input.resumo)
-  const produtoAtual = String(input.produtoAtual || "").trim()
-  const ultimaMensagem = String(input.ultimaMensagem || "")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 220)
-
-  return [
-    `Ola! Vim do chat do site${input.projetoNome ? ` do projeto ${input.projetoNome}` : ""}.`,
-    input.agenteNome ? `Agente de referencia: ${input.agenteNome}.` : "",
-    produtoAtual ? `Produto em foco: ${produtoAtual}.` : "",
-    resumoLimpo ? `Resumo para continuidade: ${resumoLimpo}` : "",
-    ultimaMensagem ? `Ultima mensagem do cliente: ${ultimaMensagem}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n\n")
-    .trim()
 }
 
 export function normalizeChannelKind(body) {
@@ -1236,6 +333,20 @@ export function updateContextFromAiResult(input) {
     agenda: isPlainObject(input.nextContext?.agenda) ? { ...input.nextContext.agenda } : {},
   }
 
+  const metadataFocus = isPlainObject(input.ai?.metadata?.focus) ? input.ai.metadata.focus : null
+  if (metadataFocus?.domain) {
+    nextContext.focus = {
+      domain: typeof metadataFocus.domain === "string" ? metadataFocus.domain : "general",
+      source: typeof metadataFocus.source === "string" ? metadataFocus.source : null,
+      subject: typeof metadataFocus.subject === "string" ? metadataFocus.subject : null,
+      confidence: Number.isFinite(Number(metadataFocus.confidence)) ? Number(metadataFocus.confidence) : null,
+      expiresAt: typeof metadataFocus.expiresAt === "string" ? metadataFocus.expiresAt : null,
+      updatedAt: new Date().toISOString(),
+    }
+  } else if (isPlainObject(input.ai?.metadata?.routingDecision) && input.ai.metadata.routingDecision.domain === "general") {
+    delete nextContext.focus
+  }
+
   const recentMercadoLivreProducts = extractRecentMercadoLivreProductsFromAssets(input.ai.assets)
   if (recentMercadoLivreProducts.length) {
     const snapshotCreatedAt = new Date().toISOString()
@@ -1323,354 +434,6 @@ export function updateContextFromAiResult(input) {
   return nextContext
 }
 
-const WHATSAPP_LOOP_WINDOW_MS = 3 * 60 * 1000
-const WHATSAPP_LOOP_RAPID_GAP_MS = 25 * 1000
-const WHATSAPP_LOOP_TAIL_GAP_MS = 45 * 1000
-const WHATSAPP_LOOP_PROBE_TEXT = "Voce e humano?"
-
-function normalizeLoopGuardText(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim()
-}
-
-function getLoopGuardMessageTimestamp(message) {
-  const timestamp = new Date(message?.createdAt ?? 0).getTime()
-  return Number.isFinite(timestamp) ? timestamp : 0
-}
-
-function isManualAssistantMessage(message) {
-  return message?.role === "assistant" && message?.metadata?.manual === true
-}
-
-function isAutomatedAssistantMessage(message) {
-  return message?.role === "assistant" && !isManualAssistantMessage(message)
-}
-
-function isPositiveHumanConfirmation(message) {
-  const normalized = normalizeLoopGuardText(message)
-  return /^(sim|sou humano|sim sou humano|sou uma pessoa|sou atendente|sim sou uma pessoa|sim, sou humano)\b/.test(normalized)
-}
-
-function isLoopGuardProbeMessage(message) {
-  return normalizeLoopGuardText(message) === normalizeLoopGuardText(WHATSAPP_LOOP_PROBE_TEXT)
-}
-
-function detectWhatsAppLoopGuard(history = []) {
-  const messages = Array.isArray(history) ? history.filter(Boolean) : []
-  if (!messages.length) {
-    return { action: "none", metrics: null }
-  }
-
-  const latestMessage = messages[messages.length - 1]
-  const latestTimestamp = getLoopGuardMessageTimestamp(latestMessage) || Date.now()
-  const recent = messages.filter((message) => latestTimestamp - getLoopGuardMessageTimestamp(message) <= WHATSAPP_LOOP_WINDOW_MS)
-  if (recent.length < 2) {
-    return { action: "none", metrics: null }
-  }
-
-  const recentUserCount = recent.filter((message) => message.role === "user").length
-  const recentAutoAssistantCount = recent.filter(isAutomatedAssistantMessage).length
-  const recentManualAssistantCount = recent.filter(isManualAssistantMessage).length
-
-  const recentRapidTransitions = recent.slice(1).reduce((count, message, index) => {
-    const previous = recent[index]
-    const delta = getLoopGuardMessageTimestamp(message) - getLoopGuardMessageTimestamp(previous)
-    return delta > 0 && delta <= WHATSAPP_LOOP_RAPID_GAP_MS ? count + 1 : count
-  }, 0)
-
-  let tailAlternatingCount = 1
-  for (let index = recent.length - 1; index > 0; index -= 1) {
-    const current = recent[index]
-    const previous = recent[index - 1]
-    const delta = getLoopGuardMessageTimestamp(current) - getLoopGuardMessageTimestamp(previous)
-
-    if (delta <= 0 || delta > WHATSAPP_LOOP_TAIL_GAP_MS) {
-      break
-    }
-    if (current.role === previous.role) {
-      break
-    }
-    if (isManualAssistantMessage(current) || isManualAssistantMessage(previous)) {
-      break
-    }
-
-    tailAlternatingCount += 1
-  }
-
-  const previousAssistantMessage = [...messages].reverse().find((message) => message.role === "assistant") ?? null
-  const latestUserText = latestMessage?.role === "user" ? latestMessage?.conteudo ?? "" : ""
-  const previousAssistantWasProbe = isLoopGuardProbeMessage(previousAssistantMessage?.conteudo ?? "")
-  const recentProbeAlreadySent = recent.some(
-    (message) => message.role === "assistant" && isLoopGuardProbeMessage(message?.conteudo ?? "")
-  )
-
-  const metrics = {
-    recentCount: recent.length,
-    recentUserCount,
-    recentAutoAssistantCount,
-    recentManualAssistantCount,
-    recentRapidTransitions,
-    tailAlternatingCount,
-    previousAssistantWasProbe,
-  }
-
-  if (recentManualAssistantCount > 0) {
-    return { action: "none", metrics }
-  }
-
-  if (previousAssistantWasProbe && isPositiveHumanConfirmation(latestUserText)) {
-    return {
-      action: "pause",
-      reason: "probe_confirmed_human_claim",
-      metrics,
-    }
-  }
-
-  if (
-    recent.length >= 12 &&
-    recentUserCount >= 5 &&
-    recentAutoAssistantCount >= 5 &&
-    recentRapidTransitions >= 7 &&
-    tailAlternatingCount >= 8
-  ) {
-    return {
-      action: "pause",
-      reason: "rapid_bidirectional_loop",
-      metrics,
-    }
-  }
-
-  if (
-    !recentProbeAlreadySent &&
-    recent.length >= 8 &&
-    recentUserCount >= 3 &&
-    recentAutoAssistantCount >= 3 &&
-    recentRapidTransitions >= 5 &&
-    tailAlternatingCount >= 6
-  ) {
-    return {
-      action: "probe",
-      reason: "suspected_automation_loop",
-      metrics,
-    }
-  }
-
-  return { action: "none", metrics }
-}
-
-function buildLoopGuardAiResult(reason, metrics = {}) {
-  return {
-    reply: WHATSAPP_LOOP_PROBE_TEXT,
-    assets: [],
-    usage: {
-      inputTokens: 0,
-      outputTokens: 0,
-    },
-    metadata: {
-      provider: "local_guardrail",
-      model: "whatsapp_loop_guard",
-      routeStage: "guardrail",
-      heuristicStage: reason,
-      domainStage: "whatsapp",
-      loopGuard: metrics,
-    },
-  }
-}
-
-function normalizeWhatsAppDestination(value) {
-  const digits = sanitizePhone(value)
-  if (!digits) {
-    return null
-  }
-
-  if (digits.length === 13 && digits.startsWith("55")) {
-    return digits
-  }
-
-  if (digits.length === 11) {
-    return `55${digits}`
-  }
-
-  return digits.length >= 10 ? digits : null
-}
-
-function hasWhatsAppIntentSignal(text) {
-  const normalized = String(text || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-
-  return (
-    /\bwhatsapp\b/.test(normalized) ||
-    /wa\.me|api\.whatsapp\.com/i.test(normalized) ||
-    /\bmeu numero\b|\bmeu telefone\b|\bchama\b|\bfalar por la\b|\bcontinuar por la\b|\bcontinuar no whatsapp\b|\bir pro whatsapp\b|\bquero ir ao whatsapp\b/i.test(normalized) ||
-    /(?:\+?\d[\d\s().-]{7,}\d)/.test(String(text || ""))
-  )
-}
-
-function summarizeTextForWhatsApp(value, maxLength = 180) {
-  const sanitized = String(value || "")
-    .replace(/\s+/g, " ")
-    .trim()
-
-  if (!sanitized) {
-    return ""
-  }
-
-  if (sanitized.length <= maxLength) {
-    return sanitized
-  }
-
-  return `${sanitized.slice(0, Math.max(0, maxLength - 3)).trim()}...`
-}
-
-function buildWhatsAppPrefilledMessage(input = {}) {
-  const userSummary = summarizeTextForWhatsApp(input.userMessage, 180)
-  const assistantSummary = summarizeTextForWhatsApp(
-    sanitizeReplyForWhatsAppCta(`${input.reply || ""}\n${input.followUpReply || ""}`, "Continuar no WhatsApp"),
-    220
-  )
-
-  const lines = ["Oi! Vim do chat do site e quero continuar por aqui."]
-
-  if (userSummary || assistantSummary) {
-    lines.push("", "Resumo rapido:")
-  }
-
-  if (userSummary) {
-    lines.push(`- Meu interesse: ${userSummary}`)
-  }
-
-  if (assistantSummary) {
-    lines.push(`- Contexto do atendimento: ${assistantSummary}`)
-  }
-
-  return lines.join("\n").trim()
-}
-
-function buildWhatsAppActionPayload(input = {}) {
-  const destination = normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext))
-  if (!destination) {
-    return null
-  }
-
-  const prefilledMessage = buildWhatsAppPrefilledMessage(input)
-
-  return {
-    type: "whatsapp_link",
-    label: "WhatsApp",
-    icon: "whatsapp",
-    url: `https://wa.me/${destination}${prefilledMessage ? `?text=${encodeURIComponent(prefilledMessage)}` : ""}`,
-    summary: "Leva um resumo rapido desta conversa.",
-  }
-}
-
-function buildWhatsAppContinuationCta(input = {}) {
-  if (input.channelKind === "whatsapp" || input.nextContext?.whatsapp?.ctaEnabled !== true) {
-    return null
-  }
-
-  const action = buildWhatsAppActionPayload(input)
-  if (!action?.url) {
-    return null
-  }
-
-  return {
-    label: "Continuar no WhatsApp",
-    url: action.url,
-    summary: action.summary,
-  }
-}
-
-function buildChatWidgetActions(input = {}) {
-  if (input.channelKind === "whatsapp") {
-    return []
-  }
-
-  const actions = []
-  const whatsappAction = buildWhatsAppActionPayload(input)
-  const agendaAction = hasConfirmedAgendaReservation(input.nextContext) ? null : buildAgendaActionPayload(input.agendaSlots)
-
-  if (whatsappAction) {
-    actions.push(whatsappAction)
-  }
-
-  if (agendaAction) {
-    actions.push(agendaAction)
-  }
-
-  return actions
-}
-
-function buildActionSuggestionReply(actions, baseText = "") {
-  if (!Array.isArray(actions) || !actions.length) {
-    return String(baseText || "").trim()
-  }
-
-  const hasWhatsApp = actions.some((action) => action?.type === "whatsapp_link")
-  const hasAgenda = actions.some((action) => action?.type === "agenda_schedule")
-  let suggestion = ""
-
-  if (hasWhatsApp && hasAgenda) {
-    suggestion = "Podemos continuar no WhatsApp ou marcar um horario para entrar em contato com voce."
-  } else if (hasWhatsApp) {
-    suggestion = "Se preferir, podemos continuar no WhatsApp."
-  } else if (hasAgenda) {
-    suggestion = "Se preferir, voce pode marcar um horario para contato."
-  }
-
-  if (!suggestion) {
-    return String(baseText || "").trim()
-  }
-
-  const normalizedBase = String(baseText || "").trim()
-  if (!normalizedBase) {
-    return suggestion
-  }
-
-  if (normalizedBase.toLowerCase().includes(suggestion.toLowerCase())) {
-    return normalizedBase
-  }
-
-  return `${normalizedBase}\n\n${suggestion}`.trim()
-}
-
-function sanitizeReplyForWhatsAppCta(reply, label = "Continuar no WhatsApp") {
-  const sanitized = String(reply || "")
-    .replace(/https?:\/\/(?:wa\.me|api\.whatsapp\.com)[^\s)]+/gi, "")
-    .replace(/\+?\d[\d\s().-]{7,}\d/g, "")
-    .replace(/(?:meu|nosso)\s+(?:numero|telefone)\s+(?:e|é)\s*[:\-]?\s*/gi, "")
-    .replace(/(?:me chama|pode me chamar|pode falar comigo)\s+no\s+whatsapp[^.!?\n]*[.!?]?/gi, "")
-    .replace(/(?:se quiser|se preferir)\s+mais\s+detalhes[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
-    .replace(/\s+\./g, ".")
-    .replace(/\s+,/g, ",")
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-
-  if (!sanitized) {
-    return `Se preferir, clique em "${label}".`
-  }
-
-  return sanitized
-}
-
-function sanitizeReplyWithoutWhatsAppCta(reply) {
-  const sanitized = String(reply || "")
-    .replace(/infelizmente,[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
-    .replace(/nao posso[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
-    .replace(/nao consigo[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
-    .replace(/mas posso continuar te ajudando por aqui[^.!?\n]*[.!?]?/gi, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim()
-
-  return sanitized || "Posso continuar te ajudando por aqui."
-}
-
 export function prepareAiReplyPayload(input) {
   const splitReply =
     input.channelKind === "whatsapp"
@@ -1691,7 +454,7 @@ export function prepareAiReplyPayload(input) {
     input.channelKind === "whatsapp"
       ? sanitizeWhatsAppCustomerFacingReply(normalizedFollowUpReplyBase)
       : normalizedFollowUpReplyBase
-  const hasWhatsAppDestination = Boolean(normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext)))
+  const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(input.nextContext)
   const userAskedForWhatsApp = hasWhatsAppIntentSignal(input.userMessage || "")
   const actions = buildChatWidgetActions({
     channelKind: input.channelKind,
@@ -2040,154 +803,6 @@ export async function ensureActiveChatSession(input, deps = {}) {
   }
 }
 
-export function buildUserMessageMetadata(input) {
-  return {
-    source: input.source?.trim() || (input.channelKind === "whatsapp" ? "whatsapp_bridge" : "site_widget"),
-    ...(Array.isArray(input.attachments) && input.attachments.length ? { attachments: input.attachments } : {}),
-  }
-}
-
-export function buildAssistantMessageMetadata(input) {
-  return {
-    ...(isPlainObject(input.aiMetadata) ? input.aiMetadata : {}),
-    ...(input.usageTelemetry ? { usageTelemetry: input.usageTelemetry } : {}),
-    assets: Array.isArray(input.assets) ? input.assets : [],
-    whatsappCta: isPlainObject(input.whatsapp) ? input.whatsapp : null,
-    actions: Array.isArray(input.actions) ? input.actions : [],
-    ...(input.followUpReply ? { followUpReply: true } : {}),
-  }
-}
-
-export async function persistUserTurn(input, deps = {}) {
-  const appendChatMessage = deps.appendMessage ?? appendMessage
-  const userMessage = await appendChatMessage({
-    chatId: input.chatId,
-    role: "user",
-    conteudo: input.message || "Midia recebida pelo WhatsApp.",
-    canal: input.channelKind,
-    identificadorExterno: input.normalizedExternalIdentifier,
-    metadata: buildUserMessageMetadata({
-      source: input.source,
-      channelKind: input.channelKind,
-      attachments: input.attachments,
-    }),
-  })
-
-  if (!userMessage) {
-    throw new Error("Nao foi possivel gravar a mensagem do cliente. Verifique permissoes na tabela `mensagens`.")
-  }
-
-  return userMessage
-}
-
-export async function loadChatHistory(chatId, deps = {}) {
-  const listMessages = deps.listChatMessages ?? listChatMessages
-  return listMessages(chatId)
-}
-
-export async function persistAssistantTurn(input, deps = {}) {
-  const appendChatMessage = deps.appendMessage ?? appendMessage
-  const assistantMessage = await appendChatMessage({
-    chatId: input.chatId,
-    role: "assistant",
-    conteudo: input.content,
-    canal: input.channelKind,
-    identificadorExterno: input.normalizedExternalIdentifier,
-    tokensInput: input.tokensInput ?? null,
-    tokensOutput: input.tokensOutput ?? null,
-    custo: input.custo ?? null,
-    metadata: buildAssistantMessageMetadata({
-      aiMetadata: input.aiMetadata,
-      usageTelemetry: input.usageTelemetry,
-      assets: input.assets,
-      whatsapp: input.whatsapp,
-      actions: input.actions,
-      followUpReply: input.followUpReply,
-    }),
-  })
-
-  if (!assistantMessage) {
-    throw new Error("O modelo respondeu, mas nao foi possivel salvar a resposta no banco.")
-  }
-
-  return assistantMessage
-}
-
-export async function persistAssistantState(input, deps = {}) {
-  const saveChatContext = deps.updateChatContext ?? updateChatContext
-  const saveChatStats = deps.updateChatStats ?? updateChatStats
-
-  await saveChatContext(input.chatId, input.nextContext)
-  await saveChatStats({
-    chatId: input.chatId,
-    totalTokensToAdd: Number(input.totalTokensToAdd ?? 0),
-    totalCustoToAdd: Number(input.totalCustoToAdd ?? 0),
-    titulo: input.titulo ?? null,
-    contexto: input.nextContext,
-    identificadorExterno: input.normalizedExternalIdentifier ?? null,
-    contatoNome: input.contactSnapshot?.contatoNome ?? null,
-    contatoTelefone: input.contactSnapshot?.contatoTelefone ?? null,
-    contatoAvatarUrl: input.contactSnapshot?.contatoAvatarUrl ?? null,
-  })
-}
-
-export async function applyBillingGuardrail(input, deps = {}) {
-  const verifyBilling = deps.verificarLimite ?? (async () => null)
-  const billingAccess = input.projetoId ? await verifyBilling(input.projetoId) : null
-
-  if (billingAccess && billingAccess.allowed === false) {
-    return {
-      blocked: true,
-      billingAccess,
-      result: buildBillingBlockedResult(
-        input.chatId,
-        billingAccess.message ??
-          "O limite mensal deste projeto foi atingido. Fale com o administrador para liberar novo ciclo ou ajustar o plano."
-      ),
-    }
-  }
-
-  return {
-    blocked: false,
-    billingAccess,
-    result: null,
-  }
-}
-
-export async function applyHandoffGuardrail(input, deps = {}) {
-  const loadChatHandoff = deps.getChatHandoffByChatId ?? getChatHandoffByChatId
-  const releaseHandoff = deps.releaseHumanHandoff ?? releaseHumanHandoff
-  const currentHandoff = await loadChatHandoff(input.chatId)
-
-  if (isHumanHandoffExpired(currentHandoff)) {
-    const releasedHandoff = await releaseHandoff({
-      chatId: input.chatId,
-      usuarioId: null,
-      autoReleased: true,
-    })
-
-    return {
-      paused: false,
-      handoff: releasedHandoff ?? currentHandoff,
-      result: null,
-    }
-  }
-
-  if (shouldPauseAssistantForHandoff(currentHandoff)) {
-    return {
-      paused: true,
-      handoff: currentHandoff,
-      result: buildSilentChatResult(input.chatId),
-    }
-  }
-
-  return {
-    paused: false,
-    handoff: currentHandoff,
-    result: null,
-  }
-}
-
 export async function requestRuntimeHumanHandoff(input, deps = {}) {
   const requestHandoff = deps.requestHumanHandoff ?? requestHumanHandoff
   const listRecipients = deps.listActiveHandoffRecipientsByProjectId ?? listActiveHandoffRecipientsByProjectId
@@ -2330,72 +945,6 @@ export async function applyWhatsAppLoopGuard(runtimeState, deps = {}) {
     handoff: currentHandoff,
     metrics: detection.metrics,
     aiResult: buildLoopGuardAiResult(detection.reason, detection.metrics),
-  }
-}
-
-export function buildUsagePersistencePayload(input) {
-  const provider = typeof input.aiMetadata?.provider === "string" ? input.aiMetadata.provider : null
-  const model = typeof input.aiMetadata?.model === "string" ? input.aiMetadata.model : null
-  const estimatedCostUsd =
-    provider === "openai"
-      ? estimateOpenAICostUsd(input.inputTokens, input.outputTokens, model)
-      : 0
-  const usageTelemetry = buildChatUsageTelemetry({
-    channelKind: input.channelKind,
-    provider,
-    model,
-    routeStage: typeof input.aiMetadata?.routeStage === "string" ? input.aiMetadata.routeStage : null,
-    heuristicStage: typeof input.aiMetadata?.heuristicStage === "string" ? input.aiMetadata.heuristicStage : null,
-    domainStage:
-      typeof input.aiMetadata?.domainStage === "string"
-        ? input.aiMetadata.domainStage
-        : typeof input.aiMetadata?.debugRequest?.domainStage === "string"
-          ? input.aiMetadata.debugRequest.domainStage
-          : null,
-    inputTokens: input.inputTokens,
-    outputTokens: input.outputTokens,
-    estimatedCostUsd,
-  })
-
-  return {
-    estimatedCostUsd,
-    usageTelemetry,
-    usageRecord: {
-      projetoId: input.projetoId,
-      tokens: Number(input.inputTokens ?? 0) + Number(input.outputTokens ?? 0),
-      custo: estimatedCostUsd,
-      details: {
-        tokensInput: Number(input.inputTokens ?? 0),
-        tokensOutput: Number(input.outputTokens ?? 0),
-        usuarioId: input.usuarioId ?? null,
-        origem: usageTelemetry.billingOrigin,
-        referenciaId: input.referenciaId ?? null,
-      },
-    },
-  }
-}
-
-export async function persistUsageRecord(input, deps = {}) {
-  const registerUsage = deps.registrarUso ?? (async () => null)
-  if (!input?.projetoId) {
-    return null
-  }
-
-  return registerUsage(input.projetoId, input.tokens, input.custo, input.details)
-}
-
-export function buildFinalChatResult(input) {
-  return {
-    chatId: input.chatId,
-    messageId: input.messageId ?? null,
-    createdAt: input.createdAt ?? null,
-    reply: input.reply,
-    followUpReply: input.channelKind === "whatsapp" ? "" : input.followUpReply || "",
-    messageSequence: input.channelKind === "whatsapp" ? input.messageSequence ?? [] : [],
-    assets: input.channelKind === "whatsapp" ? [] : input.assets ?? [],
-    whatsapp: input.whatsapp ?? null,
-    actions: input.channelKind === "whatsapp" ? [] : input.actions ?? [],
-    handoff: input.handoff ?? null,
   }
 }
 

@@ -2,59 +2,11 @@
 
 import { useState } from "react"
 import { motion, useDragControls } from "framer-motion"
-import { Info, LoaderCircle, SendHorizonal, Trash2, X } from "lucide-react"
+import { LoaderCircle, SendHorizonal, Trash2, X } from "lucide-react"
 
+import { ChatMessageRenderer } from "@/components/chat/message-renderer"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-
-function escapeHtml(value) {
-  return String(value || "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;")
-}
-
-function formatInlineMarkdown(value) {
-  return escapeHtml(value)
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/__(.+?)__/g, "<strong>$1</strong>")
-    .replace(/(^|[\s(])\*(?!\*)([^*]+)\*(?=$|[\s).,!?:;])/g, "$1<em>$2</em>")
-    .replace(/(^|[\s(])_(?!_)([^_]+)_(?=$|[\s).,!?:;])/g, "$1<em>$2</em>")
-    .replace(/`([^`]+)`/g, "<code>$1</code>")
-}
-
-function renderMessageContent(value) {
-  const normalizedValue = String(value || "").replace(/\r\n/g, "\n").trim()
-
-  if (!normalizedValue) {
-    return ""
-  }
-
-  return normalizedValue
-    .split(/\n{2,}/)
-    .map((block) => {
-      const lines = block.split("\n").map((line) => line.trimEnd())
-      const bulletLines = lines.filter((line) => /^[-*]\s+/.test(line))
-
-      if (bulletLines.length === lines.length) {
-        return `<ul>${bulletLines
-          .map((line) => line.replace(/^[-*]\s+/, ""))
-          .map((line) => `<li>${formatInlineMarkdown(line)}</li>`)
-          .join("")}</ul>`
-      }
-
-      if (lines.length === 1 && /^#{1,3}\s+/.test(lines[0])) {
-        const headingLine = lines[0]
-        const level = Math.min(3, headingLine.match(/^#+/)?.[0]?.length || 1)
-        return `<h${level}>${formatInlineMarkdown(headingLine.replace(/^#{1,3}\s+/, ""))}</h${level}>`
-      }
-
-      return `<p>${lines.map((line) => formatInlineMarkdown(line)).join("<br />")}</p>`
-    })
-    .join("")
-}
 
 function buildSimulatorTrace(diagnostics = {}) {
   if (!diagnostics || typeof diagnostics !== "object") {
@@ -74,51 +26,11 @@ function buildSimulatorTrace(diagnostics = {}) {
     tokens: Number(diagnostics.inputTokens ?? 0) + Number(diagnostics.outputTokens ?? 0),
     runtimeApiCount: diagnostics.runtimeApiCount ?? 0,
     runtimeApiCacheHits: diagnostics.runtimeApiCacheHits ?? 0,
+    runtimeApis: Array.isArray(diagnostics.runtimeApis) ? diagnostics.runtimeApis : [],
   }
-}
-
-function ProductCards({ assets }) {
-  const products = Array.isArray(assets)
-    ? assets.filter((asset) => asset && (asset.kind === "product" || asset.provider === "mercado_livre")).slice(0, 3)
-    : []
-
-  if (!products.length) {
-    return null
-  }
-
-  return (
-    <div className="mt-3 grid gap-3">
-      {products.map((asset, index) => (
-        <a
-          key={`${asset.id || "product"}-${index}`}
-          href={asset.targetUrl || asset.publicUrl || "#"}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="overflow-hidden rounded-xl border border-sky-400/20 bg-sky-500/10 transition hover:border-sky-300/30 hover:bg-sky-500/15"
-        >
-          {asset.publicUrl ? (
-            <img src={asset.publicUrl} alt={asset.nome || "Produto"} className="h-40 w-full object-cover" />
-          ) : null}
-          <div className="space-y-2 px-3 py-3">
-            <div className="text-sm font-semibold text-white">{asset.nome || "Produto"}</div>
-            {asset.descricao ? <div className="text-xs leading-5 text-slate-300">{asset.descricao}</div> : null}
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
-                {asset.priceLabel || "Ver produto"}
-              </div>
-              <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
-                Mercado Livre
-              </div>
-            </div>
-          </div>
-        </a>
-      ))}
-    </div>
-  )
 }
 
 function AgentTestMessage({ message }) {
-  const [showTrace, setShowTrace] = useState(false)
   const isAgent = message.role === "assistant"
 
   return (
@@ -131,34 +43,7 @@ function AgentTestMessage({ message }) {
             : "border-sky-500/30 bg-sky-500/15 text-sky-50",
         )}
       >
-        <div
-          className="agent-simulator-message leading-6"
-          dangerouslySetInnerHTML={{ __html: renderMessageContent(message.content) }}
-        />
-        <ProductCards assets={message.assets} />
-        {message.trace ? (
-          <div className="mt-2">
-            <button
-              type="button"
-              onClick={() => setShowTrace((value) => !value)}
-              className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[11px] font-medium text-slate-400 hover:bg-white/[0.07] hover:text-white"
-            >
-              <Info className="h-3 w-3" />
-              IA trace
-            </button>
-            {showTrace ? (
-              <div className="mt-2 grid gap-1 rounded-md border border-white/10 bg-black/20 p-2 text-xs text-slate-400">
-                <div>provider: <span className="font-medium text-slate-100">{message.trace.provider}</span></div>
-                <div>modelo: <span className="font-medium text-slate-100">{message.trace.model}</span></div>
-                <div>dominio: <span className="font-medium text-slate-100">{message.trace.domainStage}</span></div>
-                <div>heuristica: <span className="font-medium text-slate-100">{message.trace.heuristicStage}</span></div>
-                <div>tokens: <span className="font-medium text-slate-100">{message.trace.tokens}</span></div>
-                <div>APIs: <span className="font-medium text-slate-100">{message.trace.runtimeApiCount}</span></div>
-                <div>cache APIs: <span className="font-medium text-slate-100">{message.trace.runtimeApiCacheHits}</span></div>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
+        <ChatMessageRenderer text={message.content} assets={message.assets} trace={message.trace} compactTrace />
       </div>
     </div>
   )

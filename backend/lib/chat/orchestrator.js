@@ -5,20 +5,14 @@ import {
   resolveCatalogReferenceHeuristicReply,
 } from "@/lib/chat/catalog-follow-up"
 import { buildLeadNameAcknowledgementReply, enrichLeadContext, extractName, isLikelyLeadNameReply } from "@/lib/chat/lead-stage"
+import { resolveChatDomainRoute } from "@/lib/chat/domain-router"
 import {
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicReply,
   resolveMercadoLivreHeuristicState,
 } from "@/lib/chat/mercado-livre"
-import {
-  buildAgentAssetInstruction,
-  buildAnalyticalReplyInstruction,
-  buildChannelReplyInstruction,
-  buildRuntimePrompt,
-  buildStructuredReplyInstruction,
-  buildSystemPrompt,
-  prefersStructuredReply,
-} from "@/lib/chat/prompt-builders"
+import { generateOpenAiSalesReply } from "@/lib/chat/openai-sales-reply"
+import { prefersStructuredReply } from "@/lib/chat/prompt-builders"
 import { resolveConversationPipelineStageState } from "@/lib/chat/pipeline-stage"
 import {
   buildCatalogPricingReply,
@@ -58,47 +52,6 @@ function isCommercialCapabilityMessage(message) {
   return /\b(site|sites|sistema|sistemas|ia|automacao|automação|whatsapp|integra(c|ç)(a|ã)o|painel|como funciona|faz|fazer|cria|criar|desenvolve|desenvolver)\b/i.test(
     String(message || "")
   )
-}
-
-function buildConversationMemory(context = {}) {
-  const snippets = []
-  const resumo = String(context?.memoria?.resumo || "").trim()
-  const historicoIdentificado = String(context?.memoria?.historicoIdentificado || "").trim()
-  const currentProduct = context?.catalogo?.produtoAtual?.nome
-  const latestSearch = context?.catalogo?.ultimaBusca
-
-  if (resumo) snippets.push(`Resumo de continuidade: ${resumo}`)
-  if (historicoIdentificado) snippets.push(`Historico importado do usuario identificado:\n${historicoIdentificado}`)
-  if (currentProduct) snippets.push(`Produto em foco: ${currentProduct}`)
-  if (latestSearch) snippets.push(`Busca recente do cliente: ${latestSearch}`)
-
-  return snippets.join("\n")
-}
-
-function buildFocusedApiInstructions(focusedApiContext) {
-  if (!focusedApiContext?.fields?.length) {
-    return ""
-  }
-
-  return [
-    "Campos de API diretamente relacionados ao pedido atual:",
-    ...focusedApiContext.fields.slice(0, 8).map((field) => `${field.apiNome} > ${field.nome}: ${field.valor}`),
-  ].join("\n")
-}
-
-function buildSelectedProductInstructions(product) {
-  if (!product?.nome) {
-    return ""
-  }
-
-  return [
-    `Produto atualmente em foco: ${product.nome}.`,
-    product.descricao ? `Contexto do produto: ${product.descricao}` : "",
-    product.preco != null ? `Preco conhecido: ${product.preco}.` : "",
-    product.link ? `Link conhecido: ${product.link}` : "",
-  ]
-    .filter(Boolean)
-    .join("\n")
 }
 
 function buildHeuristicReplyResult(reply, metadata = {}) {
@@ -153,9 +106,20 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const runtimeConfig = getAgentRuntimeConfig(context)
   const structuredResponse = prefersStructuredReply(context)
   const focusedApiContext = buildFocusedApiContext(latestUserMessage, runtimeApis)
-  const hasFocusedApiContext = focusedApiContext.fields.length > 0
+  const routingDecision = resolveChatDomainRoute({
+    latestUserMessage,
+    history,
+    context,
+    project: context?.projeto ?? null,
+    runtimeApis,
+    focusedApiContext,
+    runtimeConfig,
+  })
+  const shouldUseApiRuntime = routingDecision.domain === "api_runtime" && routingDecision.shouldUseTool === true
+  const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
+  const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
   const catalogFollowUpDecision =
-    hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual
+    shouldUseMercadoLivre && (hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual)
       ? decideCatalogFollowUpHeuristically(latestUserMessage, context, {
           buildProductSearchCandidates,
           shouldSearchProducts,
@@ -167,18 +131,20 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     context,
     catalogFollowUpDecision,
     detectProductSearch: (message) =>
+      shouldUseMercadoLivre &&
       shouldContinueProductSearch(history, message, context, {
-        isGreetingOrAckMessage,
-      }),
+          isGreetingOrAckMessage,
+        }),
     buildProductSearchCandidates,
+    isMercadoLivreListingIntent: () => shouldUseMercadoLivre,
   })
   const mercadoLivreState = await resolveMercadoLivreHeuristicState({
     context,
     project: context?.projeto ?? null,
     latestUserMessage,
-    productSearchRequested: mercadoLivreFlowState.productSearchRequested,
-    genericMercadoLivreListingRequested: mercadoLivreFlowState.genericMercadoLivreListingRequested,
-    loadMoreCatalogRequested: mercadoLivreFlowState.loadMoreCatalogRequested,
+    productSearchRequested: shouldUseMercadoLivre && mercadoLivreFlowState.productSearchRequested,
+    genericMercadoLivreListingRequested: shouldUseMercadoLivre && mercadoLivreFlowState.genericMercadoLivreListingRequested,
+    loadMoreCatalogRequested: shouldUseMercadoLivre && mercadoLivreFlowState.loadMoreCatalogRequested,
     productSearchTerm: mercadoLivreFlowState.productSearchTerm,
     lastSearchTerm: mercadoLivreFlowState.lastSearchTerm,
     paginationOffset: mercadoLivreFlowState.paginationOffset,
@@ -218,7 +184,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         prefersStructuredReply,
         runtimeConfig,
       })
-    : buildCatalogPricingReply(currentCatalogProduct)
+    : buildCatalogPricingReply(shouldUseMercadoLivre ? currentCatalogProduct : null)
   const shouldDeferLeadCapture =
     Boolean(runtimeConfig?.leadCapture?.deferOnQuestions) &&
     (isCommercialCapabilityMessage(latestUserMessage) || /\?/.test(String(latestUserMessage || "")))
@@ -251,7 +217,9 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     agenteNome: context?.agente?.nome ?? null,
     routeStage: "sales",
     domainStage: pipelineState.conversationDomainStage,
-    catalogoProdutoAtual: currentCatalogProduct ?? null,
+    catalogoProdutoAtual: shouldUseMercadoLivre ? currentCatalogProduct ?? null : null,
+    routingDecision,
+    focus: routingDecision.focus ?? null,
   }
 
   if (!context?.agente?.id || !agentName || !agentPromptBase) {
@@ -366,92 +334,28 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
-  if (!openAiKey) {
-    throw new Error("OPENAI_API_KEY nao configurada para executar o agente do chat.")
-  }
-
-  const systemPrompt = [
-    buildSystemPrompt(
-      {
-        nome: agentName,
-        promptBase: agentPromptBase,
-      },
-      context,
-      structuredResponse
-    ),
-    buildRuntimePrompt(
-      {
-        nome: agentName,
-        promptBase: agentPromptBase,
-      },
-      context,
-      { structuredResponse }
-    ),
-    buildChannelReplyInstruction(context?.channel?.kind ?? context?.canal ?? "web"),
-    buildAnalyticalReplyInstruction(),
-    structuredResponse ? buildStructuredReplyInstruction() : "",
-    buildAgentAssetInstruction(Array.isArray(context?.agente?.arquivos) ? context.agente.arquivos : []),
-    buildConversationMemory(context),
-    buildFocusedApiInstructions(focusedApiContext),
-    buildSelectedProductInstructions(currentCatalogProduct),
-  ]
-    .filter(Boolean)
-    .join("\n\n")
-
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${openAiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      input: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        ...(history ?? []).slice(simpleCommercialQuestion ? -6 : -10).map((item) => ({
-          role: item.role === "assistant" ? "assistant" : "user",
-          content: item.content,
-        })),
-      ],
-      max_output_tokens: simpleCommercialQuestion ? 260 : 420,
-    }),
-  })
-
-  if (!response.ok) {
-    throw new Error(`OpenAI retornou ${response.status}`)
-  }
-
-  const payload = await response.json()
-  const reply =
-    payload.output_text ??
-    payload.output?.flatMap((item) => item.content ?? [])?.find((item) => item.type === "output_text")?.text ??
-    ""
-
-  if (!String(reply || "").trim()) {
-    throw new Error("OpenAI nao retornou texto util para o agente do chat.")
-  }
-
-  return {
-    reply,
-    assets: [],
-    usage: {
-      inputTokens: payload.usage?.input_tokens ?? 0,
-      outputTokens: payload.usage?.output_tokens ?? 0,
-    },
+  return generateOpenAiSalesReply({
+    openAiKey,
+    model,
+    agentName,
+    agentPromptBase,
+    context,
+    structuredResponse,
+    focusedApiContext,
+    currentCatalogProduct: shouldUseMercadoLivre ? currentCatalogProduct : null,
+    history,
+    simpleCommercialQuestion,
     metadata: {
-      provider: "openai",
-      model,
       agenteId: context?.agente?.id ?? null,
       agenteNome: context?.agente?.nome ?? null,
       routeStage: "sales",
       heuristicStage: pipelineState.heuristicIntentStage ?? null,
       domainStage: pipelineState.conversationDomainStage ?? "general",
-      catalogoProdutoAtual: currentCatalogProduct ?? null,
+      catalogoProdutoAtual: shouldUseMercadoLivre ? currentCatalogProduct ?? null : null,
+      routingDecision,
+      focus: routingDecision.focus ?? null,
     },
-  }
+  })
 }
 
 export { enrichLeadContext }
