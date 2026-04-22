@@ -161,7 +161,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
           content: item.content,
         }))
         .filter((item) => item.content)
-        .slice(-12)
+        .slice(-6)
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {

@@ -97,6 +97,9 @@ function buildResponseGuardrailInstructions() {
   return [
     "Regras de resposta:",
     "- Responda primeiro a pergunta principal do cliente.",
+    "- Para perguntas comerciais simples, responda em ate 4 frases curtas.",
+    "- Nao liste varios planos, varias opcoes ou muito contexto sem o cliente pedir comparacao.",
+    "- Quando houver um melhor encaixe inicial, indique primeiro essa opcao e so depois cite alternativa.",
     "- Nunca despeje campo cru, JSON, rotulo tecnico ou lista de atributos sem interpretar.",
     "- Quando a pergunta for factual, responda com o fato mais relevante primeiro e complemente so com contexto util.",
     "- Quando houver mais de um dado importante, organize em blocos curtos ou lista curta.",
@@ -255,7 +258,7 @@ export function buildAnalyticalReplyInstruction() {
 export function buildChannelReplyInstruction(channelKind) {
   return channelKind === "whatsapp"
     ? "Use mensagens curtas e naturais para WhatsApp. Uma ideia por bloco. Evite resposta longa e robotica."
-    : "Responda de forma clara. Priorize leitura rapida e resposta direta."
+    : "Responda de forma clara. Priorize leitura rapida, resposta direta e poucos paragrafos."
 }
 
 export function buildStructuredReplyInstruction() {

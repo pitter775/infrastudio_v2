@@ -46,6 +46,14 @@ function getAgentRuntimeConfig(context = {}) {
   return runtimeConfig && typeof runtimeConfig === "object" && !Array.isArray(runtimeConfig) ? runtimeConfig : null
 }
 
+function isSimpleCommercialQuestion(message = "") {
+  return (
+    /\b(preco|precos|preÃ§os|valor|quanto|plano|planos|starter|basic|plus|pro|free|mensal|assinatura|teste)\b/i.test(
+      String(message || "")
+    ) || isCommercialCapabilityMessage(message)
+  )
+}
+
 function isCommercialCapabilityMessage(message) {
   return /\b(site|sites|sistema|sistemas|ia|automacao|automação|whatsapp|integra(c|ç)(a|ã)o|painel|como funciona|faz|fazer|cria|criar|desenvolve|desenvolver)\b/i.test(
     String(message || "")
@@ -184,6 +192,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const shouldDeferLeadCapture =
     Boolean(runtimeConfig?.leadCapture?.deferOnQuestions) &&
     (isCommercialCapabilityMessage(latestUserMessage) || /\?/.test(String(latestUserMessage || "")))
+  const simpleCommercialQuestion = isSimpleCommercialQuestion(latestUserMessage)
   const leadIdentificationReply =
     !leadNameReplyDetected && !shouldDeferLeadCapture
       ? maybeAskForLeadIdentification(context, history, latestUserMessage, {
@@ -326,12 +335,12 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           role: "system",
           content: systemPrompt,
         },
-        ...(history ?? []).slice(-12).map((item) => ({
+        ...(history ?? []).slice(simpleCommercialQuestion ? -6 : -10).map((item) => ({
           role: item.role === "assistant" ? "assistant" : "user",
           content: item.content,
         })),
       ],
-      max_output_tokens: 700,
+      max_output_tokens: simpleCommercialQuestion ? 260 : 420,
     }),
   })
 
