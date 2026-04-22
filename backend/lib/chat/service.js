@@ -2273,7 +2273,8 @@ export async function applyWhatsAppLoopGuard(runtimeState, deps = {}) {
           active: true,
           paused: true,
           requested: false,
-          status: handoff?.status ?? "bot",
+          status: "pausado_loop",
+          actionLabel: "Atendimento pausado",
           reason: detection.reason,
         },
       },
@@ -2735,6 +2736,8 @@ export async function executeV2RuntimePrelude(body, options = {}) {
         },
       },
     )
+    const autoPauseActive = handoffState.handoff?.metadata?.autoPause?.active === true
+
     return {
       stage: "handoff_paused",
       prelude,
@@ -2749,8 +2752,9 @@ export async function executeV2RuntimePrelude(body, options = {}) {
           active: true,
           paused: true,
           requested: true,
-          status: handoffState.handoff?.status ?? "active_human",
-          actionLabel: "Atendimento humano",
+          status: autoPauseActive ? "pausado_loop" : handoffState.handoff?.status ?? "active_human",
+          actionLabel: autoPauseActive ? "Atendimento pausado" : "Atendimento humano",
+          reason: autoPauseActive ? handoffState.handoff?.metadata?.autoPause?.reason ?? "loop_detected" : null,
         },
       },
     }

@@ -109,16 +109,6 @@ Ordem recomendada para cada melhoria:
   4. simulador efemero continua sem gravar `chats`/`mensagens`
   5. validar no admin/laboratorio
 
-- Limpeza operacional do Laboratorio/logs.
-  Feito:
-  1. criar TTL por categoria
-  2. incluir dry-run
-  3. preservar logs com `payload.pinned` ou `payload.keep`
-  4. executar limpeza em lote
-  5. registrar resultado da limpeza
-  Pendente:
-  1. expor botao/controle visual no Laboratorio se necessario
-
 ## Trilha 6 - Home, billing e produto
 
 ### Critico

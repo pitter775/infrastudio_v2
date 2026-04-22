@@ -19,6 +19,197 @@ function truncateText(value, max = 240) {
   return normalized.length > max ? `${normalized.slice(0, max - 3)}...` : normalized
 }
 
+const SUPPRESSED_LOG_TYPES = [
+  "chat_runtime_event",
+  "openai_event",
+  "api_runtime_event",
+  "whatsapp_event",
+  "whatsapp_worker_trace",
+]
+
+const SUPPRESSED_LOG_ORIGINS = ["chat_runtime", "openai", "whatsapp_worker", "whatsapp-session"]
+
+const LOG_RETENTION_POLICIES = [
+  {
+    id: "lab_scenarios",
+    label: "Laboratorio",
+    olderThanDays: 30,
+    types: ["lab_chat_scenario"],
+    origins: ["laboratorio"],
+  },
+  {
+    id: "billing_info",
+    label: "Billing",
+    olderThanDays: 90,
+    types: [
+      "billing_event",
+      "billing_checkout_expired",
+      "billing_project_unblocked",
+      "billing_plan_confirmed",
+      "billing_topup_confirmed",
+      "billing_whatsapp_alert",
+      "billing_email_alert",
+      "mercado_pago_webhook_received",
+    ],
+    origins: ["billing_runtime", "mercado_pago_webhook"],
+  },
+  {
+    id: "maintenance",
+    label: "Manutencao",
+    olderThanDays: 15,
+    types: ["logs_cleanup"],
+    origins: ["laboratorio"],
+  },
+  {
+    id: "default_info",
+    label: "Info geral",
+    olderThanDays: 14,
+  },
+]
+
+function formatSupabaseInList(values) {
+  return `(${values.map((value) => `"${String(value).replace(/"/g, '\\"')}"`).join(",")})`
+}
+
+function applySuppressedLogFilters(query, filters = {}) {
+  const type = String(filters.type || "").trim().toLowerCase()
+  const origin = String(filters.origin || "").trim().toLowerCase()
+
+  let nextQuery = query
+
+  if (!type) {
+    nextQuery = nextQuery.not("tipo", "in", formatSupabaseInList(SUPPRESSED_LOG_TYPES))
+  }
+
+  if (!origin) {
+    nextQuery = nextQuery.not("origem", "in", formatSupabaseInList(SUPPRESSED_LOG_ORIGINS))
+  }
+
+  return nextQuery
+}
+
+function isProtectedLogPayload(payload) {
+  return payload?.pinned === true || payload?.keep === true
+}
+
+function isRetainedLogLevel(level) {
+  return level === "error" || level === "warn"
+}
+
+function logMatchesRetentionPolicy(row, policy) {
+  const type = String(row?.tipo || "").trim().toLowerCase()
+  const origin = String(row?.origem || "").trim().toLowerCase()
+  const policyTypes = Array.isArray(policy?.types) ? policy.types.map((item) => String(item).trim().toLowerCase()) : []
+  const policyOrigins = Array.isArray(policy?.origins) ? policy.origins.map((item) => String(item).trim().toLowerCase()) : []
+
+  if (!policyTypes.length && !policyOrigins.length) {
+    return true
+  }
+
+  return policyTypes.includes(type) || policyOrigins.includes(origin)
+}
+
+function shouldDeleteByRetentionPolicy(row, policy) {
+  const payload = row?.payload && typeof row.payload === "object" && !Array.isArray(row.payload) ? row.payload : {}
+  const level = normalizeLogLevel(payload.level)
+
+  if (isRetainedLogLevel(level) || isProtectedLogPayload(payload)) {
+    return false
+  }
+
+  return logMatchesRetentionPolicy(row, policy)
+}
+
+async function cleanupLogsByPolicy(policy, filters = {}, deps = {}) {
+  const supabase = deps.supabase ?? getSupabaseAdminClient()
+  const limit = Math.min(Math.max(Number(filters.limit ?? 500) || 500, 1), 2000)
+  const olderThanDays = Math.max(1, Number(policy?.olderThanDays ?? filters.olderThanDays ?? 30) || 30)
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString()
+
+  let query = supabase
+    .from("logs")
+    .select("id, projeto_id, tipo, origem, descricao, payload, created_at")
+    .lt("created_at", cutoff)
+    .order("created_at", { ascending: true })
+    .limit(limit)
+
+  if (filters.projectId) {
+    query = query.eq("projeto_id", filters.projectId)
+  }
+
+  if (filters.type) {
+    query = query.eq("tipo", filters.type)
+  }
+
+  if (filters.origin) {
+    query = query.eq("origem", filters.origin)
+  }
+
+  const { data, error } = await query
+  if (error) {
+    console.error("[logs] failed to list cleanup candidates", error)
+    return null
+  }
+
+  const candidates = (data ?? []).filter((row) => shouldDeleteByRetentionPolicy(row, policy))
+  const ids = candidates.map((row) => row.id).filter(Boolean)
+  const protectedCount = (data ?? []).filter((row) => !shouldDeleteByRetentionPolicy(row, policy) && logMatchesRetentionPolicy(row, policy)).length
+  const matchedCount = (data ?? []).filter((row) => logMatchesRetentionPolicy(row, policy)).length
+
+  if (filters.dryRun === true || !ids.length) {
+    return {
+      id: policy?.id || "default",
+      label: policy?.label || "Sem nome",
+      olderThanDays,
+      cutoff,
+      matched: matchedCount,
+      protected: protectedCount,
+      deleted: 0,
+      candidateIds: ids,
+    }
+  }
+
+  const { error: deleteError } = await supabase.from("logs").delete().in("id", ids)
+  if (deleteError) {
+    console.error("[logs] failed to cleanup logs", deleteError)
+    return null
+  }
+
+  return {
+    id: policy?.id || "default",
+    label: policy?.label || "Sem nome",
+    olderThanDays,
+    cutoff,
+    matched: matchedCount,
+    protected: protectedCount,
+    deleted: ids.length,
+    candidateIds: ids,
+  }
+}
+
+function shouldPersistLogEntry(input, level, payload) {
+  if (payload?.forcePersist === true || payload?.keep === true || payload?.pinned === true) {
+    return true
+  }
+
+  if (level === "error" || level === "warn") {
+    return true
+  }
+
+  const type = String(input?.type || "").trim().toLowerCase()
+  const origin = String(input?.origin || "").trim().toLowerCase()
+
+  if (SUPPRESSED_LOG_TYPES.includes(type)) {
+    return false
+  }
+
+  if (SUPPRESSED_LOG_ORIGINS.includes(origin)) {
+    return false
+  }
+
+  return true
+}
+
 export function normalizeLogLevel(value) {
   const normalized = String(value || "").trim().toLowerCase()
   if (normalized === "warning") {
@@ -180,6 +371,11 @@ export async function createLogEntry(input, deps = {}) {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const payload =
       input?.payload && typeof input.payload === "object" && !Array.isArray(input.payload) ? input.payload : {}
+
+    if (!shouldPersistLogEntry(input, level, payload)) {
+      return null
+    }
+
     const record = {
       projeto_id: input?.projectId ?? payload.projetoId ?? null,
       tipo: String(input?.type || "system").trim() || "system",
@@ -214,11 +410,14 @@ export async function listAdminLogs(filters = {}, deps = {}) {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const safeLimit = Math.min(Math.max(Number(filters.limit ?? 100) || 100, 1), 200)
 
-    let query = supabase
+    let query = applySuppressedLogFilters(
+      supabase
       .from("logs")
       .select("id, projeto_id, tipo, origem, descricao, payload, created_at")
       .order("created_at", { ascending: false, nullsFirst: false })
-      .limit(safeLimit)
+      .limit(safeLimit),
+      filters,
+    )
 
     if (filters.projectId) {
       query = query.eq("projeto_id", filters.projectId)
@@ -311,6 +510,64 @@ export async function deleteAdminLogs(filters = {}, deps = {}) {
 export async function cleanupAdminLogs(filters = {}, deps = {}) {
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const retentionMode = filters.mode === "retention"
+
+    if (retentionMode) {
+      const policies = LOG_RETENTION_POLICIES
+      const runs = []
+
+      for (const policy of policies) {
+        const result = await cleanupLogsByPolicy(policy, filters, { supabase })
+        if (!result) {
+          return null
+        }
+        runs.push(result)
+      }
+
+      const summary = runs.reduce(
+        (accumulator, current) => {
+          accumulator.matched += current.matched
+          accumulator.protected += current.protected
+          accumulator.deleted += current.deleted
+          accumulator.candidateIds.push(...current.candidateIds)
+          return accumulator
+        },
+        { matched: 0, protected: 0, deleted: 0, candidateIds: [] },
+      )
+
+      if (filters.dryRun !== true && summary.deleted > 0) {
+        await createLogEntry({
+          type: "logs_cleanup",
+          origin: "laboratorio",
+          level: "info",
+          description: "Limpeza automatica de logs executada por politica de retencao.",
+          payload: {
+            mode: "retention",
+            deleted: summary.deleted,
+            protected: summary.protected,
+            runs: runs.map((run) => ({
+              id: run.id,
+              label: run.label,
+              olderThanDays: run.olderThanDays,
+              matched: run.matched,
+              protected: run.protected,
+              deleted: run.deleted,
+            })),
+          },
+        })
+      }
+
+      return {
+        dryRun: filters.dryRun === true,
+        mode: "retention",
+        matched: summary.matched,
+        protected: summary.protected,
+        deleted: summary.deleted,
+        candidateIds: summary.candidateIds,
+        policies: runs,
+      }
+    }
+
     const olderThanDays = Math.max(1, Number(filters.olderThanDays ?? 30) || 30)
     const limit = Math.min(Math.max(Number(filters.limit ?? 500) || 500, 1), 2000)
     const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000).toISOString()
@@ -342,7 +599,7 @@ export async function cleanupAdminLogs(filters = {}, deps = {}) {
 
     const candidates = (data ?? []).filter((row) => {
       const payload = row.payload && typeof row.payload === "object" && !Array.isArray(row.payload) ? row.payload : {}
-      return payload.pinned !== true && payload.keep !== true
+      return !isProtectedLogPayload(payload)
     })
     const ids = candidates.map((row) => row.id).filter(Boolean)
 

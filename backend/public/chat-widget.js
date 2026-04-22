@@ -94,6 +94,7 @@
     var loading = false;
     var expanded = false;
     var humanHandoffActive = false;
+    var loopPausedActive = false;
     var lastSyncedMessageAt = null;
     var pollingMessages = false;
     var requestInFlight = false;
@@ -283,7 +284,8 @@
       ".chat-title { font-size: 15px; font-weight: 700; color: " + panelText + "; }",
       ".chat-subtitle { margin-top: 5px; display: inline-flex; align-items: center; gap: 7px; font-size: 10px; color: rgba(148,163,184,0.84); text-transform: uppercase; letter-spacing: .08em; }",
       ".chat-human-tag { display: none; margin-left: 2px; border-radius: 999px; border: 1px solid rgba(251,191,36,0.2); background: rgba(251,191,36,0.1); padding: 3px 7px; color: rgba(253,230,138,0.92); font-size: 9px; font-weight: 800; letter-spacing: .08em; }",
-      ".chat-wrap.human-active .chat-human-tag { display: inline-flex; }",
+      ".chat-wrap.human-active .chat-human-tag, .chat-wrap.loop-paused .chat-human-tag { display: inline-flex; }",
+      ".chat-wrap.loop-paused .chat-human-tag { border-color: rgba(56,189,248,0.2); background: rgba(14,165,233,0.1); color: rgba(186,230,253,0.94); }",
       ".chat-status-dot { width: 7px; height: 7px; border-radius: 999px; background: " + (hasAgent ? "#22c55e" : "rgba(148,163,184,0.78)") + "; box-shadow: 0 0 0 0 " + (hasAgent ? "rgba(34,197,94,0.45)" : "rgba(148,163,184,0.22)") + "; animation: " + (hasAgent ? "chatStatusPulse 1.7s infinite" : "none") + "; }",
       "@keyframes chatStatusPulse { 0% { box-shadow: 0 0 0 0 rgba(34,197,94,0.42); } 70% { box-shadow: 0 0 0 8px rgba(34,197,94,0); } 100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); } }",
       ".chat-action { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; background: transparent; color: rgba(148,163,184,0.86); border-radius: 10px; cursor: pointer; transition: background-color .18s ease, box-shadow .18s ease, transform .18s ease, color .18s ease; }",
@@ -439,8 +441,22 @@
 
     var subtitle = document.createElement("div");
     subtitle.className = "chat-subtitle";
-    subtitle.innerHTML = '<span class="chat-status-dot" aria-hidden="true"></span><span class="chat-status-label">' + (hasAgent ? "online" : "offline") + '</span><span class="chat-human-tag">humano atendendo</span>';
     titleWrap.appendChild(subtitle);
+
+    var statusDot = document.createElement("span");
+    statusDot.className = "chat-status-dot";
+    statusDot.setAttribute("aria-hidden", "true");
+    subtitle.appendChild(statusDot);
+
+    var statusLabel = document.createElement("span");
+    statusLabel.className = "chat-status-label";
+    statusLabel.textContent = hasAgent ? "online" : "offline";
+    subtitle.appendChild(statusLabel);
+
+    var humanTag = document.createElement("span");
+    humanTag.className = "chat-human-tag";
+    humanTag.textContent = "humano atendendo";
+    subtitle.appendChild(humanTag);
 
     var headerActions = document.createElement("div");
     headerActions.style.display = "flex";
@@ -1453,21 +1469,66 @@
       };
     }
 
-    function updateHumanHandoffState(nextActive) {
-      humanHandoffActive = nextActive === true;
-      wrap.classList.toggle("human-active", humanHandoffActive);
+    function resolveHumanHandoffState(handoff) {
+      if (!handoff || typeof handoff !== "object") {
+        return {
+          active: false,
+          loopPaused: false,
+          label: "humano atendendo",
+        };
+      }
+
+      var status = String(handoff.status || "").toLowerCase();
+      var reason = String(handoff.reason || "").toLowerCase();
+      var loopPaused =
+        status.indexOf("pausado_loop") !== -1 ||
+        (handoff.paused === true && reason.indexOf("loop") !== -1);
+
+      if (loopPaused) {
+        return {
+          active: true,
+          loopPaused: true,
+          label: "pausado por loop",
+        };
+      }
+
+      var active =
+        handoff.active === true ||
+        handoff.requested === true ||
+        handoff.paused === true ||
+        /human|humano|pending|active|requested/i.test(status);
+
+      return {
+        active: active,
+        loopPaused: false,
+        label: handoff.requested === true || /pending|requested/i.test(status) ? "humano acionado" : "humano atendendo",
+      };
     }
 
-    function resolveHumanHandoffActive(handoff) {
-      if (!handoff || typeof handoff !== "object") {
-        return false;
+    function updateHumanHandoffState(handoff) {
+      var state = resolveHumanHandoffState(handoff);
+      humanHandoffActive = state.active === true && state.loopPaused !== true;
+      loopPausedActive = state.loopPaused === true;
+      wrap.classList.toggle("human-active", humanHandoffActive);
+      wrap.classList.toggle("loop-paused", loopPausedActive);
+      humanTag.textContent = state.label || "humano atendendo";
+    }
+
+    function upsertLoopPausedNotice(handoff, createdAt) {
+      var state = resolveHumanHandoffState(handoff);
+      if (!state.loopPaused) {
+        return;
       }
 
-      if (handoff.active === true || handoff.requested === true || handoff.paused === true) {
-        return true;
-      }
-
-      return /human|humano|pending|active|requested/i.test(String(handoff.status || ""));
+      upsertAssistantMessage({
+        id: "ai-loop-paused-notice",
+        text: "Atendimento pausado temporariamente por seguranca. Detectamos um possivel loop no WhatsApp e interrompemos as respostas automaticas ate a conversa ser revisada.",
+        isAi: true,
+        createdAt: createdAt || new Date().toISOString(),
+        cta: null,
+        actions: [],
+        assets: [],
+      });
     }
 
     function clampDragOffsets() {
@@ -1860,7 +1921,7 @@
           lastSyncedMessageAt = payload.createdAt;
         }
 
-        updateHumanHandoffState(resolveHumanHandoffActive(payload.handoff));
+        updateHumanHandoffState(payload.handoff);
 
         if (payload.reply || payload.error || (Array.isArray(payload.assets) && payload.assets.length)) {
           upsertAssistantMessage({
@@ -1874,6 +1935,8 @@
             handoffAction: createHumanHandoffAction(payload.handoff),
             assets: Array.isArray(payload.assets) ? payload.assets : [],
           });
+        } else {
+          upsertLoopPausedNotice(payload.handoff, payload.createdAt);
         }
       } catch (error) {
         messages.push(assignMessageOrder({
@@ -2216,7 +2279,7 @@
     renderAttachmentsPreview();
     updateComposerState();
     syncContactBox();
-    updateHumanHandoffState(false);
+    updateHumanHandoffState(null);
     renderMessages();
     updateExpandState();
 

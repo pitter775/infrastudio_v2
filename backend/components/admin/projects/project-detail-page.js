@@ -89,6 +89,7 @@ function updatePanelQuery(panelId, params = {}) {
   url.searchParams.delete('api')
   url.searchParams.delete('channel')
   url.searchParams.delete('widget')
+  url.searchParams.delete('ml_notice')
 
   Object.entries(params).forEach(([key, value]) => {
     if (value) {
@@ -106,6 +107,7 @@ function clearProjectDetailQuery() {
   url.searchParams.delete('api')
   url.searchParams.delete('channel')
   url.searchParams.delete('widget')
+  url.searchParams.delete('ml_notice')
   window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`)
 }
 
@@ -1828,8 +1830,16 @@ function ManagerFrame({ children }) {
   )
 }
 
-function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChange, onFooterStateChange, compact = false }) {
+function MercadoLivrePanel({
+  project,
+  activeTab: controlledActiveTab,
+  onTabChange,
+  onFooterStateChange,
+  compact = false,
+  initialNotice = '',
+}) {
   const activeCount = project.directConnections?.mercadoLivre ?? 0
+  const projectIdentifier = project.routeKey || project.slug || project.id
   const [activeTab, setActiveTab] = useState('connection')
   const currentTab = controlledActiveTab || activeTab
   const [step, setStep] = useState(activeCount ? 2 : 1)
@@ -1839,10 +1849,48 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
   const [clientSecret, setClientSecret] = useState('')
   const [seedId, setSeedId] = useState('')
   const [loadingConnector, setLoadingConnector] = useState(false)
+  const [resolvingStore, setResolvingStore] = useState(false)
+  const [savingConnector, setSavingConnector] = useState(false)
+  const [startingOAuth, setStartingOAuth] = useState(false)
+  const [loadingTestItems, setLoadingTestItems] = useState(false)
+  const [testItems, setTestItems] = useState([])
+  const [connectorMeta, setConnectorMeta] = useState({
+    id: null,
+    oauthConnected: false,
+    oauthNickname: '',
+    oauthUserId: '',
+  })
+  const [feedback, setFeedback] = useState(() =>
+    initialNotice === 'oauth_ok'
+      ? { tone: 'success', text: 'Conta do Mercado Livre conectada. Agora voce ja pode testar a listagem da loja.' }
+      : initialNotice === 'oauth_error'
+        ? { tone: 'error', text: 'Nao foi possivel concluir a autenticacao do Mercado Livre.' }
+        : null,
+  )
   const tabs = [
     { id: 'connection', label: 'Conexao', icon: Store },
+    { id: 'test', label: 'Teste', icon: PackageSearch },
     { id: 'tutorial', label: 'Tutorial', icon: Files },
   ]
+
+  function applyConnector(connector) {
+    if (!connector || typeof connector !== 'object') {
+      return
+    }
+
+    const config = connector.config && typeof connector.config === 'object' ? connector.config : {}
+    setStoreName((current) => current || connector.name || 'Loja Mercado Livre')
+    setAppId((current) => current || String(config.appId || config.app_id || config.clientId || config.client_id || ''))
+    setClientSecret((current) => current || String(config.clientSecret || config.client_secret || config.secret || ''))
+    setSeedId((current) => current || String(config.seedId || config.seed_id || config.sellerId || config.seller_id || ''))
+    setConnectorMeta({
+      id: connector.id || null,
+      oauthConnected: Boolean((config.oauthAccessToken || config.access_token) && (config.oauthUserId || config.user_id || config.sellerUserId)),
+      oauthNickname: String(config.oauthNickname || config.nickname || ''),
+      oauthUserId: String(config.oauthUserId || config.user_id || config.sellerUserId || ''),
+    })
+    setStep(2)
+  }
 
   useEffect(() => {
     let active = true
@@ -1851,7 +1899,9 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
       setLoadingConnector(true)
 
       try {
-        const response = await fetch(`/api/app/projetos/${project.routeKey || project.slug || project.id}/conectores`)
+        const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores`, {
+          cache: 'no-store',
+        })
         const data = await response.json().catch(() => ({}))
 
         if (!active || !response.ok) {
@@ -1867,12 +1917,7 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
           return
         }
 
-        const config = connector.config && typeof connector.config === 'object' ? connector.config : {}
-        setStoreName((current) => current || connector.name || 'Loja Mercado Livre')
-        setAppId((current) => current || String(config.appId || config.app_id || config.clientId || config.client_id || ''))
-        setClientSecret((current) => current || String(config.clientSecret || config.client_secret || config.secret || ''))
-        setSeedId((current) => current || String(config.seedId || config.seed_id || config.sellerId || config.seller_id || ''))
-        setStep(2)
+        applyConnector(connector)
       } catch {}
       finally {
         if (active) {
@@ -1886,20 +1931,169 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
     return () => {
       active = false
     }
-  }, [project.id, project.routeKey, project.slug])
+  }, [projectIdentifier])
+
+  useEffect(() => {
+    onFooterStateChange?.({ step, activeTab: currentTab, saving: savingConnector })
+  }, [currentTab, onFooterStateChange, savingConnector, step])
+
+  useEffect(() => {
+    if (currentTab !== 'test' || !connectorMeta.oauthConnected) {
+      return
+    }
+
+    void handleLoadTestItems()
+  }, [connectorMeta.oauthConnected, currentTab])
 
   function handleResolveStore(event) {
     event.preventDefault()
-    const sellerMatch = productUrl.match(/(?:seller_id|sellerId|official_store_id)=([^&]+)/i)
-    const productMatch = productUrl.match(/MLB-?(\d+)/i)
-    setSeedId(sellerMatch?.[1] || productMatch?.[1] || '')
-    setStoreName((current) => current || 'Loja Mercado Livre')
-    setStep(2)
+
+    void (async () => {
+      setResolvingStore(true)
+      setFeedback(null)
+
+      try {
+        const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/resolve`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            productUrl,
+          }),
+        })
+        const data = await response.json().catch(() => ({}))
+        const product = data?.product && typeof data.product === 'object' ? data.product : {}
+
+        setSeedId(String(product.seedId || ''))
+        setStoreName((current) => current || String(product.storeName || '') || 'Loja Mercado Livre')
+        setStep(2)
+
+        if (!response.ok) {
+          setFeedback({
+            tone: 'error',
+            text: data.error || 'Nao foi possivel localizar o seller_id automaticamente. Preencha manualmente.',
+          })
+          return
+        }
+
+        setFeedback({
+          tone: 'success',
+          text:
+            product.source === 'api'
+              ? 'Loja identificada pelo item publico do Mercado Livre.'
+              : product.source === 'api_html'
+                ? `Loja identificada pelo item publico e confirmada pelo HTML da ${product.sourceType === 'store_page' ? 'pagina da loja' : 'pagina do produto'}.`
+              : product.source === 'html_retry'
+                ? `Loja identificada apos nova tentativa automatica no HTML da ${product.sourceType === 'store_page' ? 'pagina da loja' : 'pagina do produto'}.`
+                : 'Loja identificada automaticamente.',
+        })
+      } catch {
+        setSeedId('')
+        setStoreName((current) => current || 'Loja Mercado Livre')
+        setStep(2)
+        setFeedback({
+          tone: 'error',
+          text: 'Nao foi possivel localizar o seller_id automaticamente. Preencha manualmente.',
+        })
+      } finally {
+        setResolvingStore(false)
+      }
+    })()
   }
 
-  useEffect(() => {
-    onFooterStateChange?.({ step, activeTab: currentTab })
-  }, [currentTab, onFooterStateChange, step])
+  async function handleSaveConnection(event) {
+    event.preventDefault()
+    setSavingConnector(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider: 'mercado_livre',
+          storeName,
+          appId,
+          clientSecret,
+          seedId,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel salvar a conexao do Mercado Livre.' })
+        return
+      }
+
+      applyConnector(data.connector)
+      setFeedback({
+        tone: 'success',
+        text: 'Conexao salva. O proximo passo e conectar a conta da loja no OAuth do Mercado Livre.',
+      })
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel salvar a conexao do Mercado Livre.' })
+    } finally {
+      setSavingConnector(false)
+    }
+  }
+
+  async function handleStartOAuth() {
+    setStartingOAuth(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/oauth/start`, {
+        cache: 'no-store',
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok || !data.authorizationUrl) {
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel iniciar a autenticacao do Mercado Livre.' })
+        return
+      }
+
+      window.location.href = data.authorizationUrl
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel iniciar a autenticacao do Mercado Livre.' })
+    } finally {
+      setStartingOAuth(false)
+    }
+  }
+
+  async function handleLoadTestItems() {
+    setLoadingTestItems(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/test?limit=8`, {
+        cache: 'no-store',
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setTestItems([])
+        if (data.connector) {
+          applyConnector(data.connector)
+        }
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar os itens da loja.' })
+        return
+      }
+
+      if (data.connector) {
+        applyConnector(data.connector)
+      }
+
+      setTestItems(Array.isArray(data.items) ? data.items : [])
+    } catch {
+      setTestItems([])
+      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar os itens da loja.' })
+    } finally {
+      setLoadingTestItems(false)
+    }
+  }
 
   return (
     <div className="grid gap-4">
@@ -1930,6 +2124,19 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
         })}
       </div>
 
+      {feedback ? (
+        <div
+          className={cn(
+            'rounded-xl border px-3 py-3 text-sm',
+            feedback.tone === 'success'
+              ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100'
+              : 'border-rose-400/20 bg-rose-500/10 text-rose-100',
+          )}
+        >
+          {feedback.text}
+        </div>
+      ) : null}
+
       {currentTab === 'connection' ? (
         <div className="grid gap-4">
           {loadingConnector ? (
@@ -1947,69 +2154,193 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
                   value={productUrl}
                   onChange={(event) => setProductUrl(event.target.value)}
                   placeholder="Cole a URL de qualquer produto da loja"
+                  disabled={resolvingStore}
                   className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-amber-300/40"
                 />
               </label>
-              {!compact ? <div className="flex justify-end">
-                <Button type="submit" className="rounded-xl">
-                  Avancar
-                </Button>
-              </div> : null}
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400">
+                A resolucao tenta primeiro o item publico da API e, se necessario, refaz a leitura do HTML por alguns segundos para achar o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">seller_id</code>.
+              </div>
+              {!compact ? (
+                <div className="flex justify-end">
+                  <Button type="submit" className="rounded-xl" disabled={resolvingStore}>
+                    {resolvingStore ? 'Localizando...' : 'Avancar'}
+                  </Button>
+                </div>
+              ) : null}
             </form>
           ) : null}
 
           {step === 2 ? (
             <>
-            <form id="mercado-livre-save-form" onSubmit={(event) => event.preventDefault()} />
-            <div className="grid gap-4">
-              <div className="flex justify-start">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={() => setStep(1)}
-                  className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200"
-                >
-                  Voltar e trocar link do produto
-                </Button>
-              </div>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
-                {seedId ? `Identificador sugerido: ${seedId}` : 'Resolucao automatica indisponivel. Preencha manualmente.'}
-              </div>
-              <div className="grid gap-3">
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da loja</span>
-                  <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">App ID</span>
-                  <input value={appId} onChange={(event) => setAppId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Client secret</span>
-                  <input value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                </label>
-                <label className="block">
-                  <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Seed ID</span>
-                  <input value={seedId} onChange={(event) => setSeedId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                </label>
-              </div>
+              <form id="mercado-livre-save-form" className="grid gap-4" onSubmit={handleSaveConnection}>
+                <div className="flex justify-start">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setStep(1)}
+                    className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200"
+                  >
+                    Voltar e trocar link do produto
+                  </Button>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
+                  {seedId ? `Identificador sugerido: ${seedId}` : 'Resolucao automatica indisponivel. Preencha manualmente.'}
+                </div>
+                {connectorMeta.id ? (
+                  <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-3 text-sm text-sky-100">
+                    {connectorMeta.oauthConnected
+                      ? `Conta conectada: ${connectorMeta.oauthNickname || 'loja autorizada'}${connectorMeta.oauthUserId ? ` (${connectorMeta.oauthUserId})` : ''}`
+                      : 'Conexao salva. Falta autorizar a conta da loja no OAuth do Mercado Livre.'}
+                  </div>
+                ) : null}
+                <div className="grid gap-3">
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da loja</span>
+                    <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">App ID</span>
+                    <input value={appId} onChange={(event) => setAppId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Client secret</span>
+                    <input value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Seed ID</span>
+                    <input value={seedId} onChange={(event) => setSeedId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                  </label>
+                </div>
+              </form>
               <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
                 <p className="font-semibold">Pegue os dados direto no Mercado Livre</p>
                 <p className="mt-1 text-amber-50/80">
                   Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
                 </p>
-                <a
-                  href="https://developers.mercadolivre.com.br/devcenter"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="mt-3 inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
-                >
-                  Abrir painel do Mercado Livre
-                </a>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <a
+                    href="https://developers.mercadolivre.com.br/devcenter"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
+                  >
+                    Abrir painel do Mercado Livre
+                  </a>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={savingConnector || startingOAuth || !connectorMeta.id}
+                    onClick={handleStartOAuth}
+                    className="h-9 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100 disabled:opacity-50"
+                  >
+                    {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Reconectar conta' : 'Conectar conta'}
+                  </Button>
+                </div>
               </div>
-            </div>
             </>
           ) : null}
+        </div>
+      ) : null}
+
+      {currentTab === 'test' ? (
+        <div className="grid gap-4">
+          {!connectorMeta.id ? (
+            <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+              Salve a conexao do Mercado Livre primeiro. Depois disso voce libera a autenticacao da conta e testa os primeiros itens da loja.
+            </div>
+          ) : !connectorMeta.oauthConnected ? (
+            <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+              <p className="font-semibold">Falta conectar a conta da loja</p>
+              <p className="mt-1 text-sky-100/80">
+                Os dados do aplicativo ja podem estar salvos, mas a listagem dos itens so funciona depois do OAuth com a conta do Mercado Livre.
+              </p>
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={startingOAuth}
+                onClick={handleStartOAuth}
+                className="mt-3 h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+              >
+                {startingOAuth ? 'Conectando...' : 'Conectar conta agora'}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                <div>
+                  <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Conta conectada</div>
+                  <div className="mt-2 text-base font-semibold text-white">
+                    {connectorMeta.oauthNickname || storeName || 'Loja Mercado Livre'}
+                  </div>
+                  <div className="mt-1 text-sm text-slate-400">
+                    Usuario Mercado Livre: {connectorMeta.oauthUserId || 'n/a'}
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={loadingTestItems}
+                  onClick={handleLoadTestItems}
+                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+                >
+                  {loadingTestItems ? 'Atualizando...' : 'Atualizar listagem'}
+                </Button>
+              </div>
+
+              {loadingTestItems ? (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+                  Carregando os primeiros itens da loja...
+                </div>
+              ) : null}
+
+              {!loadingTestItems && testItems.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+                  Nenhum item retornado pelo Mercado Livre para esta conta ainda.
+                </div>
+              ) : null}
+
+              {testItems.length > 0 ? (
+                <div className="grid gap-3">
+                  {testItems.map((item) => (
+                    <a
+                      key={item.id}
+                      href={item.permalink || '#'}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-sky-400/30 hover:bg-white/[0.05] md:grid-cols-[72px_minmax(0,1fr)_auto]"
+                    >
+                      <div className="h-[72px] w-[72px] overflow-hidden rounded-xl border border-white/10 bg-[#080e1d]">
+                        {item.thumbnail ? (
+                          <img src={item.thumbnail} alt={item.title} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full items-center justify-center text-xs text-slate-500">sem foto</div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-semibold text-white">{item.title || item.id}</div>
+                        <div className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-500">{item.id}</div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                            {item.currencyId || 'BRL'} {Number(item.price || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                            estoque {Number(item.availableQuantity || 0)}
+                          </span>
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                            {item.status || 'sem status'}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-start justify-end text-xs uppercase tracking-[0.16em] text-sky-200">
+                        abrir
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : null}
+            </>
+          )}
         </div>
       ) : null}
 
@@ -2019,7 +2350,7 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
             <p className="text-base font-semibold text-white">Tutorial rapido</p>
             <p className="text-slate-400">Como conectar o Mercado Livre</p>
             <p className="leading-6 text-slate-400">
-              Aqui funciona em 2 etapas bem simples: primeiro voce cadastra a loja com os dados do aplicativo, depois conecta a conta do Mercado Livre para liberar o acesso.
+              Aqui funciona em 3 etapas: primeiro voce salva a loja com os dados do app, depois conecta a conta do Mercado Livre via OAuth e por fim valida tudo na aba de teste listando os primeiros itens da loja.
             </p>
           </div>
 
@@ -2029,7 +2360,10 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
               Etapa 1. Cadastrar a loja: crie um aplicativo do tipo <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Web</code>, ative as opcoes pedidas pelo Mercado Livre e copie o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">APP ID</code> e o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">CLIENT SECRET</code> para este cadastro.
             </p>
             <p className="mt-2 text-sm leading-6 text-slate-400">
-              Etapa 2. Conectar a loja: depois de salvar, clique em conectar para autorizar a conta do Mercado Livre e finalizar a integracao.
+              Etapa 2. Conectar a loja: depois de salvar, clique em conectar para autorizar a conta do Mercado Livre e finalizar a integracao OAuth.
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Etapa 3. Testar a listagem: abra a aba <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Teste</code> para buscar os primeiros itens da loja usando a conta autorizada.
             </p>
             <a
               href="https://developers.mercadolivre.com.br/devcenter"
@@ -2046,9 +2380,6 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
             <p className="text-sm leading-6 text-slate-400">
               Abra para copiar os links que o Mercado Livre vai pedir na configuracao.
             </p>
-            <p className="text-sm leading-6 text-slate-400">
-              Use os links abaixo exatamente como estao. Se o campo de notificacoes nao aceitar o endereco direto, use uma URL publica intermediaria.
-            </p>
           </div>
 
           <div className="grid gap-5">
@@ -2063,9 +2394,6 @@ function MercadoLivrePanel({ project, activeTab: controlledActiveTab, onTabChang
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Link de notificacoes</p>
               <p className="mt-2 text-sm leading-6 text-slate-400">
                 Em alguns casos, o Mercado Livre pode nao aceitar esse endereco direto nesse campo.
-              </p>
-              <p className="mt-1 text-sm leading-6 text-slate-400">
-                Se isso acontecer, use uma URL publica intermediaria e aponte essa URL para o endereco abaixo:
               </p>
               <div className="mt-2 bg-transparent px-0 py-0 font-mono text-xs text-sky-200">
                 https://infrastudio.pro/api/mercado-livre/webhook?canal=ml
@@ -2142,16 +2470,19 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
     if (panel.id === 'mercado-livre') {
       return [
         { id: 'connection', label: 'Conexao', icon: Store },
+        { id: 'test', label: 'Teste', icon: PackageSearch },
         { id: 'tutorial', label: 'Tutorial', icon: Files },
       ]
     }
 
     return buildIntegrationTabs(panel.id)
   }, [panel.id])
-  const [activeTab, setActiveTab] = useState(tabs[0]?.id || 'overview')
+  const [activeTab, setActiveTab] = useState(
+    deepLink?.tab && tabs.some((tab) => tab.id === deepLink.tab) ? deepLink.tab : tabs[0]?.id || 'overview',
+  )
   useEffect(() => {
-    setActiveTab(tabs[0]?.id || 'overview')
-  }, [panel.id, tabs])
+    setActiveTab(deepLink?.tab && tabs.some((tab) => tab.id === deepLink.tab) ? deepLink.tab : tabs[0]?.id || 'overview')
+  }, [deepLink?.tab, panel.id, tabs])
 
   const realPanel =
     panel.id === 'apis' ? (
@@ -2175,7 +2506,14 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
         <WidgetManager project={project} initialWidgetId={deepLink?.widget || null} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setWidgetFooter} onStatsChange={handleStatsChange} compact />
       </ManagerFrame>
     ) : panel.id === 'mercado-livre' ? (
-      <MercadoLivrePanel project={project} activeTab={activeTab} onTabChange={setActiveTab} onFooterStateChange={setMercadoFooter} compact />
+      <MercadoLivrePanel
+        project={project}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onFooterStateChange={setMercadoFooter}
+        compact
+        initialNotice={deepLink?.notice || ''}
+      />
     ) : null
   const contentKey = realPanel ? `${panel.id}:manager` : `${panel.id}:${activeTab}`
 
@@ -2589,6 +2927,8 @@ export function AdminProjectDetailPage({ project }) {
           api: params.get('api') || null,
           channel: params.get('channel') || null,
           widget: params.get('widget') || null,
+          tab: params.get('tab') || null,
+          notice: params.get('ml_notice') || null,
         })
         setActivePanel(panel)
         setIsPanelOpen(true)
