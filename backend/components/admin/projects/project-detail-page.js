@@ -1854,6 +1854,15 @@ function MercadoLivrePanel({
   const [startingOAuth, setStartingOAuth] = useState(false)
   const [loadingTestItems, setLoadingTestItems] = useState(false)
   const [testItems, setTestItems] = useState([])
+  const [loadingOrders, setLoadingOrders] = useState(false)
+  const [orders, setOrders] = useState([])
+  const [ordersPaging, setOrdersPaging] = useState({ total: 0, offset: 0, limit: 10 })
+  const [loadingQuestions, setLoadingQuestions] = useState(false)
+  const [questions, setQuestions] = useState([])
+  const [questionsPaging, setQuestionsPaging] = useState({ total: 0, offset: 0, limit: 10 })
+  const [questionDrafts, setQuestionDrafts] = useState({})
+  const [answeringQuestionId, setAnsweringQuestionId] = useState('')
+  const [suggestingQuestionId, setSuggestingQuestionId] = useState('')
   const [connectorMeta, setConnectorMeta] = useState({
     id: null,
     oauthConnected: false,
@@ -1870,6 +1879,8 @@ function MercadoLivrePanel({
   const tabs = [
     { id: 'connection', label: 'Conexao', icon: Store },
     { id: 'test', label: 'Teste', icon: PackageSearch },
+    { id: 'orders', label: 'Pedidos', icon: Files },
+    { id: 'questions', label: 'Perguntas', icon: MessageSquare },
     { id: 'tutorial', label: 'Tutorial', icon: Files },
   ]
 
@@ -1943,6 +1954,22 @@ function MercadoLivrePanel({
     }
 
     void handleLoadTestItems()
+  }, [connectorMeta.oauthConnected, currentTab])
+
+  useEffect(() => {
+    if (currentTab !== 'orders' || !connectorMeta.oauthConnected) {
+      return
+    }
+
+    void handleLoadOrders()
+  }, [connectorMeta.oauthConnected, currentTab])
+
+  useEffect(() => {
+    if (currentTab !== 'questions' || !connectorMeta.oauthConnected) {
+      return
+    }
+
+    void handleLoadQuestions()
   }, [connectorMeta.oauthConnected, currentTab])
 
   function handleResolveStore(event) {
@@ -2095,6 +2122,167 @@ function MercadoLivrePanel({
     }
   }
 
+  async function handleLoadOrders(nextOffset = 0) {
+    setLoadingOrders(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(
+        `/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/orders?limit=10&offset=${nextOffset}`,
+        {
+          cache: 'no-store',
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setOrders([])
+        setOrdersPaging({ total: 0, offset: 0, limit: 10 })
+        if (data.connector) {
+          applyConnector(data.connector)
+        }
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar os pedidos da loja.' })
+        return
+      }
+
+      if (data.connector) {
+        applyConnector(data.connector)
+      }
+
+      setOrders(Array.isArray(data.orders) ? data.orders : [])
+      setOrdersPaging({
+        total: Number(data?.paging?.total || 0),
+        offset: Number(data?.paging?.offset || 0),
+        limit: Number(data?.paging?.limit || 10),
+      })
+    } catch {
+      setOrders([])
+      setOrdersPaging({ total: 0, offset: 0, limit: 10 })
+      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar os pedidos da loja.' })
+    } finally {
+      setLoadingOrders(false)
+    }
+  }
+
+  async function handleLoadQuestions(nextOffset = 0) {
+    setLoadingQuestions(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(
+        `/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/questions?limit=10&offset=${nextOffset}`,
+        {
+          cache: 'no-store',
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setQuestions([])
+        setQuestionsPaging({ total: 0, offset: 0, limit: 10 })
+        if (data.connector) {
+          applyConnector(data.connector)
+        }
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar as perguntas da loja.' })
+        return
+      }
+
+      if (data.connector) {
+        applyConnector(data.connector)
+      }
+
+      setQuestions(Array.isArray(data.questions) ? data.questions : [])
+      setQuestionsPaging({
+        total: Number(data?.paging?.total || 0),
+        offset: Number(data?.paging?.offset || 0),
+        limit: Number(data?.paging?.limit || 10),
+      })
+    } catch {
+      setQuestions([])
+      setQuestionsPaging({ total: 0, offset: 0, limit: 10 })
+      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar as perguntas da loja.' })
+    } finally {
+      setLoadingQuestions(false)
+    }
+  }
+
+  async function handleAnswerQuestion(questionId) {
+    const nextText = String(questionDrafts?.[questionId] || '').trim()
+    if (!questionId || !nextText) {
+      setFeedback({ tone: 'error', text: 'Escreva a resposta antes de enviar.' })
+      return
+    }
+
+    setAnsweringQuestionId(questionId)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          questionId,
+          text: nextText,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel responder a pergunta.' })
+        return
+      }
+
+      setQuestionDrafts((current) => ({ ...current, [questionId]: '' }))
+      setFeedback({ tone: 'success', text: 'Pergunta respondida no Mercado Livre.' })
+      await handleLoadQuestions(questionsPaging.offset || 0)
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel responder a pergunta.' })
+    } finally {
+      setAnsweringQuestionId('')
+    }
+  }
+
+  async function handleSuggestQuestion(question) {
+    if (!question?.id) {
+      return
+    }
+
+    setSuggestingQuestionId(question.id)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/questions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'suggest',
+          questionText: question.text,
+          itemId: question.itemId,
+          itemTitle: question.itemTitle || '',
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok || !String(data?.text || '').trim()) {
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel gerar sugestao com o agente.' })
+        return
+      }
+
+      setQuestionDrafts((current) => ({
+        ...current,
+        [question.id]: String(data.text || '').trim(),
+      }))
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel gerar sugestao com o agente.' })
+    } finally {
+      setSuggestingQuestionId('')
+    }
+  }
+
   return (
     <div className="grid gap-4">
       <div className={cn("flex flex-wrap gap-2", compact && "hidden")}>
@@ -2243,7 +2431,7 @@ function MercadoLivrePanel({
         </div>
       ) : null}
 
-      {currentTab === 'test' ? (
+        {currentTab === 'test' ? (
         <div className="grid gap-4">
           {!connectorMeta.id ? (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
@@ -2343,6 +2531,281 @@ function MercadoLivrePanel({
           )}
         </div>
       ) : null}
+
+        {currentTab === 'orders' ? (
+          <div className="grid gap-4">
+            {!connectorMeta.id ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                Salve a conexao do Mercado Livre primeiro. Depois disso voce libera a autenticacao da conta e lista os pedidos.
+              </div>
+            ) : !connectorMeta.oauthConnected ? (
+              <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+                <p className="font-semibold">Falta conectar a conta da loja</p>
+                <p className="mt-1 text-sky-100/80">
+                  A leitura de pedidos so funciona depois do OAuth com a conta do Mercado Livre.
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={startingOAuth}
+                  onClick={handleStartOAuth}
+                  className="mt-3 h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+                >
+                  {startingOAuth ? 'Conectando...' : 'Conectar conta agora'}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Pedidos da conta conectada</div>
+                    <div className="mt-2 text-base font-semibold text-white">
+                      {connectorMeta.oauthNickname || storeName || 'Loja Mercado Livre'}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">
+                      Total encontrado: {ordersPaging.total || 0}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={loadingOrders}
+                      onClick={() => handleLoadOrders(0)}
+                      className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+                    >
+                      {loadingOrders ? 'Atualizando...' : 'Atualizar pedidos'}
+                    </Button>
+                    {ordersPaging.total > ordersPaging.offset + ordersPaging.limit ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={loadingOrders}
+                        onClick={() => handleLoadOrders(ordersPaging.offset + ordersPaging.limit)}
+                        className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200"
+                      >
+                        Proximos pedidos
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {loadingOrders ? (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+                    Carregando pedidos da loja...
+                  </div>
+                ) : null}
+
+                {!loadingOrders && orders.length === 0 ? (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+                    Nenhum pedido retornado pelo Mercado Livre para esta conta ainda.
+                  </div>
+                ) : null}
+
+                {orders.length > 0 ? (
+                  <div className="grid gap-3">
+                    {orders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 md:grid-cols-[minmax(0,1fr)_auto]"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <div className="text-sm font-semibold text-white">Pedido {order.id}</div>
+                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">
+                              {order.status || 'sem status'}
+                            </span>
+                            {order.statusDetail ? (
+                              <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                                {order.statusDetail}
+                              </span>
+                            ) : null}
+                          </div>
+                          <div className="mt-1 text-sm text-slate-400">
+                            {order.buyerNickname || [order.buyerFirstName, order.buyerLastName].filter(Boolean).join(' ') || 'Comprador nao identificado'}
+                          </div>
+                          <div className="mt-3 text-sm text-slate-300">
+                            {order.firstItemTitle || 'Pedido sem item principal identificado'}
+                          </div>
+                          <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                              {order.currencyId || 'BRL'} {Number(order.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                              itens {Number(order.totalItems || 0)}
+                            </span>
+                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                              {order.dateCreated ? new Date(order.dateCreated).toLocaleString('pt-BR') : 'sem data'}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right text-xs uppercase tracking-[0.16em] text-slate-500">
+                          {order.shippingId ? `envio ${order.shippingId}` : 'pedido'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
+
+        {currentTab === 'questions' ? (
+          <div className="grid gap-4">
+            {!connectorMeta.id ? (
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
+                Salve a conexao do Mercado Livre primeiro. Depois disso voce libera a autenticacao da conta e lista as perguntas.
+              </div>
+            ) : !connectorMeta.oauthConnected ? (
+              <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4 text-sm text-sky-100">
+                <p className="font-semibold">Falta conectar a conta da loja</p>
+                <p className="mt-1 text-sky-100/80">
+                  A leitura de perguntas so funciona depois do OAuth com a conta do Mercado Livre.
+                </p>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={startingOAuth}
+                  onClick={handleStartOAuth}
+                  className="mt-3 h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+                >
+                  {startingOAuth ? 'Conectando...' : 'Conectar conta agora'}
+                </Button>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                  <div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Perguntas da conta conectada</div>
+                    <div className="mt-2 text-base font-semibold text-white">
+                      {connectorMeta.oauthNickname || storeName || 'Loja Mercado Livre'}
+                    </div>
+                    <div className="mt-1 text-sm text-slate-400">
+                      Total encontrado: {questionsPaging.total || 0}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={loadingQuestions}
+                      onClick={() => handleLoadQuestions(0)}
+                      className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+                    >
+                      {loadingQuestions ? 'Atualizando...' : 'Atualizar perguntas'}
+                    </Button>
+                    {questionsPaging.total > questionsPaging.offset + questionsPaging.limit ? (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={loadingQuestions}
+                        onClick={() => handleLoadQuestions(questionsPaging.offset + questionsPaging.limit)}
+                        className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200"
+                      >
+                        Proximas perguntas
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {loadingQuestions ? (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+                    Carregando perguntas da loja...
+                  </div>
+                ) : null}
+
+                {!loadingQuestions && questions.length === 0 ? (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+                    Nenhuma pergunta retornada pelo Mercado Livre para esta conta ainda.
+                  </div>
+                ) : null}
+
+                {questions.length > 0 ? (
+                  <div className="grid gap-3">
+                    {questions.map((question) => (
+                      <div key={question.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="text-sm font-semibold text-white">Pergunta {question.id}</div>
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">
+                            {question.status || 'sem status'}
+                          </span>
+                          {question.answerStatus ? (
+                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                              resposta {question.answerStatus}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-2 text-sm leading-6 text-slate-200">{question.text || 'Pergunta sem texto.'}</div>
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+                          {question.fromNickname ? (
+                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                              {question.fromNickname}
+                            </span>
+                          ) : null}
+                          {question.itemId ? (
+                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                              item {question.itemId}
+                            </span>
+                          ) : null}
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                            {question.dateCreated ? new Date(question.dateCreated).toLocaleString('pt-BR') : 'sem data'}
+                          </span>
+                        </div>
+                        {question.answerText ? (
+                          <div className="mt-3 rounded-xl border border-emerald-400/15 bg-emerald-500/5 p-3">
+                            <div className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">Resposta</div>
+                            <div className="mt-2 text-sm leading-6 text-slate-200">{question.answerText}</div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-500/5 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-amber-300">
+                                <MessageCircle className="h-3.5 w-3.5" />
+                                Responder agora
+                              </div>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={suggestingQuestionId === question.id}
+                                onClick={() => handleSuggestQuestion(question)}
+                                className="h-8 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 text-[11px] text-emerald-100"
+                              >
+                                {suggestingQuestionId === question.id ? 'Gerando...' : 'Sugerir com agente'}
+                              </Button>
+                            </div>
+                            <textarea
+                              value={questionDrafts?.[question.id] || ''}
+                              onChange={(event) =>
+                                setQuestionDrafts((current) => ({
+                                  ...current,
+                                  [question.id]: event.target.value,
+                                }))
+                              }
+                              placeholder="Digite a resposta que sera publicada no Mercado Livre"
+                              className="mt-3 min-h-[108px] w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 py-3 text-sm text-white outline-none transition focus:border-sky-400/30"
+                            />
+                            <div className="mt-3 flex justify-end">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                disabled={answeringQuestionId === question.id}
+                                onClick={() => handleAnswerQuestion(question.id)}
+                                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+                              >
+                                {answeringQuestionId === question.id ? 'Enviando...' : 'Responder no Mercado Livre'}
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        ) : null}
 
       {currentTab === 'tutorial' ? (
         <div className="grid gap-7 bg-transparent p-0 text-sm text-slate-300">
@@ -2467,13 +2930,15 @@ function IntegrationPanel({ panel, sheetItems, project, deepLink, onCloseSheet =
       ]
     }
 
-    if (panel.id === 'mercado-livre') {
-      return [
-        { id: 'connection', label: 'Conexao', icon: Store },
-        { id: 'test', label: 'Teste', icon: PackageSearch },
-        { id: 'tutorial', label: 'Tutorial', icon: Files },
-      ]
-    }
+      if (panel.id === 'mercado-livre') {
+        return [
+          { id: 'connection', label: 'Conexao', icon: Store },
+          { id: 'test', label: 'Teste', icon: PackageSearch },
+          { id: 'orders', label: 'Pedidos', icon: Files },
+          { id: 'questions', label: 'Perguntas', icon: MessageSquare },
+          { id: 'tutorial', label: 'Tutorial', icon: Files },
+        ]
+      }
 
     return buildIntegrationTabs(panel.id)
   }, [panel.id])

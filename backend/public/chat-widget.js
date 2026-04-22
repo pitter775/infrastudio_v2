@@ -1114,8 +1114,13 @@
       var wrap = document.createElement("div");
       wrap.className = "chat-assets";
 
-      assets.slice(0, 2).forEach(function (asset) {
-        if (!asset || !asset.publicUrl) {
+      assets.slice(0, 3).forEach(function (asset) {
+        if (!asset || (!asset.publicUrl && !asset.targetUrl)) {
+          return;
+        }
+
+        if (asset.kind === "product" || asset.provider === "mercado_livre") {
+          wrap.appendChild(createProductAssetCard(asset));
           return;
         }
 
@@ -1178,6 +1183,56 @@
       });
 
       return wrap;
+    }
+
+    function createProductAssetCard(asset) {
+      var card = document.createElement("div");
+      card.className = "chat-asset image";
+
+      if (asset.publicUrl) {
+        var image = document.createElement("img");
+        image.src = asset.publicUrl;
+        image.alt = asset.nome || "Produto";
+        card.appendChild(image);
+      } else {
+        card.appendChild(createAssetPreviewBadge({ arquivoNome: "PROD", mimeType: "", categoria: "preview" }));
+      }
+
+      var body = document.createElement("div");
+      body.className = "chat-asset-body";
+
+      var meta = document.createElement("div");
+      meta.className = "chat-asset-meta";
+
+      var textWrap = document.createElement("div");
+      var title = document.createElement("div");
+      title.className = "chat-asset-title";
+      title.textContent = asset.nome || "Produto";
+      textWrap.appendChild(title);
+
+      if (asset.descricao) {
+        var subtitle = document.createElement("div");
+        subtitle.className = "chat-asset-subtitle";
+        subtitle.textContent = asset.descricao;
+        textWrap.appendChild(subtitle);
+      }
+
+      meta.appendChild(textWrap);
+
+      var openLabel = document.createElement("div");
+      openLabel.className = "chat-asset-open";
+      openLabel.textContent = asset.priceLabel || "Ver produto";
+      meta.appendChild(openLabel);
+
+      body.appendChild(meta);
+
+      var actions = document.createElement("div");
+      actions.className = "chat-asset-actions";
+      actions.appendChild(createProductAssetAction(asset));
+      body.appendChild(actions);
+
+      card.appendChild(body);
+      return card;
     }
 
     function getAssetExtension(asset) {
@@ -1249,6 +1304,16 @@
         action.textContent = "Abrir";
       }
 
+      return action;
+    }
+
+    function createProductAssetAction(asset) {
+      var action = document.createElement("a");
+      action.className = "chat-asset-action primary";
+      action.href = asset.targetUrl || asset.publicUrl || "#";
+      action.target = "_blank";
+      action.rel = "noreferrer noopener";
+      action.textContent = "Ver no Mercado Livre";
       return action;
     }
 

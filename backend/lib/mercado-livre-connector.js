@@ -497,6 +497,216 @@ function mapMercadoLivreItem(payload) {
     status: sanitizeString(payload?.status),
     permalink: sanitizeString(payload?.permalink),
     thumbnail: sanitizeString(payload?.thumbnail),
+    sellerId: sanitizeString(payload?.seller_id),
+    sellerName: sanitizeString(payload?.seller_name),
+  }
+}
+
+function mapMercadoLivreOrder(payload) {
+  const buyer = payload?.buyer && typeof payload.buyer === "object" ? payload.buyer : {}
+  const orderItems = Array.isArray(payload?.order_items) ? payload.order_items : []
+  const firstItem = orderItems[0]?.item && typeof orderItems[0].item === "object" ? orderItems[0].item : {}
+  const totalItems = orderItems.reduce((sum, item) => sum + (Number(item?.quantity ?? 0) || 0), 0)
+
+  return {
+    id: String(payload?.id ?? "").trim(),
+    status: sanitizeString(payload?.status),
+    statusDetail: sanitizeString(payload?.status_detail),
+    totalAmount: Number(payload?.total_amount ?? 0),
+    currencyId: sanitizeString(payload?.currency_id || "BRL"),
+    dateCreated: sanitizeString(payload?.date_created),
+    dateClosed: sanitizeString(payload?.date_closed),
+    buyerNickname: sanitizeString(buyer?.nickname),
+    buyerFirstName: sanitizeString(buyer?.first_name),
+    buyerLastName: sanitizeString(buyer?.last_name),
+    buyerId: String(buyer?.id ?? "").trim(),
+    shippingId: String(payload?.shipping?.id ?? "").trim(),
+    totalItems,
+    firstItemTitle: sanitizeString(firstItem?.title),
+    firstItemId: sanitizeString(firstItem?.id),
+    tags: Array.isArray(payload?.tags) ? payload.tags.map((tag) => sanitizeString(tag)).filter(Boolean) : [],
+  }
+}
+
+function mapMercadoLivreQuestion(payload) {
+  return {
+    id: String(payload?.id ?? "").trim(),
+    itemId: sanitizeString(payload?.item_id),
+    sellerId: String(payload?.seller_id ?? "").trim(),
+    status: sanitizeString(payload?.status),
+    text: sanitizeString(payload?.text),
+    dateCreated: sanitizeString(payload?.date_created),
+    answerText: sanitizeString(payload?.answer?.text),
+    answerStatus: sanitizeString(payload?.answer?.status),
+    answerDateCreated: sanitizeString(payload?.answer?.date_created),
+    fromId: String(payload?.from?.id ?? "").trim(),
+    fromNickname: sanitizeString(payload?.from?.nickname),
+  }
+}
+
+function normalizeSearchTokens(value) {
+  return sanitizeString(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((token) => token.length >= 3)
+}
+
+function scoreMercadoLivreItem(item, searchTerm) {
+  const tokens = normalizeSearchTokens(searchTerm)
+  if (!tokens.length) {
+    return 0
+  }
+
+  const haystack = normalizeSearchTokens([item?.title, item?.sellerName].filter(Boolean).join(" "))
+  if (!haystack.length) {
+    return 0
+  }
+
+  let score = 0
+  for (const token of tokens) {
+    if (haystack.includes(token)) {
+      score += token.length >= 6 ? 3 : 2
+      continue
+    }
+
+    if (haystack.some((hay) => hay.includes(token) || token.includes(hay))) {
+      score += 1
+    }
+  }
+
+  return score
+}
+
+async function listMercadoLivreUserItemIds(userId, accessToken, options = {}, deps = {}) {
+  const limit = Math.min(Math.max(Number(options.limit ?? 24) || 24, 1), 50)
+  const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
+  const fetchImpl = deps.fetchImpl ?? fetch
+  const searchResponse = await fetchImpl(
+    `${MERCADO_LIVRE_API_BASE}/users/${encodeURIComponent(userId)}/items/search?limit=${limit}&offset=${offset}&orders=last_updated_desc`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    }
+  )
+
+  const searchPayload = await searchResponse.json().catch(() => ({}))
+  if (!searchResponse.ok) {
+    return {
+      itemIds: [],
+      error: searchPayload?.message || "Nao foi possivel listar os itens da loja no Mercado Livre.",
+    }
+  }
+
+  return {
+    itemIds: Array.isArray(searchPayload.results) ? searchPayload.results : [],
+    paging: {
+      total: Number(searchPayload?.paging?.total ?? 0) || 0,
+      limit,
+      offset,
+    },
+    error: null,
+  }
+}
+
+async function loadMercadoLivreItems(itemIds, accessToken, deps = {}) {
+  const fetchImpl = deps.fetchImpl ?? fetch
+  const items = await Promise.all(
+    itemIds.map(async (itemId) => {
+      const itemResponse = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+        cache: "no-store",
+      })
+      const itemPayload = await itemResponse.json().catch(() => ({}))
+      return itemResponse.ok ? mapMercadoLivreItem(itemPayload) : null
+    })
+  )
+
+  return items.filter(Boolean)
+}
+
+async function listMercadoLivreOrders(userId, accessToken, options = {}, deps = {}) {
+  const fetchImpl = deps.fetchImpl ?? fetch
+  const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 20)
+  const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
+  const url = new URL(`${MERCADO_LIVRE_API_BASE}/orders/search`)
+  url.searchParams.set("seller", userId)
+  url.searchParams.set("sort", "date_desc")
+  url.searchParams.set("limit", String(limit))
+  url.searchParams.set("offset", String(offset))
+
+  const response = await fetchImpl(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    return {
+      orders: [],
+      paging: null,
+      error: payload?.message || "Nao foi possivel listar os pedidos da loja no Mercado Livre.",
+    }
+  }
+
+  return {
+    orders: Array.isArray(payload.results) ? payload.results.map(mapMercadoLivreOrder) : [],
+    paging: {
+      total: Number(payload?.paging?.total ?? 0) || 0,
+      limit,
+      offset,
+    },
+    error: null,
+  }
+}
+
+async function listMercadoLivreQuestions(userId, accessToken, options = {}, deps = {}) {
+  const fetchImpl = deps.fetchImpl ?? fetch
+  const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 20)
+  const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
+  const url = new URL(`${MERCADO_LIVRE_API_BASE}/questions/search`)
+  url.searchParams.set("seller_id", userId)
+  url.searchParams.set("api_version", "4")
+  url.searchParams.set("limit", String(limit))
+  url.searchParams.set("offset", String(offset))
+  url.searchParams.set("sort_fields", "date_created")
+  url.searchParams.set("sort_types", "DESC")
+
+  const response = await fetchImpl(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    return {
+      questions: [],
+      paging: null,
+      error: payload?.message || "Nao foi possivel listar as perguntas da loja no Mercado Livre.",
+    }
+  }
+
+  return {
+    questions: Array.isArray(payload.questions) ? payload.questions.map(mapMercadoLivreQuestion) : [],
+    paging: {
+      total: Number(payload?.total ?? 0) || 0,
+      limit,
+      offset,
+    },
+    error: null,
   }
 }
 
@@ -663,41 +873,19 @@ export async function listMercadoLivreTestItemsForUser(project, user, options = 
     }
 
     const limit = Math.min(Math.max(Number(options.limit ?? 8) || 8, 1), 12)
-    const fetchImpl = deps.fetchImpl ?? fetch
-    const searchResponse = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/users/${encodeURIComponent(userId)}/items/search?limit=${limit}`, {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    })
-
-    const searchPayload = await searchResponse.json().catch(() => ({}))
-    if (!searchResponse.ok) {
+    const { itemIds, error: searchError } = await listMercadoLivreUserItemIds(userId, accessToken, { limit }, deps)
+    if (searchError) {
       return {
         items: [],
         connector: resolvedConnector,
-        error: searchPayload?.message || "Nao foi possivel listar os itens da loja no Mercado Livre.",
+        error: searchError,
       }
     }
 
-    const itemIds = Array.isArray(searchPayload.results) ? searchPayload.results.slice(0, limit) : []
-    const items = await Promise.all(
-      itemIds.map(async (itemId) => {
-        const itemResponse = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}`, {
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            Accept: "application/json",
-          },
-          cache: "no-store",
-        })
-        const itemPayload = await itemResponse.json().catch(() => ({}))
-        return itemResponse.ok ? mapMercadoLivreItem(itemPayload) : null
-      }),
-    )
+    const items = await loadMercadoLivreItems(itemIds.slice(0, limit), accessToken, deps)
 
     return {
-      items: items.filter(Boolean),
+      items,
       connector: resolvedConnector,
       error: null,
     }
@@ -707,6 +895,142 @@ export async function listMercadoLivreTestItemsForUser(project, user, options = 
       items: [],
       connector: null,
       error: error instanceof Error ? error.message : "Nao foi possivel listar os itens da loja.",
+    }
+  }
+}
+
+export async function listMercadoLivreOrdersForUser(project, user, options = {}, deps = {}) {
+  if (!project?.id || !userCanAccessProject(user, project.id)) {
+    return { orders: [], paging: null, connector: null, error: "Projeto nao encontrado." }
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+    if (!connector?.id) {
+      return { orders: [], paging: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
+    }
+
+    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
+    const config = getConnectorConfig(resolvedConnector)
+    const userId = sanitizeString(config.oauthUserId)
+
+    if (!userId) {
+      return { orders: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+    }
+
+    const { orders, paging, error } = await listMercadoLivreOrders(userId, accessToken, options, deps)
+
+    return {
+      orders,
+      paging,
+      connector: resolvedConnector,
+      error,
+    }
+  } catch (error) {
+    console.error("[mercado-livre] failed to list orders", error)
+    return {
+      orders: [],
+      paging: null,
+      connector: null,
+      error: error instanceof Error ? error.message : "Nao foi possivel listar os pedidos da loja.",
+    }
+  }
+}
+
+export async function listMercadoLivreQuestionsForUser(project, user, options = {}, deps = {}) {
+  if (!project?.id || !userCanAccessProject(user, project.id)) {
+    return { questions: [], paging: null, connector: null, error: "Projeto nao encontrado." }
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+    if (!connector?.id) {
+      return { questions: [], paging: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
+    }
+
+    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
+    const config = getConnectorConfig(resolvedConnector)
+    const userId = sanitizeString(config.oauthUserId)
+
+    if (!userId) {
+      return { questions: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+    }
+
+    const { questions, paging, error } = await listMercadoLivreQuestions(userId, accessToken, options, deps)
+
+    return {
+      questions,
+      paging,
+      connector: resolvedConnector,
+      error,
+    }
+  } catch (error) {
+    console.error("[mercado-livre] failed to list questions", error)
+    return {
+      questions: [],
+      paging: null,
+      connector: null,
+      error: error instanceof Error ? error.message : "Nao foi possivel listar as perguntas da loja.",
+    }
+  }
+}
+
+export async function answerMercadoLivreQuestionForUser(project, user, input = {}, deps = {}) {
+  if (!project?.id || !userCanAccessProject(user, project.id)) {
+    return { question: null, connector: null, error: "Projeto nao encontrado." }
+  }
+
+  const questionId = String(input.questionId || "").trim()
+  const text = sanitizeString(input.text)
+
+  if (!questionId || !text) {
+    return { question: null, connector: null, error: "Pergunta e resposta sao obrigatorias." }
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+    if (!connector?.id) {
+      return { question: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
+    }
+
+    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
+    const fetchImpl = deps.fetchImpl ?? fetch
+    const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/answers`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        question_id: Number(questionId),
+        text,
+      }),
+    })
+
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      return {
+        question: null,
+        connector: resolvedConnector,
+        error: payload?.message || payload?.error || "Nao foi possivel responder a pergunta no Mercado Livre.",
+      }
+    }
+
+    return {
+      question: mapMercadoLivreQuestion(payload),
+      connector: resolvedConnector,
+      error: null,
+    }
+  } catch (error) {
+    console.error("[mercado-livre] failed to answer question", error)
+    return {
+      question: null,
+      connector: null,
+      error: error instanceof Error ? error.message : "Nao foi possivel responder a pergunta da loja.",
     }
   }
 }
@@ -723,6 +1047,83 @@ export async function resolveMercadoLivreProductForUser(project, productUrl, use
     return {
       product: null,
       error: error instanceof Error ? error.message : "Nao foi possivel resolver o produto da loja.",
+    }
+  }
+}
+
+export async function searchMercadoLivreProductsForProject(project, options = {}, deps = {}) {
+  if (!project?.id) {
+    return { items: [], connector: null, error: "Projeto nao encontrado." }
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+    if (!connector?.id) {
+      return { items: [], connector: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
+    }
+
+    const { connector: resolvedConnector, accessToken } = await ensureMercadoLivreAccessToken(connector, deps)
+    const config = getConnectorConfig(resolvedConnector)
+    const userId = sanitizeString(config.oauthUserId)
+    if (!userId) {
+      return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+    }
+
+    const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 6)
+    const poolLimit = Math.min(Math.max(Number(options.poolLimit ?? 24) || 24, requestedLimit), 50)
+    const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
+    const searchTerm = sanitizeString(options.searchTerm)
+    const { itemIds, paging, error: searchError } = await listMercadoLivreUserItemIds(
+      userId,
+      accessToken,
+      {
+        limit: poolLimit,
+        offset,
+      },
+      deps
+    )
+
+    if (searchError) {
+      return { items: [], connector: resolvedConnector, error: searchError }
+    }
+
+    const loadedItems = await loadMercadoLivreItems(itemIds, accessToken, deps)
+    const rankedItems = loadedItems
+      .map((item) => ({
+        ...item,
+        _score: searchTerm ? scoreMercadoLivreItem(item, searchTerm) : 0,
+      }))
+      .filter((item) => !searchTerm || item._score > 0)
+      .sort((left, right) => {
+        if (right._score !== left._score) {
+          return right._score - left._score
+        }
+        return String(left.title || "").localeCompare(String(right.title || ""), "pt-BR")
+      })
+      .slice(0, requestedLimit)
+      .map(({ _score, ...item }) => item)
+
+    return {
+      items: rankedItems,
+      connector: resolvedConnector,
+      paging: {
+        total: Number(paging?.total ?? 0) || 0,
+        offset,
+        poolLimit,
+        requestedLimit,
+        nextOffset: offset + poolLimit,
+        hasMore: Number(paging?.total ?? 0) > offset + poolLimit,
+      },
+      error: null,
+    }
+  } catch (error) {
+    console.error("[mercado-livre] failed to search products", error)
+    return {
+      items: [],
+      connector: null,
+      paging: null,
+      error: error instanceof Error ? error.message : "Nao foi possivel buscar produtos da loja.",
     }
   }
 }

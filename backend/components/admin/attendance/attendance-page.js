@@ -413,6 +413,48 @@ function MessageBubble({ message }) {
             })}
           </div>
         ) : null}
+        {message.assets?.length ? (
+          <div className="mt-3 grid gap-3">
+            {message.assets.slice(0, 3).map((asset, index) => {
+              const isProduct = asset?.kind === "product" || asset?.provider === "mercado_livre"
+              if (!isProduct) {
+                return null
+              }
+
+              return (
+                <a
+                  key={`${message.id}-asset-${asset.id || index}`}
+                  href={asset.targetUrl || asset.publicUrl || "#"}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="overflow-hidden rounded-2xl border border-sky-400/20 bg-sky-500/10 transition hover:border-sky-300/30 hover:bg-sky-500/15"
+                >
+                  {asset.publicUrl ? (
+                    <img
+                      src={asset.publicUrl}
+                      alt={asset.nome || "Produto"}
+                      className="h-40 w-full object-cover"
+                    />
+                  ) : null}
+                  <div className="space-y-2 px-3 py-3">
+                    <div className="text-sm font-semibold text-white">{asset.nome || "Produto"}</div>
+                    {asset.descricao ? (
+                      <div className="text-xs leading-5 text-slate-300">{asset.descricao}</div>
+                    ) : null}
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
+                        {asset.priceLabel || "Ver produto"}
+                      </div>
+                      <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
+                        Mercado Livre
+                      </div>
+                    </div>
+                  </div>
+                </a>
+              )
+            })}
+          </div>
+        ) : null}
         <div className="mt-3 text-[10px] text-slate-500">{message.horario}</div>
       </div>
     </div>

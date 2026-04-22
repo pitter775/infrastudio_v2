@@ -118,6 +118,7 @@ function buildHeuristicReplyResult(reply, metadata = {}) {
       heuristicStage: metadata.heuristicStage ?? null,
       domainStage: metadata.domainStage ?? "general",
       catalogoProdutoAtual: metadata.catalogoProdutoAtual ?? null,
+      catalogoBusca: metadata.catalogoBusca ?? null,
     },
   }
 }
@@ -173,15 +174,44 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   })
   const mercadoLivreState = await resolveMercadoLivreHeuristicState({
     context,
+    project: context?.projeto ?? null,
+    latestUserMessage,
+    productSearchRequested: mercadoLivreFlowState.productSearchRequested,
+    genericMercadoLivreListingRequested: mercadoLivreFlowState.genericMercadoLivreListingRequested,
+    loadMoreCatalogRequested: mercadoLivreFlowState.loadMoreCatalogRequested,
+    productSearchTerm: mercadoLivreFlowState.productSearchTerm,
+    lastSearchTerm: mercadoLivreFlowState.lastSearchTerm,
+    paginationOffset: mercadoLivreFlowState.paginationOffset,
+    paginationPoolLimit: mercadoLivreFlowState.paginationPoolLimit,
     currentCatalogProduct: mercadoLivreFlowState.currentCatalogProduct,
     referencedCatalogProducts: mercadoLivreFlowState.referencedCatalogProducts,
   })
   const mercadoLivreReply = resolveMercadoLivreHeuristicReply(mercadoLivreState)
+  const mercadoLivreAssets = Array.isArray(mercadoLivreState?.mercadoLivreAssets) ? mercadoLivreState.mercadoLivreAssets : []
+  const mercadoLivreCatalogSearchState =
+    mercadoLivreState?.catalogSearchState && typeof mercadoLivreState.catalogSearchState === "object"
+      ? mercadoLivreState.catalogSearchState
+      : null
+  const mercadoLivreSelectedProduct =
+    mercadoLivreFlowState.currentCatalogProduct ??
+    (Array.isArray(mercadoLivreState?.mercadoLivreProducts) && mercadoLivreState.mercadoLivreProducts.length === 1
+      ? {
+          id: mercadoLivreState.mercadoLivreProducts[0].id,
+          nome: mercadoLivreState.mercadoLivreProducts[0].title,
+          preco: mercadoLivreState.mercadoLivreProducts[0].price,
+          descricao: mercadoLivreAssets[0]?.descricao ?? mercadoLivreState.mercadoLivreProducts[0].title,
+          link: mercadoLivreState.mercadoLivreProducts[0].permalink,
+          imagem: mercadoLivreState.mercadoLivreProducts[0].thumbnail,
+          sellerId: mercadoLivreState.mercadoLivreProducts[0].sellerId,
+          sellerName: mercadoLivreState.mercadoLivreProducts[0].sellerName,
+          availableQuantity: mercadoLivreState.mercadoLivreProducts[0].availableQuantity,
+        }
+      : null)
   const leadNameReplyDetected = isLikelyLeadNameReply(latestUserMessage, history, { extractName })
   const extractedLeadName = leadNameReplyDetected ? extractName(latestUserMessage) : null
   const leadNameAcknowledgementReply =
     leadNameReplyDetected && extractedLeadName ? buildLeadNameAcknowledgementReply(extractedLeadName, true) : null
-  const currentCatalogProduct = mercadoLivreFlowState.currentCatalogProduct ?? context?.catalogo?.produtoAtual ?? null
+  const currentCatalogProduct = mercadoLivreSelectedProduct ?? context?.catalogo?.produtoAtual ?? null
   const catalogPricingReply = runtimeConfig?.pricingCatalog?.enabled
     ? buildCatalogPricingReply(history, context, {
         normalizeText,
@@ -275,10 +305,56 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   }
 
   if (mercadoLivreReply && /\b(gostei|esse|essa|detalhe|detalhes|link|garantia|frete|estoque|serve|combina)\b/i.test(latestUserMessage)) {
+    return {
+      ...buildHeuristicReplyResult(mercadoLivreReply, {
+        ...heuristicMetadata,
+        heuristicStage: "mercado_livre",
+        domainStage: "catalog",
+      }),
+      assets: mercadoLivreAssets,
+      metadata: {
+        ...heuristicMetadata,
+        provider: "mercado_livre_runtime",
+        model: "mercado_livre_connector",
+        routeStage: "sales",
+        heuristicStage: "mercado_livre",
+        domainStage: "catalog",
+        catalogoProdutoAtual: currentCatalogProduct ?? null,
+        catalogoBusca: mercadoLivreCatalogSearchState,
+      },
+    }
+  }
+
+  if (mercadoLivreReply && mercadoLivreAssets.length > 0) {
+    return {
+      ...buildHeuristicReplyResult(mercadoLivreReply, {
+        ...heuristicMetadata,
+        heuristicStage: "mercado_livre_search",
+        domainStage: "catalog",
+      }),
+      assets: mercadoLivreAssets,
+      metadata: {
+        ...heuristicMetadata,
+        provider: "mercado_livre_runtime",
+        model: "mercado_livre_connector",
+        routeStage: "sales",
+        heuristicStage: "mercado_livre_search",
+        domainStage: "catalog",
+        catalogoProdutoAtual: currentCatalogProduct ?? null,
+        catalogoBusca: mercadoLivreCatalogSearchState,
+      },
+    }
+  }
+
+  if (mercadoLivreReply) {
     return buildHeuristicReplyResult(mercadoLivreReply, {
       ...heuristicMetadata,
-      heuristicStage: "mercado_livre",
+      provider: "mercado_livre_runtime",
+      model: "mercado_livre_connector",
+      heuristicStage: "mercado_livre_reply",
       domainStage: "catalog",
+      catalogoProdutoAtual: currentCatalogProduct ?? null,
+      catalogoBusca: mercadoLivreCatalogSearchState,
     })
   }
 

@@ -640,17 +640,22 @@ export function extractRecentMercadoLivreProductsFromAssets(assets) {
         typeof asset.id === "string" &&
         (asset.id.startsWith("mercado-livre-") || /^MLB\d+$/i.test(asset.id))
     )
-    .map((asset, index) => ({
-      id: typeof asset.id === "string" ? asset.id : null,
-      nome: typeof asset.nome === "string" ? asset.nome : null,
-      descricao: typeof asset.descricao === "string" ? asset.descricao : null,
-      preco: parseAssetPrice(asset.descricao),
-      link: typeof asset.targetUrl === "string" ? asset.targetUrl : null,
-      imagem: typeof asset.publicUrl === "string" ? asset.publicUrl : null,
-      cardIndex: index,
-    }))
-    .filter((asset) => asset.nome)
-}
+      .map((asset, index) => ({
+        id: typeof asset.id === "string" ? asset.id : null,
+        nome: typeof asset.nome === "string" ? asset.nome : null,
+        descricao: typeof asset.descricao === "string" ? asset.descricao : null,
+        preco: parseAssetPrice(asset.priceLabel || asset.descricao),
+        link: typeof asset.targetUrl === "string" ? asset.targetUrl : null,
+        imagem: typeof asset.publicUrl === "string" ? asset.publicUrl : null,
+        sellerId: typeof asset.metadata?.sellerId === "string" ? asset.metadata.sellerId : null,
+        sellerName: typeof asset.metadata?.sellerName === "string" ? asset.metadata.sellerName : null,
+        availableQuantity:
+          Number.isFinite(Number(asset.metadata?.availableQuantity)) ? Number(asset.metadata.availableQuantity) : 0,
+        status: typeof asset.metadata?.status === "string" ? asset.metadata.status : null,
+        cardIndex: index,
+      }))
+      .filter((asset) => asset.nome)
+  }
 
 function formatWhatsAppOutboundTextSafe(reply) {
   return String(reply || "")
@@ -1210,6 +1215,11 @@ export function buildNextContext(input) {
       ultimaBusca: input.message.trim(),
       produtoAtual: null,
       ultimosProdutos: [],
+      paginationOffset: 0,
+      paginationNextOffset: 0,
+      paginationPoolLimit: 24,
+      paginationHasMore: false,
+      paginationTotal: 0,
       snapshotId: null,
       snapshotCreatedAt: null,
       snapshotTurnId: null,
@@ -1248,6 +1258,36 @@ export function updateContextFromAiResult(input) {
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       produtoAtual: metadataCatalogProduct,
+    }
+  }
+
+  const metadataCatalogSearch =
+    isPlainObject(input.ai.metadata) && isPlainObject(input.ai.metadata.catalogoBusca) ? input.ai.metadata.catalogoBusca : null
+
+  if (metadataCatalogSearch) {
+    nextContext.catalogo = {
+      ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
+      ultimaBusca:
+        typeof metadataCatalogSearch.ultimaBusca === "string" && metadataCatalogSearch.ultimaBusca.trim()
+          ? metadataCatalogSearch.ultimaBusca.trim()
+          : nextContext.catalogo?.ultimaBusca ?? null,
+      paginationOffset: Number(metadataCatalogSearch.paginationOffset ?? nextContext.catalogo?.paginationOffset ?? 0) || 0,
+      paginationNextOffset:
+        Number(metadataCatalogSearch.paginationNextOffset ?? nextContext.catalogo?.paginationNextOffset ?? 0) || 0,
+      paginationPoolLimit:
+        Number(metadataCatalogSearch.paginationPoolLimit ?? nextContext.catalogo?.paginationPoolLimit ?? 24) || 24,
+      paginationHasMore: metadataCatalogSearch.paginationHasMore === true,
+      paginationTotal: Number(metadataCatalogSearch.paginationTotal ?? nextContext.catalogo?.paginationTotal ?? 0) || 0,
+    }
+
+    if (Array.isArray(metadataCatalogSearch.ultimosProdutos)) {
+      nextContext.catalogo.ultimosProdutos = metadataCatalogSearch.ultimosProdutos.filter(
+        (product) => isPlainObject(product) && typeof product.nome === "string" && product.nome.trim()
+      )
+    }
+
+    if (isPlainObject(metadataCatalogSearch.produtoAtual)) {
+      nextContext.catalogo.produtoAtual = metadataCatalogSearch.produtoAtual
     }
   }
 

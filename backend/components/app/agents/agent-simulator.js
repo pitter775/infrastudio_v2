@@ -77,6 +77,46 @@ function buildSimulatorTrace(diagnostics = {}) {
   }
 }
 
+function ProductCards({ assets }) {
+  const products = Array.isArray(assets)
+    ? assets.filter((asset) => asset && (asset.kind === "product" || asset.provider === "mercado_livre")).slice(0, 3)
+    : []
+
+  if (!products.length) {
+    return null
+  }
+
+  return (
+    <div className="mt-3 grid gap-3">
+      {products.map((asset, index) => (
+        <a
+          key={`${asset.id || "product"}-${index}`}
+          href={asset.targetUrl || asset.publicUrl || "#"}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="overflow-hidden rounded-xl border border-sky-400/20 bg-sky-500/10 transition hover:border-sky-300/30 hover:bg-sky-500/15"
+        >
+          {asset.publicUrl ? (
+            <img src={asset.publicUrl} alt={asset.nome || "Produto"} className="h-40 w-full object-cover" />
+          ) : null}
+          <div className="space-y-2 px-3 py-3">
+            <div className="text-sm font-semibold text-white">{asset.nome || "Produto"}</div>
+            {asset.descricao ? <div className="text-xs leading-5 text-slate-300">{asset.descricao}</div> : null}
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
+                {asset.priceLabel || "Ver produto"}
+              </div>
+              <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
+                Mercado Livre
+              </div>
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+  )
+}
+
 function AgentTestMessage({ message }) {
   const [showTrace, setShowTrace] = useState(false)
   const isAgent = message.role === "assistant"
@@ -95,6 +135,7 @@ function AgentTestMessage({ message }) {
           className="agent-simulator-message leading-6"
           dangerouslySetInnerHTML={{ __html: renderMessageContent(message.content) }}
         />
+        <ProductCards assets={message.assets} />
         {message.trace ? (
           <div className="mt-2">
             <button
@@ -209,6 +250,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
           role: "assistant",
           content: data.reply || "Sem resposta.",
           trace: buildSimulatorTrace(data.diagnostics),
+          assets: Array.isArray(data.assets) ? data.assets : [],
         },
       ])
       onUsageRecorded?.(data)

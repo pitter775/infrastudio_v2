@@ -81,6 +81,9 @@ export function mapAdminConversationMessage(message) {
     horario: formatTime(message.createdAt),
     createdAt: message.createdAt,
     attachments: Array.isArray(message.metadata?.attachments) ? message.metadata.attachments : [],
+    assets: Array.isArray(message.metadata?.assets) ? message.metadata.assets : [],
+    actions: Array.isArray(message.metadata?.actions) ? message.metadata.actions : [],
+    whatsapp: message.metadata?.whatsappCta ?? null,
     observability,
   }
 }
