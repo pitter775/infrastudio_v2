@@ -21,6 +21,10 @@ function truncateText(value, max = 240) {
 
 export function normalizeLogLevel(value) {
   const normalized = String(value || "").trim().toLowerCase()
+  if (normalized === "warning") {
+    return "warn"
+  }
+
   if (["error", "warn", "info"].includes(normalized)) {
     return normalized
   }
@@ -173,10 +177,6 @@ export async function createLogEntry(input, deps = {}) {
     }
 
     const level = normalizeLogLevel(input?.level ?? input?.payload?.level)
-    if (level !== "error") {
-      return null
-    }
-
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const payload =
       input?.payload && typeof input.payload === "object" && !Array.isArray(input.payload) ? input.payload : {}

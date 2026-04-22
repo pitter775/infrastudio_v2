@@ -86,6 +86,25 @@ export async function POST(request) {
 
   const result = await processMercadoPagoWebhook(notification, { supabase })
 
+  await createLogEntry(
+    {
+      projectId: result?.projectId || null,
+      type: result?.ok ? (result?.ignored ? "mercado_pago_webhook_ignored" : "mercado_pago_webhook_processed") : "mercado_pago_webhook_error",
+      origin: "mercado_pago_webhook",
+      level: result?.ok ? (result?.ignored ? "warn" : "info") : "error",
+      description: result?.ok
+        ? result?.ignored
+          ? `Webhook do Mercado Pago ignorado: ${result?.reason || "sem_motivo"}.`
+          : "Webhook do Mercado Pago processado com sucesso."
+        : `Falha ao processar webhook do Mercado Pago: ${result?.reason || "sem_motivo"}.`,
+      payload: {
+        notification,
+        result,
+      },
+    },
+    { supabase },
+  ).catch(() => null)
+
   return NextResponse.json(
     {
       ok: Boolean(result?.ok),

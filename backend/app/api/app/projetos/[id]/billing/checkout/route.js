@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { expireStalePendingBillingRecords } from "@/lib/billing"
 import { createLogEntry } from "@/lib/logs"
 import { createCheckoutIntent } from "@/lib/mercado-pago-billing"
 import { getProjectForUser } from "@/lib/projetos"
@@ -26,6 +27,8 @@ export async function POST(request, { params }) {
   const type = body?.type === "topup" ? "topup" : "plan"
   const supabase = getSupabaseAdminClient()
 
+  await expireStalePendingBillingRecords(project.id, { supabase }).catch(() => null)
+
   if (type === "topup") {
     const intentResult = await createCheckoutIntent(
       {
@@ -42,6 +45,21 @@ export async function POST(request, { params }) {
     )
 
     if (!intentResult.ok) {
+      await createLogEntry(
+        {
+          projectId: project.id,
+          type: "billing_topup_checkout_error",
+          origin: "pagamento_checkout",
+          level: "error",
+          description: "Falha ao registrar checkout de recarga.",
+          payload: {
+            tipo: "topup",
+            price: Number(body?.price || 0),
+            tokens: Number(body?.tokens || 0),
+          },
+        },
+        { supabase },
+      )
       return NextResponse.json({ error: "Nao foi possivel registrar a recarga." }, { status: 500 })
     }
 
@@ -90,6 +108,21 @@ export async function POST(request, { params }) {
   )
 
   if (!intentResult.ok) {
+    await createLogEntry(
+      {
+        projectId: project.id,
+        type: "billing_plan_checkout_error",
+        origin: "pagamento_checkout",
+        level: "error",
+        description: "Falha ao registrar checkout de plano.",
+        payload: {
+          tipo: "plan",
+          planKey: selectedPlan.key,
+          planName: selectedPlan.name,
+        },
+      },
+      { supabase },
+    )
     return NextResponse.json({ error: "Nao foi possivel registrar a troca de plano." }, { status: 500 })
   }
 

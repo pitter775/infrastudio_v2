@@ -11,9 +11,9 @@ export const PLAN_CHECKOUT_URLS = {
 export const TOP_UP_OFFERS = [
   {
     id: "topup-100k",
-    price: 20,
+    price: 1,
     tokens: 100000,
-    checkoutUrl: "https://mpago.la/2sTv19y", //1,00
+    checkoutUrl: "https://mpago.la/2sTv19y", // 1,00 teste MVP
     // checkoutUrl: "https://mpago.la/33wFqKS", 20,00
   },
   {

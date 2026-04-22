@@ -2450,10 +2450,13 @@ export function AdminProjectDetailPage({ project }) {
     }
 
     const planSummary = resolveProjectPlanSummary(project)
-    const monthlyLimit =
+    const baseMonthlyLimit =
       project.billing?.currentCycle?.limits?.totalTokens ??
       project.billing?.projectPlan?.limits?.totalTokens ??
       null
+    const topUpAvailableTokens = Number(project.billing?.topUps?.availableTokens ?? 0)
+    const monthlyLimit =
+      baseMonthlyLimit == null ? (topUpAvailableTokens > 0 ? topUpAvailableTokens : null) : Number(baseMonthlyLimit) + topUpAvailableTokens
     const usedTokens = Number(project.billing?.currentCycle?.usage?.totalTokens ?? 0)
     const remainingTokens = monthlyLimit == null ? null : Math.max(0, Number(monthlyLimit) - usedTokens)
     const providedUsagePercent = Number(project.billing?.currentCycle?.usagePercent?.totalTokens)
@@ -2477,7 +2480,7 @@ export function AdminProjectDetailPage({ project }) {
           usedTokens,
           monthlyLimit,
           usagePercent,
-          topUpAvailableTokens: Number(project.billing?.topUps?.availableTokens ?? 0),
+          topUpAvailableTokens,
           remainingLabel: remainingTokens == null ? 'Sem limite' : formatCredits(remainingTokens),
           limitLabel: monthlyLimit == null ? 'Sem limite' : formatCredits(monthlyLimit),
           remainingPercentLabel: monthlyLimit == null ? null : `${Math.max(0, Math.round(100 - usagePercent))}%`,

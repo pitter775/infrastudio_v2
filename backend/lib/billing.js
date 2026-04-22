@@ -69,6 +69,25 @@ function warnOptionalBillingLoad(label, error) {
   }
 }
 
+function resolvePendingBillingTtlMs() {
+  const ttlMinutes = Number(process.env.MERCADO_PAGO_PENDING_TTL_MINUTES || 120)
+  const safeMinutes = Number.isFinite(ttlMinutes) && ttlMinutes > 0 ? ttlMinutes : 120
+  return safeMinutes * 60 * 1000
+}
+
+function isExpiredPendingTimestamp(value) {
+  if (!value) {
+    return false
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return false
+  }
+
+  return Date.now() - parsed.getTime() >= resolvePendingBillingTtlMs()
+}
+
 export function mapBillingPlan(row) {
   if (!row) {
     return null
@@ -235,6 +254,86 @@ async function listTopUpsWithFallback(projectId, deps = {}) {
     supportsPartialTracking: false,
     error: fallback.error,
   }
+}
+
+export async function expireStalePendingBillingRecords(projectId, deps = {}) {
+  if (!projectId) {
+    return { expiredSubscription: false, expiredIntents: 0 }
+  }
+
+  const supabase = deps.supabase ?? getSupabaseAdminClient()
+  const now = new Date().toISOString()
+  let expiredSubscription = false
+  let expiredIntents = 0
+
+  const subscriptionResult = await supabase
+    .from("projetos_assinaturas")
+    .select("id, status, updated_at, created_at")
+    .eq("projeto_id", projectId)
+    .eq("status", "aguardando_confirmacao")
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  const subscriptionTimestamp = subscriptionResult.data?.updated_at || subscriptionResult.data?.created_at || null
+  if (subscriptionResult.data?.id && isExpiredPendingTimestamp(subscriptionTimestamp)) {
+    const { error } = await supabase
+      .from("projetos_assinaturas")
+      .update({
+        status: "expirado",
+        updated_at: now,
+      })
+      .eq("id", subscriptionResult.data.id)
+
+    if (!error) {
+      expiredSubscription = true
+    }
+  }
+
+  const intentsResult = await supabase
+    .from("projetos_checkout_intencoes")
+    .select("id, tipo, updated_at, created_at")
+    .eq("projeto_id", projectId)
+    .eq("status", "pendente")
+    .order("updated_at", { ascending: false, nullsFirst: false })
+
+  const staleIntentIds = (intentsResult.data ?? [])
+    .filter((item) => isExpiredPendingTimestamp(item.updated_at || item.created_at || null))
+    .map((item) => item.id)
+
+  if (staleIntentIds.length > 0) {
+    const { error } = await supabase
+      .from("projetos_checkout_intencoes")
+      .update({
+        status: "expirado",
+        updated_at: now,
+      })
+      .in("id", staleIntentIds)
+
+    if (!error) {
+      expiredIntents = staleIntentIds.length
+    }
+  }
+
+  if (expiredSubscription || expiredIntents > 0) {
+    await createLogEntry(
+      {
+        projectId,
+        type: "billing_checkout_expired",
+        origin: "billing_runtime",
+        level: "info",
+        description: "Pendencias antigas de checkout foram limpas automaticamente.",
+        payload: {
+          expiredSubscription,
+          expiredIntents,
+          ttlMinutes: Math.round(resolvePendingBillingTtlMs() / 60000),
+        },
+      },
+      { supabase },
+    ).catch(() => null)
+  }
+
+  return { expiredSubscription, expiredIntents }
 }
 
 function buildEffectiveLimits(config, topUps) {
@@ -766,6 +865,7 @@ export async function getProjectBillingSnapshot(projectId, deps = {}) {
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
+    await expireStalePendingBillingRecords(projectId, { supabase })
     const [projectResult, projectPlanResult, subscriptionResult, cycleResult, topUpsResult, plans, whatsappAlertRecipients, alertSenderChannel] =
       await Promise.all([
         supabase.from("projetos").select("id, nome, slug, modo_cobranca").eq("id", projectId).maybeSingle(),

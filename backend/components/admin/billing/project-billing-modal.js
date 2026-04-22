@@ -217,6 +217,10 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     return summary?.planId || ''
   }, [freePlan?.id, summary?.planId])
   const remainingLabel = useMemo(() => {
+    if (Number(summary?.topUpAvailableTokens ?? 0) > 0) {
+      return formatCredits(Number(summary?.topUpAvailableTokens ?? 0))
+    }
+
     if (!summary?.isFree || !freePlan?.totalTokens) {
       return summary?.remainingLabel || 'Sem limite'
     }
@@ -224,7 +228,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     const usedTokens = Number(summary?.usedTokens ?? 0)
     const freeRemainingTokens = Math.max(0, Number(freePlan.totalTokens) - usedTokens)
     return formatCredits(freeRemainingTokens)
-  }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.usedTokens])
+  }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.topUpAvailableTokens, summary?.usedTokens])
   const usedLabel = useMemo(() => formatCredits(Number(summary?.usedTokens ?? 0)), [summary?.usedTokens])
   const usagePercentLabel = useMemo(() => {
     if (summary?.usagePercent != null && Number.isFinite(Number(summary.usagePercent))) {
