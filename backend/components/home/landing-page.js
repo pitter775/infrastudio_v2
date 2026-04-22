@@ -116,7 +116,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
         <Link href="/" className="flex items-center gap-3">
           <LogoCubo3D animado tamanho={50} velocidade={0.16} />
           <div>
-            <span className="block font-bold tracking-tight text-slate-900 dark:text-white">InfraStudio</span>
+            <span className="font-brand-logo block text-[2rem] leading-none text-slate-900 dark:text-white">infrastudio</span>
           </div>
         </Link>
 
@@ -660,7 +660,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
               className="inline-flex items-center justify-center gap-2 rounded-full border border-blue-200 bg-white px-8 py-4 font-semibold text-slate-800 shadow-[0_14px_34px_-24px_rgba(15,23,42,0.18)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:bg-blue-50 dark:rounded-xl dark:border-cyan-400/30 dark:bg-[#0d1834] dark:text-cyan-100 dark:shadow-[0_18px_40px_-24px_rgba(8,145,178,0.35)] dark:hover:border-cyan-300/45 dark:hover:bg-[#102044]"
             >
               <Sparkles size={18} className="animate-pulse text-blue-500 dark:text-cyan-200" />
-              Veja funcionando no Plano Free
+              Comece agora eu teste gratuito! 
             </button>
           </motion.div>
 
@@ -764,7 +764,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
             <div className="max-w-sm">
               <Link href="/" className="mb-6 flex items-center gap-2">
                 <LogoCubo3D velocidade={0.16} animado tamanho={50} />
-                <span className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">InfraStudio</span>
+                <span className="font-brand-logo text-[1.65rem] leading-none text-slate-900 dark:text-white">infrastudio</span>
               </Link>
               <p className="text-sm leading-relaxed text-slate-500">
                 Tecnologia sob medida para acelerar negócios brasileiros com inteligência e automação.
