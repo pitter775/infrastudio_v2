@@ -165,16 +165,15 @@ function buildProjectUsageSummary(project) {
   const usedTokens = Number(project.billing?.currentCycle?.usage?.totalTokens ?? 0)
   const remainingTokens = monthlyLimit == null ? null : Math.max(0, Number(monthlyLimit) - usedTokens)
   const providedUsagePercent = Number(project.billing?.currentCycle?.usagePercent?.totalTokens)
-  const usagePercentRaw = Number.isFinite(providedUsagePercent)
+  const shouldUseProvidedPercent = Number.isFinite(providedUsagePercent) && topUpAvailableTokens <= 0
+  const usagePercentRaw = shouldUseProvidedPercent
     ? providedUsagePercent
     : monthlyLimit == null
       ? 0
       : (usedTokens / Math.max(Number(monthlyLimit), 1)) * 100
   const hardLimitReached = (monthlyLimit != null && usedTokens >= Number(monthlyLimit)) || usagePercentRaw >= 100
   const billingBlocked = Boolean(project.billing?.status?.blocked || project.billing?.projectPlan?.blocked || hardLimitReached)
-  const usagePercent = billingBlocked && monthlyLimit != null
-    ? 100
-    : Math.max(0, Math.min(100, Number.isFinite(usagePercentRaw) ? usagePercentRaw : 0))
+  const usagePercent = Math.max(0, Math.min(100, Number.isFinite(usagePercentRaw) ? usagePercentRaw : 0))
 
   return {
     projectId: project.id,
@@ -248,6 +247,10 @@ function ProjectUsageBar({ summary, onClick, variant = 'inside' }) {
   const usagePercent = hasLimit ? summary.usagePercent : 0
   const markerLeft = `${Math.max(0, Math.min(100, usagePercent))}%`
   const tone = getUsageTone(usagePercent, summary.billingBlocked)
+  const hasExtraCredits = Number(summary.topUpAvailableTokens ?? 0) > 0
+  const usageLabelSafe = hasLimit
+    ? `${summary.planName || 'Plano'}${hasExtraCredits ? ` + ${formatCredits(summary.topUpAvailableTokens)} extra` : ''} | ${Math.round(usagePercent)}%`
+    : `${summary.planName || 'Plano'} | Sem limite`
   const planName = summary.planName || 'Plano'
   const usageLabel = hasLimit
     ? `${planName} · ${Math.round(usagePercent)}%`
@@ -290,14 +293,14 @@ function ProjectUsageBar({ summary, onClick, variant = 'inside' }) {
               style={labelAnchorsRight ? { right: `calc(100% - ${markerLeft})` } : { left: markerLeft }}
             >
               <div className={cn('whitespace-nowrap px-2 py-0.5 text-[9px] font-semibold tracking-[0.04em] shadow-[0_6px_20px_rgba(2,6,23,0.28)]', tone.badge)}>
-                {usageLabel}
+                {usageLabelSafe}
               </div>
             </div>
           </>
         ) : (
           <div className="pointer-events-none absolute left-0 top-0">
             <div className={cn('whitespace-nowrap px-2 py-0.5 text-[9px] font-semibold tracking-[0.04em]', tone.badge)}>
-              {usageLabel}
+              {usageLabelSafe}
             </div>
           </div>
         )}
@@ -329,6 +332,29 @@ function ProjectPlanPill({ summary, className = '' }) {
       title="Abrir Meu Plano"
     >
       {summary.planBadgeLabel || formatPlanBadgeLabel(summary.planName)}
+    </button>
+  )
+}
+
+function ProjectExtraCreditsPill({ summary }) {
+  const extraCredits = Number(summary?.topUpAvailableTokens ?? 0)
+
+  if (!extraCredits) {
+    return null
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        openBillingSummary(summary)
+      }}
+      className="rounded-full border border-cyan-400/20 bg-cyan-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-cyan-100 transition-colors hover:border-cyan-300/35 hover:bg-cyan-500/16"
+      title="Abrir Meu Plano"
+    >
+      +{formatCredits(extraCredits)}
     </button>
   )
 }
@@ -539,6 +565,7 @@ export function AdminProjectCard({
             />
               <span className="truncate">{getStatusLabel(project.status)}</span>
               <ProjectPlanPill summary={usageSummary} />
+              <ProjectExtraCreditsPill summary={usageSummary} />
               {statusControl ? <span className="ml-1 shrink-0">{statusControl}</span> : null}
             </div>
           <div className="flex shrink-0 items-center gap-2">

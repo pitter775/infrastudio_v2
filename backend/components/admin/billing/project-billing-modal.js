@@ -30,6 +30,10 @@ function resolveStatusMeta(summary) {
     return { label: 'Bloqueado', tone: 'text-rose-100 border-rose-400/20 bg-rose-500/10' }
   }
 
+  if (Number(summary?.topUpAvailableTokens ?? 0) > 0) {
+    return { label: 'Creditos extras ativos', tone: 'text-cyan-100 border-cyan-400/20 bg-cyan-500/10' }
+  }
+
   if (summary.isFree) {
     return { label: 'Free', tone: 'text-emerald-100 border-emerald-400/20 bg-emerald-500/10' }
   }
@@ -221,10 +225,6 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     return summary?.planId || ''
   }, [freePlan?.id, summary?.planId])
   const remainingLabel = useMemo(() => {
-    if (Number(summary?.topUpAvailableTokens ?? 0) > 0) {
-      return formatCredits(Number(summary?.topUpAvailableTokens ?? 0))
-    }
-
     if (!summary?.isFree || !freePlan?.totalTokens) {
       return summary?.remainingLabel || 'Sem limite'
     }
@@ -233,6 +233,10 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     const freeRemainingTokens = Math.max(0, Number(freePlan.totalTokens) - usedTokens)
     return formatCredits(freeRemainingTokens)
   }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.topUpAvailableTokens, summary?.usedTokens])
+  const extraCreditsLabel = useMemo(() => {
+    const extraCredits = Number(summary?.topUpAvailableTokens ?? 0)
+    return extraCredits > 0 ? formatCredits(extraCredits) : null
+  }, [summary?.topUpAvailableTokens])
   const usedLabel = useMemo(() => formatCredits(Number(summary?.usedTokens ?? 0)), [summary?.usedTokens])
   const usagePercentLabel = useMemo(() => {
     if (summary?.usagePercent != null && Number.isFinite(Number(summary.usagePercent))) {
@@ -311,6 +315,9 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Plano atual</div>
               <div className="mt-1 text-sm font-semibold text-white">{summary?.planName || (summary?.isFree ? 'Free' : 'Sem plano')}</div>
+              {extraCreditsLabel ? (
+                <div className="mt-1 text-xs text-cyan-200">Mantem o plano e soma {extraCreditsLabel} extras.</div>
+              ) : null}
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Consumido</div>
@@ -320,12 +327,20 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Mensal restante</div>
               <div className="mt-1 text-sm font-semibold text-white">{remainingLabel}</div>
+              {summary?.limitLabel ? <div className="mt-1 text-xs text-slate-500">Limite total atual: {summary.limitLabel}</div> : null}
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Renovacao</div>
-              <div className="mt-1 text-sm font-semibold text-white">{summary?.cycleResetLabel || 'Ciclo mensal'}</div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{extraCreditsLabel ? 'Creditos extras' : 'Renovacao'}</div>
+              <div className="mt-1 text-sm font-semibold text-white">{extraCreditsLabel || summary?.cycleResetLabel || 'Ciclo mensal'}</div>
+              {extraCreditsLabel ? <div className="mt-1 text-xs text-slate-500">Esses creditos ficam somados ao plano atual.</div> : null}
             </div>
           </div>
+
+          {extraCreditsLabel && !pendingCheckout ? (
+            <div className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-50">
+              O projeto continua no plano <span className="font-semibold text-white">{summary?.planName || 'atual'}</span> e agora tem <span className="font-semibold text-white">{extraCreditsLabel}</span> em creditos extras disponiveis.
+            </div>
+          ) : null}
 
           {summary?.blockedReason ? (
             <div className="mt-4 rounded-2xl border border-rose-400/15 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">

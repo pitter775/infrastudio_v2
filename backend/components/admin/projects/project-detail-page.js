@@ -2460,7 +2460,8 @@ export function AdminProjectDetailPage({ project }) {
     const usedTokens = Number(project.billing?.currentCycle?.usage?.totalTokens ?? 0)
     const remainingTokens = monthlyLimit == null ? null : Math.max(0, Number(monthlyLimit) - usedTokens)
     const providedUsagePercent = Number(project.billing?.currentCycle?.usagePercent?.totalTokens)
-    const usagePercent = Number.isFinite(providedUsagePercent)
+    const shouldUseProvidedPercent = Number.isFinite(providedUsagePercent) && topUpAvailableTokens <= 0
+    const usagePercent = shouldUseProvidedPercent
       ? providedUsagePercent
       : monthlyLimit == null
         ? 0

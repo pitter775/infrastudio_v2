@@ -61,6 +61,10 @@ function PagamentoSucessoContent() {
   const planName = searchParams.get("plano") || storedIntent?.planName || ""
   const topUpTokens = Number(searchParams.get("tokens") || storedIntent?.tokens || TOP_UP_OFFER.tokens)
   const topUpPrice = Number(searchParams.get("valor") || storedIntent?.price || TOP_UP_OFFER.price)
+  const paymentStatus = String(
+    searchParams.get("status") || searchParams.get("collection_status") || "",
+  ).toLowerCase()
+  const isPendingPayment = paymentStatus === "pending" || paymentStatus === "in_process"
 
   useEffect(() => {
     async function ensurePendingCheckout() {
@@ -111,7 +115,7 @@ function PagamentoSucessoContent() {
       <div className="mx-auto max-w-3xl rounded-[2rem] border border-white/10 bg-white/[0.03] p-8 shadow-[0_24px_80px_rgba(15,23,42,0.45)]">
         <div className="inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-100">
           <Clock3 className="h-3.5 w-3.5" />
-          Pagamento em analise
+          {isPendingPayment ? "Pagamento em analise" : "Pagamento recebido"}
         </div>
 
         <h1 className="mt-6 text-3xl font-semibold tracking-[-0.04em] text-white sm:text-4xl">
@@ -119,7 +123,9 @@ function PagamentoSucessoContent() {
         </h1>
 
         <p className="mt-4 text-base leading-7 text-slate-300">
-          Nenhum plano e ativado automaticamente. O projeto fica em espera ate a confirmacao oficial do Mercado Pago.
+          {paymentType === "topup"
+            ? "A recarga nao troca o plano atual. Quando o Mercado Pago confirmar, os creditos entram como saldo extra no mesmo projeto."
+            : "A troca de plano so e aplicada quando o Mercado Pago confirmar oficialmente o pagamento."}
         </p>
 
         <div className="mt-8 rounded-3xl border border-white/10 bg-slate-950/60 p-6">
@@ -130,6 +136,7 @@ function PagamentoSucessoContent() {
                 <>
                   <p className="font-semibold text-white">Recarga identificada</p>
                   <p>{`${formatCredits(topUpTokens)} por R$ ${topUpPrice.toFixed(2).replace(".", ",")}`}</p>
+                  <p className="text-slate-400">O plano do projeto continua o mesmo. Apenas os creditos disponiveis aumentam.</p>
                 </>
               ) : (
                 <>
