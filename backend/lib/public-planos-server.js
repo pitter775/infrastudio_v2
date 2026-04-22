@@ -5,7 +5,6 @@ import {
   TOP_UP_OFFER,
   TOP_UP_OFFERS,
   getPlanCheckoutUrl,
-  getTopUpCheckoutUrl,
   normalizePlanKey,
 } from "@/lib/public-planos"
 
@@ -33,10 +32,7 @@ export async function listPublicPlans() {
 }
 
 export function getPublicTopUpOffer() {
-  return {
-    ...TOP_UP_OFFER,
-    checkoutUrl: getTopUpCheckoutUrl(),
-  }
+  return { ...TOP_UP_OFFER, type: "topup", featured: true }
 }
 
 export function getPublicTopUpOffers() {

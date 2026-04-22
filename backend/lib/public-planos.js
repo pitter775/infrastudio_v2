@@ -13,20 +13,16 @@ export const TOP_UP_OFFERS = [
     id: "topup-100k",
     price: 1,
     tokens: 100000,
-    checkoutUrl: "https://mpago.la/2sTv19y", // 1,00 teste MVP
-    // checkoutUrl: "https://mpago.la/33wFqKS", 20,00
   },
   {
     id: "topup-200k",
     price: 40,
     tokens: 200000,
-    checkoutUrl: "https://mpago.la/114CqDS",
   },
   {
     id: "topup-300k",
     price: 60,
     tokens: 300000,
-    checkoutUrl: "https://mpago.la/2nPcQjp",
   },
 ]
 
@@ -84,8 +80,4 @@ export function formatCredits(value) {
 
 export function getPlanCheckoutUrl(planKey) {
   return PLAN_CHECKOUT_URLS[planKey] || ""
-}
-
-export function getTopUpCheckoutUrl() {
-  return process.env.NEXT_PUBLIC_MERCADO_PAGO_TOPUP_URL?.trim() || TOP_UP_OFFER.checkoutUrl
 }

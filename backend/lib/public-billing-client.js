@@ -3,7 +3,7 @@
 import { BILLING_INTENT_STORAGE_KEY } from "@/lib/public-planos"
 
 export function buildBillingIntentPayload(item, projectId) {
-  if (!item?.checkoutUrl || !projectId) {
+  if (!projectId || !item) {
     return null
   }
 
@@ -13,7 +13,6 @@ export function buildBillingIntentPayload(item, projectId) {
       projectId,
       price: item.price,
       tokens: item.tokens,
-      checkoutUrl: item.checkoutUrl,
       createdAt: new Date().toISOString(),
     }
   }
@@ -31,7 +30,7 @@ export function buildBillingIntentPayload(item, projectId) {
 }
 
 export async function startBillingCheckout(intent, options = {}) {
-  if (typeof window === "undefined" || !intent?.projectId || !intent?.checkoutUrl) {
+  if (typeof window === "undefined" || !intent?.projectId) {
     return { ok: false, error: "Checkout invalido." }
   }
 
@@ -55,11 +54,17 @@ export async function startBillingCheckout(intent, options = {}) {
   const persistedIntent = {
     ...intent,
     intentId: payload?.intentId || null,
+    checkoutUrl: payload?.checkoutUrl || intent.checkoutUrl || "",
     registeredAt: new Date().toISOString(),
   }
 
   window.localStorage.setItem(BILLING_INTENT_STORAGE_KEY, JSON.stringify(persistedIntent))
-  window.open(intent.checkoutUrl, "_blank", "noopener,noreferrer")
+  const resolvedCheckoutUrl = payload?.checkoutUrl || intent.checkoutUrl || ""
+  if (!resolvedCheckoutUrl) {
+    return { ok: false, error: "Checkout indisponivel." }
+  }
+
+  window.open(resolvedCheckoutUrl, "_blank", "noopener,noreferrer")
 
   return { ok: true, intentId: persistedIntent.intentId }
 }

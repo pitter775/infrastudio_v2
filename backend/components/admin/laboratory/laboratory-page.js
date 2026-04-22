@@ -40,6 +40,21 @@ const POSSIBLE_LAB_ERRORS = [
     source: "api_runtime_error",
     detail: "Uma API conectada retorna timeout, credencial invalida ou payload inesperado e degrada a resposta final do chat.",
   },
+  {
+    title: "Webhook do Mercado Pago nao disparou",
+    source: "mercado_pago_webhook",
+    detail: "O checkout foi aberto e o pagamento pode ate ter sido aprovado, mas nenhuma notificacao chegou na aplicacao configurada.",
+  },
+  {
+    title: "Webhook do Mercado Pago rejeitado",
+    source: "mercado_pago_webhook",
+    detail: "A notificacao chegou no backend, mas a assinatura foi considerada invalida e o evento nao foi processado.",
+  },
+  {
+    title: "Pagamento nao casou com a intent pendente",
+    source: "mercado_pago_webhook",
+    detail: "O webhook foi recebido, mas o sistema nao encontrou uma recarga ou troca de plano pendente para vincular a confirmacao.",
+  },
 ]
 
 function formatDateTime(value) {

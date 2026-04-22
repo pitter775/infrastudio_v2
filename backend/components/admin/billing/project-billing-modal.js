@@ -18,6 +18,10 @@ function resolveStatusMeta(summary) {
     return { label: 'Aguardando confirmacao', tone: 'text-amber-100 border-amber-400/20 bg-amber-500/10' }
   }
 
+  if (summary?.pendingCheckout) {
+    return { label: 'Pagamento em andamento', tone: 'text-cyan-100 border-cyan-400/20 bg-cyan-500/10' }
+  }
+
   if (summary.billingBlocked && !summary.planId) {
     return { label: 'Sem plano', tone: 'text-rose-100 border-rose-400/20 bg-rose-500/10' }
   }
@@ -115,7 +119,7 @@ function PlanCard({ plan, currentPlanId, onCheckout, loadingKey }) {
 
 function TopUpCard({ offer, onCheckout, loadingKey }) {
   const isLoading = loadingKey === offer.id
-  const hasCheckoutUrl = Boolean(String(offer?.checkoutUrl || "").trim())
+  const hasCheckoutUrl = offer?.type === 'topup' || Boolean(String(offer?.checkoutUrl || "").trim())
 
   return (
     <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5">
@@ -243,6 +247,8 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
 
     return '--'
   }, [summary?.monthlyLimit, summary?.usagePercent, summary?.usedTokens])
+  const pendingCheckout = summary?.pendingCheckout || null
+  const canResumePendingCheckout = Boolean(pendingCheckout?.checkoutUrl)
 
   async function handleCheckout(item) {
     if (!summary?.projectId) {
@@ -265,6 +271,15 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     }
 
     setFeedback('Checkout aberto em nova aba. O projeto fica aguardando confirmacao final do pagamento.')
+  }
+
+  function handleResumePendingCheckout() {
+    if (!canResumePendingCheckout || typeof window === 'undefined') {
+      return
+    }
+
+    window.open(pendingCheckout.checkoutUrl, '_blank', 'noopener,noreferrer')
+    setFeedback('Pagamento pendente reaberto em nova aba.')
   }
 
   return (
@@ -317,6 +332,36 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
           {summary?.subscriptionStatus === 'aguardando_confirmacao' ? (
             <div className="mt-4 rounded-2xl border border-amber-400/15 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
               Existe um upgrade em confirmacao para este projeto. O webhook vai concluir a ativacao quando o Mercado Pago enviar a notificacao.
+            </div>
+          ) : null}
+
+          {pendingCheckout ? (
+            <div className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-500/10 px-4 py-4 text-sm text-cyan-50">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="font-semibold text-white">
+                    {pendingCheckout.type === 'topup' ? 'Pagamento de recarga em andamento' : 'Pagamento de plano em andamento'}
+                  </div>
+                  <div className="mt-1 text-cyan-100/90">
+                    {pendingCheckout.type === 'topup'
+                      ? `${formatPlanPrice(pendingCheckout.amount || 0)} por ${formatCredits(pendingCheckout.tokens || 0)}`
+                      : pendingCheckout.planName || 'Plano selecionado'}
+                  </div>
+                  <div className="mt-1 text-cyan-100/70">
+                    Se voce fechou a aba ou quer conferir o pagamento, pode abrir a mesma cobranca novamente.
+                  </div>
+                </div>
+                {canResumePendingCheckout ? (
+                  <Button
+                    type="button"
+                    onClick={handleResumePendingCheckout}
+                    className="h-10 rounded-2xl border border-cyan-300/20 bg-cyan-400/15 px-4 text-sm font-semibold text-white hover:bg-cyan-400/20"
+                  >
+                    <ArrowUpRight className="mr-2 h-4 w-4" />
+                    Abrir pagamento novamente
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ) : null}
         </div>

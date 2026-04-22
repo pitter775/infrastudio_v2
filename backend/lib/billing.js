@@ -217,6 +217,24 @@ function mapTopUps(rows) {
   }
 }
 
+function mapPendingCheckout(row) {
+  if (!row) {
+    return null
+  }
+
+  return {
+    id: row.id,
+    type: row.tipo === "plan" ? "plan" : "topup",
+    status: row.status?.trim() || "pendente",
+    checkoutUrl: row.checkout_url?.trim() || "",
+    planName: row.plano_nome?.trim() || "",
+    amount: normalizeNullableNumber(row.valor),
+    tokens: normalizeNullableNumber(row.tokens),
+    createdAt: toIsoDate(row.created_at),
+    updatedAt: toIsoDate(row.updated_at),
+  }
+}
+
 async function listTopUpsWithFallback(projectId, deps = {}) {
   const supabase = deps.supabase ?? getSupabaseAdminClient()
   const primary = await supabase
@@ -280,7 +298,7 @@ export async function expireStalePendingBillingRecords(projectId, deps = {}) {
     const { error } = await supabase
       .from("projetos_assinaturas")
       .update({
-        status: "expirado",
+        status: "cancelado",
         updated_at: now,
       })
       .eq("id", subscriptionResult.data.id)
@@ -823,6 +841,7 @@ export function buildBillingSnapshot(input) {
     currentCycle: cycle,
     subscription,
     topUps,
+    pendingCheckout: mapPendingCheckout(input.pendingCheckout),
     whatsappAlerts: input.whatsappAlerts ?? {
       enabledCount: 0,
       recipients: [],
@@ -866,7 +885,7 @@ export async function getProjectBillingSnapshot(projectId, deps = {}) {
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     await expireStalePendingBillingRecords(projectId, { supabase })
-    const [projectResult, projectPlanResult, subscriptionResult, cycleResult, topUpsResult, plans, whatsappAlertRecipients, alertSenderChannel] =
+    const [projectResult, projectPlanResult, subscriptionResult, cycleResult, topUpsResult, pendingCheckoutResult, plans, whatsappAlertRecipients, alertSenderChannel] =
       await Promise.all([
         supabase.from("projetos").select("id, nome, slug, modo_cobranca").eq("id", projectId).maybeSingle(),
         supabase
@@ -893,6 +912,14 @@ export async function getProjectBillingSnapshot(projectId, deps = {}) {
           .limit(1)
           .maybeSingle(),
         listTopUpsWithFallback(projectId, { supabase }),
+        supabase
+          .from("projetos_checkout_intencoes")
+          .select("id, tipo, status, plano_nome, valor, tokens, checkout_url, created_at, updated_at")
+          .eq("projeto_id", projectId)
+          .eq("status", "pendente")
+          .order("updated_at", { ascending: false, nullsFirst: false })
+          .limit(1)
+          .maybeSingle(),
         listBillingPlans({ supabase }),
         listBillingAlertRecipientsByProjectId(projectId, { supabase }),
         getPrimaryWhatsAppChannelByProjectId(INFRASTUDIO_BILLING_ALERT_PROJECT_ID, { supabase }),
@@ -909,6 +936,7 @@ export async function getProjectBillingSnapshot(projectId, deps = {}) {
     warnOptionalBillingLoad("subscription", subscriptionResult.error)
     warnOptionalBillingLoad("usage cycle", cycleResult.error)
     warnOptionalBillingLoad("top-up tokens", topUpsResult.error)
+    warnOptionalBillingLoad("pending checkout", pendingCheckoutResult.error)
 
     const selectedPlanId =
       projectPlanResult.data?.plano_id ?? subscriptionResult.data?.plano_id ?? cycleResult.data?.plano_id ?? null
@@ -931,6 +959,7 @@ export async function getProjectBillingSnapshot(projectId, deps = {}) {
       subscription: subscriptionResult.data ?? null,
       currentCycle: cycleResult.data ?? null,
       topUps: topUpsResult.data ?? [],
+      pendingCheckout: pendingCheckoutResult.data ?? null,
       whatsappAlerts: {
         senderChannelId: alertSenderChannel?.id ?? null,
         senderChannelNumber: alertSenderChannel?.number ?? null,

@@ -184,6 +184,7 @@ function buildProjectUsageSummary(project) {
     planBadgeLabel: formatPlanBadgeLabel(planSummary.planName),
     isFree: planSummary.isFree,
     subscriptionStatus: project.billing?.subscription?.status || '',
+    pendingCheckout: project.billing?.pendingCheckout || null,
     billingBlocked,
     blockedReason: project.billing?.projectPlan?.blockedReason || '',
     usedTokens,

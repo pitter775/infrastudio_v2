@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 
 import { expireStalePendingBillingRecords } from "@/lib/billing"
 import { createLogEntry } from "@/lib/logs"
-import { createCheckoutIntent } from "@/lib/mercado-pago-billing"
+import { createCheckoutIntent, createTopUpCheckoutPreference } from "@/lib/mercado-pago-billing"
 import { getProjectForUser } from "@/lib/projetos"
 import { listPublicPlans } from "@/lib/public-planos-server"
 import { normalizePlanKey } from "@/lib/public-planos"
@@ -30,7 +30,7 @@ export async function POST(request, { params }) {
   await expireStalePendingBillingRecords(project.id, { supabase }).catch(() => null)
 
   if (type === "topup") {
-    const intentResult = await createCheckoutIntent(
+    const intentResult = await createTopUpCheckoutPreference(
       {
         projectId: project.id,
         userId: user.id,
@@ -38,7 +38,7 @@ export async function POST(request, { params }) {
         type: "topup",
         price: Number(body?.price || 0),
         tokens: Number(body?.tokens || 0),
-        checkoutUrl: body?.checkoutUrl || "",
+        title: `Recarga InfraStudio - ${Number(body?.tokens || 0)} creditos`,
         source: body?.source || "app_checkout",
       },
       { supabase },
@@ -75,12 +75,16 @@ export async function POST(request, { params }) {
           intentId: intentResult.intentId,
           price: Number(body?.price || 0),
           tokens: Number(body?.tokens || 0),
+          checkoutUrl: intentResult.checkoutUrl || null,
         },
       },
       { supabase },
     )
 
-    return NextResponse.json({ ok: true, type: "topup", intentId: intentResult.intentId }, { status: 200 })
+    return NextResponse.json(
+      { ok: true, type: "topup", intentId: intentResult.intentId, checkoutUrl: intentResult.checkoutUrl || null },
+      { status: 200 },
+    )
   }
 
   const planKey = normalizePlanKey(body?.planKey || body?.planName || "")
@@ -149,6 +153,7 @@ export async function POST(request, { params }) {
       ok: true,
       type: "plan",
       intentId: intentResult.intentId,
+      checkoutUrl: body?.checkoutUrl || selectedPlan.checkoutUrl || null,
       plan: {
         id: selectedPlan.id,
         key: selectedPlan.key,

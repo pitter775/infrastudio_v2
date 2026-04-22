@@ -2475,6 +2475,7 @@ export function AdminProjectDetailPage({ project }) {
           planName: planSummary.planName,
           isFree: planSummary.isFree,
           subscriptionStatus: project.billing?.subscription?.status || '',
+          pendingCheckout: project.billing?.pendingCheckout || null,
           billingBlocked: Boolean(project.billing?.status?.blocked || project.billing?.projectPlan?.blocked),
           blockedReason: project.billing?.projectPlan?.blockedReason || '',
           usedTokens,
