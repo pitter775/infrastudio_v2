@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Files, History, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
+import { Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
 
 import { ApiSheetManager } from '@/components/app/apis/api-sheet-manager'
 import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
@@ -306,8 +306,15 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         <div className="border-t border-white/5 px-6 py-4">
           <div className="flex justify-end">
             {activeTab === 'attendants' ? (
-              <Button type="submit" form="whatsapp-contact-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
-                Salvar atendente
+              <Button
+                type="submit"
+                form="whatsapp-contact-form"
+                disabled={whatsappFooter.savingContact}
+                variant="ghost"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {whatsappFooter.savingContact ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {whatsappFooter.savingContact ? 'Salvando...' : 'Salvar atendente'}
               </Button>
             ) : null}
           </div>
@@ -317,8 +324,15 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         <div className="border-t border-white/5 px-6 py-4">
           <div className="flex justify-end">
             {activeTab === 'edit' ? (
-              <Button type="submit" form="widget-editor-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
-                Salvar widget
+              <Button
+                type="submit"
+                form="widget-editor-form"
+                disabled={widgetFooter.saving}
+                variant="ghost"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {widgetFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {widgetFooter.saving ? 'Salvando...' : 'Salvar widget'}
               </Button>
             ) : null}
             {activeTab === 'code' ? (
@@ -333,13 +347,27 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         <div className="border-t border-white/5 px-6 py-4">
           <div className="flex justify-end">
             {mercadoFooter.step === 1 ? (
-              <Button type="submit" form="mercado-livre-resolve-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
-                Avancar
+              <Button
+                type="submit"
+                form="mercado-livre-resolve-form"
+                disabled={mercadoFooter.saving}
+                variant="ghost"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {mercadoFooter.saving ? 'Localizando...' : 'Avancar'}
               </Button>
             ) : null}
             {mercadoFooter.step === 2 ? (
-              <Button type="submit" form="mercado-livre-save-form" variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
-                Salvar conexao
+              <Button
+                type="submit"
+                form="mercado-livre-save-form"
+                disabled={mercadoFooter.saving}
+                variant="ghost"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {mercadoFooter.saving ? 'Salvando...' : 'Salvar conexao'}
               </Button>
             ) : null}
           </div>

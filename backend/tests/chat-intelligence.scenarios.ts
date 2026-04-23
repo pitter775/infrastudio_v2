@@ -1,5 +1,8 @@
+import { loadEnvConfig } from "@next/env";
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
+
+loadEnvConfig(process.cwd());
 
 import {
   appendOptionalHumanOffer,

@@ -1,4 +1,7 @@
+import { loadEnvConfig } from "@next/env"
 import assert from "node:assert/strict"
+
+loadEnvConfig(process.cwd())
 
 import {
   buildApiFallbackReply,

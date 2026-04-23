@@ -121,8 +121,12 @@ export function MercadoLivrePanel({
   }, [projectIdentifier])
 
   useEffect(() => {
-    onFooterStateChange?.({ step, activeTab: currentTab, saving: savingConnector })
-  }, [currentTab, onFooterStateChange, savingConnector, step])
+    onFooterStateChange?.({
+      step,
+      activeTab: currentTab,
+      saving: step === 1 ? resolvingStore : savingConnector,
+    })
+  }, [currentTab, onFooterStateChange, resolvingStore, savingConnector, step])
 
   useEffect(() => {
     if (currentTab !== 'test' || !connectorMeta.oauthConnected) {

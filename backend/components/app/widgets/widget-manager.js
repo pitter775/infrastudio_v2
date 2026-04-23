@@ -162,8 +162,9 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
       activeTab: currentTab,
       canSave: currentTab === "edit" && Boolean(form.name || editing),
       canCopy: currentTab === "code" && Boolean(selectedWidget),
+      saving,
     })
-  }, [currentTab, editing, form.name, onFooterStateChange, selectedWidget])
+  }, [currentTab, editing, form.name, onFooterStateChange, saving, selectedWidget])
 
   useEffect(() => {
     onStatsChange?.({ chatWidget: widgets.filter((widget) => widget.active !== false).length })

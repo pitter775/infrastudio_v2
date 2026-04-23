@@ -40,19 +40,21 @@ export {
 } from "@/lib/chat/sales-heuristics";
 
 export {
-  buildCoreChatRequest,
-  buildFallbackChatTitle,
+  buildIsolatedChatResult,
+  buildSilentChatResult,
   buildBillingBlockedResult,
   buildFinalChatResult,
+} from "@/lib/chat/result-builders";
+
+export {
+  buildCoreChatRequest,
+  buildFallbackChatTitle,
   buildInitialChatContext,
   buildAssistantMessageMetadata,
-  buildUsagePersistencePayload,
   buildUserMessageMetadata,
   applyAdminTestContextOverrides,
-  buildIsolatedChatResult,
   buildNextContext,
   prepareAiReplyPayload,
-  buildSilentChatResult,
   buildContinuationMessage,
   extractRecentMercadoLivreProductsFromAssets,
   getWhatsAppContactAvatarFromContext,
@@ -77,7 +79,6 @@ export {
   ensureActiveChatSession,
   applyBillingGuardrail,
   applyHandoffGuardrail,
-  persistUsageRecord,
   persistAssistantState,
   persistUserTurn,
   requestRuntimeHumanHandoff,
@@ -89,6 +90,11 @@ export {
   resolveCanonicalWhatsAppExternalIdentifier,
   sanitizeWhatsAppCustomerFacingReply,
 } from "@/lib/chat/service";
+
+export {
+  buildUsagePersistencePayload,
+  persistUsageRecord,
+} from "@/lib/chat/usage-persistence";
 
 export {
   getChatWidgetByProjetoAgente,

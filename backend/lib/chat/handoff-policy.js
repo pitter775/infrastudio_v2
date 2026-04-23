@@ -4,7 +4,8 @@ export function isHumanHandoffIntent(message) {
 
 export function buildHumanHandoffReply(channelKind = "web", options = {}) {
   const hasRecipients = options.hasRecipients === true
-  const hasWhatsAppDestination = options.hasWhatsAppDestination === true
+  const hasWhatsAppDestination =
+    options.hasWhatsAppDestination === true || (options.hasWhatsAppDestination == null && channelKind === "whatsapp")
 
   if (hasRecipients) {
     return channelKind === "whatsapp"

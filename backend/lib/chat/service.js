@@ -468,11 +468,7 @@ export function prepareAiReplyPayload(input) {
     userMessage: input.userMessage,
     agendaSlots: input.agendaSlots,
   })
-  const hasWhatsAppAction = actions.some((action) => action?.type === "whatsapp_link")
-  const whatsappCta =
-    hasWhatsAppAction
-      ? null
-      : buildWhatsAppContinuationCta({
+  const whatsappCta = buildWhatsAppContinuationCta({
       channelKind: input.channelKind,
       nextContext: input.nextContext,
       reply: primaryReply,
@@ -565,7 +561,10 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     const projeto = await getProjeto(projetoIdentifier)
     let agente = agenteIdentifier ? await getAgente(agenteIdentifier, projeto?.id ?? null) : null
 
-    if (agente && (!agente.active || agente.projectId !== projeto?.id)) {
+    const agenteAtivo = agente ? agente.active !== false && agente.ativo !== false : false
+    const agenteProjetoId = agente?.projectId ?? agente?.projetoId ?? null
+
+    if (agente && (!agenteAtivo || agenteProjetoId !== projeto?.id)) {
       agente = null
     }
 
@@ -621,7 +620,9 @@ export async function resolveChatChannel(body = {}, deps = {}) {
 
   const projeto = await getProjetoByIdResolver(widget.projetoId)
   const widgetAgent = projeto ? await getAgenteByIdResolver(widget.agenteId) : null
-  const agente = widgetAgent && widgetAgent.ativo && widgetAgent.projetoId === projeto?.id ? widgetAgent : null
+  const widgetAgentAtivo = widgetAgent ? widgetAgent.active !== false && widgetAgent.ativo !== false : false
+  const widgetAgentProjetoId = widgetAgent?.projectId ?? widgetAgent?.projetoId ?? null
+  const agente = widgetAgent && widgetAgentAtivo && widgetAgentProjetoId === projeto?.id ? widgetAgent : null
   const whatsappChannel =
     projeto?.id && agente?.id ? await getActiveWhatsAppChannel({ projetoId: projeto.id, agenteId: agente.id }) : null
 
@@ -992,6 +993,31 @@ function attachRuntimeDiagnostics(result, runtimeState, extra = {}) {
       handoffRequested: extra.handoffRequested === true,
     },
   }
+}
+
+async function recordChatRuntimeEvent(runtimeState, entry = {}) {
+  const payload =
+    entry?.payload && typeof entry.payload === "object" && !Array.isArray(entry.payload)
+      ? entry.payload
+      : {}
+
+  return createLogEntry({
+    projectId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
+    type: entry?.type || "chat_runtime_event",
+    origin: entry?.origin || "chat_runtime",
+    level: entry?.level || "info",
+    description: entry?.description || "Evento do runtime do chat.",
+    payload: {
+      ...payload,
+      stage: runtimeState?.stage ?? null,
+      projetoId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
+      agenteId: runtimeState?.resolved?.agente?.id ?? runtimeState?.session?.chat?.agenteId ?? null,
+      widgetId: runtimeState?.resolved?.widget?.id ?? null,
+      widgetSlug: runtimeState?.resolved?.widget?.slug ?? null,
+      channelKind: runtimeState?.prelude?.channelKind ?? null,
+      chatId: runtimeState?.session?.chat?.id ?? null,
+    },
+  })
 }
 
 export function isSavedWhatsAppContact(context) {

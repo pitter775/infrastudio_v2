@@ -272,6 +272,16 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
+  if (catalogPricingReply) {
+    return buildHeuristicReplyResult(catalogPricingReply, {
+      ...heuristicMetadata,
+      heuristicStage: "pricing_catalog",
+      domainStage: "catalog",
+      provider: "local_heuristic",
+      model: "heuristic",
+    })
+  }
+
   if (mercadoLivreReply && /\b(gostei|esse|essa|detalhe|detalhes|link|garantia|frete|estoque|serve|combina)\b/i.test(latestUserMessage)) {
     return {
       ...buildHeuristicReplyResult(mercadoLivreReply, {
@@ -282,8 +292,8 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       assets: mercadoLivreAssets,
       metadata: {
         ...heuristicMetadata,
-        provider: "mercado_livre_runtime",
-        model: "mercado_livre_connector",
+        provider: "local_heuristic",
+        model: "heuristic",
         routeStage: "sales",
         heuristicStage: "mercado_livre",
         domainStage: "catalog",

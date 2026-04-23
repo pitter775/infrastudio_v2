@@ -270,8 +270,9 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       activeTab: currentTab,
       hasChannel: channels.length > 0,
       canSaveContact: currentTab === "attendants",
+      savingContact,
     })
-  }, [channels.length, currentTab, onFooterStateChange])
+  }, [channels.length, currentTab, onFooterStateChange, savingContact])
 
   useEffect(() => {
     onStatsChange?.({ whatsapp: channels.length })
