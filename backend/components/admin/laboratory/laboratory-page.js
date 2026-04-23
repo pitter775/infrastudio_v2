@@ -246,10 +246,6 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
   const [scoringLogId, setScoringLogId] = useState("")
   const isAllowed = currentUser?.role === "admin"
 
-  useEffect(() => {
-    void refreshLogs()
-  }, [])
-
   const availableTypes = useMemo(
     () => [...new Set((logs ?? []).map((entry) => entry.type).filter(Boolean))].sort(),
     [logs],
@@ -318,6 +314,14 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     }
     setLoading(false)
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void refreshLogs()
+    }, 0)
+
+    return () => window.clearTimeout(timer)
+  }, [])
 
   async function togglePayloadDump(enabled) {
     setDumpBusy(true)

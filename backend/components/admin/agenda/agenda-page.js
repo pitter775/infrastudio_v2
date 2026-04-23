@@ -142,6 +142,17 @@ export default function AgendaPage() {
     () => projectOptions.filter((option) => option.value !== projectId),
     [projectOptions, projectId]
   )
+  const effectiveReplicationProjectId = useMemo(() => {
+    if (!replicationOptions.length) {
+      return ""
+    }
+
+    if (replicationOptions.some((option) => option.value === replicationProjectId)) {
+      return replicationProjectId
+    }
+
+    return replicationOptions[0]?.value ?? ""
+  }, [replicationOptions, replicationProjectId])
   const reservedIds = useMemo(
     () =>
       new Set(
@@ -154,29 +165,11 @@ export default function AgendaPage() {
   )
   const groupedSlots = useMemo(() => groupSlotsByMonthWeek(slots), [slots])
 
-  useEffect(() => {
-    async function loadProjects() {
-      const response = await fetch("/api/admin/projetos", { cache: "no-store" })
-      const data = await response.json().catch(() => ({}))
-
-      if (response.ok) {
-        setProjects(data.projects ?? [])
-        setProjectId(data.projects?.[0]?.id ?? "")
-        setReplicationProjectId(data.projects?.[1]?.id ?? "")
-      } else {
-        setFeedback(data.error || "Nao foi possivel carregar projetos.")
-        setLoading(false)
-      }
-    }
-
-    void loadProjects()
-  }, [])
-
-  async function loadAgenda() {
-    if (!projectId) return
+  async function loadAgenda(targetProjectId = projectId) {
+    if (!targetProjectId) return
 
     setLoading(true)
-    const response = await fetch(`/api/admin/agenda?projetoId=${encodeURIComponent(projectId)}`, {
+    const response = await fetch(`/api/admin/agenda?projetoId=${encodeURIComponent(targetProjectId)}`, {
       cache: "no-store",
     })
     const data = await response.json().catch(() => ({}))
@@ -202,19 +195,31 @@ export default function AgendaPage() {
   }
 
   useEffect(() => {
-    void loadAgenda()
-  }, [projectId])
+    async function loadProjects() {
+      const response = await fetch("/api/admin/projetos", { cache: "no-store" })
+      const data = await response.json().catch(() => ({}))
 
-  useEffect(() => {
-    if (!replicationOptions.length) {
-      setReplicationProjectId("")
-      return
+      if (response.ok) {
+        setProjects(data.projects ?? [])
+        const initialProjectId = data.projects?.[0]?.id ?? ""
+        setProjectId(initialProjectId)
+        setReplicationProjectId(data.projects?.find((project) => project.id !== initialProjectId)?.id ?? "")
+        if (initialProjectId) {
+          void loadAgenda(initialProjectId)
+        }
+      } else {
+        setFeedback(data.error || "Nao foi possivel carregar projetos.")
+        setLoading(false)
+      }
     }
 
-    if (!replicationOptions.some((option) => option.value === replicationProjectId)) {
-      setReplicationProjectId(replicationOptions[0]?.value ?? "")
-    }
-  }, [replicationOptions, replicationProjectId])
+    void loadProjects()
+  }, [])
+
+  function handleProjectChange(nextProjectId) {
+    setProjectId(nextProjectId)
+    void loadAgenda(nextProjectId)
+  }
 
   function updateGenerator(field, value) {
     setGenerator((current) => ({ ...current, [field]: value }))
@@ -264,7 +269,7 @@ export default function AgendaPage() {
   }
 
   async function replicateAgenda() {
-    if (!projectId || !replicationProjectId) return
+    if (!projectId || !effectiveReplicationProjectId) return
 
     setSaving(true)
     setFeedback(null)
@@ -274,7 +279,7 @@ export default function AgendaPage() {
       body: JSON.stringify({
         action: "replicate_to_project",
         projetoId: projectId,
-        targetProjetoId: replicationProjectId,
+        targetProjetoId: effectiveReplicationProjectId,
       }),
     })
     const data = await response.json().catch(() => ({}))
@@ -395,7 +400,7 @@ export default function AgendaPage() {
           <div className="w-full min-w-[220px] lg:w-[300px]">
             <AppSelect
               value={projectId}
-              onChangeValue={setProjectId}
+              onChangeValue={handleProjectChange}
               options={projectOptions}
               placeholder="Selecione o projeto"
               minHeight={38}
@@ -508,7 +513,7 @@ export default function AgendaPage() {
               </div>
               <div className="grid gap-2">
                 <AppSelect
-                  value={replicationProjectId}
+                  value={effectiveReplicationProjectId}
                   onChangeValue={setReplicationProjectId}
                   options={replicationOptions}
                   placeholder="Selecione o projeto destino"

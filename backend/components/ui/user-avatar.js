@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { cn } from "@/lib/utils"
 
 function getInitials(label) {
@@ -21,13 +21,8 @@ function getInitials(label) {
 
 export function UserAvatar({ src, label, className, imageClassName, fallbackClassName }) {
   const normalizedSrc = typeof src === "string" ? src.trim() : ""
-  const [imageFailed, setImageFailed] = useState(false)
-
-  useEffect(() => {
-    setImageFailed(false)
-  }, [normalizedSrc])
-
-  const showImage = Boolean(normalizedSrc) && !imageFailed
+  const [failedSrc, setFailedSrc] = useState("")
+  const showImage = Boolean(normalizedSrc) && failedSrc !== normalizedSrc
 
   return (
     <div
@@ -41,7 +36,7 @@ export function UserAvatar({ src, label, className, imageClassName, fallbackClas
           src={normalizedSrc}
           alt={label || "Avatar"}
           referrerPolicy="no-referrer"
-          onError={() => setImageFailed(true)}
+          onError={() => setFailedSrc(normalizedSrc)}
           className={cn("h-full w-full object-cover", imageClassName)}
         />
       ) : (

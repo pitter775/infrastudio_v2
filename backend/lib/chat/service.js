@@ -113,6 +113,10 @@ export {
   stripAssistantMetaReply,
 } from "@/lib/chat/reply-formatting"
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
 export function mergeContext(base, ...extras) {
   return extras.filter(Boolean).reduce(
     (accumulator, extra) => ({

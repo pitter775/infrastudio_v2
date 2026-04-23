@@ -104,7 +104,13 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
     () => (primaryProject ? `infrastudio:onboarding-project:${primaryProject.id || primaryProject.slug || primaryProject.routeKey}` : ''),
     [primaryProject],
   )
-  const [showOnboardingHint, setShowOnboardingHint] = useState(false)
+  const showOnboardingHint = useMemo(() => {
+    if (!onboardingStorageKey || typeof window === 'undefined') {
+      return false
+    }
+
+    return window.localStorage.getItem(onboardingStorageKey) !== 'done'
+  }, [onboardingStorageKey])
 
   useEffect(() => {
     function syncMobileState() {
@@ -115,16 +121,6 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
     window.addEventListener('resize', syncMobileState)
     return () => window.removeEventListener('resize', syncMobileState)
   }, [])
-
-  useEffect(() => {
-    if (!onboardingStorageKey || typeof window === 'undefined') {
-      setShowOnboardingHint(false)
-      return
-    }
-
-    const dismissed = window.localStorage.getItem(onboardingStorageKey) === 'done'
-    setShowOnboardingHint(!dismissed)
-  }, [onboardingStorageKey])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !isMobile || !sheetOpen || sheetHistoryActiveRef.current) {

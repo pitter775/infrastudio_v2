@@ -92,7 +92,7 @@ function CuboMagico({
 }) {
   const groupRef = useRef(null)
   const cubies = useMemo(() => buildCubies(), [])
-  const elapsedRef = useRef(Math.random() * Math.PI * 2)
+  const elapsedRef = useRef((cubies.length * Math.PI) / 27)
   const introProgressRef = useRef(montarAoEntrar ? 0 : 1)
   const frozenRotationRef = useRef(null)
   const baseRotationX = animado ? -0.42 : -1.56

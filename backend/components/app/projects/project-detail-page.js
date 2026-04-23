@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { ArrowLeft, Bot, FileText, MessageCircle, PlugZap, Sparkles } from "lucide-react"
 
 import { AgentEditor } from "@/components/app/agents/agent-editor"
@@ -41,16 +41,13 @@ export function AppProjectDetailPage({ project }) {
     () => `infrastudio:onboarding-project:${project.id || project.slug || project.routeKey}`,
     [project.id, project.routeKey, project.slug],
   )
-  const [showOnboardingHint, setShowOnboardingHint] = useState(false)
-
-  useEffect(() => {
+  const [showOnboardingHint, setShowOnboardingHint] = useState(() => {
     if (typeof window === "undefined") {
-      return
+      return false
     }
 
-    const dismissed = window.localStorage.getItem(onboardingStorageKey) === "done"
-    setShowOnboardingHint(!dismissed)
-  }, [onboardingStorageKey])
+    return window.localStorage.getItem(onboardingStorageKey) !== "done"
+  })
 
   function handleAgentSummaryChange() {
     if (typeof window !== "undefined") {

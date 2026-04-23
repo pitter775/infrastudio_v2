@@ -802,13 +802,6 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   }, [conversation.mensagens])
 
   useEffect(() => {
-    setTraceProviderFilter("")
-    setTraceStageFilter("")
-    setTraceCostFilter("")
-    setTraceErrorFilter("")
-  }, [conversation.id])
-
-  useEffect(() => {
     if (typeof window === "undefined" || !compactMobileHeader || !detailsOpen || detailsHistoryActiveRef.current) {
       return
     }
@@ -860,7 +853,6 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
     }
 
     container.scrollTo({ top: container.scrollHeight, behavior: "auto" })
-    setShowScrollButton(false)
   }, [conversation.id])
 
   useEffect(() => {
@@ -1683,6 +1675,7 @@ export default function AttendancePage() {
 
           <section className="hidden min-h-0 flex-col overflow-hidden rounded-[12px] border border-white/5 bg-[#0c1322] lg:flex">
             <ChatPanel
+              key={activeConversation.id}
               conversation={activeConversation}
               onMessageSent={updateConversation}
               onStatusChanged={updateConversationStatus}
@@ -1700,6 +1693,7 @@ export default function AttendancePage() {
                 className="fixed inset-0 z-[70] flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
               >
                 <ChatPanel
+                  key={activeConversation.id}
                   conversation={activeConversation}
                   onMessageSent={updateConversation}
                   onStatusChanged={updateConversationStatus}

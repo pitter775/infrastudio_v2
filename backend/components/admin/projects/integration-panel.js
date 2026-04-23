@@ -157,9 +157,6 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
   const [activeTab, setActiveTab] = useState(
     deepLink?.tab && tabs.some((tab) => tab.id === deepLink.tab) ? deepLink.tab : tabs[0]?.id || 'overview',
   )
-  useEffect(() => {
-    setActiveTab(deepLink?.tab && tabs.some((tab) => tab.id === deepLink.tab) ? deepLink.tab : tabs[0]?.id || 'overview')
-  }, [deepLink?.tab, panel.id, tabs])
 
   const realPanel =
     panel.id === 'apis' ? (

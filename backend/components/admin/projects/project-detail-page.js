@@ -714,6 +714,7 @@ export function AdminProjectDetailPage({ project }) {
               >
                 {selectedPanel ? (
                   <IntegrationPanel
+                    key={`${selectedPanel.id}:${deepLink?.tab || ''}:${deepLink?.api || ''}:${deepLink?.channel || ''}:${deepLink?.widget || ''}:${deepLink?.notice || ''}`}
                     panel={selectedPanel}
                     sheetItems={sheetItems}
                     project={project}

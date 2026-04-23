@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { BadgeDollarSign, CreditCard, LoaderCircle, Save, ShieldAlert } from "lucide-react"
 
@@ -93,15 +93,23 @@ function toOptions(items = [], labelKey = "name") {
 
 export function AdminBillingPage({ initialPlans, initialProjects, currentUser }) {
   const searchParams = useSearchParams()
+  const initialProjectFilter = searchParams.get("projeto") || ""
+  const initialEmailFilter = searchParams.get("email") || ""
   const [plans, setPlans] = useState(initialPlans)
   const [projects, setProjects] = useState(initialProjects)
-  const [selectedProjectId, setSelectedProjectId] = useState(initialProjects[0]?.id ?? "")
-  const [form, setForm] = useState(initialProjects[0] ? buildFormFromProject(initialProjects[0]) : emptyForm())
+  const [selectedProjectId, setSelectedProjectId] = useState(initialProjectFilter || (initialProjects[0]?.id ?? ""))
+  const [form, setForm] = useState(() => {
+    const initialProject =
+      initialProjects.find((project) => project.id === (initialProjectFilter || initialProjects[0]?.id)) ??
+      (initialProjects[0] ?? null)
+
+    return initialProject ? buildFormFromProject(initialProject) : emptyForm()
+  })
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState(null)
-  const [projectFilter, setProjectFilter] = useState("")
-  const [userEmailFilter, setUserEmailFilter] = useState("")
+  const [projectFilter, setProjectFilter] = useState(initialProjectFilter)
+  const [userEmailFilter, setUserEmailFilter] = useState(initialEmailFilter)
   const isAllowed = currentUser?.role === "admin"
 
   const availableEmails = useMemo(
@@ -134,9 +142,17 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
     [projectFilter, projects, userEmailFilter],
   )
 
+  const effectiveSelectedProjectId = useMemo(() => {
+    if (filteredProjects.some((project) => project.id === selectedProjectId)) {
+      return selectedProjectId
+    }
+
+    return filteredProjects[0]?.id || selectedProjectId
+  }, [filteredProjects, selectedProjectId])
+
   const selectedProject = useMemo(
-    () => filteredProjects.find((project) => project.id === selectedProjectId) ?? projects.find((project) => project.id === selectedProjectId) ?? null,
-    [filteredProjects, projects, selectedProjectId],
+    () => filteredProjects.find((project) => project.id === effectiveSelectedProjectId) ?? projects.find((project) => project.id === effectiveSelectedProjectId) ?? null,
+    [effectiveSelectedProjectId, filteredProjects, projects],
   )
 
   const visibleUsageByUser = useMemo(() => {
@@ -153,35 +169,23 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
     })
   }, [selectedProject, userEmailFilter])
 
-  useEffect(() => {
-    if (selectedProject) {
-      setForm(buildFormFromProject(selectedProject))
-    }
-  }, [selectedProject])
+  function handleProjectSelection(nextProjectId) {
+    setSelectedProjectId(nextProjectId)
+    const nextProject = projects.find((project) => project.id === nextProjectId) ?? null
+    setForm(nextProject ? buildFormFromProject(nextProject) : emptyForm())
+  }
 
-  useEffect(() => {
-    if (!filteredProjects.length) {
-      return
-    }
+  function handleProjectFilterChange(nextProjectFilter) {
+    setProjectFilter(nextProjectFilter)
+    const nextSelectedProjectId =
+      nextProjectFilter && projects.some((project) => project.id === nextProjectFilter)
+        ? nextProjectFilter
+        : filteredProjects[0]?.id || ""
 
-    if (!filteredProjects.some((project) => project.id === selectedProjectId)) {
-      setSelectedProjectId(filteredProjects[0].id)
+    if (nextSelectedProjectId) {
+      handleProjectSelection(nextSelectedProjectId)
     }
-  }, [filteredProjects, selectedProjectId])
-
-  useEffect(() => {
-    const projectIdFromQuery = searchParams.get("projeto")
-    const emailFromQuery = searchParams.get("email")
-
-    if (projectIdFromQuery) {
-      setProjectFilter(projectIdFromQuery)
-      setSelectedProjectId(projectIdFromQuery)
-    }
-
-    if (emailFromQuery) {
-      setUserEmailFilter(emailFromQuery)
-    }
-  }, [searchParams])
+  }
 
   const stats = useMemo(
     () => ({
@@ -315,12 +319,12 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
                 {filteredProjects.map((project) => {
                   const cycle = project.billing?.currentCycle
                   const config = project.billing?.projectPlan
-                  const active = project.id === selectedProjectId
+                  const active = project.id === effectiveSelectedProjectId
 
                   return (
                     <tr
                       key={project.id}
-                      onClick={() => setSelectedProjectId(project.id)}
+                      onClick={() => handleProjectSelection(project.id)}
                       className={cn(
                         "cursor-pointer border-t border-white/5 text-sm text-slate-300 transition",
                         active ? "bg-white/[0.04]" : "hover:bg-white/[0.02]",
@@ -386,7 +390,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
           <div className="space-y-4">
             <label className="space-y-2 block">
               <span className="text-sm font-semibold text-slate-300">Projeto</span>
-              <AppSelect value={form.projectId} onChangeValue={setSelectedProjectId} options={toOptions(projects)} />
+              <AppSelect value={form.projectId} onChangeValue={handleProjectSelection} options={toOptions(projects)} />
             </label>
 
             <label className="space-y-2 block">
@@ -522,7 +526,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
             <div className="grid gap-3 sm:grid-cols-2">
               <AppSelect
                 value={projectFilter}
-                onChangeValue={setProjectFilter}
+                onChangeValue={handleProjectFilterChange}
                 placeholder="Todos os projetos"
                 options={[{ value: "", label: "Todos os projetos" }, ...toOptions(projects)]}
               />

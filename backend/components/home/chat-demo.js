@@ -249,15 +249,6 @@ export function PremiumHomeChatDemo() {
 
   useEffect(() => {
     clearTimers()
-    setFace('front')
-    setMessages([])
-    setIsTyping(false)
-    setShowWhatsappButton(false)
-    setChatCtaPressed(false)
-    setWhatsVisibleCount(0)
-    setWhatsTyping(false)
-    setShowWhatsActions(false)
-    setPressedAction(null)
 
     let elapsed = 450
 

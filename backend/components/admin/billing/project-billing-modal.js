@@ -232,7 +232,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     const usedTokens = Number(summary?.usedTokens ?? 0)
     const freeRemainingTokens = Math.max(0, Number(freePlan.totalTokens) - usedTokens)
     return formatCredits(freeRemainingTokens)
-  }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.topUpAvailableTokens, summary?.usedTokens])
+  }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.usedTokens])
   const extraCreditsLabel = useMemo(() => {
     const extraCredits = Number(summary?.topUpAvailableTokens ?? 0)
     return extraCredits > 0 ? formatCredits(extraCredits) : null
@@ -250,7 +250,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     }
 
     return '--'
-  }, [summary?.monthlyLimit, summary?.usagePercent, summary?.usedTokens])
+  }, [summary])
   const pendingCheckout = summary?.pendingCheckout || null
   const canResumePendingCheckout = Boolean(pendingCheckout?.checkoutUrl)
 

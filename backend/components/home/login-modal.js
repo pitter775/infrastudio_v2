@@ -145,7 +145,11 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
   const nameRef = useRef(null)
 
   useEffect(() => {
-    if (!open) {
+    if (open) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => {
       setMode('login')
       setLoginError('')
       setRegisterError('')
@@ -154,16 +158,24 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
       setRegisterLoading(false)
       setSocialLoadingProvider(null)
       setResendingVerification(false)
-    }
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [open])
 
   useEffect(() => {
-    if (open && initialNotice) {
+    if (!open || !initialNotice) {
+      return undefined
+    }
+
+    const timer = window.setTimeout(() => {
       setMode('login')
       setLoginError('')
       setRegisterError('')
       setNotice(initialNotice)
-    }
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [initialNotice, open])
 
   useEffect(() => {

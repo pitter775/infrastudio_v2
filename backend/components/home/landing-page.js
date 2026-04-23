@@ -546,7 +546,6 @@ function AboutSection({ onLoginClick }) {
 }
 
 export function LandingPage({ currentUser = null, plans = [] }) {
-  const [loginOpen, setLoginOpen] = useState(false)
   const searchParams = useSearchParams()
   const selectedProjectId =
     searchParams.get('projeto') || searchParams.get('projectId') || currentUser?.currentProjectId || ''
@@ -563,12 +562,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
             : authNotice === 'social_oauth_error'
               ? 'Não foi possível concluir o login social. Verifique a configuração e tente novamente.'
               : ''
-
-  useEffect(() => {
-    if (authNoticeMessage) {
-      setLoginOpen(true)
-    }
-  }, [authNoticeMessage])
+  const [loginOpen, setLoginOpen] = useState(Boolean(authNoticeMessage))
 
   useEffect(() => {
     const previousBehavior = document.documentElement.style.scrollBehavior

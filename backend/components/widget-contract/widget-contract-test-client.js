@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { CheckCircle2, ExternalLink, Loader2, RotateCcw } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -45,9 +45,27 @@ function appendScript(input) {
 }
 
 export function WidgetContractTestClient() {
-  const [projeto, setProjeto] = useState(DEFAULTS.projeto)
-  const [agente, setAgente] = useState(DEFAULTS.agente)
-  const [widget, setWidget] = useState(DEFAULTS.widget)
+  const [projeto, setProjeto] = useState(() => {
+    if (typeof window === "undefined") {
+      return DEFAULTS.projeto
+    }
+
+    return new URLSearchParams(window.location.search).get("projeto") || DEFAULTS.projeto
+  })
+  const [agente, setAgente] = useState(() => {
+    if (typeof window === "undefined") {
+      return DEFAULTS.agente
+    }
+
+    return new URLSearchParams(window.location.search).get("agente") || DEFAULTS.agente
+  })
+  const [widget, setWidget] = useState(() => {
+    if (typeof window === "undefined") {
+      return DEFAULTS.widget
+    }
+
+    return new URLSearchParams(window.location.search).get("widget") || DEFAULTS.widget
+  })
   const [loaded, setLoaded] = useState(null)
   const [loading, setLoading] = useState(false)
 
@@ -57,17 +75,6 @@ export function WidgetContractTestClient() {
     }
 
     return window.location.origin
-  }, [])
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const nextProjeto = params.get("projeto")
-    const nextAgente = params.get("agente")
-    const nextWidget = params.get("widget")
-
-    if (nextProjeto) setProjeto(nextProjeto)
-    if (nextAgente) setAgente(nextAgente)
-    if (nextWidget) setWidget(nextWidget)
   }, [])
 
   function reset() {

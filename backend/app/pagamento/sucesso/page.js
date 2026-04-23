@@ -49,13 +49,9 @@ function formatPlanLabel(value) {
 
 function PagamentoSucessoContent() {
   const searchParams = useSearchParams()
-  const [storedIntent, setStoredIntent] = useState(null)
+  const [storedIntent] = useState(() => readStoredIntent())
   const [confirmationStatus, setConfirmationStatus] = useState("idle")
   const [confirmationMessage, setConfirmationMessage] = useState("")
-
-  useEffect(() => {
-    setStoredIntent(readStoredIntent())
-  }, [])
 
   const paymentType = searchParams.get("tipo") || storedIntent?.type || "plan"
   const planName = searchParams.get("plano") || storedIntent?.planName || ""

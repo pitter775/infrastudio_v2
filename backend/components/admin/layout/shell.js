@@ -622,7 +622,7 @@ export function AdminShell({ user, children }) {
           </motion.aside>
 
           <main className="flex min-h-screen min-w-0 flex-1 flex-col pt-16 lg:min-h-0 lg:pt-0">
-            <header className="fixed inset-x-0 top-0 z-[220] h-16 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-[220] lg:h-12">
+            <header className="fixed inset-x-0 top-0 z-[70] h-16 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-[220] lg:h-12">
               <div className="flex h-full items-center justify-end">
                 <div className="mr-auto lg:hidden">
                   <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
