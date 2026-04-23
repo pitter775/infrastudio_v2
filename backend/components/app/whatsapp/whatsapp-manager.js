@@ -13,7 +13,7 @@ const inputClassName =
 const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
 const QR_PENDING_TIMEOUT_MS = 40000
 const QR_POLL_INTERVAL_IDLE_MS = 4500
-const QR_POLL_INTERVAL_ACTIVE_MS = 1200
+const QR_POLL_INTERVAL_ACTIVE_MS = 500
 
 function normalizePhoneDigits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 13)
@@ -722,11 +722,12 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-8 rounded-lg px-2 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                      className="h-8 gap-1.5 rounded-lg border border-amber-400/20 bg-amber-500/10 px-2.5 text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
                       onClick={() => refreshChannel(channel)}
                       disabled={busyId === channel.id}
                     >
                       <RotateCcw className={cn("h-3.5 w-3.5", busyId === channel.id && "animate-spin")} />
+                      Atualizar
                     </Button>
                     <Button
                       type="button"

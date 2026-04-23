@@ -94,6 +94,33 @@ function userCanAccessProject(user, projectId) {
   return user?.memberships?.some((item) => item.projetoId === projectId) ?? false
 }
 
+function sanitizeWorkerMessage(value) {
+  const message = String(value || "").trim()
+  if (!message) {
+    return ""
+  }
+
+  const normalized = message.toLowerCase()
+
+  if (
+    normalized.includes("failed to launch the browser process") ||
+    normalized.includes("zygote could not fork") ||
+    normalized.includes("resource temporarily unavailable") ||
+    normalized.includes("failed to connect to the bus") ||
+    normalized.includes("pthread_create") ||
+    normalized.includes("crashpad") ||
+    normalized.includes("/sys/devices/system/cpu")
+  ) {
+    return "O worker do WhatsApp ficou sem recursos para abrir a sessao. Tente conectar novamente em alguns instantes."
+  }
+
+  if (normalized.includes("profile appears to be in use") || normalized.includes("chromium has locked the profile")) {
+    return "A sessao do WhatsApp esta temporariamente bloqueada por outro processo. Tente novamente em alguns instantes."
+  }
+
+  return message
+}
+
 function mapChannel(row) {
   const session = row.session_data && typeof row.session_data === "object" ? row.session_data : {}
   const savedContactFlags = resolveSavedContactFlags(session)
@@ -107,8 +134,8 @@ function mapChannel(row) {
     connectionStatus: session.connectionStatus || session.status || "desconectado",
     qrCodeDataUrl: session.qrCodeDataUrl || null,
     qrCodeText: session.qrCodeText || null,
-    notes: session.notes || "",
-    lastError: session.lastError || "",
+    notes: sanitizeWorkerMessage(session.notes || ""),
+    lastError: sanitizeWorkerMessage(session.lastError || ""),
     lastInboundAt: session.lastInboundAt || null,
     lastOutboundAt: session.lastOutboundAt || null,
     onlyReplyToUnsavedContacts:
@@ -161,7 +188,7 @@ function mergeRuntimeSnapshotIntoChannel(channel, snapshot) {
     connectionStatus: snapshot.status || channel.connectionStatus,
     qrCodeDataUrl: snapshot.qrCodeDataUrl || null,
     qrCodeText: snapshot.qrCodeText || null,
-    lastError: snapshot.lastError || channel.lastError || "",
+    lastError: sanitizeWorkerMessage(snapshot.lastError || channel.lastError || ""),
   }
 }
 
