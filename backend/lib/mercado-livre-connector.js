@@ -1,5 +1,6 @@
 ﻿import "server-only"
 
+import { createHash, randomBytes } from "node:crypto"
 import { SignJWT, jwtVerify } from "jose"
 
 import {
@@ -190,6 +191,17 @@ async function verifyMercadoLivreOAuthState(token) {
   return {
     projectId: sanitizeString(payload.projectId),
     connectorId: sanitizeString(payload.connectorId),
+    codeVerifier: sanitizeString(payload.codeVerifier),
+  }
+}
+
+function createMercadoLivrePkcePair() {
+  const codeVerifier = randomBytes(32).toString("base64url")
+  const codeChallenge = createHash("sha256").update(codeVerifier).digest("base64url")
+
+  return {
+    codeVerifier,
+    codeChallenge,
   }
 }
 
@@ -336,9 +348,11 @@ export async function buildMercadoLivreAuthorizationUrl(project, user, origin, d
     throw new Error("App ID e Client Secret sao obrigatorios para iniciar o OAuth do Mercado Livre.")
   }
 
+  const { codeVerifier, codeChallenge } = createMercadoLivrePkcePair()
   const state = await signMercadoLivreOAuthState({
     projectId: project.id,
     connectorId: connector.id,
+    codeVerifier,
   })
 
   const resolvedAppUrl = getAppUrl(origin).replace(/\/$/, "")
@@ -348,6 +362,8 @@ export async function buildMercadoLivreAuthorizationUrl(project, user, origin, d
   url.searchParams.set("client_id", appId)
   url.searchParams.set("redirect_uri", redirectUri)
   url.searchParams.set("state", state)
+  url.searchParams.set("code_challenge", codeChallenge)
+  url.searchParams.set("code_challenge_method", "S256")
 
   await logMercadoLivreOAuthEvent({
     projectId: project.id,
@@ -361,6 +377,7 @@ export async function buildMercadoLivreAuthorizationUrl(project, user, origin, d
       requestOrigin: sanitizeString(origin),
       resolvedAppUrl,
       redirectUri,
+      pkceEnabled: true,
       appIdSuffix: appId ? appId.slice(-6) : "",
     },
   })
@@ -376,7 +393,7 @@ function buildMercadoLivreOAuthRedirectPath(projectId, status) {
   return target.toString()
 }
 
-async function exchangeMercadoLivreCode(code, connector, origin, fetchImpl = fetch) {
+async function exchangeMercadoLivreCode(code, codeVerifier, connector, origin, fetchImpl = fetch) {
   const config = getConnectorConfig(connector)
   const redirectUri = `${getAppUrl(origin).replace(/\/$/, "")}/api/admin/conectores/mercado-livre/callback`
   const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/oauth/token`, {
@@ -390,6 +407,7 @@ async function exchangeMercadoLivreCode(code, connector, origin, fetchImpl = fet
       client_id: sanitizeString(config.appId),
       client_secret: sanitizeString(config.clientSecret),
       code,
+      code_verifier: sanitizeString(codeVerifier),
       redirect_uri: redirectUri,
     }),
   })
@@ -547,7 +565,11 @@ export async function completeMercadoLivreOAuthCallback(searchParams, origin, de
   })
 
   try {
-    const tokenPayload = await exchangeMercadoLivreCode(code, connector, origin, fetchImpl)
+    if (!parsedState.codeVerifier) {
+      throw new Error("State do OAuth do Mercado Livre sem code_verifier.")
+    }
+
+    const tokenPayload = await exchangeMercadoLivreCode(code, parsedState.codeVerifier, connector, origin, fetchImpl)
     const profile = await fetchMercadoLivreProfile(tokenPayload.access_token, fetchImpl)
     const currentConfig = getConnectorConfig(connector)
     const nextConfig = {
