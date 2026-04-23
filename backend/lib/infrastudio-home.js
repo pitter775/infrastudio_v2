@@ -1,42 +1,47 @@
 import "server-only"
 
-import { getAgenteById } from "@/lib/agentes"
+import { getAgenteByIdentifier } from "@/lib/agentes"
 import { getChatWidgetBySlug } from "@/lib/chat-widgets"
-import { getProjetoById } from "@/lib/projetos"
+import { getProjetoBySlug } from "@/lib/projetos"
 
-export const INFRASTUDIO_HOME_PROJECT_ID = "7d965fd5-2487-4efc-b3df-1d28fa3d5377"
-export const INFRASTUDIO_HOME_AGENT_ID = "e0c00703-726d-477e-926d-9e9986a67db0"
-export const INFRASTUDIO_HOME_WIDGET_SLUG = "infrastudio-home"
+export const INFRASTUDIO_HOME_PROJECT_SLUG = "infrastudio"
+export const INFRASTUDIO_HOME_AGENT_IDENTIFIER = "infrastudio-assistente"
+export const INFRASTUDIO_HOME_WIDGET_SLUG = "infrastudio-chat"
 
 export async function getInfraStudioHomeChatConfig() {
+  const projeto = await getProjetoBySlug(INFRASTUDIO_HOME_PROJECT_SLUG)
+
+  if (!projeto?.id) {
+    return null
+  }
+
   const widget = await getChatWidgetBySlug(INFRASTUDIO_HOME_WIDGET_SLUG)
 
   if (!widget?.projetoId || !widget?.agenteId || widget.slug !== INFRASTUDIO_HOME_WIDGET_SLUG) {
     return null
   }
 
-  const projeto = await getProjetoById(widget.projetoId)
-
-  if (!projeto?.id) {
+  if (widget.projetoId !== projeto.id) {
     return null
   }
 
-  const agente = await getAgenteById(widget.agenteId)
-  const agenteIdentifier = agente?.id || null
+  const agente = await getAgenteByIdentifier(INFRASTUDIO_HOME_AGENT_IDENTIFIER, projeto.id)
+  const agenteIdentifier = agente?.slug || agente?.id || null
 
   if (
     !agenteIdentifier ||
+    agente.id !== widget.agenteId ||
     agente.projetoId !== projeto.id ||
-    !agente.ativo
+    !agente.active
   ) {
     return null
   }
 
   return {
-    projeto: projeto.id,
+    projeto: projeto.slug || INFRASTUDIO_HOME_PROJECT_SLUG,
     agente: agenteIdentifier,
     widget: widget?.slug || INFRASTUDIO_HOME_WIDGET_SLUG,
-    title: agente?.nome || projeto?.nome || widget?.nome || "Chat",
+    title: widget?.nome || agente?.name || projeto?.nome || "InfraStudio Chat",
     theme: widget?.tema || "dark",
     accent: widget?.corPrimaria || "#2563eb",
     transparent: widget?.fundoTransparente !== false,

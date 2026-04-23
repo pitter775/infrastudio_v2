@@ -7,7 +7,7 @@ import { useSearchParams } from "next/navigation"
 
 import {
   BILLING_INTENT_STORAGE_KEY,
-  TOP_UP_OFFER,
+  TEST_TOP_UP_OFFER,
   formatCredits,
   normalizePlanKey,
 } from "@/lib/public-planos"
@@ -44,6 +44,10 @@ function formatPlanLabel(value) {
     return "Free"
   }
 
+  if (planKey === "scale") {
+    return "Scale"
+  }
+
   return value || "Plano"
 }
 
@@ -55,8 +59,8 @@ function PagamentoSucessoContent() {
 
   const paymentType = searchParams.get("tipo") || storedIntent?.type || "plan"
   const planName = searchParams.get("plano") || storedIntent?.planName || ""
-  const topUpTokens = Number(searchParams.get("tokens") || storedIntent?.tokens || TOP_UP_OFFER.tokens)
-  const topUpPrice = Number(searchParams.get("valor") || storedIntent?.price || TOP_UP_OFFER.price)
+  const topUpTokens = Number(searchParams.get("tokens") || storedIntent?.tokens || TEST_TOP_UP_OFFER.tokens)
+  const topUpPrice = Number(searchParams.get("valor") || storedIntent?.price || TEST_TOP_UP_OFFER.price)
   const paymentStatus = String(
     searchParams.get("status") || searchParams.get("collection_status") || "",
   ).toLowerCase()

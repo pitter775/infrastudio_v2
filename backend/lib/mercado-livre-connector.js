@@ -73,6 +73,42 @@ function getConnectorConfig(connector) {
   return connector?.config && typeof connector.config === "object" && !Array.isArray(connector.config) ? connector.config : {}
 }
 
+async function cleanupExtraMercadoLivreConnectors(supabase, projectId, keepConnectorId) {
+  if (!projectId || !keepConnectorId) {
+    return
+  }
+
+  const { data, error } = await supabase
+    .from("conectores")
+    .select("id, slug, tipo, nome")
+    .eq("projeto_id", projectId)
+
+  if (error || !data?.length) {
+    if (error) {
+      console.error("[mercado-livre] failed to load connectors for singleton cleanup", error)
+    }
+    return
+  }
+
+  const duplicateIds = data
+    .filter((item) => item.id !== keepConnectorId)
+    .filter((item) => {
+      const haystack = `${item.slug || ""} ${item.tipo || ""} ${item.nome || ""}`.toLowerCase()
+      return haystack.includes("mercado") || haystack.includes("ml")
+    })
+    .map((item) => item.id)
+
+  if (!duplicateIds.length) {
+    return
+  }
+
+  const { error: deleteError } = await supabase.from("conectores").delete().in("id", duplicateIds)
+
+  if (deleteError) {
+    console.error("[mercado-livre] failed to delete extra connectors", deleteError)
+  }
+}
+
 function normalizeMercadoLivreConnector(connector) {
   if (!connector) {
     return null
@@ -132,6 +168,10 @@ async function getMercadoLivreConnectorByProjectId(projectId, deps = {}) {
     const haystack = `${item.slug || ""} ${item.tipo || ""} ${item.nome || ""}`.toLowerCase()
     return haystack.includes("mercado") || haystack.includes("ml")
   })
+
+  if (row?.id) {
+    await cleanupExtraMercadoLivreConnectors(supabase, projectId, row.id)
+  }
 
   return normalizeMercadoLivreConnector(row ? mapConnector(row) : null)
 }
@@ -225,6 +265,7 @@ export async function upsertMercadoLivreConnectorForUser(project, input, user, d
       return { connector: null, error: "Nao foi possivel salvar a conexao do Mercado Livre." }
     }
 
+    await cleanupExtraMercadoLivreConnectors(supabase, project.id, data.id)
     return {
       connector: normalizeMercadoLivreConnector(mapConnector(data)),
       error: null,

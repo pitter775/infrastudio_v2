@@ -2,6 +2,7 @@ import "server-only"
 
 import { randomUUID } from "node:crypto"
 
+import { getOrCreateDefaultModelId } from "@/lib/modelos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { deleteUsuario, getUsuarioById } from "@/lib/usuarios"
 
@@ -130,6 +131,7 @@ export async function applyInitialFreePlan({ supabase, projetoId, now }) {
 }
 
 async function cloneTemplateProjectData({ supabase, templateProjectId, projetoId, now }) {
+  const defaultModelId = await getOrCreateDefaultModelId({ supabase })
   const [templateAgentsResult, templateApisResult, templateWidgetsResult, templateConnectorsResult, templateSecretsResult, templatePlanResult] =
     await Promise.all([
       supabase
@@ -182,7 +184,7 @@ async function cloneTemplateProjectData({ supabase, templateProjectId, projetoId
         slug: agent.slug,
         nome: agent.nome,
         descricao: agent.descricao,
-        modelo_id: agent.modelo_id,
+        modelo_id: agent.modelo_id ?? defaultModelId,
         prompt_base: agent.prompt_base,
         configuracoes: agent.configuracoes ?? {},
         ativo: agent.ativo !== false,
@@ -346,6 +348,7 @@ export async function createInitialProjectForUsuario({ usuarioId, nome }) {
   const supabase = getSupabaseAdminClient()
   const now = new Date().toISOString()
   const baseName = String(nome || "Usuario").trim() || "Usuario"
+  const defaultModelId = await getOrCreateDefaultModelId({ supabase })
   const templateProjectId = DEFAULT_TEMPLATE_PROJECT_ID
   const templateQuery = templateProjectId
     ? await supabase
@@ -365,7 +368,7 @@ export async function createInitialProjectForUsuario({ usuarioId, nome }) {
       descricao: templateProject?.descricao || "Projeto criado no cadastro.",
       status: templateProject?.status || "ativo",
       modo_cobranca: templateProject?.modo_cobranca || "plano",
-      modelo_id: templateProject?.modelo_id ?? null,
+      modelo_id: templateProject?.modelo_id ?? defaultModelId,
       owner_user_id: usuarioId,
       configuracoes: templateProject?.configuracoes ?? {},
       created_at: now,

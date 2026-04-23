@@ -31,6 +31,11 @@ function mapConnector(row) {
   }
 }
 
+function isMercadoLivreConnector(row) {
+  const value = `${row?.slug || ""} ${row?.tipo || ""} ${row?.nome || ""}`.toLowerCase()
+  return value.includes("mercado") || value.includes("ml")
+}
+
 export async function listConnectorsForUser(projetoId, user) {
   if (!projetoId || !userCanAccessProject(user, projetoId)) {
     return []
@@ -49,7 +54,21 @@ export async function listConnectorsForUser(projetoId, user) {
       return []
     }
 
-    return data.map(mapConnector)
+    let mercadoLivreKept = false
+    const filtered = (data ?? []).filter((row) => {
+      if (!isMercadoLivreConnector(row)) {
+        return true
+      }
+
+      if (mercadoLivreKept) {
+        return false
+      }
+
+      mercadoLivreKept = true
+      return true
+    })
+
+    return filtered.map(mapConnector)
   } catch (error) {
     console.error("[conectores] failed to list connectors", error)
     return []

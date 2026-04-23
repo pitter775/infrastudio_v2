@@ -5,6 +5,7 @@ import { saveWhatsAppHandoffContactForUser } from "@/lib/whatsapp-handoff-contat
 
 const channelFields =
   "id, projeto_id, agente_id, numero, session_data, status, created_at, updated_at"
+const TRANSIENT_CONNECTION_STATUSES = new Set(["connecting", "aguardando_qr", "reconnecting"])
 
 function isPlainObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
@@ -123,8 +124,113 @@ function mapChannel(row) {
   }
 }
 
+function sanitizeSessionForPersistence(sessionData) {
+  if (!isPlainObject(sessionData)) {
+    return {}
+  }
+
+  const nextSession = { ...sessionData }
+  delete nextSession.qrCodeDataUrl
+  delete nextSession.qrCodeText
+  delete nextSession.reconnectDelayMs
+  delete nextSession.updatedAt
+  delete nextSession.status
+
+  const normalizedConnectionStatus = String(nextSession.connectionStatus || "")
+    .trim()
+    .toLowerCase()
+
+  if (!normalizedConnectionStatus || TRANSIENT_CONNECTION_STATUSES.has(normalizedConnectionStatus)) {
+    delete nextSession.connectionStatus
+  }
+
+  return nextSession
+}
+
+function areJsonObjectsEqual(left, right) {
+  return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
+}
+
+function mergeRuntimeSnapshotIntoChannel(channel, snapshot) {
+  if (!channel || !isPlainObject(snapshot)) {
+    return channel
+  }
+
+  return {
+    ...channel,
+    connectionStatus: snapshot.status || channel.connectionStatus,
+    qrCodeDataUrl: snapshot.qrCodeDataUrl || null,
+    qrCodeText: snapshot.qrCodeText || null,
+    lastError: snapshot.lastError || channel.lastError || "",
+  }
+}
+
+async function loadWorkerSnapshot(channelId) {
+  if (!channelId) {
+    return null
+  }
+
+  try {
+    const data = await callWhatsAppWorker(`/status?channelId=${encodeURIComponent(channelId)}`)
+    return isPlainObject(data) ? data : null
+  } catch {
+    return null
+  }
+}
+
 function normalizePhone(value) {
   return String(value || "").replace(/\D/g, "")
+}
+
+function pickPrimaryChannelRow(rows, preferredAgentId = null) {
+  const list = Array.isArray(rows) ? rows : []
+  if (!list.length) {
+    return null
+  }
+
+  if (preferredAgentId) {
+    const agentChannel = list.find((item) => item.agente_id === preferredAgentId)
+    if (agentChannel) {
+      return agentChannel
+    }
+  }
+
+  return list[0]
+}
+
+async function cleanupExtraChannelsForProject(supabase, projectId, keepChannelId) {
+  if (!projectId || !keepChannelId) {
+    return
+  }
+
+  const { data, error } = await supabase.from("canais_whatsapp").select("id").eq("projeto_id", projectId)
+
+  if (error || !data?.length) {
+    if (error) {
+      console.error("[whatsapp] failed to load channels for singleton cleanup", error)
+    }
+    return
+  }
+
+  const duplicateIds = data.map((item) => item.id).filter((id) => id && id !== keepChannelId)
+  if (!duplicateIds.length) {
+    return
+  }
+
+  const { error: contactsError } = await supabase
+    .from("whatsapp_handoff_contatos")
+    .update({ canal_whatsapp_id: keepChannelId, updated_at: new Date().toISOString() })
+    .in("canal_whatsapp_id", duplicateIds)
+
+  if (contactsError) {
+    console.error("[whatsapp] failed to rebind attendant contacts during cleanup", contactsError)
+  }
+
+  const { error: deleteError } = await supabase.from("canais_whatsapp").delete().in("id", duplicateIds)
+
+  if (deleteError) {
+    console.error("[whatsapp] failed to delete extra channels", deleteError)
+  }
 }
 
 export function getWhatsAppWorkerBaseUrl() {
@@ -149,7 +255,15 @@ export async function listWhatsAppChannelsForUser(project, user) {
       return []
     }
 
-    return data.map(mapChannel)
+    const primaryChannel = pickPrimaryChannelRow(data, project.agent?.id || null)
+    if (!primaryChannel) {
+      return []
+    }
+
+    await cleanupExtraChannelsForProject(supabase, project.id, primaryChannel.id)
+    const mappedChannel = mapChannel(primaryChannel)
+    const workerSnapshot = await loadWorkerSnapshot(mappedChannel.id)
+    return [mergeRuntimeSnapshotIntoChannel(mappedChannel, workerSnapshot)]
   } catch (error) {
     console.error("[whatsapp] failed to list channels", error)
     return []
@@ -169,20 +283,36 @@ export async function createWhatsAppChannelForUser(project, input, user) {
   try {
     const supabase = getSupabaseAdminClient()
     const agenteId = input.agenteId === null ? null : input.agenteId || project.agent?.id || null
-    const { data, error } = await supabase
+    const { data: existingRows, error: existingError } = await supabase
       .from("canais_whatsapp")
-      .insert({
-        projeto_id: project.id,
-        agente_id: agenteId,
-        numero: number,
-        status: input.status === "inativo" ? "inativo" : "ativo",
-        session_data: {
-          connectionStatus: "desconectado",
-          notes: "Canal criado no v2.",
-        },
-      })
       .select(channelFields)
-      .maybeSingle()
+      .eq("projeto_id", project.id)
+      .order("updated_at", { ascending: false, nullsFirst: false })
+
+    if (existingError) {
+      console.error("[whatsapp] failed to load existing channels before save", existingError)
+      return { channel: null, error: "Nao foi possivel salvar o canal." }
+    }
+
+    const primaryChannel = pickPrimaryChannelRow(existingRows, agenteId)
+    const payload = {
+      projeto_id: project.id,
+      agente_id: agenteId,
+      numero: number,
+      status: input.status === "inativo" ? "inativo" : "ativo",
+      session_data: {
+        ...(primaryChannel?.session_data && typeof primaryChannel.session_data === "object" ? primaryChannel.session_data : {}),
+        connectionStatus: primaryChannel?.session_data?.connectionStatus || "desconectado",
+        notes: primaryChannel?.session_data?.notes || "Canal criado no v2.",
+      },
+      updated_at: new Date().toISOString(),
+    }
+
+    const query = primaryChannel?.id
+      ? supabase.from("canais_whatsapp").update(payload).eq("id", primaryChannel.id).eq("projeto_id", project.id)
+      : supabase.from("canais_whatsapp").insert(payload)
+
+    const { data, error } = await query.select(channelFields).maybeSingle()
 
     if (error || !data) {
       if (error) {
@@ -192,6 +322,7 @@ export async function createWhatsAppChannelForUser(project, input, user) {
     }
 
     const channel = mapChannel(data)
+    await cleanupExtraChannelsForProject(supabase, project.id, channel.id)
     const existingContact = await supabase
       .from("whatsapp_handoff_contatos")
       .select("id")
@@ -252,7 +383,9 @@ export async function getWhatsAppChannelForUser(channelId, project, user) {
       return null
     }
 
-    return mapChannel(data)
+    const mappedChannel = mapChannel(data)
+    const workerSnapshot = await loadWorkerSnapshot(mappedChannel.id)
+    return mergeRuntimeSnapshotIntoChannel(mappedChannel, workerSnapshot)
   } catch (error) {
     console.error("[whatsapp] failed to get channel", error)
     return null
@@ -281,7 +414,10 @@ export async function getPrimaryWhatsAppChannelByProjectId(projectId, deps = {})
       return null
     }
 
-    return mapChannel(data)
+    await cleanupExtraChannelsForProject(supabase, projectId, data.id)
+    const mappedChannel = mapChannel(data)
+    const workerSnapshot = await loadWorkerSnapshot(mappedChannel.id)
+    return mergeRuntimeSnapshotIntoChannel(mappedChannel, workerSnapshot)
   } catch (error) {
     console.error("[whatsapp] failed to load primary project channel", error)
     return null
@@ -325,7 +461,7 @@ function shouldKeepChannelActive(sessionData) {
 }
 
 export async function getActiveWhatsAppChannelByProjectAgent(input, deps = {}) {
-  if (!input?.projetoId || !input?.agenteId) {
+  if (!input?.projetoId) {
     return null
   }
 
@@ -335,7 +471,6 @@ export async function getActiveWhatsAppChannelByProjectAgent(input, deps = {}) {
       .from("canais_whatsapp")
       .select(channelFields)
       .eq("projeto_id", input.projetoId)
-      .eq("agente_id", input.agenteId)
       .eq("status", "ativo")
       .order("updated_at", { ascending: false, nullsFirst: false })
 
@@ -454,7 +589,11 @@ export async function deleteWhatsAppChannelForUser(channelId, project, user) {
 
   try {
     const supabase = getSupabaseAdminClient()
-    await supabase.from("whatsapp_handoff_contatos").delete().eq("canal_whatsapp_id", channelId)
+    await supabase
+      .from("whatsapp_handoff_contatos")
+      .update({ canal_whatsapp_id: null, updated_at: new Date().toISOString() })
+      .eq("projeto_id", project.id)
+      .eq("canal_whatsapp_id", channelId)
     const { error } = await supabase.from("canais_whatsapp").delete().eq("id", channelId).eq("projeto_id", project.id)
 
     if (error) {
@@ -502,14 +641,19 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
             },
           }
         : {}),
-      updatedAt: new Date().toISOString(),
     }
     const nextStatus = shouldKeepChannelActive(nextSession) ? "ativo" : "inativo"
+    const persistedSession = sanitizeSessionForPersistence(nextSession)
+    const currentPersistedSession = sanitizeSessionForPersistence(session)
+
+    if (areJsonObjectsEqual(persistedSession, currentPersistedSession) && nextStatus === current.status) {
+      return mergeRuntimeSnapshotIntoChannel(mapChannel(current), normalizedPatch)
+    }
 
     const { data, error } = await supabase
       .from("canais_whatsapp")
       .update({
-        session_data: nextSession,
+        session_data: persistedSession,
         status: nextStatus,
         updated_at: new Date().toISOString(),
       })
@@ -524,7 +668,7 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
       return null
     }
 
-    return mapChannel(data)
+    return mergeRuntimeSnapshotIntoChannel(mapChannel(data), normalizedPatch)
   } catch (error) {
     console.error("[whatsapp] failed to update channel session", error)
     return null

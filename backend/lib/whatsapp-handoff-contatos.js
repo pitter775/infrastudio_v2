@@ -147,6 +147,22 @@ export async function saveWhatsAppHandoffContactForUser(project, input, user) {
 
   try {
     const supabase = getSupabaseAdminClient()
+    let targetId = input.id || null
+
+    if (!targetId) {
+      const { data: existingContact } = await supabase
+        .from("whatsapp_handoff_contatos")
+        .select(contactFields)
+        .eq("projeto_id", project.id)
+        .eq("numero", numero)
+        .limit(1)
+        .maybeSingle()
+
+      if (existingContact?.id) {
+        targetId = existingContact.id
+      }
+    }
+
     const payload = {
       projeto_id: project.id,
       canal_whatsapp_id: input.canalWhatsappId || null,
@@ -159,8 +175,8 @@ export async function saveWhatsAppHandoffContactForUser(project, input, user) {
       updated_at: new Date().toISOString(),
     }
 
-    const query = input.id
-      ? supabase.from("whatsapp_handoff_contatos").update(payload).eq("id", input.id).eq("projeto_id", project.id)
+    const query = targetId
+      ? supabase.from("whatsapp_handoff_contatos").update(payload).eq("id", targetId).eq("projeto_id", project.id)
       : supabase.from("whatsapp_handoff_contatos").insert(payload)
 
     const { data, error } = await query.select(contactFields).maybeSingle()

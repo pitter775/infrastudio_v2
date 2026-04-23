@@ -12,7 +12,8 @@ const inputClassName =
   "mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
 const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
 const QR_PENDING_TIMEOUT_MS = 40000
-const QR_POLL_INTERVAL_MS = 5000
+const QR_POLL_INTERVAL_IDLE_MS = 4500
+const QR_POLL_INTERVAL_ACTIVE_MS = 1200
 
 function normalizePhoneDigits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 13)
@@ -125,14 +126,17 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     }
 
     let active = true
+    let timeoutId = null
 
     async function syncPendingChannel() {
+      let currentChannel = null
+      let snapshot = null
       const nextChannels = await loadChannels({ silent: true })
       if (!active) {
         return
       }
 
-      const currentChannel = nextChannels.find((channel) => channel.id === pendingChannelId)
+      currentChannel = nextChannels.find((channel) => channel.id === pendingChannelId)
       if (!currentChannel) {
         setPendingChannelId(null)
         setPendingQrExpiresAt(null)
@@ -155,7 +159,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       try {
         const response = await fetch(`${endpoint}/${pendingChannelId}/qr`)
         const data = await response.json().catch(() => ({}))
-        const snapshot = data.snapshot || null
+        snapshot = data.snapshot || null
 
         if (!active) {
           return
@@ -204,14 +208,32 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
         setQrSnapshot(snapshot)
       } catch {}
+
+      if (!active) {
+        return
+      }
+
+      const shouldUseFastPolling =
+        hasSeenQr ||
+        currentChannel?.connectionStatus === "aguardando_qr" ||
+        currentChannel?.connectionStatus === "connecting" ||
+        snapshot?.status === "aguardando_qr" ||
+        snapshot?.status === "connecting" ||
+        Boolean(snapshot?.qrCodeDataUrl)
+
+      timeoutId = window.setTimeout(
+        syncPendingChannel,
+        shouldUseFastPolling ? QR_POLL_INTERVAL_ACTIVE_MS : QR_POLL_INTERVAL_IDLE_MS
+      )
     }
 
     syncPendingChannel()
-    const intervalId = window.setInterval(syncPendingChannel, QR_POLL_INTERVAL_MS)
 
     return () => {
       active = false
-      window.clearInterval(intervalId)
+      if (timeoutId) {
+        window.clearTimeout(timeoutId)
+      }
     }
   }, [endpoint, hasSeenQr, pendingChannelId, pendingQrExpiresAt])
 
@@ -300,7 +322,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         throw new Error(data.error || "Nao foi possivel criar o canal.")
       }
 
-      setChannels((current) => [data.channel, ...current])
+      setChannels(data.channel ? [data.channel] : [])
       if (data.contact) {
         setContacts((current) => [data.contact, ...current.filter((item) => item.id !== data.contact.id)])
       }

@@ -6,23 +6,30 @@ export const PLAN_CHECKOUT_URLS = {
   plus:
     "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=40b1aca501e241918c5973a77984aefe",
   pro: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=214f913e06ba4a549c98453adbcd6f9c",
+  scale: "",
+}
+
+export const TEST_TOP_UP_OFFER = {
+  id: "topup-test-100k",
+  price: 1,
+  tokens: 100000,
 }
 
 export const TOP_UP_OFFERS = [
   {
-    id: "topup-100k",
-    price: 1,
-    tokens: 100000,
+    id: "topup-500k",
+    price: 25,
+    tokens: 500000,
   },
   {
-    id: "topup-200k",
-    price: 40,
-    tokens: 200000,
+    id: "topup-1m",
+    price: 50,
+    tokens: 1000000,
   },
   {
-    id: "topup-300k",
-    price: 60,
-    tokens: 300000,
+    id: "topup-2-5m",
+    price: 100,
+    tokens: 2500000,
   },
 ]
 
@@ -53,6 +60,10 @@ export function normalizePlanKey(value) {
 
   if (normalized.includes("pro")) {
     return "pro"
+  }
+
+  if (normalized.includes("scale")) {
+    return "scale"
   }
 
   return normalized.replace(/[^a-z0-9]+/g, "-")

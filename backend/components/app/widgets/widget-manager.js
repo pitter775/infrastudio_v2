@@ -25,6 +25,7 @@ const emptyForm = {
 const inputClassName =
   "mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
 const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+const compactCardClassName = "rounded-[22px] border border-white/10 bg-[#0a1020] p-4"
 
 function slugify(value) {
   return String(value || "")
@@ -306,7 +307,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
       ) : null}
 
       {!loading && currentTab === "edit" && (form.name || editing) ? (
-        <form id="widget-editor-form" className="grid gap-4" onSubmit={saveWidget}>
+        <form id="widget-editor-form" className={cn("grid gap-4", compact && "pt-1")} onSubmit={saveWidget}>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
               <span className={labelClassName}>Titulo</span>
@@ -328,8 +329,8 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_160px]">
-            <label className="block md:col-span-3">
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px]">
+            <label className="block md:col-span-2">
               <span className={labelClassName}>Dominio permitido</span>
               <input
                 value={form.domain}
@@ -362,7 +363,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
             </label>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-[220px_180px]">
+          <div className="grid gap-3 pt-1 md:grid-cols-[220px_180px]">
             <div className="flex items-end">
               <ToggleSwitchButton checked={form.transparent} onChange={(value) => updateForm("transparent", value)} labelOn="Fundo transparente" labelOff="Fundo solido" />
             </div>
@@ -397,16 +398,17 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
         </p>
       ) : null}
 
-      {currentTab === "edit" && widgets.length > 1 ? (
-      <div className="mt-5 overflow-hidden rounded-lg border border-zinc-200">
+      {false ? (
+      <div className={cn("mt-6 overflow-hidden rounded-[24px] border", compact ? "border-white/10 bg-[#0a1020]" : "border-zinc-200")}>
         {widgets.length ? (
-          <div className="divide-y divide-zinc-200">
+          <div className={cn("divide-y", compact ? "divide-white/10" : "divide-zinc-200")}>
             {widgets.map((widget) => (
               <div
                 key={widget.id}
                 className={cn(
-                  "grid gap-3 p-4 text-sm xl:grid-cols-[minmax(0,1fr)_220px]",
+                  "grid gap-4 p-4 text-sm xl:grid-cols-[minmax(0,1fr)_220px]",
                   initialWidgetId === widget.id && "bg-sky-500/10",
+                  selectedWidgetId === widget.id && compact && "bg-sky-500/[0.07]",
                 )}
               >
                 <button
@@ -415,16 +417,20 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
                   onClick={() => setSelectedWidgetId(widget.id)}
                 >
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-zinc-950">{widget.name}</h3>
-                    <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-xs text-zinc-600">
+                    <h3 className={cn("font-semibold", compact ? "text-white" : "text-zinc-950")}>{widget.name}</h3>
+                    <span className={cn("rounded-full border px-2.5 py-1 text-[11px]", compact ? "border-slate-700 bg-slate-900 text-slate-200" : "border-zinc-200 bg-zinc-50 text-zinc-600")}>
                       {widget.slug}
                     </span>
                     <span
                       className={cn(
-                        "inline-flex items-center gap-1 rounded-lg border px-2 py-0.5 text-xs font-medium",
+                        "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium",
                         widget.active
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                          : "border-zinc-200 bg-zinc-50 text-zinc-600",
+                          ? compact
+                            ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-200"
+                            : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          : compact
+                            ? "border-slate-700 bg-slate-900 text-slate-400"
+                            : "border-zinc-200 bg-zinc-50 text-zinc-600",
                       )}
                     >
                       {widget.active ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
@@ -436,7 +442,13 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
                   </p>
                 </button>
                 <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                  <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => startEdit(widget)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className={cn("gap-2", compact && "border-slate-700 bg-slate-950 text-slate-200 hover:border-sky-400/25 hover:bg-sky-500/10 hover:text-sky-100")}
+                    onClick={() => startEdit(widget)}
+                  >
                     <Pencil className="h-4 w-4" />
                     Editar
                   </Button>
@@ -444,7 +456,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="gap-2"
+                    className={cn("gap-2", compact && "border border-slate-700 bg-slate-950 text-slate-200 hover:border-sky-400/25 hover:bg-sky-500/10 hover:text-sky-100")}
                     onClick={() => copySnippet(buildWidgetSnippet(project, widget))}
                   >
                     <Copy className="h-4 w-4" />

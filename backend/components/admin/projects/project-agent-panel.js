@@ -43,6 +43,26 @@ export function ProjectPanel({
   const router = useRouter()
   const agent = project.agent
   const projectIdentifier = project.routeKey || project.slug || project.id
+  const agentServerSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        id: agent?.id || '',
+        name: agent?.name || '',
+        prompt: agent?.prompt || agent?.description || '',
+        logoUrl: agent?.logoUrl || '',
+        siteUrl: agent?.siteUrl || '',
+        active: agent?.active !== false,
+        versions: Array.isArray(agent?.versions)
+          ? agent.versions.map((item) => ({
+              id: item?.id || '',
+              versionNumber: item?.versionNumber || '',
+              createdAt: item?.createdAt || '',
+              source: item?.source || '',
+            }))
+          : [],
+      }),
+    [agent],
+  )
   const initialAgentName = agent?.name || ''
   const initialPrompt = agent?.prompt || agent?.description || ''
   const initialLogoUrl = agent?.logoUrl || ''
@@ -100,6 +120,13 @@ export function ProjectPanel({
     normalizedPrompt !== initialPrompt.trim() ||
     siteUrl.trim() !== initialSiteUrl.trim() ||
     logoUrl.trim() !== initialLogoUrl.trim()
+  const canSaveAgent =
+    activeAgentTab === 'edit' &&
+    Boolean(agent?.id) &&
+    !savingDraft &&
+    Boolean(agentName.trim()) &&
+    Boolean(normalizedPrompt.trim()) &&
+    hasUnsavedChanges
   const currentVersionSnapshot = useMemo(
     () => ({
       id: 'current',
@@ -111,7 +138,7 @@ export function ProjectPanel({
       configuracoes: draftAgentConfig,
       note: hasUnsavedChanges ? 'rascunho local' : 'estado atual salvo',
       source: hasUnsavedChanges ? 'draft' : 'current',
-      createdAt: new Date().toISOString(),
+      createdAt: '',
       active: agentActive,
     }),
     [agentActive, agentName, draftAgentConfig, hasUnsavedChanges, initialAgentName, normalizedPrompt],
@@ -122,8 +149,10 @@ export function ProjectPanel({
     setSiteUrl(initialSiteUrl)
     setLogoUrl(initialLogoUrl)
     setPromptValue(plainTextToEditorHtml(initialPrompt))
+    setAgentActive(agent?.active !== false)
+    setVersions(agent?.versions || [])
     setEditorStatus({ type: 'idle', message: '' })
-  }, [initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
+  }, [agentServerSnapshot, initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
 
   useEffect(() => {
     const nextTab = resolveAgentTab(initialAgentTab)
@@ -746,7 +775,7 @@ export function ProjectPanel({
           <Button
             type="button"
             variant="ghost"
-            disabled={activeAgentTab !== 'edit' || !agent?.id || savingDraft}
+            disabled={!canSaveAgent}
             onClick={handleSaveAgent}
             className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
           >

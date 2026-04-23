@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Bot, History, Link2, MessageSquareText, RotateCcw, Save, Sparkles, Wand2 } from "lucide-react"
 
@@ -36,16 +36,40 @@ function getRuntimeConfigValidationError(value) {
   }
 }
 
+function buildEditorState(agent) {
+  return {
+    name: agent?.name || "",
+    description: agent?.description || "",
+    prompt: agent?.prompt || "",
+    runtimeConfig: agent?.runtimeConfig ? JSON.stringify(normalizeAgentRuntimeConfig(agent.runtimeConfig), null, 2) : "",
+    active: agent?.active !== false,
+  }
+}
+
 export function AgentEditor({ project, onAgentSummaryChange }) {
   const router = useRouter()
   const agent = project.agent
   const projectIdentifier = project.routeKey || project.slug || project.id
-  const initialRuntimeConfig = agent?.runtimeConfig ? JSON.stringify(normalizeAgentRuntimeConfig(agent.runtimeConfig), null, 2) : ""
-  const [name, setName] = useState(agent?.name || "")
-  const [description, setDescription] = useState(agent?.description || "")
-  const [prompt, setPrompt] = useState(agent?.prompt || "")
-  const [runtimeConfig, setRuntimeConfig] = useState(initialRuntimeConfig)
-  const [active, setActive] = useState(agent?.active !== false)
+  const agentSourceSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        id: agent?.id || "",
+        name: agent?.name || "",
+        description: agent?.description || "",
+        prompt: agent?.prompt || "",
+        runtimeConfig: agent?.runtimeConfig ?? null,
+        active: agent?.active !== false,
+        versions: agent?.versions || [],
+      }),
+    [agent?.active, agent?.description, agent?.id, agent?.name, agent?.prompt, agent?.runtimeConfig, agent?.versions],
+  )
+  const initialEditorState = useMemo(() => buildEditorState(agent), [agentSourceSnapshot])
+  const [name, setName] = useState(initialEditorState.name)
+  const [description, setDescription] = useState(initialEditorState.description)
+  const [prompt, setPrompt] = useState(initialEditorState.prompt)
+  const [runtimeConfig, setRuntimeConfig] = useState(initialEditorState.runtimeConfig)
+  const [active, setActive] = useState(initialEditorState.active)
+  const [lastSavedState, setLastSavedState] = useState(initialEditorState)
   const [versions, setVersions] = useState(agent?.versions || [])
   const [status, setStatus] = useState({ type: "idle", message: "" })
   const [saving, setSaving] = useState(false)
@@ -56,13 +80,37 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
   const [creatingAgent, setCreatingAgent] = useState(false)
   const [restoreConfirmId, setRestoreConfirmId] = useState("")
   const runtimeConfigValidationError = getRuntimeConfigValidationError(runtimeConfig)
+  const isDirty =
+    name !== lastSavedState.name ||
+    description !== lastSavedState.description ||
+    prompt !== lastSavedState.prompt ||
+    runtimeConfig !== lastSavedState.runtimeConfig ||
+    active !== lastSavedState.active
+
+  useEffect(() => {
+    setName(initialEditorState.name)
+    setDescription(initialEditorState.description)
+    setPrompt(initialEditorState.prompt)
+    setRuntimeConfig(initialEditorState.runtimeConfig)
+    setActive(initialEditorState.active)
+    setLastSavedState(initialEditorState)
+    setVersions(agent?.versions || [])
+  }, [agentSourceSnapshot])
 
   function applyAgentState(nextAgent) {
-    setName(nextAgent?.nome || nextAgent?.name || "")
-    setDescription(nextAgent?.descricao || nextAgent?.description || "")
-    setPrompt(nextAgent?.promptBase || nextAgent?.prompt || "")
-    setRuntimeConfig(nextAgent?.runtimeConfig ? JSON.stringify(normalizeAgentRuntimeConfig(nextAgent.runtimeConfig), null, 2) : "")
-    setActive(nextAgent?.ativo !== false && nextAgent?.active !== false)
+    const nextState = {
+      name: nextAgent?.nome || nextAgent?.name || "",
+      description: nextAgent?.descricao || nextAgent?.description || "",
+      prompt: nextAgent?.promptBase || nextAgent?.prompt || "",
+      runtimeConfig: nextAgent?.runtimeConfig ? JSON.stringify(normalizeAgentRuntimeConfig(nextAgent.runtimeConfig), null, 2) : "",
+      active: nextAgent?.ativo !== false && nextAgent?.active !== false,
+    }
+    setName(nextState.name)
+    setDescription(nextState.description)
+    setPrompt(nextState.prompt)
+    setRuntimeConfig(nextState.runtimeConfig)
+    setActive(nextState.active)
+    setLastSavedState(nextState)
   }
 
   async function handleSubmit(event) {
@@ -129,6 +177,13 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
       }
 
       setStatus({ type: "success", message: "Agente salvo." })
+      setLastSavedState({
+        name,
+        description,
+        prompt,
+        runtimeConfig: parsedRuntimeConfig ? JSON.stringify(parsedRuntimeConfig, null, 2) : "",
+        active,
+      })
       setRuntimeConfig(parsedRuntimeConfig ? JSON.stringify(parsedRuntimeConfig, null, 2) : "")
       router.refresh()
     } catch (error) {
@@ -447,7 +502,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
         ) : null}
 
         <div className="flex justify-end">
-          <Button type="submit" disabled={saving || Boolean(runtimeConfigValidationError)} className="gap-2">
+          <Button type="submit" disabled={saving || Boolean(runtimeConfigValidationError) || !isDirty} className="gap-2">
             <Save className="h-4 w-4" />
             {saving ? "Salvando..." : "Salvar agente"}
           </Button>

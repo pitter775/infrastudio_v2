@@ -1,12 +1,7 @@
 import "server-only"
 
 import { listBillingPlans } from "@/lib/billing"
-import {
-  TOP_UP_OFFER,
-  TOP_UP_OFFERS,
-  getPlanCheckoutUrl,
-  normalizePlanKey,
-} from "@/lib/public-planos"
+import { TOP_UP_OFFERS, getPlanCheckoutUrl, normalizePlanKey } from "@/lib/public-planos"
 
 export async function listPublicPlans() {
   const plans = await listBillingPlans()
@@ -32,7 +27,7 @@ export async function listPublicPlans() {
 }
 
 export function getPublicTopUpOffer() {
-  return { ...TOP_UP_OFFER, type: "topup", featured: true }
+  return { ...TOP_UP_OFFERS[0], type: "topup", featured: true }
 }
 
 export function getPublicTopUpOffers() {

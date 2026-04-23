@@ -65,6 +65,26 @@ function TinyAvatar({ src, fallback }) {
   )
 }
 
+function UserAvatar({ owner }) {
+  if (owner?.avatarUrl) {
+    return <TinyAvatar src={owner.avatarUrl} fallback={owner.name} />
+  }
+
+  const initials = String(owner?.name || 'U')
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'U'
+
+  return (
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-white/10 bg-slate-800 text-[9px] font-semibold uppercase text-slate-200">
+      {initials}
+    </span>
+  )
+}
+
 function resolveEntityAvatar(project) {
   const explicitLogo = project.logoUrl || project.agent?.logoUrl || ''
   if (explicitLogo) {
@@ -111,21 +131,6 @@ function getProjectServiceIcons(project) {
 
 function getStatusLabel(status) {
   return status === 'ativo' ? 'Ativo' : status || 'Sem status'
-}
-
-function getOwnerInitials(owner) {
-  const name = owner?.name?.trim()
-
-  if (!name) {
-    return 'U'
-  }
-
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase()
 }
 
 function resolveProjectPlanSummary(project) {
@@ -523,20 +528,7 @@ export function AdminProjectCard({
               {projectAvatarUrl ? (
                 <TinyAvatar src={projectAvatarUrl} fallback={project.name} />
               ) : (
-                <span
-                  className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-slate-800 text-[9px] font-semibold uppercase text-slate-200"
-                  style={
-                    project.owner.avatarUrl
-                      ? {
-                          backgroundImage: `url(${project.owner.avatarUrl})`,
-                          backgroundPosition: 'center',
-                          backgroundSize: 'cover',
-                        }
-                      : undefined
-                  }
-                >
-                  {project.owner.avatarUrl ? null : getOwnerInitials(project.owner)}
-                </span>
+                <UserAvatar owner={project.owner} />
               )}
               <span className="truncate">{project.owner.name}</span>
             </div>

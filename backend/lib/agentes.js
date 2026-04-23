@@ -1,6 +1,7 @@
 import "server-only"
 
 import { normalizeAgentRuntimeConfig } from "@/lib/agent-runtime-config"
+import { getOrCreateDefaultModelId } from "@/lib/modelos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const agenteFields =
@@ -427,6 +428,7 @@ export async function createDefaultAgenteForUser({ projetoId, projectName, nome,
     const supabase = getSupabaseAdminClient()
     const slug = await buildUniqueAgentSlug(supabase, agentName, projetoId)
     const now = new Date().toISOString()
+    const defaultModelId = await getOrCreateDefaultModelId({ supabase })
 
     const { data: existingAgent, error: existingAgentError } = await supabase
       .from("agentes")
@@ -444,6 +446,7 @@ export async function createDefaultAgenteForUser({ projetoId, projectName, nome,
       nome: agentName,
       slug,
       descricao: String(descricao || businessContext || "").trim(),
+      modelo_id: defaultModelId,
       prompt_base: promptBase,
       configuracoes: {},
       ativo: true,

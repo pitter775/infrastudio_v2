@@ -5,6 +5,7 @@ import { listAgentApiIdsForUser } from "@/lib/apis"
 import { getProjectBillingSnapshot } from "@/lib/billing"
 import { ensureProjectHasDefaultWidget, listChatWidgetsForUser } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
+import { getOrCreateDefaultModelId } from "@/lib/modelos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { applyInitialFreePlan } from "@/lib/usuario-project-bootstrap"
 import { listWhatsAppChannelsForUser } from "@/lib/whatsapp-channels"
@@ -270,10 +271,12 @@ async function countMercadoLivreConnectors(supabase, projectId, agenteId = null)
     return 0
   }
 
-  return (data ?? []).filter((connector) => {
+  const total = (data ?? []).filter((connector) => {
     const value = `${connector.slug || ""} ${connector.tipo || ""} ${connector.nome || ""}`.toLowerCase()
     return value.includes("mercado") || value.includes("ml")
   }).length
+
+  return total > 0 ? 1 : 0
 }
 
 async function buildAgentDirectConnections({ supabase, projectId, agent, apiCount, whatsappCount, widgetCount }) {
@@ -301,7 +304,7 @@ async function buildAgentDirectConnections({ supabase, projectId, agent, apiCoun
 }
 
 async function enrichProjectSummary(supabase, project, user) {
-  const [agent, apiCount, whatsappCount, widgetCount, billing] = await Promise.all([
+  const [agent, apiCount, rawWhatsappCount, rawWidgetCount, billing] = await Promise.all([
     getActiveAgent(supabase, project.id),
     safeCount(supabase, "apis", project.id),
     safeCount(supabase, "canais_whatsapp", project.id),
@@ -311,6 +314,8 @@ async function enrichProjectSummary(supabase, project, user) {
       user,
     }),
   ])
+  const whatsappCount = rawWhatsappCount > 0 ? 1 : 0
+  const widgetCount = rawWidgetCount > 0 ? 1 : 0
 
   const directConnections = await buildAgentDirectConnections({
     supabase,
@@ -400,30 +405,44 @@ async function createProjectMembership(supabase, { usuarioId, projetoId, papel =
   return { ok: true }
 }
 
-async function createPendingProjectBilling(supabase, projectId) {
+async function createInitialProjectBilling(supabase, projectId, user) {
   const now = new Date().toISOString()
-  const { error } = await supabase.from("projetos_planos").insert({
-    projeto_id: projectId,
-    nome_plano: "Sem plano",
-    modelo_referencia: "gpt-4o-mini",
-    limite_tokens_input_mensal: null,
-    limite_tokens_output_mensal: null,
-    limite_tokens_total_mensal: null,
-    limite_custo_mensal: null,
-    auto_bloquear: true,
-    bloqueado: true,
-    bloqueado_motivo: "Selecione um plano para habilitar este projeto.",
-    observacoes: "Projeto criado sem plano automatico. O plano free fica restrito ao primeiro projeto do cadastro.",
-    plano_id: null,
-    created_at: now,
-    updated_at: now,
-  })
+  try {
+    if (user?.role === "admin") {
+      const { error } = await supabase.from("projetos_planos").insert({
+        projeto_id: projectId,
+        nome_plano: "Admin",
+        modelo_referencia: "gpt-4o-mini",
+        limite_tokens_input_mensal: null,
+        limite_tokens_output_mensal: null,
+        limite_tokens_total_mensal: null,
+        limite_custo_mensal: null,
+        auto_bloquear: false,
+        bloqueado: false,
+        bloqueado_motivo: null,
+        observacoes: "Projeto admin criado com acesso liberado.",
+        plano_id: null,
+        created_at: now,
+        updated_at: now,
+      })
 
-  if (error) {
+      if (error) {
+        return { ok: false, error }
+      }
+
+      return { ok: true }
+    }
+
+    await applyInitialFreePlan({
+      supabase,
+      projetoId: projectId,
+      now,
+    })
+
+    return { ok: true }
+  } catch (error) {
     return { ok: false, error }
   }
-
-  return { ok: true }
 }
 
 export async function createProject(input, user) {
@@ -434,6 +453,7 @@ export async function createProject(input, user) {
   }
 
   const supabase = getSupabaseAdminClient()
+  const defaultModelId = await getOrCreateDefaultModelId({ supabase })
   const slug = await buildUniqueProjectSlug(supabase, input.slug || payload.nome)
   const ownerUserId = user?.id ?? null
   const { data, error } = await supabase
@@ -442,6 +462,7 @@ export async function createProject(input, user) {
       ...payload,
       slug,
       configuracoes: {},
+      modelo_id: defaultModelId,
       owner_user_id: ownerUserId,
       is_demo: false,
       created_at: new Date().toISOString(),
@@ -466,10 +487,12 @@ export async function createProject(input, user) {
     return null
   }
 
-  const billingResult = await createPendingProjectBilling(supabase, data.id)
+  const billingResult = await createInitialProjectBilling(supabase, data.id, user)
 
   if (!billingResult.ok) {
-    console.error("[projetos] failed to create initial pending billing", billingResult.error)
+    console.error("[projetos] failed to create initial billing", billingResult.error)
+    await supabase.from("projetos_assinaturas").delete().eq("projeto_id", data.id)
+    await supabase.from("projetos_planos").delete().eq("projeto_id", data.id)
     await supabase.from("usuarios_projetos").delete().eq("projeto_id", data.id)
     await supabase.from("projetos").delete().eq("id", data.id)
     return null
@@ -1035,8 +1058,8 @@ export async function getProjectForUser(identifier, user) {
       projectId: project.id,
       agent,
       apiCount,
-      whatsappCount,
-      widgetCount: chatWidgets.length || widgetCount,
+      whatsappCount: whatsappChannels.length > 0 ? 1 : 0,
+      widgetCount: chatWidgets.length > 0 ? 1 : widgetCount > 0 ? 1 : 0,
     })
 
     return {
@@ -1048,8 +1071,8 @@ export async function getProjectForUser(identifier, user) {
       billing,
       integrations: {
         apis: apiCount,
-        whatsapp: whatsappCount,
-        chatWidget: chatWidgets.length || widgetCount,
+        whatsapp: whatsappChannels.length > 0 ? 1 : whatsappCount > 0 ? 1 : 0,
+        chatWidget: chatWidgets.length > 0 ? 1 : widgetCount > 0 ? 1 : 0,
         files: fileCount,
       },
       directConnections,

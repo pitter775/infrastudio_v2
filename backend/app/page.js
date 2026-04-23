@@ -8,10 +8,10 @@ import { getSessionUser } from "@/lib/session"
 export const dynamic = "force-dynamic"
 
 const HOME_CHAT_WIDGET_FALLBACK = {
-  widget: "infrastudio-home",
+  widget: "infrastudio-chat",
   projeto: "infrastudio",
-  agente: "e0c00703-726d-477e-926d-9e9986a67db0",
-  title: "InfraStudio Home",
+  agente: "infrastudio-assistente",
+  title: "InfraStudio Chat",
   theme: "dark",
   accent: "#2563eb",
   transparent: true,
