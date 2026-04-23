@@ -15,6 +15,24 @@ const QR_PENDING_TIMEOUT_MS = 40000
 const QR_POLL_INTERVAL_IDLE_MS = 4500
 const QR_POLL_INTERVAL_ACTIVE_MS = 500
 
+function normalizeConnectionStatus(value) {
+  const normalized = String(value || "").trim().toLowerCase()
+
+  if (["online", "conectado", "connected", "ready", "ativo"].includes(normalized)) {
+    return "online"
+  }
+
+  if (["offline", "desconectado"].includes(normalized)) {
+    return "offline"
+  }
+
+  return normalized || "desconectado"
+}
+
+function isConnectedChannel(value) {
+  return normalizeConnectionStatus(value) === "online"
+}
+
 function normalizePhoneDigits(value) {
   return String(value || "").replace(/\D/g, "").slice(0, 13)
 }
@@ -103,7 +121,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   const [status, setStatus] = useState({ type: "idle", message: "" })
   const [deleteContactTarget, setDeleteContactTarget] = useState(null)
   const [deleteChannelTarget, setDeleteChannelTarget] = useState(null)
-  const connectedChannels = channels.filter((channel) => channel.connectionStatus === "online")
+  const connectedChannels = channels.filter((channel) => isConnectedChannel(channel.connectionStatus))
   const activeAlertContacts = contacts.filter((contact) => contact.ativo !== false && contact.receberAlertas !== false)
   const primaryConnectedChannel = connectedChannels[0] || channels[0] || null
   const shouldWarnMissingAttendant = connectedChannels.length > 0 && activeAlertContacts.length === 0
@@ -193,7 +211,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           return
         }
 
-        if (currentChannel.connectionStatus === "online" || snapshot?.status === "online") {
+        if (isConnectedChannel(currentChannel.connectionStatus) || isConnectedChannel(snapshot?.status)) {
           setQrSnapshot(null)
           setPendingChannelId(null)
           setPendingQrExpiresAt(null)
@@ -271,7 +289,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setPendingQrNow(Date.now())
     }, 1000)
     const timeout = window.setTimeout(() => {
-      const connectedChannel = channels.find((channel) => channel.id === pendingChannelId && channel.connectionStatus === "online")
+      const connectedChannel = channels.find((channel) => channel.id === pendingChannelId && isConnectedChannel(channel.connectionStatus))
       if (connectedChannel) {
         setPendingChannelId(null)
         setPendingQrExpiresAt(null)
@@ -302,7 +320,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     }
 
     const channel = channels.find((item) => item.id === qrSnapshot.channelId)
-    if (channel?.connectionStatus === "online") {
+    if (isConnectedChannel(channel?.connectionStatus)) {
       setQrSnapshot(null)
       setPendingChannelId(null)
       setPendingQrExpiresAt(null)
@@ -692,9 +710,10 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
               </div>
             ) : null}
             {channels.map((channel) => {
-              const online = channel.connectionStatus === "online"
-              const reconnecting = channel.connectionStatus === "reconnecting"
-              const transitional = reconnecting || channel.connectionStatus === "connecting" || channel.connectionStatus === "aguardando_qr"
+              const normalizedStatus = normalizeConnectionStatus(channel.connectionStatus)
+              const online = normalizedStatus === "online"
+              const reconnecting = normalizedStatus === "reconnecting"
+              const transitional = reconnecting || normalizedStatus === "connecting" || normalizedStatus === "aguardando_qr"
 
               return (
                 <div
@@ -722,7 +741,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                         )}
                       >
                         {online ? <CheckCircle2 className="h-3 w-3" /> : reconnecting ? <LoaderCircle className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
-                        {channel.connectionStatus}
+                        {normalizedStatus}
                       </span>
                     </div>
                     <p className="mt-1 text-slate-500">{channel.notes || "Sem observacao do worker."}</p>
@@ -767,9 +786,9 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                       {busyId === channel.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
                       {online ? "Conectado" : "Conectar"}
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" className="gap-2" onClick={() => runAction(channel, "qr")} disabled={busyId === channel.id}>
+                    <Button type="button" size="sm" variant="ghost" className="gap-2" onClick={() => runAction(channel, "qr")} disabled={busyId === channel.id || online}>
                       <QrCode className="h-4 w-4" />
-                      QR
+                      Gerar QR
                     </Button>
                     <Button type="button" size="sm" variant="ghost" className="gap-2" onClick={() => runAction(channel, "disconnect")} disabled={busyId === channel.id}>
                       <RotateCcw className="h-4 w-4" />
@@ -808,7 +827,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           {qrSnapshot.qrCodeDataUrl ? (
             <img src={qrSnapshot.qrCodeDataUrl} alt="QR Code do WhatsApp" className="mt-3 h-56 w-56 rounded-lg border border-zinc-200 bg-white p-2" />
           ) : (
-            <p className="mt-3 text-sm text-slate-400">QR indisponivel. Clique em conectar e aguarde o worker gerar o QR.</p>
+            <p className="mt-3 text-sm text-slate-400">QR indisponivel. Use o botao Gerar QR quando precisar de um novo codigo.</p>
           )}
         </div>
       ) : null}
@@ -817,9 +836,9 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         <p className="text-sm font-semibold text-white">Fluxo rapido</p>
         <div className="mt-3 space-y-2 text-sm text-slate-400">
           <p>1. Crie o canal com o numero oficial.</p>
-          <p>2. Clique em conectar e aguarde o QR aparecer.</p>
+          <p>2. Clique em conectar e aguarde o pareamento iniciar.</p>
           <p>3. Depois que o QR for lido, aguarde a confirmacao do dispositivo.</p>
-          <p>4. Quando conectar, o card fica verde e o QR some automaticamente.</p>
+          <p>4. Quando conectar, o status vira conectado e o QR some automaticamente.</p>
         </div>
       </div>
         </>
