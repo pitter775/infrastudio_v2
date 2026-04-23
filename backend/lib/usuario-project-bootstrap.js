@@ -159,7 +159,10 @@ async function cloneTemplateProjectData({ supabase, templateProjectId, projetoId
         .maybeSingle(),
     ])
 
-  const templateAgents = templateAgentsResult.data ?? []
+  const rawTemplateAgents = templateAgentsResult.data ?? []
+  const selectedTemplateAgent =
+    rawTemplateAgents.find((agent) => agent.ativo !== false) ?? rawTemplateAgents[0] ?? null
+  const templateAgents = selectedTemplateAgent ? [selectedTemplateAgent] : []
   const templateApis = templateApisResult.data ?? []
   const templateWidgets = templateWidgetsResult.data ?? []
   const templateConnectors = templateConnectorsResult.data ?? []

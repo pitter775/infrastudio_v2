@@ -428,35 +428,37 @@ export async function createDefaultAgenteForUser({ projetoId, projectName, nome,
     const slug = await buildUniqueAgentSlug(supabase, agentName, projetoId)
     const now = new Date().toISOString()
 
-    const { error: deactivateError } = await supabase
+    const { data: existingAgent, error: existingAgentError } = await supabase
       .from("agentes")
-      .update({ ativo: false, updated_at: now })
+      .select("id")
       .eq("projeto_id", projetoId)
+      .maybeSingle()
 
-    if (deactivateError) {
-      console.error("[agentes] failed to deactivate agents before create", deactivateError)
+    if (existingAgentError) {
+      console.error("[agentes] failed to read project agent before create", existingAgentError)
       return null
     }
 
-    const { data, error } = await supabase
-      .from("agentes")
-      .insert({
-        projeto_id: projetoId,
-        nome: agentName,
-        slug,
-        descricao: String(descricao || businessContext || "").trim(),
-        prompt_base: promptBase,
-        configuracoes: {},
-        ativo: true,
-        created_at: now,
-        updated_at: now,
-      })
-      .select(agenteFields)
-      .maybeSingle()
+    const payload = {
+      projeto_id: projetoId,
+      nome: agentName,
+      slug,
+      descricao: String(descricao || businessContext || "").trim(),
+      prompt_base: promptBase,
+      configuracoes: {},
+      ativo: true,
+      updated_at: now,
+    }
+
+    const query = existingAgent?.id
+      ? supabase.from("agentes").update(payload).eq("id", existingAgent.id)
+      : supabase.from("agentes").insert({ ...payload, created_at: now })
+
+    const { data, error } = await query.select(agenteFields).maybeSingle()
 
     if (error || !data) {
       if (error) {
-        console.error("[agentes] failed to create default agent", error)
+        console.error("[agentes] failed to save default agent", error)
       }
       return null
     }
