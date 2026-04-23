@@ -275,7 +275,32 @@ export function MercadoLivrePanel({
         return
       }
 
-      window.location.href = data.authorizationUrl
+      let authorizationUrl = null
+
+      try {
+        authorizationUrl = new URL(String(data.authorizationUrl || ''), window.location.origin)
+      } catch {
+        setFeedback({ tone: 'error', text: 'OAuth do Mercado Livre retornou uma URL invalida.' })
+        return
+      }
+
+      const currentUrl = new URL(window.location.href)
+      const isMercadoLivreHost = /mercadolivre\.com(?:\.[a-z]{2})?$|mercadolibre\.com(?:\.[a-z]{2})?$/i.test(
+        authorizationUrl.hostname,
+      )
+      const isSameScreenRedirect =
+        authorizationUrl.origin === currentUrl.origin &&
+        authorizationUrl.pathname === currentUrl.pathname
+
+      if (!isMercadoLivreHost || isSameScreenRedirect) {
+        setFeedback({
+          tone: 'error',
+          text: 'O OAuth retornou um destino inesperado. Revise App ID, redirect URI e configuracao do app no Mercado Livre.',
+        })
+        return
+      }
+
+      window.location.assign(authorizationUrl.toString())
     } catch {
       setFeedback({ tone: 'error', text: 'Nao foi possivel iniciar a autenticacao do Mercado Livre.' })
     } finally {
@@ -476,6 +501,23 @@ export function MercadoLivrePanel({
     }
   }
 
+  function handlePanelTabChange(tabId) {
+    setActiveTab(tabId)
+    onTabChange?.(tabId)
+
+    if (tabId === 'test' && connectorMeta.oauthConnected && !loadingTestItems) {
+      void handleLoadTestItems()
+    }
+
+    if (tabId === 'orders' && connectorMeta.oauthConnected && !loadingOrders) {
+      void handleLoadOrders(0)
+    }
+
+    if (tabId === 'questions' && connectorMeta.oauthConnected && !loadingQuestions) {
+      void handleLoadQuestions(0)
+    }
+  }
+
   return (
     <div className="grid gap-4">
       <div className={cn("flex flex-wrap gap-2", compact && "hidden")}>
@@ -487,10 +529,7 @@ export function MercadoLivrePanel({
             <button
               key={tab.id}
               type="button"
-              onClick={() => {
-                setActiveTab(tab.id)
-                onTabChange?.(tab.id)
-              }}
+              onClick={() => handlePanelTabChange(tab.id)}
               className={cn(
                 'infra-tab-motion inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium',
                 active
