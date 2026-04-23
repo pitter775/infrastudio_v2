@@ -10,6 +10,7 @@ import {
 } from "@/lib/mercado-livre/mappers"
 import { resolveMercadoLivreProductInternal } from "@/lib/mercado-livre/resolve-product"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { createLogEntry } from "@/lib/logs"
 
 const CONNECTOR_FIELDS =
   "id, projeto_id, agente_id, slug, nome, tipo, descricao, endpoint_base, metodo_auth, configuracoes, ativo, created_at, updated_at"
@@ -49,6 +50,47 @@ function userCanAccessProject(user, projectId) {
 function sanitizeString(value) {
   const normalized = String(value || "").trim()
   return normalized || ""
+}
+
+function getMercadoLivreOAuthErrorDetails(error) {
+  if (!error) {
+    return {}
+  }
+
+  const payload =
+    error?.payload && typeof error.payload === "object" && !Array.isArray(error.payload) ? error.payload : null
+
+  return {
+    errorCode: sanitizeString(error?.code || payload?.error),
+    errorStatus: Number.isFinite(Number(error?.status)) ? Number(error.status) : null,
+    errorDescription: sanitizeString(
+      error?.message || payload?.message || payload?.error_description || payload?.cause || payload?.status,
+    ),
+    providerPayload: payload,
+  }
+}
+
+async function logMercadoLivreOAuthEvent({
+  projectId = null,
+  connectorId = null,
+  level = "info",
+  description,
+  payload = {},
+} = {}) {
+  return createLogEntry({
+    projectId,
+    type: "mercado_livre_oauth",
+    origin: "laboratorio",
+    level,
+    description,
+    payload: {
+      ...payload,
+      connectorId: connectorId || null,
+      sourceHint: "mercado_livre_oauth",
+      forcePersist: true,
+      keep: true,
+    },
+  })
 }
 
 function mapConnector(row) {
@@ -299,12 +341,29 @@ export async function buildMercadoLivreAuthorizationUrl(project, user, origin, d
     connectorId: connector.id,
   })
 
-  const redirectUri = `${getAppUrl(origin).replace(/\/$/, "")}/api/admin/conectores/mercado-livre/callback`
+  const resolvedAppUrl = getAppUrl(origin).replace(/\/$/, "")
+  const redirectUri = `${resolvedAppUrl}/api/admin/conectores/mercado-livre/callback`
   const url = new URL(`${MERCADO_LIVRE_AUTH_BASE}/authorization`)
   url.searchParams.set("response_type", "code")
   url.searchParams.set("client_id", appId)
   url.searchParams.set("redirect_uri", redirectUri)
   url.searchParams.set("state", state)
+
+  await logMercadoLivreOAuthEvent({
+    projectId: project.id,
+    connectorId: connector.id,
+    level: "info",
+    description: "OAuth do Mercado Livre iniciado.",
+    payload: {
+      event: "oauth_start",
+      projetoId: project.id,
+      projeto: project.slug || project.name || project.id,
+      requestOrigin: sanitizeString(origin),
+      resolvedAppUrl,
+      redirectUri,
+      appIdSuffix: appId ? appId.slice(-6) : "",
+    },
+  })
 
   return url.toString()
 }
@@ -319,6 +378,7 @@ function buildMercadoLivreOAuthRedirectPath(projectId, status) {
 
 async function exchangeMercadoLivreCode(code, connector, origin, fetchImpl = fetch) {
   const config = getConnectorConfig(connector)
+  const redirectUri = `${getAppUrl(origin).replace(/\/$/, "")}/api/admin/conectores/mercado-livre/callback`
   const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/oauth/token`, {
     method: "POST",
     headers: {
@@ -330,13 +390,23 @@ async function exchangeMercadoLivreCode(code, connector, origin, fetchImpl = fet
       client_id: sanitizeString(config.appId),
       client_secret: sanitizeString(config.clientSecret),
       code,
-      redirect_uri: `${getAppUrl(origin).replace(/\/$/, "")}/api/admin/conectores/mercado-livre/callback`,
+      redirect_uri: redirectUri,
     }),
   })
 
   const payload = await response.json().catch(() => ({}))
   if (!response.ok || !payload.access_token) {
-    throw new Error("Falha ao trocar o codigo do Mercado Livre.")
+    const error = new Error(
+      sanitizeString(payload?.message || payload?.error_description || payload?.error) ||
+        "Falha ao trocar o codigo do Mercado Livre.",
+    )
+    error.code = "mercado_livre_token_exchange_failed"
+    error.status = response.status
+    error.payload = {
+      ...payload,
+      redirectUri,
+    }
+    throw error
   }
 
   return payload
@@ -391,7 +461,14 @@ async function fetchMercadoLivreProfile(accessToken, fetchImpl = fetch) {
 
   const payload = await response.json().catch(() => ({}))
   if (!response.ok || !payload.id) {
-    throw new Error("Falha ao carregar o perfil autorizado do Mercado Livre.")
+    const error = new Error(
+      sanitizeString(payload?.message || payload?.error_description || payload?.error) ||
+        "Falha ao carregar o perfil autorizado do Mercado Livre.",
+    )
+    error.code = "mercado_livre_profile_failed"
+    error.status = response.status
+    error.payload = payload
+    throw error
   }
 
   return payload
@@ -401,41 +478,120 @@ export async function completeMercadoLivreOAuthCallback(searchParams, origin, de
   const code = searchParams.get("code")?.trim() || ""
   const state = searchParams.get("state")?.trim() || ""
   const providerError = searchParams.get("error_description")?.trim() || searchParams.get("error")?.trim() || ""
+  const callbackPayload = {
+    event: "oauth_callback",
+    callbackOrigin: sanitizeString(origin),
+    codePresent: Boolean(code),
+    statePresent: Boolean(state),
+    providerError: providerError || null,
+  }
 
   if (providerError) {
+    await logMercadoLivreOAuthEvent({
+      level: "error",
+      description: "OAuth do Mercado Livre retornou erro do provedor.",
+      payload: callbackPayload,
+    })
     throw new Error(providerError)
   }
 
   if (!code || !state) {
+    await logMercadoLivreOAuthEvent({
+      level: "error",
+      description: "OAuth do Mercado Livre retornou sem code/state.",
+      payload: callbackPayload,
+    })
     throw new Error("Retorno do OAuth do Mercado Livre incompleto.")
   }
 
-  const parsedState = await verifyMercadoLivreOAuthState(state)
+  let parsedState = null
+
+  try {
+    parsedState = await verifyMercadoLivreOAuthState(state)
+  } catch (error) {
+    await logMercadoLivreOAuthEvent({
+      level: "error",
+      description: "OAuth do Mercado Livre retornou state invalido.",
+      payload: {
+        ...callbackPayload,
+        ...getMercadoLivreOAuthErrorDetails(error),
+      },
+    })
+    throw error
+  }
+
   const supabase = deps.supabase ?? getSupabaseAdminClient()
   const fetchImpl = deps.fetchImpl ?? fetch
   const connector = await getMercadoLivreConnectorById(parsedState.connectorId, { supabase })
 
   if (!connector?.id || connector.projetoId !== parsedState.projectId) {
+    await logMercadoLivreOAuthEvent({
+      projectId: parsedState.projectId,
+      connectorId: parsedState.connectorId,
+      level: "error",
+      description: "OAuth do Mercado Livre retornou para conector invalido.",
+      payload: callbackPayload,
+    })
     throw new Error("Conector do Mercado Livre nao encontrado.")
   }
 
-  const tokenPayload = await exchangeMercadoLivreCode(code, connector, origin, fetchImpl)
-  const profile = await fetchMercadoLivreProfile(tokenPayload.access_token, fetchImpl)
-  const currentConfig = getConnectorConfig(connector)
-  const nextConfig = {
-    ...currentConfig,
-    oauthAccessToken: sanitizeString(tokenPayload.access_token),
-    oauthRefreshToken: sanitizeString(tokenPayload.refresh_token),
-    oauthUserId: sanitizeString(profile.id),
-    oauthNickname: sanitizeString(profile.nickname),
-    oauthExpiresAt: tokenPayload.expires_in ? new Date(Date.now() + Number(tokenPayload.expires_in) * 1000).toISOString() : "",
-  }
-
-  await updateMercadoLivreConnectorConfig(connector.id, nextConfig, { supabase })
-
-  return {
-    redirectUrl: buildMercadoLivreOAuthRedirectPath(parsedState.projectId, "oauth_ok"),
+  await logMercadoLivreOAuthEvent({
     projectId: parsedState.projectId,
+    connectorId: connector.id,
+    level: "info",
+    description: "Callback OAuth do Mercado Livre recebido.",
+    payload: {
+      ...callbackPayload,
+      connectorProjectId: connector.projetoId,
+    },
+  })
+
+  try {
+    const tokenPayload = await exchangeMercadoLivreCode(code, connector, origin, fetchImpl)
+    const profile = await fetchMercadoLivreProfile(tokenPayload.access_token, fetchImpl)
+    const currentConfig = getConnectorConfig(connector)
+    const nextConfig = {
+      ...currentConfig,
+      oauthAccessToken: sanitizeString(tokenPayload.access_token),
+      oauthRefreshToken: sanitizeString(tokenPayload.refresh_token),
+      oauthUserId: sanitizeString(profile.id),
+      oauthNickname: sanitizeString(profile.nickname),
+      oauthExpiresAt: tokenPayload.expires_in ? new Date(Date.now() + Number(tokenPayload.expires_in) * 1000).toISOString() : "",
+    }
+
+    await updateMercadoLivreConnectorConfig(connector.id, nextConfig, { supabase })
+
+    const redirectUrl = buildMercadoLivreOAuthRedirectPath(parsedState.projectId, "oauth_ok")
+
+    await logMercadoLivreOAuthEvent({
+      projectId: parsedState.projectId,
+      connectorId: connector.id,
+      level: "info",
+      description: "OAuth do Mercado Livre concluido com sucesso.",
+      payload: {
+        ...callbackPayload,
+        oauthUserId: sanitizeString(profile.id),
+        oauthNickname: sanitizeString(profile.nickname),
+        redirectUrl,
+      },
+    })
+
+    return {
+      redirectUrl,
+      projectId: parsedState.projectId,
+    }
+  } catch (error) {
+    await logMercadoLivreOAuthEvent({
+      projectId: parsedState.projectId,
+      connectorId: connector.id,
+      level: "error",
+      description: "OAuth do Mercado Livre falhou ao finalizar callback.",
+      payload: {
+        ...callbackPayload,
+        ...getMercadoLivreOAuthErrorDetails(error),
+      },
+    })
+    throw error
   }
 }
 

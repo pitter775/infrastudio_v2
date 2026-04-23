@@ -51,6 +51,11 @@ const POSSIBLE_LAB_ERRORS = [
     detail: "A notificacao chegou no backend, mas a assinatura foi considerada invalida e o evento nao foi processado.",
   },
   {
+    title: "OAuth do Mercado Livre com redirect inconsistente",
+    source: "mercado_livre_oauth",
+    detail: "O callback pode estar saindo com host diferente, state invalido ou erro na troca do code por token. Filtre por mercado_livre_oauth no laboratorio para ver redirect_uri, origin e erro real.",
+  },
+  {
     title: "Pagamento nao casou com a intent pendente",
     source: "mercado_pago_webhook",
     detail: "O webhook foi recebido, mas o sistema nao encontrou uma recarga ou troca de plano pendente para vincular a confirmacao.",
