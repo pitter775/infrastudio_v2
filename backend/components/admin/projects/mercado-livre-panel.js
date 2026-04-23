@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useEffect, useState } from 'react'
-import { Files, MessageCircle, MessageSquare, PackageSearch, Store } from 'lucide-react'
+import { Check, Copy, Files, MessageCircle, MessageSquare, PackageSearch, Store } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -39,6 +39,7 @@ export function MercadoLivrePanel({
   const [questionDrafts, setQuestionDrafts] = useState({})
   const [answeringQuestionId, setAnsweringQuestionId] = useState('')
   const [suggestingQuestionId, setSuggestingQuestionId] = useState('')
+  const [copiedField, setCopiedField] = useState('')
   const [connectorMeta, setConnectorMeta] = useState({
     id: null,
     oauthConnected: false,
@@ -77,6 +78,18 @@ export function MercadoLivrePanel({
       oauthUserId: String(config.oauthUserId || config.user_id || config.sellerUserId || ''),
     })
     setStep(2)
+  }
+
+  async function copyTutorialValue(field, value) {
+    try {
+      await navigator.clipboard.writeText(String(value || ''))
+      setCopiedField(field)
+      window.setTimeout(() => {
+        setCopiedField((current) => (current === field ? '' : current))
+      }, 1800)
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel copiar o link.' })
+    }
   }
 
   useEffect(() => {
@@ -997,22 +1010,77 @@ export function MercadoLivrePanel({
             </p>
           </div>
 
-          <div className="grid gap-3 bg-transparent p-0">
+          <div className="grid gap-4 bg-transparent p-0">
             <p className="text-sm font-semibold text-white">Painel de apps do Mercado Livre</p>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Etapa 1. Cadastrar a loja: crie um aplicativo do tipo <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Web</code>, ative as opcoes pedidas pelo Mercado Livre e copie o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">APP ID</code> e o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">CLIENT SECRET</code> para este cadastro.
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Etapa 2. Conectar a loja: depois de salvar, clique em conectar para autorizar a conta do Mercado Livre e finalizar a integracao OAuth.
-            </p>
-            <p className="mt-2 text-sm leading-6 text-slate-400">
-              Etapa 3. Testar a listagem: abra a aba <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Teste</code> para buscar os primeiros itens da loja usando a conta autorizada.
-            </p>
+            <div className="grid gap-3">
+              {[
+                {
+                  step: '01',
+                  title: 'Cadastrar a loja',
+                  description:
+                    'Crie um aplicativo do tipo Web, ative as opcoes pedidas pelo Mercado Livre e copie o APP ID e o CLIENT SECRET para este cadastro.',
+                },
+                {
+                  step: '02',
+                  title: 'Conectar a conta',
+                  description:
+                    'Depois de salvar, clique em conectar para autorizar a conta do Mercado Livre e finalizar a integracao OAuth.',
+                },
+                {
+                  step: '03',
+                  title: 'Testar a listagem',
+                  description:
+                    'Abra a aba Teste para buscar os primeiros itens da loja usando a conta autorizada.',
+                },
+              ].map((item) => (
+                <div key={item.step} className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                  <div className="flex items-start gap-4">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 text-sm font-semibold text-sky-100">
+                      {item.step}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-white">{item.title}</p>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">
+                        {item.description.split('APP ID').map((segment, index, array) => (
+                          <span key={`${item.step}-app-${index}`}>
+                            {segment.split('CLIENT SECRET').map((innerSegment, innerIndex, innerArray) => (
+                              <span key={`${item.step}-secret-${index}-${innerIndex}`}>
+                                {innerSegment.split('Web').map((webSegment, webIndex, webArray) => (
+                                  <span key={`${item.step}-web-${index}-${innerIndex}-${webIndex}`}>
+                                    {webSegment.split('Teste').map((testSegment, testIndex, testArray) => (
+                                      <span key={`${item.step}-test-${index}-${innerIndex}-${webIndex}-${testIndex}`}>
+                                        {testSegment}
+                                        {testIndex < testArray.length - 1 ? (
+                                          <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Teste</code>
+                                        ) : null}
+                                      </span>
+                                    ))}
+                                    {webIndex < webArray.length - 1 ? (
+                                      <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Web</code>
+                                    ) : null}
+                                  </span>
+                                ))}
+                                {innerIndex < innerArray.length - 1 ? (
+                                  <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">CLIENT SECRET</code>
+                                ) : null}
+                              </span>
+                            ))}
+                            {index < array.length - 1 ? (
+                              <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">APP ID</code>
+                            ) : null}
+                          </span>
+                        ))}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
             <a
               href="https://developers.mercadolivre.com.br/devcenter"
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-10 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm font-medium text-sky-100 transition hover:bg-sky-500/20"
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm font-medium text-sky-100 transition hover:bg-sky-500/20"
             >
               Abrir painel do Mercado Livre
             </a>
@@ -1021,27 +1089,48 @@ export function MercadoLivrePanel({
           <div className="grid gap-4">
             <p className="text-sm font-semibold text-white">Links para configurar no Mercado Livre</p>
             <p className="text-sm leading-6 text-slate-400">
-              Abra para copiar os links que o Mercado Livre vai pedir na configuracao.
+              Copie exatamente estes enderecos para o app do Mercado Livre.
             </p>
           </div>
 
-          <div className="grid gap-5">
-            <div className="grid gap-2 bg-transparent p-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Link de retorno</p>
-              <div className="mt-2 bg-transparent px-0 py-0 font-mono text-xs text-sky-200">
-                https://infrastudio.pro/api/admin/conectores/mercado-livre/callback
-              </div>
-            </div>
+          <div className="grid gap-4">
+            {[
+              {
+                id: 'redirect',
+                label: 'Link de retorno',
+                value: 'https://infrastudio.pro/api/admin/conectores/mercado-livre/callback',
+                helper: 'Use este link no campo de redirect URI do aplicativo.',
+              },
+              {
+                id: 'webhook',
+                label: 'Link de notificacoes',
+                value: 'https://infrastudio.pro/api/mercado-livre/webhook?canal=ml',
+                helper: 'Em alguns casos, o Mercado Livre pode nao aceitar esse endereco direto nesse campo.',
+              },
+            ].map((item) => (
+              <div key={item.id} className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-400">{item.helper}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => copyTutorialValue(item.id, item.value)}
+                    className="h-9 shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs text-sky-100"
+                  >
+                    {copiedField === item.id ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+                    {copiedField === item.id ? 'Copiado' : 'Copiar'}
+                  </Button>
+                </div>
 
-            <div className="grid gap-2 bg-transparent p-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Link de notificacoes</p>
-              <p className="mt-2 text-sm leading-6 text-slate-400">
-                Em alguns casos, o Mercado Livre pode nao aceitar esse endereco direto nesse campo.
-              </p>
-              <div className="mt-2 bg-transparent px-0 py-0 font-mono text-xs text-sky-200">
-                https://infrastudio.pro/api/mercado-livre/webhook?canal=ml
+                <div className="mt-3 rounded-xl border border-white/10 bg-[#08101f] px-3 py-3 font-mono text-xs leading-6 text-sky-200 break-all whitespace-pre-wrap">
+                  {item.value}
+                </div>
               </div>
-            </div>
+            ))}
           </div>
         </div>
       ) : null}
