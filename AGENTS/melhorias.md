@@ -35,6 +35,21 @@ Ordem recomendada para cada melhoria:
   4. garantir que CTA de WhatsApp so aparece com canal ativo/conectado no agente
   5. destacar no card de detalhes do `/admin/atendimento` quando a conversa estiver `pausado_loop`, exibindo tambem o motivo tecnico salvo em `handoff.metadata.autoPause.reason`
 
+- WhatsApp-service: reestruturar frequencia de leitura/sync para escalar por canal sem martelar Supabase.
+  Diagnostico atual:
+  1. `C:\Projetos\whatsapp-service\server.js` chama `syncBackendSession()` em eventos demais
+  2. fluxo atual sincroniza estado em `qr`, `authenticated`, `ready`, `change_state`, `disconnected`, reconnect, bootstrap e tambem durante processamento de mensagem
+  3. isso aumenta pressao em `canais_whatsapp` mesmo com pouco volume de dados
+  Entrega ponta a ponta:
+  1. criar fila/scheduler central de sync por canal dentro do worker
+  2. coalescer eventos rapidos do mesmo canal e enviar so o ultimo estado util
+  3. diferenciar sync critico de canal (`ready`, `offline`, `auth_failure`, QR novo, disconnect manual) vs. sync transitorio (`change_state`, reconnect agendado, bootstrap)
+  4. remover `syncBackendSession()` do fluxo de mensagem recebida/enviada, bloqueio por contato salvo e notas operacionais de atendimento
+  5. enviar ao backend apenas mudancas materiais de estado do canal, evitando persistir `notes` a cada evento
+  6. aplicar debounce/throttle por canal e janela minima para payload repetido
+  7. reduzir escrita no startup/bootstrap para mandar apenas estado final relevante do canal
+  8. validar com mais de um canal/projeto ligado ao mesmo tempo e medir queda das chamadas a `/api/whatsapp/session`
+
 ## Trilha 2 - Identificacao do usuario e memoria
 
 ### Alto
