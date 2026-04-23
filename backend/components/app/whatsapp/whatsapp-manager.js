@@ -131,6 +131,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     async function syncPendingChannel() {
       let currentChannel = null
       let snapshot = null
+      let shouldContinuePolling = false
       const nextChannels = await loadChannels({ silent: true })
       if (!active) {
         return
@@ -179,12 +180,15 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           setQrSnapshot(snapshot)
           setHasSeenQr(true)
           setConnectionHint("QR pronto. Escaneie com o WhatsApp do dispositivo antes do tempo acabar.")
+          shouldContinuePolling = true
           return
         }
 
         if (hasSeenQr && (currentChannel.connectionStatus === "connecting" || snapshot?.status === "connecting")) {
           setQrSnapshot(snapshot)
           setConnectionHint("QR lido. Aguardando confirmacao do dispositivo e estabilizacao da conexao.")
+          setPendingChannelId(null)
+          setPendingQrExpiresAt(null)
           return
         }
 
@@ -197,33 +201,26 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         if (currentChannel.connectionStatus === "aguardando_qr") {
           setQrSnapshot(snapshot)
           setConnectionHint("Aguardando o QR ser gerado pelo worker.")
-          return
-        }
-
-        if (currentChannel.connectionStatus === "connecting") {
+        } else if (currentChannel.connectionStatus === "connecting") {
           setQrSnapshot(snapshot)
           setConnectionHint("Conectando o dispositivo. Aguarde alguns instantes.")
-          return
+        } else {
+          setQrSnapshot(snapshot)
         }
 
-        setQrSnapshot(snapshot)
       } catch {}
 
       if (!active) {
         return
       }
 
-      const shouldUseFastPolling =
-        hasSeenQr ||
-        currentChannel?.connectionStatus === "aguardando_qr" ||
-        currentChannel?.connectionStatus === "connecting" ||
-        snapshot?.status === "aguardando_qr" ||
-        snapshot?.status === "connecting" ||
-        Boolean(snapshot?.qrCodeDataUrl)
+      if (!shouldContinuePolling) {
+        return
+      }
 
       timeoutId = window.setTimeout(
         syncPendingChannel,
-        shouldUseFastPolling ? QR_POLL_INTERVAL_ACTIVE_MS : QR_POLL_INTERVAL_IDLE_MS
+        QR_POLL_INTERVAL_ACTIVE_MS
       )
     }
 
@@ -383,6 +380,20 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         }
       }
 
+      await loadChannels({ silent: true })
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function refreshChannel(channel) {
+    setBusyId(channel.id)
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      await runAction(channel, "qr")
       await loadChannels({ silent: true })
     } catch (error) {
       setStatus({ type: "error", message: error.message })
@@ -707,6 +718,16 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 xl:justify-end">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="h-8 rounded-lg px-2 text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                      onClick={() => refreshChannel(channel)}
+                      disabled={busyId === channel.id}
+                    >
+                      <RotateCcw className={cn("h-3.5 w-3.5", busyId === channel.id && "animate-spin")} />
+                    </Button>
                     <Button
                       type="button"
                       size="sm"
