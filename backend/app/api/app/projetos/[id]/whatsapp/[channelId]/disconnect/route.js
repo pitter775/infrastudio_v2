@@ -20,7 +20,7 @@ export async function POST(_request, context) {
   }
 
   try {
-    const snapshot = await callWhatsAppWorker("/disconnect", {
+    const snapshot = await callWhatsAppWorker("/purge", {
       method: "POST",
       body: JSON.stringify({ channelId: channel.id }),
     })

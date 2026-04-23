@@ -162,6 +162,7 @@ function sanitizeSessionForPersistence(sessionData) {
   delete nextSession.reconnectDelayMs
   delete nextSession.updatedAt
   delete nextSession.status
+  delete nextSession.resetSession
 
   const normalizedConnectionStatus = String(nextSession.connectionStatus || "")
     .trim()
@@ -620,6 +621,15 @@ export async function deleteWhatsAppChannelForUser(channelId, project, user) {
   }
 
   try {
+    try {
+      await callWhatsAppWorker("/purge", {
+        method: "POST",
+        body: JSON.stringify({ channelId }),
+      })
+    } catch (error) {
+      console.error("[whatsapp] failed to purge worker session before delete", error)
+    }
+
     const supabase = getSupabaseAdminClient()
     await supabase
       .from("whatsapp_handoff_contatos")
@@ -662,18 +672,21 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
 
     const session = current.session_data && typeof current.session_data === "object" ? current.session_data : {}
     const normalizedPatch = normalizeSessionPatch(patch)
-    const nextSession = {
-      ...session,
-      ...normalizedPatch,
-      ...(isPlainObject(session.savedContactFlags) || isPlainObject(normalizedPatch.savedContactFlags)
-        ? {
-            savedContactFlags: {
-              ...(isPlainObject(session.savedContactFlags) ? session.savedContactFlags : {}),
-              ...(isPlainObject(normalizedPatch.savedContactFlags) ? normalizedPatch.savedContactFlags : {}),
-            },
-          }
-        : {}),
-    }
+    const shouldResetSession = normalizedPatch.resetSession === true
+    const nextSession = shouldResetSession
+      ? {}
+      : {
+          ...session,
+          ...normalizedPatch,
+          ...(isPlainObject(session.savedContactFlags) || isPlainObject(normalizedPatch.savedContactFlags)
+            ? {
+                savedContactFlags: {
+                  ...(isPlainObject(session.savedContactFlags) ? session.savedContactFlags : {}),
+                  ...(isPlainObject(normalizedPatch.savedContactFlags) ? normalizedPatch.savedContactFlags : {}),
+                },
+              }
+            : {}),
+        }
     const nextStatus = shouldKeepChannelActive(nextSession) ? "ativo" : "inativo"
     const persistedSession = sanitizeSessionForPersistence(nextSession)
     const currentPersistedSession = sanitizeSessionForPersistence(session)
