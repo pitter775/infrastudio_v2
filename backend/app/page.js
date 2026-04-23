@@ -19,12 +19,29 @@ const HOME_CHAT_WIDGET_FALLBACK = {
       : undefined,
 }
 
+const HOME_DATA_TIMEOUT_MS = 3500
+
+function withTimeout(promise, fallback, label) {
+  return Promise.race([
+    Promise.resolve(promise).catch((error) => {
+      console.error(`[home] failed to load ${label}`, error)
+      return fallback
+    }),
+    new Promise((resolve) => {
+      setTimeout(() => {
+        console.error(`[home] timed out loading ${label}`)
+        resolve(fallback)
+      }, HOME_DATA_TIMEOUT_MS)
+    }),
+  ])
+}
+
 export default async function Home() {
   const [chatConfig, currentUser, plans, topUpOffer] = await Promise.all([
-    getInfraStudioHomeChatConfig(),
-    getSessionUser(),
-    listPublicPlans(),
-    getPublicTopUpOffer(),
+    withTimeout(getInfraStudioHomeChatConfig(), null, "home chat config"),
+    withTimeout(getSessionUser(), null, "session user"),
+    withTimeout(listPublicPlans(), [], "public plans"),
+    Promise.resolve(getPublicTopUpOffer()),
   ])
   const homeChatConfig = chatConfig?.widget ? { ...HOME_CHAT_WIDGET_FALLBACK, ...chatConfig } : HOME_CHAT_WIDGET_FALLBACK
 
