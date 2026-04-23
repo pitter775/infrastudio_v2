@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { createWhatsAppChannelForUser, listWhatsAppChannelsForUser } from "@/lib/whatsapp-channels"
-import { getProjectForUser } from "@/lib/projetos"
+import { getProjectAccessForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 
 async function loadProject(identifier) {
@@ -11,7 +11,7 @@ async function loadProject(identifier) {
     return { response: NextResponse.json({ error: "Nao autenticado." }, { status: 401 }) }
   }
 
-  const project = await getProjectForUser(identifier, user)
+  const project = await getProjectAccessForUser(identifier, user)
 
   if (!project) {
     return { response: NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 }) }

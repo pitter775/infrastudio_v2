@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 
 import { callWhatsAppWorker, getWhatsAppChannelForUser } from "@/lib/whatsapp-channels"
-import { getProjectForUser } from "@/lib/projetos"
+import { getProjectAccessForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 
 export async function POST(_request, context) {
@@ -12,7 +12,7 @@ export async function POST(_request, context) {
   }
 
   const { id, channelId } = await context.params
-  const project = await getProjectForUser(id, user)
+  const project = await getProjectAccessForUser(id, user)
   const channel = await getWhatsAppChannelForUser(channelId, project, user)
 
   if (!project || !channel) {

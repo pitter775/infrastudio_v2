@@ -12,6 +12,8 @@ import { listWhatsAppChannelsForUser } from "@/lib/whatsapp-channels"
 
 const projetoFields =
   "id, nome, tipo, descricao, status, slug, configuracoes, created_at, updated_at, is_demo, owner_user_id, owner:usuarios!projetos_owner_user_id_fkey(id, nome, email, avatar_url, role)"
+const projetoAccessFields =
+  "id, nome, tipo, descricao, status, slug, configuracoes, created_at, updated_at, is_demo"
 
 function normalizeProject(row) {
   const slug = row.slug?.trim() || row.id
@@ -1079,6 +1081,36 @@ export async function getProjectForUser(identifier, user) {
     }
   } catch (error) {
     console.error("[projetos] failed to get project details", error)
+    return null
+  }
+}
+
+export async function getProjectAccessForUser(identifier, user) {
+  if (!identifier || !user) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const lookup = extractProjectLookup(identifier)
+    let query = supabase.from("projetos").select(projetoAccessFields)
+
+    query = lookup.id ? query.eq("id", lookup.id) : query.eq("slug", lookup.slug)
+
+    const { data, error } = await query.maybeSingle()
+
+    if (error) {
+      console.error("[projetos] failed to get project access", error)
+      return null
+    }
+
+    if (!data || !userCanAccessProject(user, data.id)) {
+      return null
+    }
+
+    return normalizeProject(data)
+  } catch (error) {
+    console.error("[projetos] failed to get project access", error)
     return null
   }
 }

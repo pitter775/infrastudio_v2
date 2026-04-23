@@ -80,6 +80,8 @@ export function ProjectPanel({
   const [siteUrl, setSiteUrl] = useState(initialSiteUrl)
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl)
   const [promptValue, setPromptValue] = useState(() => plainTextToEditorHtml(initialPrompt))
+  const [promptAutofillPendingClear, setPromptAutofillPendingClear] = useState(false)
+  const [promptEditedByUser, setPromptEditedByUser] = useState(false)
   const [rollbackStatus, setRollbackStatus] = useState({ type: 'idle', message: '' })
   const [editorStatus, setEditorStatus] = useState({ type: 'idle', message: '' })
   const [siteSummaryStatus, setSiteSummaryStatus] = useState({ type: 'idle', message: '' })
@@ -149,6 +151,8 @@ export function ProjectPanel({
     setSiteUrl(initialSiteUrl)
     setLogoUrl(initialLogoUrl)
     setPromptValue(plainTextToEditorHtml(initialPrompt))
+    setPromptAutofillPendingClear(false)
+    setPromptEditedByUser(false)
     setAgentActive(agent?.active !== false)
     setVersions(agent?.versions || [])
     setEditorStatus({ type: 'idle', message: '' })
@@ -395,6 +399,8 @@ export function ProjectPanel({
     setSiteUrl(initialSiteUrl)
     setLogoUrl(initialLogoUrl)
     setPromptValue(plainTextToEditorHtml(initialPrompt))
+    setPromptAutofillPendingClear(false)
+    setPromptEditedByUser(false)
     setEditorStatus({ type: 'idle', message: '' })
   }
 
@@ -425,6 +431,9 @@ export function ProjectPanel({
       }
 
       setPromptValue((currentValue) => buildMergedAgentSummary(currentValue, data.summary, data.promptSuggestion))
+      if (!promptEditedByUser) {
+        setPromptAutofillPendingClear(true)
+      }
       setSiteSummaryData(data)
       if (data?.source?.logoUrl) {
         setLogoUrl(data.source.logoUrl)
@@ -608,8 +617,18 @@ export function ProjectPanel({
                 <div className="mt-3">
                   <AgentRichEditor
                     value={promptValue}
-                    onChange={setPromptValue}
+                    onChange={(nextValue) => {
+                      setPromptValue(nextValue)
+                      if (!promptAutofillPendingClear) {
+                        setPromptEditedByUser(true)
+                      }
+                    }}
                     placeholder="Defina o comportamento, regras, tom, exemplos e limites do agente."
+                    clearOnFirstInput={promptAutofillPendingClear}
+                    onFirstInputClear={() => {
+                      setPromptAutofillPendingClear(false)
+                      setPromptEditedByUser(true)
+                    }}
                   />
                 </div>
               </div>

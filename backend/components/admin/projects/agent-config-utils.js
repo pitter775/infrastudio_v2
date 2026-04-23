@@ -3,6 +3,86 @@
 import { buildAgentRuntimeConfigTemplate } from '@/lib/agent-runtime-config'
 import { plainTextToEditorHtml, richTextToPlainText } from './agent-rich-editor'
 
+const AUTO_SUMMARY_MARKER = 'data-infrastudio-auto-summary'
+const SITE_SUMMARY_FIELD_ORDER = [
+  ['emails', 'Emails'],
+  ['phones', 'Telefones'],
+  ['whatsappLinks', 'WhatsApp'],
+  ['people', 'Pessoas'],
+  ['cnpjs', 'CNPJ'],
+  ['addresses', 'Endereco'],
+  ['socialLinks', 'Redes'],
+  ['organizations', 'Organizacao'],
+]
+
+function normalizeSummaryValue(value) {
+  if (value == null) {
+    return ''
+  }
+
+  if (typeof value === 'string') {
+    return value.trim()
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeSummaryValue(item)).filter(Boolean).join(', ')
+  }
+
+  if (typeof value === 'object') {
+    const preferredValues = [
+      value.name,
+      value.title,
+      value.label,
+      value.value,
+      value.text,
+      value.url,
+      value.handle,
+      value.username,
+      value.description,
+    ]
+      .map((item) => normalizeSummaryValue(item))
+      .filter(Boolean)
+
+    if (preferredValues.length) {
+      return preferredValues.join(' - ')
+    }
+
+    return Object.entries(value)
+      .map(([key, item]) => {
+        const normalizedItem = normalizeSummaryValue(item)
+        return normalizedItem ? `${key}: ${normalizedItem}` : ''
+      })
+      .filter(Boolean)
+      .join(', ')
+  }
+
+  return ''
+}
+
+function stripAutoSummaryBlock(value) {
+  return String(value || '').replace(
+    /<section[^>]*data-infrastudio-auto-summary="true"[\s\S]*?<\/section>\s*/gi,
+    '',
+  )
+}
+
+function normalizeStringList(value, limit = 12) {
+  return [...new Set(normalizeSummaryValue(value).split(/\s*\n\s*|,\s*/).map((item) => item.trim()).filter(Boolean))].slice(0, limit)
+}
+
+function buildAutoSummaryBlock(sections) {
+  if (!sections.length) {
+    return ''
+  }
+
+  const html = plainTextToEditorHtml(sections.join('\n\n'))
+  return `<section ${AUTO_SUMMARY_MARKER}="true">${html}</section>`
+}
+
 export function resolveEntityAvatarUrl(primaryUrl, siteUrl) {
   if (primaryUrl) {
     return primaryUrl
@@ -20,9 +100,10 @@ export function resolveEntityAvatarUrl(primaryUrl, siteUrl) {
 }
 
 export function buildMergedAgentSummary(currentHtml, generatedSummary, promptSuggestion = '') {
-  const currentText = richTextToPlainText(currentHtml)
-  const summaryText = String(generatedSummary || '').trim()
-  const promptText = String(promptSuggestion || '').trim()
+  const sanitizedCurrentHtml = stripAutoSummaryBlock(currentHtml)
+  const currentText = richTextToPlainText(sanitizedCurrentHtml)
+  const summaryText = normalizeSummaryValue(generatedSummary)
+  const promptText = normalizeSummaryValue(promptSuggestion)
   const nextSections = []
 
   if (summaryText) {
@@ -34,11 +115,72 @@ export function buildMergedAgentSummary(currentHtml, generatedSummary, promptSug
   }
 
   if (!nextSections.length) {
-    return currentHtml
+    return sanitizedCurrentHtml
   }
 
-  const mergedText = currentText ? `${currentText}\n\n${nextSections.join('\n\n')}` : nextSections.join('\n\n')
-  return plainTextToEditorHtml(mergedText)
+  const baseHtml = currentText ? plainTextToEditorHtml(currentText) : ''
+  const summaryHtml = buildAutoSummaryBlock(nextSections)
+  return `${baseHtml}${summaryHtml}`
+}
+
+export function buildEditableSiteSummaryDraft(data) {
+  const source = data?.source || data?.sourceData || {}
+  const contacts = source.contacts || {}
+  const institutionals = source.institutionalData || {}
+  const structuredData = source.structuredData || {}
+
+  return {
+    title: normalizeSummaryValue(data?.source?.title || data?.title),
+    summary: normalizeSummaryValue(data?.summary),
+    promptSuggestion: normalizeSummaryValue(data?.promptSuggestion),
+    emails: normalizeStringList(contacts.emails),
+    phones: normalizeStringList(contacts.phones),
+    whatsappLinks: normalizeStringList(contacts.whatsappLinks),
+    people: normalizeStringList(source.people),
+    cnpjs: normalizeStringList(institutionals.cnpjs),
+    addresses: normalizeStringList(institutionals.addresses),
+    socialLinks: normalizeStringList(source.socialLinks),
+    organizations: normalizeStringList(structuredData.organizations),
+    logoUrl: normalizeSummaryValue(data?.source?.logoUrl || data?.logoUrl),
+  }
+}
+
+export function normalizeEditableSiteSummaryDraft(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  const draft = {
+    title: normalizeSummaryValue(value.title),
+    summary: normalizeSummaryValue(value.summary),
+    promptSuggestion: normalizeSummaryValue(value.promptSuggestion),
+    emails: normalizeStringList(value.emails),
+    phones: normalizeStringList(value.phones),
+    whatsappLinks: normalizeStringList(value.whatsappLinks),
+    people: normalizeStringList(value.people),
+    cnpjs: normalizeStringList(value.cnpjs),
+    addresses: normalizeStringList(value.addresses),
+    socialLinks: normalizeStringList(value.socialLinks),
+    organizations: normalizeStringList(value.organizations),
+    logoUrl: normalizeSummaryValue(value.logoUrl),
+  }
+
+  const hasContent = Object.entries(draft).some(([key, item]) =>
+    Array.isArray(item) ? item.length > 0 : Boolean(item && key !== 'logoUrl')
+  )
+
+  return hasContent ? draft : null
+}
+
+export function formatSiteSummaryListForTextarea(value) {
+  return Array.isArray(value) ? value.join('\n') : ''
+}
+
+export function parseSiteSummaryTextarea(value) {
+  return String(value || '')
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean)
 }
 
 function slugifyPricingValue(value) {
@@ -160,11 +302,12 @@ function buildPricingCatalogFromPrompt(promptText, fallbackPricingCatalog = null
   }
 }
 
-export function buildAgentDraftConfig({ runtimeConfig, promptText, siteUrl, logoUrl }) {
+export function buildAgentDraftConfig({ runtimeConfig, promptText, siteUrl, logoUrl, siteSummary }) {
   const config = {}
   const normalizedRuntimeConfig = runtimeConfig && typeof runtimeConfig === 'object' ? runtimeConfig : null
   const normalizedSiteUrl = String(siteUrl || '').trim()
   const normalizedLogoUrl = String(logoUrl || '').trim()
+  const normalizedSiteSummary = normalizeEditableSiteSummaryDraft(siteSummary)
   const nextPricingCatalog = buildPricingCatalogFromPrompt(promptText, normalizedRuntimeConfig?.pricingCatalog || null)
   const contactProfile = extractContactProfileFromPrompt(promptText)
 
@@ -176,6 +319,21 @@ export function buildAgentDraftConfig({ runtimeConfig, promptText, siteUrl, logo
 
   if (contactProfile) {
     config.contactProfile = contactProfile
+  }
+
+  if (normalizedSiteSummary) {
+    config.siteSummary = normalizedSiteSummary
+
+    const mergedContactProfile = {
+      emails: [...new Set([...(contactProfile?.emails || []), ...normalizedSiteSummary.emails])],
+      phones: [...new Set([...(contactProfile?.phones || []), ...normalizedSiteSummary.phones])],
+      whatsappLinks: [...new Set([...(contactProfile?.whatsappLinks || []), ...normalizedSiteSummary.whatsappLinks])],
+      addresses: [...new Set([...(contactProfile?.addresses || []), ...normalizedSiteSummary.addresses])],
+    }
+
+    if (Object.values(mergedContactProfile).some((item) => item.length > 0)) {
+      config.contactProfile = mergedContactProfile
+    }
   }
 
   if (normalizedSiteUrl || normalizedLogoUrl) {
@@ -194,25 +352,19 @@ export function buildAgentDraftConfig({ runtimeConfig, promptText, siteUrl, logo
 }
 
 export function buildSiteSummaryHighlights(data) {
-  if (!data?.source) {
+  const draft = normalizeEditableSiteSummaryDraft(data?.source ? buildEditableSiteSummaryDraft(data) : data)
+
+  if (!draft) {
     return []
   }
 
-  const source = data.source
-  const contacts = source.contacts || {}
-  const institutionals = source.institutionalData || {}
-  const structuredData = source.structuredData || {}
-
-  return [
-    contacts.emails?.length ? { label: 'Emails', values: contacts.emails } : null,
-    contacts.phones?.length ? { label: 'Telefones', values: contacts.phones } : null,
-    contacts.whatsappLinks?.length ? { label: 'WhatsApp', values: contacts.whatsappLinks } : null,
-    source.people?.length ? { label: 'Pessoas', values: source.people } : null,
-    institutionals.cnpjs?.length ? { label: 'CNPJ', values: institutionals.cnpjs } : null,
-    institutionals.addresses?.length ? { label: 'Endereco', values: institutionals.addresses } : null,
-    source.socialLinks?.length ? { label: 'Redes', values: source.socialLinks } : null,
-    structuredData.organizations?.length ? { label: 'Organizacao', values: structuredData.organizations } : null,
-  ].filter(Boolean)
+  return SITE_SUMMARY_FIELD_ORDER
+    .map(([key, label]) => ({
+      key,
+      label,
+      values: Array.isArray(draft[key]) ? draft[key] : [],
+    }))
+    .filter((item) => item.values.length > 0)
 }
 
 function normalizeVersionText(value) {

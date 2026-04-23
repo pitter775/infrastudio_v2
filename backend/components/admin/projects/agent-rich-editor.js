@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { EditorContent, useEditor } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 
@@ -82,7 +82,13 @@ export function richTextToPlainText(value) {
     .trim()
 }
 
-export function AgentRichEditor({ value, onChange, placeholder }) {
+export function AgentRichEditor({ value, onChange, placeholder, clearOnFirstInput = false, onFirstInputClear = null }) {
+  const shouldClearOnInputRef = useRef(clearOnFirstInput)
+
+  useEffect(() => {
+    shouldClearOnInputRef.current = clearOnFirstInput
+  }, [clearOnFirstInput])
+
   const editor = useEditor({
     extensions: [StarterKit],
     content: value || '',
@@ -91,6 +97,30 @@ export function AgentRichEditor({ value, onChange, placeholder }) {
       attributes: {
         class: 'infra-rich-editor min-h-[420px] px-4 py-4 text-sm leading-7 text-slate-200 outline-none',
         'data-placeholder': placeholder || '',
+      },
+      handleDOMEvents: {
+        beforeinput(view, event) {
+          if (!shouldClearOnInputRef.current) {
+            return false
+          }
+
+          const inputType = String(event?.inputType || '')
+          const shouldClear =
+            !inputType ||
+            inputType.startsWith('insert') ||
+            inputType.startsWith('delete') ||
+            inputType === 'historyUndo' ||
+            inputType === 'historyRedo'
+
+          if (!shouldClear) {
+            return false
+          }
+
+          shouldClearOnInputRef.current = false
+          onFirstInputClear?.()
+          view.dispatch(view.state.tr.delete(0, view.state.doc.content.size))
+          return false
+        },
       },
     },
     onUpdate({ editor: currentEditor }) {
