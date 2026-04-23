@@ -113,24 +113,11 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-@font-face {
-  font-family: 'InfraStudioBrand';
-  src:
-    url('/fonts/eurostile-candy-w02-bold.woff2') format('woff2'),
-    local('Eurostile Candy W02 Bold'),
-    local('Eurostile Candy Bold'),
-    local('Eurostile Candy'),
-    local('Eurostile');
-  font-weight: 700;
-  font-style: normal;
-  font-display: swap;
-}
-
 .font-brand-logo {
-  font-family: 'InfraStudioBrand', 'Eurostile Candy', 'Eurostile', var(--font-geist-sans), Arial, Helvetica, sans-serif;
-  font-weight: 700;
+  font-family: var(--font-infrastudio-jura), var(--font-geist-sans), Arial, Helvetica, sans-serif !important;
+  font-weight: 700 !important;
   font-style: normal;
-  letter-spacing: 0.01em;
+  letter-spacing: 0;
   text-transform: lowercase;
 }
 

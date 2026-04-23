@@ -1,4 +1,13 @@
 import './globals.css'
+import localFont from 'next/font/local'
+
+const juraLogo = localFont({
+  src: '../public/fonts/jura-bold.ttf',
+  variable: '--font-infrastudio-jura',
+  weight: '700',
+  style: 'normal',
+  display: 'swap',
+})
 
 export const metadata = {
   metadataBase: new URL('https://www.infrastudio.pro'),
@@ -39,7 +48,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="pt-BR" className="dark" suppressHydrationWarning>
+    <html lang="pt-BR" className={`dark ${juraLogo.variable}`} suppressHydrationWarning>
       <body suppressHydrationWarning>{children}</body>
     </html>
   )

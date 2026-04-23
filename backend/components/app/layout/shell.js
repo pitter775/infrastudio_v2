@@ -28,7 +28,7 @@ function SidebarContent({ pathname, user, onNavigate }) {
           <LogoCubo3D  animado tamanho={20} velocidade={0.16} />
           
           <div>
-            <p className="text-sm font-semibold text-white">InfraStudio</p>
+            <p className="font-brand-logo text-sm text-white">InfraStudio</p>
             <p className="text-xs text-slate-500">Area do cliente</p>
           </div>
         </Link>

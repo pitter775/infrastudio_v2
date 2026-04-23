@@ -147,7 +147,7 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
           <LogoCubo3D animado tamanho={20} velocidade={0.16} />
 
           {collapsed ? null : (
-            <span className="text-sm font-semibold text-white">
+            <span className="font-brand-logo text-sm text-white">
               InfraStudio
             </span>
           )}
