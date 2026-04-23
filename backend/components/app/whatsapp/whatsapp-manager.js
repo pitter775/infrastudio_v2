@@ -52,6 +52,33 @@ function formatWhatsappPhone(value) {
   return formatted.trim()
 }
 
+function sanitizeWorkerUiMessage(value) {
+  const message = String(value || "").trim()
+  if (!message) {
+    return ""
+  }
+
+  const normalized = message.toLowerCase()
+
+  if (
+    normalized.includes("failed to launch the browser process") ||
+    normalized.includes("zygote could not fork") ||
+    normalized.includes("resource temporarily unavailable") ||
+    normalized.includes("failed to connect to the bus") ||
+    normalized.includes("pthread_create") ||
+    normalized.includes("crashpad") ||
+    normalized.includes("/sys/devices/system/cpu")
+  ) {
+    return "O worker do WhatsApp ficou sem recursos para abrir a sessao. Tente conectar novamente em alguns instantes."
+  }
+
+  if (normalized.includes("profile appears to be in use") || normalized.includes("chromium has locked the profile")) {
+    return "A sessao do WhatsApp esta temporariamente bloqueada por outro processo. Tente novamente em alguns instantes."
+  }
+
+  return message
+}
+
 export function WhatsAppManager({ project, initialChannelId = null, activeTab: controlledActiveTab, onTabChange, onFooterStateChange, onStatsChange, compact = false }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const endpoint = `/api/app/projetos/${projectIdentifier}/whatsapp`
@@ -329,7 +356,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         message: data.contact ? "Canal criado com atendente automatico." : "Canal criado.",
       })
     } catch (error) {
-      setStatus({ type: "error", message: error.message })
+      setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
     } finally {
       setSaving(false)
     }
@@ -382,7 +409,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
       await loadChannels({ silent: true })
     } catch (error) {
-      setStatus({ type: "error", message: error.message })
+      setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
     } finally {
       setBusyId(null)
     }
@@ -396,7 +423,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       await runAction(channel, "qr")
       await loadChannels({ silent: true })
     } catch (error) {
-      setStatus({ type: "error", message: error.message })
+      setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
     } finally {
       setBusyId(null)
     }
@@ -463,7 +490,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setContactForm(emptyContactForm)
       setStatus({ type: "success", message: contactForm.id ? "Atendente atualizado." : "Atendente criado." })
     } catch (error) {
-      setStatus({ type: "error", message: error.message })
+      setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
     } finally {
       setSavingContact(false)
     }
@@ -490,7 +517,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setStatus({ type: "success", message: "Atendente removido." })
       setDeleteContactTarget(null)
     } catch (error) {
-      setStatus({ type: "error", message: error.message })
+      setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
     } finally {
       setBusyId(null)
     }
@@ -509,7 +536,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setStatus({ type: "success", message: "WhatsApp removido." })
       setDeleteChannelTarget(null)
     } catch (error) {
-      setStatus({ type: "error", message: error.message })
+      setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
     } finally {
       setBusyId(null)
     }
@@ -536,7 +563,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setChannels((current) => current.map((item) => (item.id === data.channel.id ? data.channel : item)))
       setStatus({ type: "success", message: successMessage })
     } catch (error) {
-      setStatus({ type: "error", message: error.message })
+      setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
     } finally {
       setBusyId(null)
     }

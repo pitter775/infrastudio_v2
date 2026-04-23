@@ -261,7 +261,12 @@ async function cleanupExtraChannelsForProject(supabase, projectId, keepChannelId
 }
 
 export function getWhatsAppWorkerBaseUrl() {
-  return process.env.WHATSAPP_WORKER_URL?.trim() || process.env.WHATSAPP_SERVICE_URL?.trim() || "http://localhost:3010"
+  return (
+    process.env.WHATSAPP_WORKER_URL?.trim() ||
+    process.env.WHATSAPP_SERVICE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_WHATSAPP_SERVICE_URL?.trim() ||
+    ""
+  )
 }
 
 export async function listWhatsAppChannelsForUser(project, user) {
@@ -704,6 +709,10 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
 
 export async function callWhatsAppWorker(path, init = {}) {
   const baseUrl = getWhatsAppWorkerBaseUrl()
+  if (!baseUrl) {
+    throw new Error("Worker do WhatsApp nao configurado.")
+  }
+
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
     headers: {
@@ -714,7 +723,16 @@ export async function callWhatsAppWorker(path, init = {}) {
   const data = await response.json().catch(() => ({}))
 
   if (!response.ok) {
-    throw new Error(data.error || `Worker WhatsApp retornou ${response.status}.`)
+    throw new Error(sanitizeWorkerMessage(data.error || `Worker WhatsApp retornou ${response.status}.`))
+  }
+
+  if (isPlainObject(data)) {
+    return {
+      ...data,
+      ...(typeof data.error === "string" ? { error: sanitizeWorkerMessage(data.error) } : {}),
+      ...(typeof data.lastError === "string" ? { lastError: sanitizeWorkerMessage(data.lastError) } : {}),
+      ...(typeof data.notes === "string" ? { notes: sanitizeWorkerMessage(data.notes) } : {}),
+    }
   }
 
   return data
