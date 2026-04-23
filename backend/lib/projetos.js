@@ -1129,6 +1129,11 @@ function mapLegacyProject(project) {
     descricao: project.description,
     status: project.status,
     isDemo: project.isDemo === true,
+    directConnections:
+      project.directConnections && typeof project.directConnections === "object" ? { ...project.directConnections } : null,
+    integrations: project.integrations && typeof project.integrations === "object" ? { ...project.integrations } : null,
+    agent: project.agent ?? null,
+    billing: project.billing ?? null,
   }
 }
 
@@ -1152,7 +1157,9 @@ export async function getProjetoById(id) {
       return null
     }
 
-    return mapLegacyProject(normalizeProject(data))
+    const normalizedProject = normalizeProject(data)
+    const enrichedProject = await enrichProjectSummary(supabase, normalizedProject, null)
+    return mapLegacyProject(enrichedProject)
   } catch (error) {
     console.error("[projetos] failed to get projeto by id", error)
     return null
@@ -1180,7 +1187,9 @@ export async function getProjetoBySlug(slug) {
       return null
     }
 
-    return mapLegacyProject(normalizeProject(data))
+    const normalizedProject = normalizeProject(data)
+    const enrichedProject = await enrichProjectSummary(supabase, normalizedProject, null)
+    return mapLegacyProject(enrichedProject)
   } catch (error) {
     console.error("[projetos] failed to get projeto by slug", error)
     return null

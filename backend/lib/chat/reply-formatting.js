@@ -188,6 +188,64 @@ export function formatWhatsAppHumanOutboundText(reply) {
   return formatWhatsAppOutboundTextSafe(reply)
 }
 
+function isMercadoLivreProductAsset(asset) {
+  return (
+    isPlainObject(asset) &&
+    asset.provider === "mercado_livre" &&
+    asset.kind === "product" &&
+    typeof asset.targetUrl === "string" &&
+    asset.targetUrl.trim()
+  )
+}
+
+function resolveMercadoLivreWhatsAppTone(reply, followUpReply, assetIndex, totalAssets) {
+  const combined = `${String(reply || "")} ${String(followUpReply || "")}`.toLowerCase()
+
+  if (/\b(mais|outras|outros|opcoes|modelos)\b/.test(combined)) {
+    return "load_more"
+  }
+
+  if (assetIndex === 0 && /\b(encontrei|separei|alguns itens|algumas opcoes|opcoes)\b/.test(combined)) {
+    return "broad_search"
+  }
+
+  if (totalAssets === 1 || /\b(perfeito|vamos seguir|esse item|detalhes|link direto)\b/.test(combined)) {
+    return "single_focus"
+  }
+
+  return totalAssets > 1 ? "broad_search" : "single_focus"
+}
+
+function buildMercadoLivreWhatsAppSalesComment(asset, options = {}) {
+  const nome = typeof asset?.nome === "string" ? asset.nome.trim() : ""
+  const stockQuantity =
+    Number.isFinite(Number(asset?.metadata?.availableQuantity)) ? Number(asset.metadata.availableQuantity) : 0
+  const stockLabel = stockQuantity > 0 ? ` Tenho ${stockQuantity} em estoque agora.` : ""
+  const subject = nome ? `Esse ${nome}` : "Esse item"
+  const tone = resolveMercadoLivreWhatsAppTone(
+    options.reply,
+    options.followUpReply,
+    Number(options.assetIndex ?? 0),
+    Number(options.totalAssets ?? 1)
+  )
+
+  if (tone === "load_more") {
+    return formatWhatsAppOutboundTextSafe(
+      `${subject} entra como mais uma opcao nessa linha.${stockLabel} Se quiser, continuo te mandando outras variacoes parecidas.`
+    )
+  }
+
+  if (tone === "single_focus") {
+    return formatWhatsAppOutboundTextSafe(
+      `${subject} parece a melhor opcao para seguir agora.${stockLabel} Se fizer sentido, eu te passo mais detalhes ou separo outra alternativa.`
+    )
+  }
+
+  return formatWhatsAppOutboundTextSafe(
+    `${subject} pode combinar com o que voce pediu.${stockLabel} Se quiser, eu separo mais opcoes nessa mesma linha.`
+  )
+}
+
 export function sanitizeWhatsAppCustomerFacingReply(reply) {
   let sanitized = stripAssistantMetaArtifacts(reply)
 
@@ -220,6 +278,21 @@ export function buildWhatsAppMessageSequence(reply, assets, followUpReply) {
         .map((asset, index) => {
           if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
             return ""
+          }
+
+          if (isMercadoLivreProductAsset(asset)) {
+            return [
+              String(asset.targetUrl || "").trim(),
+              buildMercadoLivreWhatsAppSalesComment(asset, {
+                reply,
+                followUpReply,
+                assetIndex: index,
+                totalAssets: Array.isArray(assets) ? Math.min(assets.length, 3) : 1,
+              }),
+            ]
+              .filter(Boolean)
+              .join("\n\n")
+              .trim()
           }
 
           const nome = "nome" in asset ? String(asset.nome || "").trim() : ""

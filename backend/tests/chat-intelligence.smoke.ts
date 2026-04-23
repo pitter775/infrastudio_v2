@@ -876,6 +876,65 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "whatsapp envia mercado livre com link limpo e comentario comercial",
+    run: () => {
+      const sequence = buildWhatsAppMessageSequence(
+        "Separei alguns itens da loja para voce ver.",
+        [
+          {
+            kind: "product",
+            provider: "mercado_livre",
+            nome: "Aparelho De Jantar Oxford Ceramica",
+            targetUrl: "https://produto.mercadolivre.com.br/MLB123",
+            metadata: {
+              availableQuantity: 1,
+            },
+          },
+        ]
+      );
+
+      assert.equal(sequence.length, 2);
+      assert.equal(sequence[0], "Separei alguns itens da loja para voce ver.");
+      assert.match(sequence[1], /^https:\/\/produto\.mercadolivre\.com\.br\/MLB123/);
+      assert.match(sequence[1], /pode combinar com o que voce pediu/i);
+      assert.match(sequence[1], /tenho 1 em estoque agora/i);
+    },
+  },
+  {
+    name: "whatsapp ajusta comentario comercial por contexto de produto",
+    run: () => {
+      const singleFocus = buildWhatsAppMessageSequence(
+        "Perfeito, vamos seguir com esse item.",
+        [
+          {
+            kind: "product",
+            provider: "mercado_livre",
+            nome: "Jogo De Jantar",
+            targetUrl: "https://produto.mercadolivre.com.br/MLB321",
+            metadata: { availableQuantity: 2 },
+          },
+        ]
+      );
+      const loadMore = buildWhatsAppMessageSequence(
+        "Separei mais opcoes para voce.",
+        [
+          {
+            kind: "product",
+            provider: "mercado_livre",
+            nome: "Jogo De Jantar Azul",
+            targetUrl: "https://produto.mercadolivre.com.br/MLB654",
+            metadata: { availableQuantity: 3 },
+          },
+        ],
+        "Se quiser, eu continuo te mostrando outras opcoes."
+      );
+
+      assert.match(singleFocus[1], /parece a melhor opcao para seguir agora/i);
+      assert.match(loadMore[2], /entra como mais uma opcao nessa linha/i);
+      assert.match(loadMore[2], /continuo te mandando outras variacoes parecidas/i);
+    },
+  },
+  {
     name: "whatsapp sanitiza meta reply e monta mensagem de continuidade",
     run: () => {
       const sanitized = sanitizeWhatsAppCustomerFacingReply(
