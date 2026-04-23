@@ -192,22 +192,11 @@ function shouldPersistLogEntry(input, level, payload) {
     return true
   }
 
-  if (level === "error" || level === "warn") {
+  if (level === "error") {
     return true
   }
 
-  const type = String(input?.type || "").trim().toLowerCase()
-  const origin = String(input?.origin || "").trim().toLowerCase()
-
-  if (SUPPRESSED_LOG_TYPES.includes(type)) {
-    return false
-  }
-
-  if (SUPPRESSED_LOG_ORIGINS.includes(origin)) {
-    return false
-  }
-
-  return true
+  return false
 }
 
 export function normalizeLogLevel(value) {
