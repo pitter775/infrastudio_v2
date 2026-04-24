@@ -99,8 +99,14 @@ export function resolveEntityAvatarUrl(primaryUrl, siteUrl) {
   }
 }
 
-export function buildMergedAgentSummary(currentHtml, generatedSummary, promptSuggestion = '') {
+export function buildMergedAgentSummary(currentHtml, generatedSummary, promptSuggestion = '', mergedEditorDraft = '') {
   const sanitizedCurrentHtml = stripAutoSummaryBlock(currentHtml)
+  const mergedDraftText = normalizeSummaryValue(mergedEditorDraft)
+
+  if (mergedDraftText) {
+    return plainTextToEditorHtml(mergedDraftText)
+  }
+
   const currentText = richTextToPlainText(sanitizedCurrentHtml)
   const summaryText = normalizeSummaryValue(generatedSummary)
   const promptText = normalizeSummaryValue(promptSuggestion)

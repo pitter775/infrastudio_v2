@@ -423,7 +423,7 @@ function parseJsonModelOutput(value) {
   }
 }
 
-async function generateSummaryWithOpenAI(siteDigest) {
+async function generateSummaryWithOpenAI(siteDigest, currentPrompt = "") {
   const openAiKey = process.env.OPENAI_API_KEY?.trim()
 
   if (!openAiKey) {
@@ -445,7 +445,7 @@ async function generateSummaryWithOpenAI(siteDigest) {
             {
               type: "input_text",
               text:
-                "Voce recebe informacoes extraidas do site de um cliente. Responda apenas JSON valido com as chaves summary e promptSuggestion. summary deve ser em portugues, enxuto, com secoes curtas: empresa, produtos/servicos, publico, diferenciais, contato, pessoas/equipe, dados institucionais, tom recomendado, palavras importantes, limites/cuidados e perguntas de qualificacao. promptSuggestion deve ser um prompt-base sugerido para um agente comercial desse negocio, sem markdown, direto para colar no editor. Nao invente fatos. Se algo estiver incerto, diga que precisa de confirmacao.",
+                "Voce recebe informacoes extraidas do site de um cliente e opcionalmente um texto ja escrito no editor do agente. Responda apenas JSON valido com as chaves summary, promptSuggestion e mergedEditorDraft. summary deve ser em portugues, enxuto, com secoes curtas: empresa, produtos/servicos, publico, diferenciais, contato, pessoas/equipe, dados institucionais, tom recomendado, palavras importantes, limites/cuidados e perguntas de qualificacao. promptSuggestion deve ser um prompt-base sugerido para um agente comercial desse negocio, sem markdown. mergedEditorDraft deve ser o melhor texto final para ficar no editor do usuario: consolidado, organizado, sem repeticoes, preservando informacoes relevantes que ja existiam e incorporando o que veio do site. Estruture bem em portugues, com blocos curtos e listas quando fizer sentido. Nao invente fatos. Se algo estiver incerto, diga que precisa de confirmacao.",
             },
           ],
         },
@@ -454,7 +454,12 @@ async function generateSummaryWithOpenAI(siteDigest) {
           content: [
             {
               type: "input_text",
-              text: siteDigest,
+              text: [
+                currentPrompt ? `Texto atual do editor:\n${String(currentPrompt).trim()}` : null,
+                `Informacoes extraidas do site:\n${siteDigest}`,
+              ]
+                .filter(Boolean)
+                .join("\n\n"),
             },
           ],
         },
@@ -477,10 +482,11 @@ async function generateSummaryWithOpenAI(siteDigest) {
     ""
   const parsed = parseJsonModelOutput(summary)
 
-  if (parsed?.summary && parsed?.promptSuggestion) {
+  if (parsed?.summary) {
     return {
       summary: String(parsed.summary).trim(),
-      promptSuggestion: String(parsed.promptSuggestion).trim(),
+      promptSuggestion: String(parsed.promptSuggestion || "").trim(),
+      mergedEditorDraft: String(parsed.mergedEditorDraft || "").trim(),
       inputTokens: payload.usage?.input_tokens ?? 0,
       outputTokens: payload.usage?.output_tokens ?? 0,
       model: payload.model || SITE_SUMMARY_MODEL,
@@ -494,6 +500,7 @@ async function generateSummaryWithOpenAI(siteDigest) {
   return {
     summary,
     promptSuggestion: "",
+    mergedEditorDraft: "",
     inputTokens: payload.usage?.input_tokens ?? 0,
     outputTokens: payload.usage?.output_tokens ?? 0,
     model: payload.model || SITE_SUMMARY_MODEL,
@@ -552,6 +559,7 @@ export async function POST(request, context) {
 
   const body = await request.json().catch(() => ({}))
   const rawUrl = String(body?.url || "").trim()
+  const currentPrompt = String(body?.currentPrompt || "").trim()
 
   if (!rawUrl) {
     return NextResponse.json({ error: "URL obrigatoria." }, { status: 400 })
@@ -613,7 +621,7 @@ export async function POST(request, context) {
       structuredData,
     })
 
-    const aiResult = await generateSummaryWithOpenAI(siteDigest)
+    const aiResult = await generateSummaryWithOpenAI(siteDigest, currentPrompt)
     const usage = await recordUsage(project.id, user.id, aiResult)
     const brandingAgent =
       project.agent?.id
@@ -632,6 +640,7 @@ export async function POST(request, context) {
       {
         summary: aiResult.summary,
         promptSuggestion: aiResult.promptSuggestion,
+        mergedEditorDraft: aiResult.mergedEditorDraft,
         source: {
           url: parsedUrl.toString(),
           title,

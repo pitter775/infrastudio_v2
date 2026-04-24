@@ -233,11 +233,6 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
   async function handleCreateAgent(event) {
     event.preventDefault()
 
-    if (!setupBusinessContext.trim()) {
-      setStatus({ type: "error", message: "Conte um pouco sobre o negocio para criar o agente." })
-      return
-    }
-
     setCreatingAgent(true)
     setStatus({ type: "idle", message: "" })
 
@@ -249,7 +244,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
         },
         body: JSON.stringify({
           action: "create_agent",
-          businessContext: setupBusinessContext,
+          businessContext: setupBusinessContext.trim(),
         }),
       })
       const createData = await createResponse.json().catch(() => ({}))
@@ -270,10 +265,11 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
         })
         const summaryData = await summaryResponse.json().catch(() => ({}))
 
-        if (summaryResponse.ok && summaryData.summary) {
-          const mergedPrompt = [createdAgent.promptBase || createdAgent.prompt || "", "Resumo do site:", summaryData.summary]
-            .filter(Boolean)
-            .join("\n\n")
+        if (summaryResponse.ok && (summaryData.mergedEditorDraft || summaryData.summary)) {
+          const mergedPrompt = String(summaryData.mergedEditorDraft || "").trim()
+            || [createdAgent.promptBase || createdAgent.prompt || "", "Resumo do site:", summaryData.summary]
+              .filter(Boolean)
+              .join("\n\n")
 
           await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
             method: "PATCH",
@@ -326,9 +322,8 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
             <textarea
               value={setupBusinessContext}
               onChange={(event) => setSetupBusinessContext(event.target.value)}
-              placeholder="O que vende, para quem atende, diferenciais, limites e tom desejado."
+              placeholder="Descreva seu negocio, os servicos ou produtos que oferece, seus diferenciais, valores, regras, limites e como voce gosta de atender seus clientes. Quanto mais claro e detalhado, melhor o agente vai conversar."
               className="mt-1 min-h-28 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
-              required
             />
           </label>
 

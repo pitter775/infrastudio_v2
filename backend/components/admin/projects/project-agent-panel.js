@@ -230,7 +230,7 @@ export function ProjectPanel({
         body: JSON.stringify({
           action: 'create_agent',
           nome: agentName.trim() || `${project.name} Assistente`,
-          businessContext: normalizedPrompt || project.description || project.name,
+          businessContext: normalizedPrompt,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -422,6 +422,7 @@ export function ProjectPanel({
         },
         body: JSON.stringify({
           url: normalizedUrl,
+          currentPrompt: normalizedPrompt,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -430,7 +431,9 @@ export function ProjectPanel({
         throw new Error(data.error || 'Nao foi possivel gerar o resumo do site.')
       }
 
-      setPromptValue((currentValue) => buildMergedAgentSummary(currentValue, data.summary, data.promptSuggestion))
+      setPromptValue((currentValue) =>
+        buildMergedAgentSummary(currentValue, data.summary, data.promptSuggestion, data.mergedEditorDraft),
+      )
       if (!promptEditedByUser) {
         setPromptAutofillPendingClear(true)
       }
@@ -623,7 +626,7 @@ export function ProjectPanel({
                         setPromptEditedByUser(true)
                       }
                     }}
-                    placeholder="Defina o comportamento, regras, tom, exemplos e limites do agente."
+                    placeholder="Descreva seu negocio, os servicos ou produtos que oferece, seus diferenciais, valores, regras, limites e como voce gosta de atender seus clientes. Quanto mais claro e detalhado, melhor o agente vai conversar."
                     clearOnFirstInput={promptAutofillPendingClear}
                     onFirstInputClear={() => {
                       setPromptAutofillPendingClear(false)
