@@ -2273,7 +2273,13 @@
         return;
       }
 
-      if (composer.contains(event.target)) {
+      var eventPath = typeof event.composedPath === "function" ? event.composedPath() : [];
+      if (
+        composer.contains(event.target) ||
+        eventPath.indexOf(composer) !== -1 ||
+        eventPath.indexOf(emojiTool) !== -1 ||
+        eventPath.indexOf(emojiPicker) !== -1
+      ) {
         return;
       }
 
