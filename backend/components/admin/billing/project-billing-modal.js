@@ -250,15 +250,26 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     }
 
     const usedTokens = Number(summary?.usedTokens ?? 0)
-    const freeRemainingTokens = Math.max(0, Number(freePlan.totalTokens) - usedTokens)
-    return formatCredits(freeRemainingTokens)
-  }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.usedTokens])
+    const extraCredits = Number(summary?.topUpAvailableTokens ?? 0)
+    const totalFreeCapacity = Math.max(0, Number(freePlan.totalTokens) + extraCredits)
+    return formatCredits(Math.max(0, totalFreeCapacity - usedTokens))
+  }, [freePlan?.totalTokens, summary?.isFree, summary?.remainingLabel, summary?.topUpAvailableTokens, summary?.usedTokens])
   const extraCreditsLabel = useMemo(() => {
     const extraCredits = Number(summary?.topUpAvailableTokens ?? 0)
     return extraCredits > 0 ? formatCredits(extraCredits) : null
   }, [summary?.topUpAvailableTokens])
   const usedLabel = useMemo(() => formatCredits(Number(summary?.usedTokens ?? 0)), [summary?.usedTokens])
   const usagePercentLabel = useMemo(() => {
+    if (summary?.isFree && freePlan?.totalTokens) {
+      const usedTokens = Number(summary?.usedTokens ?? 0)
+      const extraCredits = Number(summary?.topUpAvailableTokens ?? 0)
+      const totalFreeCapacity = Math.max(0, Number(freePlan.totalTokens) + extraCredits)
+
+      if (totalFreeCapacity > 0) {
+        return `${Math.round((usedTokens / totalFreeCapacity) * 100)}%`
+      }
+    }
+
     if (summary?.usagePercent != null && Number.isFinite(Number(summary.usagePercent))) {
       return `${Math.round(Number(summary.usagePercent))}%`
     }
@@ -270,7 +281,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     }
 
     return '--'
-  }, [summary])
+  }, [freePlan?.totalTokens, summary])
   const pendingCheckout = summary?.pendingCheckout || null
   const canResumePendingCheckout = Boolean(pendingCheckout?.checkoutUrl)
 
