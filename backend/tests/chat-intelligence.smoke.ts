@@ -472,6 +472,118 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "catalogo responde produto mais caro com base nos itens recentes ja mostrados",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual o produto mais caro?" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-price",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-price",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+            ultimosProdutos: [
+              {
+                id: "MLB6540079826",
+                nome: "Aparelho De Jantar Oxford Ceramica",
+                descricao: "R$ 358,00 - 1 em estoque",
+                preco: 358,
+              },
+              {
+                id: "MLB6540148274",
+                nome: "Aparelho De Jantar Oxford Ceramica Folk 20 Pecas",
+                descricao: "R$ 730,00 - 1 em estoque",
+                preco: 730,
+              },
+            ],
+          },
+        } as never,
+        {
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar novamente");
+          },
+        }
+      );
+
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(result.reply, /dos itens que te mostrei, o mais caro e/i);
+      assert.match(result.reply, /Aparelho De Jantar Oxford Ceramica Folk 20 Pecas/i);
+      assert.match(result.reply, /R\$\s*730,00/i);
+      assert.doesNotMatch(result.reply, /nao encontrei mais itens nessa faixa/i);
+    },
+  },
+  {
+    name: "catalogo compara dois itens recentes e recomenda um deles sem nova busca",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual vale mais a pena entre o 1 e o 2?" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-compare",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-compare",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+            ultimosProdutos: [
+              {
+                id: "MLB1",
+                nome: "Jogo de Jantar Porcelana",
+                preco: 2990,
+                availableQuantity: 1,
+                freeShipping: false,
+                material: "Porcelana",
+                warranty: "",
+              },
+              {
+                id: "MLB2",
+                nome: "Jogo de Sopeira Completo",
+                preco: 250,
+                availableQuantity: 2,
+                freeShipping: true,
+                material: "Ceramica",
+                warranty: "30 dias",
+              },
+            ],
+          },
+        } as never,
+        {
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar novamente");
+          },
+        }
+      );
+
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(result.reply, /eu iria em Jogo de Sopeira Completo/i);
+      assert.match(result.reply, /frete gratis/i);
+      assert.match(result.reply, /garantia 30 dias/i);
+      assert.match(result.reply, /faixa de preco/i);
+    },
+  },
+  {
     name: "catalogo semantico mantem produto em foco",
     run: () => {
       const decision = buildCatalogDecisionFromSemanticIntent({
@@ -504,6 +616,52 @@ const tests: TestCase[] = [
 
       assert.ok(focused.fields.length > 0);
       assert.match(reply ?? "", /27\/03\/2026/);
+    },
+  },
+  {
+    name: "api runtime herda comparacao de catalogo quando a api retorna produtos",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual vale mais a pena entre o 1 e o 2?" }] as never,
+        {
+          agente: {
+            id: "agent-api-catalog",
+            nome: "Catalogo Interno",
+            promptBase: "Venda de forma consultiva.",
+          },
+          runtimeApis: [
+            {
+              apiId: "api-prod-1",
+              nome: "Produto 1",
+              campos: [
+                { nome: "sku", valor: "KIT-01" },
+                { nome: "nome", valor: "Kit Mesa Posta Classic" },
+                { nome: "preco", valor: 320 },
+                { nome: "estoque", valor: 3 },
+                { nome: "frete_gratis", valor: false },
+              ],
+            },
+            {
+              apiId: "api-prod-2",
+              nome: "Produto 2",
+              campos: [
+                { nome: "sku", valor: "KIT-02" },
+                { nome: "nome", valor: "Kit Mesa Posta Premium" },
+                { nome: "preco", valor: 250 },
+                { nome: "estoque", valor: 7 },
+                { nome: "frete_gratis", valor: true },
+                { nome: "garantia", valor: "30 dias" },
+              ],
+            },
+          ],
+        } as never
+      )
+
+      assert.equal(result.metadata.provider, "api_runtime")
+      assert.equal(result.metadata.domainStage, "api_runtime")
+      assert.match(result.reply, /eu iria em Kit Mesa Posta Premium/i)
+      assert.match(result.reply, /frete gratis/i)
+      assert.match(result.reply, /garantia 30 dias/i)
     },
   },
   {
@@ -592,6 +750,12 @@ const tests: TestCase[] = [
         agentId: "agent-1",
         latestUserMessage: "acho que combina comigo",
         context: catalogContext,
+        project: {
+          id: "proj-ml-focus",
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
         hasMercadoLivreConnector: true,
         leadNameReplyDetected: false,
         hasReferencedCatalogReply: true,
@@ -606,13 +770,51 @@ const tests: TestCase[] = [
         currentCatalogProduct: flow.currentCatalogProduct,
         catalogFollowUpDecision: flow.catalogFollowUpDecision ?? null,
         lojaCta: null,
+        resolveMercadoLivreProductById: async () => ({
+          item: {
+            id: "MLB2",
+            title: "Jogo de Sopeira Completo",
+            price: 250,
+            currencyId: "BRL",
+            availableQuantity: 2,
+            status: "active",
+            permalink: "https://example.com/sopeira",
+            thumbnail: "https://example.com/sopeira.jpg",
+            sellerId: "seller-1",
+            sellerName: "Mesa Posta",
+            freeShipping: true,
+            warranty: "30 dias",
+            attributes: [
+              { id: "MATERIAL", name: "Material principal", valueName: "Ceramica" },
+              { id: "COLOR", name: "Cor principal", valueName: "Amarelo" },
+            ],
+            pictures: ["https://example.com/sopeira-1.jpg"],
+            variations: [
+              {
+                id: "VAR1",
+                attributeCombinations: [{ id: "COLOR", name: "Cor principal", valueName: "Amarelo" }],
+              },
+            ],
+            descriptionPlain: "Sopeira em ceramica com acabamento amarelo e conjunto de tigelas para servir.",
+          },
+          error: null,
+        }),
         deps: {
           normalizeText: normalizeFixtureText,
           isWhatsAppChannel: () => true,
         },
       });
 
-      assert.ok(state.selectedProductSalesReply);
+      assert.match(state.selectedProductSalesReply ?? "", /escolha forte para seguir agora/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Preco atual/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Ceramica/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Amarelo/i);
+      assert.match(state.selectedProductSalesReply ?? "", /frete gratis/i);
+      assert.match(state.selectedProductSalesReply ?? "", /30 dias/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Variacoes visiveis no anuncio/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Resumo do anuncio/i);
+      assert.match(state.selectedProductSalesReply ?? "", /link direto/i);
+      assert.match(state.selectedProductSalesReply ?? "", /custo-beneficio/i);
     },
   },
   {
@@ -698,6 +900,39 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "prompt injeta tecnica de vendas quando houver contexto de produto do mercado livre",
+    run: () => {
+      const prompt = buildSystemPrompt(
+        {
+          id: "agent-ml-sales",
+          nome: "Loja Mesa Posta",
+          promptBase: "Venda de forma consultiva.",
+        } as never,
+        {
+          projeto: {
+            id: "proj-ml-sales",
+            nome: "Projeto teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB1",
+              nome: "Aparelho De Jantar Oxford Ceramica",
+            },
+          },
+          channel: { kind: "web" },
+        } as never,
+        false
+      )
+
+      assert.match(prompt, /Tecnica de vendas para produto do Mercado Livre/i)
+      assert.match(prompt, /nao como catalogo neutro/i)
+      assert.match(prompt, /Evite repetir so o titulo do produto/i)
+    },
+  },
+  {
     name: "orquestrador falha fechado sem configuracao valida de agente",
     run: async () => {
       await assert.rejects(
@@ -752,8 +987,88 @@ const tests: TestCase[] = [
       );
 
       assert.equal(result.metadata.provider, "local_heuristic");
-      assert.match(result.reply, /vamos seguir com/i);
+      assert.match(result.reply, /escolha forte para seguir agora/i);
       assert.match(result.reply, /Sopeira/i);
+    },
+  },
+  {
+    name: "orquestrador enriquece produto recente selecionado antes de responder",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "gostei mais do segundo" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-enriched",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-enriched",
+            nome: "Projeto teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+            ultimosProdutos: [
+              {
+                id: "MLB1",
+                nome: "Jogo de Jantar Porcelana",
+                descricao: "Jogo branco completo",
+                preco: 2990,
+                link: "https://example.com/jantar",
+              },
+              {
+                id: "MLB2",
+                nome: "Jogo de Sopeira Completo",
+                descricao: "Sopeira amarela com tigelas",
+                preco: 250,
+                link: "https://example.com/sopeira",
+              },
+            ],
+          },
+        } as never,
+        {
+          resolveMercadoLivreProductById: async () => ({
+            item: {
+              id: "MLB2",
+              title: "Jogo de Sopeira Completo",
+              price: 250,
+              currencyId: "BRL",
+              availableQuantity: 2,
+              status: "active",
+              permalink: "https://example.com/sopeira",
+              thumbnail: "https://example.com/sopeira.jpg",
+              sellerId: "seller-1",
+              sellerName: "Mesa Posta",
+              freeShipping: true,
+              warranty: "30 dias",
+              attributes: [
+                { id: "MATERIAL", name: "Material principal", valueName: "Ceramica" },
+                { id: "COLOR", name: "Cor principal", valueName: "Amarelo" },
+              ],
+              variations: [
+                {
+                  id: "VAR1",
+                  attributeCombinations: [{ id: "COLOR", name: "Cor principal", valueName: "Amarelo" }],
+                },
+              ],
+              descriptionPlain: "Sopeira em ceramica com acabamento amarelo e conjunto de tigelas para servir.",
+            },
+            error: null,
+          }),
+        }
+      )
+
+      assert.equal(result.metadata.provider, "local_heuristic")
+      assert.match(result.reply, /escolha forte para seguir agora/i)
+      assert.match(result.reply, /Ceramica/i)
+      assert.match(result.reply, /Amarelo/i)
+      assert.match(result.reply, /frete gratis/i)
+      assert.match(result.reply, /30 dias/i)
+      assert.match(result.reply, /Resumo do anuncio/i)
     },
   },
   {
@@ -1015,6 +1330,31 @@ const tests: TestCase[] = [
       assert.match(sequence[1], /^https:\/\/produto\.mercadolivre\.com\.br\/MLB123/);
       assert.match(sequence[1], /pode combinar com o que voce pediu/i);
       assert.match(sequence[1], /tenho 1 em estoque agora/i);
+    },
+  },
+  {
+    name: "whatsapp envia produto de api com link limpo e comentario comercial",
+    run: () => {
+      const sequence = buildWhatsAppMessageSequence(
+        "Separei uma opcao para voce ver.",
+        [
+          {
+            kind: "product",
+            provider: "api_runtime",
+            nome: "Kit Mesa Posta Premium",
+            targetUrl: "https://catalogo.exemplo.local/produtos/kit-mesa-posta-premium",
+            metadata: {
+              availableQuantity: 7,
+            },
+          },
+        ]
+      );
+
+      assert.equal(sequence.length, 2);
+      assert.equal(sequence[0], "Separei uma opcao para voce ver.");
+      assert.match(sequence[1], /^https:\/\/catalogo\.exemplo\.local\/produtos\/kit-mesa-posta-premium/);
+      assert.match(sequence[1], /pode combinar com o que voce pediu|parece uma opcao forte para seguir agora/i);
+      assert.match(sequence[1], /tenho 7 em estoque agora/i);
     },
   },
   {

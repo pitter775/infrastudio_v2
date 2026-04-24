@@ -745,6 +745,36 @@ async function loadMercadoLivreItems(itemIds, accessToken, deps = {}) {
   return items.filter(Boolean)
 }
 
+async function loadMercadoLivreItemById(itemId, accessToken, deps = {}) {
+  const fetchImpl = deps.fetchImpl ?? fetch
+  const headers = {
+    Authorization: `Bearer ${accessToken}`,
+    Accept: "application/json",
+  }
+  const [itemResponse, descriptionResponse] = await Promise.all([
+    fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}`, {
+      headers,
+      cache: "no-store",
+    }),
+    fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}/description`, {
+      headers,
+      cache: "no-store",
+    }),
+  ])
+
+  const itemPayload = await itemResponse.json().catch(() => ({}))
+  if (!itemResponse.ok || !itemPayload?.id) {
+    return null
+  }
+
+  const descriptionPayload = await descriptionResponse.json().catch(() => ({}))
+  return mapMercadoLivreItem({
+    ...itemPayload,
+    descriptionPlain: sanitizeString(descriptionPayload?.plain_text || descriptionPayload?.text),
+    shortDescription: sanitizeString(descriptionPayload?.short_description || ""),
+  })
+}
+
 async function listMercadoLivreOrders(userId, accessToken, options = {}, deps = {}) {
   const fetchImpl = deps.fetchImpl ?? fetch
   const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 20)
@@ -1100,6 +1130,42 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
       connector: null,
       paging: null,
       error: error instanceof Error ? error.message : "Nao foi possivel buscar produtos da loja.",
+    }
+  }
+}
+
+export async function getMercadoLivreProductByIdForProject(project, itemId, deps = {}) {
+  if (!project?.id) {
+    return { item: null, connector: null, error: "Projeto nao encontrado." }
+  }
+
+  const normalizedItemId = sanitizeString(itemId)
+  if (!normalizedItemId) {
+    return { item: null, connector: null, error: "Item do Mercado Livre nao informado." }
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+    if (!connector?.id) {
+      return { item: null, connector: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
+    }
+
+    return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
+      const item = await loadMercadoLivreItemById(normalizedItemId, accessToken, deps)
+
+      return {
+        item,
+        connector: resolvedConnector,
+        error: item ? null : "Nao foi possivel carregar o produto selecionado da loja.",
+      }
+    })
+  } catch (error) {
+    console.error("[mercado-livre] failed to load product by id", error)
+    return {
+      item: null,
+      connector: null,
+      error: error instanceof Error ? error.message : "Nao foi possivel carregar o produto selecionado da loja.",
     }
   }
 }

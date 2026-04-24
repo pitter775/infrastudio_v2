@@ -1,4 +1,4 @@
-import { buildApiFallbackReply, buildFocusedApiContext } from "@/lib/chat/api-runtime"
+import { buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReply } from "@/lib/chat/api-runtime"
 import {
   decideCatalogFollowUpHeuristically,
   hasRecentCatalogSnapshot,
@@ -153,17 +153,30 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     lastSearchTerm: mercadoLivreFlowState.lastSearchTerm,
     paginationOffset: mercadoLivreFlowState.paginationOffset,
     paginationPoolLimit: mercadoLivreFlowState.paginationPoolLimit,
+    catalogComparisonIntent: mercadoLivreFlowState.catalogComparisonIntent,
     currentCatalogProduct: mercadoLivreFlowState.currentCatalogProduct,
+    recentCatalogProducts: mercadoLivreFlowState.recentCatalogProducts,
     referencedCatalogProducts: mercadoLivreFlowState.referencedCatalogProducts,
     resolveMercadoLivreSearch: options.resolveMercadoLivreSearch,
+    resolveMercadoLivreProductById: options.resolveMercadoLivreProductById,
   })
   const mercadoLivreReply = resolveMercadoLivreHeuristicReply(mercadoLivreState)
+  const apiCatalogSearchState = shouldUseApiRuntime ? buildApiCatalogSearchState(runtimeApis) : null
+  const apiCatalogProduct =
+    (apiCatalogSearchState?.produtoAtual && typeof apiCatalogSearchState.produtoAtual === "object"
+      ? apiCatalogSearchState.produtoAtual
+      : null) ??
+    (Array.isArray(apiCatalogSearchState?.ultimosProdutos) && apiCatalogSearchState.ultimosProdutos.length === 1
+      ? apiCatalogSearchState.ultimosProdutos[0]
+      : null)
+  const apiCatalogReply = shouldUseApiRuntime ? resolveApiCatalogReply(latestUserMessage, context, runtimeApis) : null
   const mercadoLivreAssets = Array.isArray(mercadoLivreState?.mercadoLivreAssets) ? mercadoLivreState.mercadoLivreAssets : []
   const mercadoLivreCatalogSearchState =
     mercadoLivreState?.catalogSearchState && typeof mercadoLivreState.catalogSearchState === "object"
       ? mercadoLivreState.catalogSearchState
       : null
   const mercadoLivreSelectedProduct =
+    mercadoLivreState?.selectedCatalogProduct ??
     mercadoLivreFlowState.currentCatalogProduct ??
     (Array.isArray(mercadoLivreState?.mercadoLivreProducts) && mercadoLivreState.mercadoLivreProducts.length === 1
       ? {
@@ -182,7 +195,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const extractedLeadName = leadNameReplyDetected ? extractName(latestUserMessage) : null
   const leadNameAcknowledgementReply =
     leadNameReplyDetected && extractedLeadName ? buildLeadNameAcknowledgementReply(extractedLeadName, true) : null
-  const currentCatalogProduct = mercadoLivreSelectedProduct ?? context?.catalogo?.produtoAtual ?? null
+  const currentCatalogProduct = mercadoLivreSelectedProduct ?? apiCatalogProduct ?? context?.catalogo?.produtoAtual ?? null
   const shouldPreferMercadoLivreListing =
     shouldUseMercadoLivre &&
     mercadoLivreAssets.length > 0 &&
@@ -228,7 +241,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     agenteNome: context?.agente?.nome ?? null,
     routeStage: "sales",
     domainStage: pipelineState.conversationDomainStage,
-    catalogoProdutoAtual: shouldUseMercadoLivre ? currentCatalogProduct ?? null : null,
+    catalogoProdutoAtual: (shouldUseMercadoLivre || shouldUseApiRuntime) ? currentCatalogProduct ?? null : null,
     routingDecision,
     focus: routingDecision.focus ?? null,
   }
@@ -245,15 +258,28 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   }
 
   if (hasFocusedApiContext && hasFactualApiSignal(latestUserMessage)) {
-    const apiReply = buildApiFallbackReply(latestUserMessage, runtimeApis)
+    const apiReply = apiCatalogReply ?? buildApiFallbackReply(latestUserMessage, runtimeApis)
     if (apiReply) {
       return buildHeuristicReplyResult(apiReply, {
         ...heuristicMetadata,
         heuristicStage: "api_runtime",
         domainStage: "api_runtime",
         provider: "api_runtime",
+        catalogoProdutoAtual: apiCatalogProduct ?? currentCatalogProduct ?? null,
+        catalogoBusca: apiCatalogSearchState,
       })
     }
+  }
+
+  if (apiCatalogReply) {
+    return buildHeuristicReplyResult(apiCatalogReply, {
+      ...heuristicMetadata,
+      heuristicStage: "api_catalog_runtime",
+      domainStage: "api_runtime",
+      provider: "api_runtime",
+      catalogoProdutoAtual: apiCatalogProduct ?? currentCatalogProduct ?? null,
+      catalogoBusca: apiCatalogSearchState,
+    })
   }
 
   if (
@@ -283,7 +309,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
-  if (catalogPricingReply && !shouldPreferMercadoLivreListing) {
+  if (catalogPricingReply && !shouldPreferMercadoLivreListing && !mercadoLivreReply) {
     return buildHeuristicReplyResult(catalogPricingReply, {
       ...heuristicMetadata,
       heuristicStage: "pricing_catalog",
@@ -372,7 +398,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       routeStage: "sales",
       heuristicStage: pipelineState.heuristicIntentStage ?? null,
       domainStage: pipelineState.conversationDomainStage ?? "general",
-      catalogoProdutoAtual: shouldUseMercadoLivre ? currentCatalogProduct ?? null : null,
+      catalogoProdutoAtual: (shouldUseMercadoLivre || shouldUseApiRuntime) ? currentCatalogProduct ?? null : null,
       routingDecision,
       focus: routingDecision.focus ?? null,
     },

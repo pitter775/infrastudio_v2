@@ -42,7 +42,24 @@ function buildSelectedProductInstructions(product) {
     `Produto atualmente em foco: ${product.nome}.`,
     product.descricao ? `Contexto do produto: ${product.descricao}` : "",
     product.preco != null ? `Preco conhecido: ${product.preco}.` : "",
+    Number.isFinite(Number(product.availableQuantity)) ? `Estoque conhecido: ${Number(product.availableQuantity)}.` : "",
+    product.status ? `Status conhecido: ${product.status}.` : "",
+    product.material ? `Material/linha: ${product.material}.` : "",
+    product.cor ? `Cor/estilo destacado: ${product.cor}.` : "",
+    product.freeShipping ? "Frete gratis: sim." : "",
+    product.warranty ? `Garantia: ${product.warranty}.` : "",
+    Array.isArray(product.atributos) && product.atributos.length
+      ? `Atributos relevantes: ${product.atributos
+          .slice(0, 6)
+          .map((item) => `${item.nome}: ${item.valor}`)
+          .join("; ")}.`
+      : "",
+    Array.isArray(product.variacoesResumo) && product.variacoesResumo.length
+      ? `Variacoes mapeadas: ${product.variacoesResumo.slice(0, 4).join("; ")}.`
+      : "",
+    product.descricaoLonga ? `Resumo longo do anuncio: ${String(product.descricaoLonga).slice(0, 500)}.` : "",
     product.link ? `Link conhecido: ${product.link}` : "",
+    "Se este produto for do Mercado Livre e o cliente ja demonstrou preferencia, responda vendendo: destaque aderencia, reduza friccao e proponha o proximo passo.",
   ]
     .filter(Boolean)
     .join("\n")

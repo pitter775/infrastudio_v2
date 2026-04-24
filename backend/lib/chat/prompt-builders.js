@@ -108,6 +108,35 @@ function buildResponseGuardrailInstructions() {
   ].join("\n")
 }
 
+function hasMercadoLivreConnection(context = {}) {
+  const directConnections = context?.projeto?.directConnections ?? context?.directConnections
+  return Number(directConnections?.mercadoLivre ?? 0) > 0
+}
+
+function hasMercadoLivreCatalogContext(context = {}) {
+  return Boolean(
+    hasMercadoLivreConnection(context) &&
+      (context?.catalogo?.produtoAtual ||
+        (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 0))
+  )
+}
+
+function buildMercadoLivreSalesTechniqueInstructions(context = {}) {
+  if (!hasMercadoLivreCatalogContext(context)) {
+    return ""
+  }
+
+  return [
+    "Tecnica de vendas para produto do Mercado Livre:",
+    "- Atue como vendedor consultivo, nao como catalogo neutro.",
+    "- Quando o cliente sinalizar preferencia por um item, avance a venda com seguranca.",
+    "- Destaque o produto escolhido, preco, disponibilidade e proximo passo de compra quando isso estiver no contexto.",
+    "- Use no maximo 1 ou 2 argumentos concretos por resposta. Nao despeje ficha tecnica sem necessidade.",
+    "- Evite repetir so o titulo do produto. Sempre acrescente valor comercial.",
+    "- Feche com CTA curto: link, comparacao rapida ou confirmacao do interesse.",
+  ].join("\n")
+}
+
 function hasStructuredAgentData(runtimeContext = {}) {
   const runtimeConfig = runtimeContext?.agente?.runtimeConfig
   const contactProfile = runtimeContext?.agente?.configuracoes?.contactProfile
@@ -206,6 +235,7 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
     projetoNome ? `Projeto: ${projetoNome}.` : "",
     base,
     buildResponseGuardrailInstructions(),
+    buildMercadoLivreSalesTechniqueInstructions(runtimeContext),
     buildRuntimeConfigInstructions(runtimeContext),
     apiContext,
     agendaContext,
@@ -231,6 +261,7 @@ export function buildRuntimePrompt(agent, context, options = {}) {
 
   return [
     buildRuntimeConfigInstructions(runtimeContext),
+    buildMercadoLivreSalesTechniqueInstructions(runtimeContext),
     "Se a pergunta pedir valor, prazo, status, descricao, risco, disponibilidade ou documento, responda isso primeiro.",
     "Se houver dados factuais no contexto, transforme esses dados em resposta util para o cliente.",
     Boolean(options.structuredResponse) ? "Prefira resposta curta, comercial e organizada." : "",

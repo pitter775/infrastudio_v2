@@ -4,6 +4,39 @@ function sanitizeString(value) {
 }
 
 export function mapMercadoLivreItem(payload) {
+  const attributes = Array.isArray(payload?.attributes)
+    ? payload.attributes
+        .map((attribute) => ({
+          id: sanitizeString(attribute?.id),
+          name: sanitizeString(attribute?.name),
+          valueId: sanitizeString(attribute?.value_id),
+          valueName: sanitizeString(attribute?.value_name || attribute?.value_struct?.name),
+        }))
+        .filter((attribute) => attribute.name && attribute.valueName)
+    : []
+
+  const pictures = Array.isArray(payload?.pictures)
+    ? payload.pictures.map((picture) => sanitizeString(picture?.secure_url || picture?.url)).filter(Boolean)
+    : []
+  const variations = Array.isArray(payload?.variations)
+    ? payload.variations
+        .map((variation) => ({
+          id: sanitizeString(variation?.id),
+          availableQuantity: Number(variation?.available_quantity ?? 0),
+          price: Number(variation?.price ?? payload?.price ?? 0),
+          attributeCombinations: Array.isArray(variation?.attribute_combinations)
+            ? variation.attribute_combinations
+                .map((attribute) => ({
+                  id: sanitizeString(attribute?.id),
+                  name: sanitizeString(attribute?.name),
+                  valueName: sanitizeString(attribute?.value_name),
+                }))
+                .filter((attribute) => attribute.name && attribute.valueName)
+            : [],
+        }))
+        .filter((variation) => variation.id)
+    : []
+
   return {
     id: sanitizeString(payload?.id),
     title: sanitizeString(payload?.title),
@@ -15,6 +48,20 @@ export function mapMercadoLivreItem(payload) {
     thumbnail: sanitizeString(payload?.thumbnail),
     sellerId: sanitizeString(payload?.seller_id),
     sellerName: sanitizeString(payload?.seller_name),
+    condition: sanitizeString(payload?.condition),
+    warranty: sanitizeString(payload?.warranty),
+    categoryId: sanitizeString(payload?.category_id),
+    domainId: sanitizeString(payload?.domain_id),
+    officialStoreId: sanitizeString(payload?.official_store_id),
+    catalogProductId: sanitizeString(payload?.catalog_product_id),
+    acceptsMercadoPago: payload?.accepts_mercadopago === true,
+    freeShipping: payload?.shipping?.free_shipping === true,
+    logisticType: sanitizeString(payload?.shipping?.logistic_type),
+    attributes,
+    pictures,
+    variations,
+    descriptionPlain: sanitizeString(payload?.descriptionPlain || payload?.description_plain),
+    shortDescription: sanitizeString(payload?.shortDescription || payload?.short_description),
   }
 }
 

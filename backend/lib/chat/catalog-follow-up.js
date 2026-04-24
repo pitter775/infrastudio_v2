@@ -167,7 +167,6 @@ export function decideCatalogFollowUpHeuristically(message, context, deps = {}) 
 }
 
 export function resolveCatalogReferenceHeuristicReply(decision) {
-  const product = decision?.matchedProducts?.[0]
   if (decision?.kind === "recent_product_reference_unresolved") {
     const options = Array.isArray(decision?.matchedProducts) ? decision.matchedProducts.slice(0, 3) : []
 
@@ -177,5 +176,5 @@ export function resolveCatalogReferenceHeuristicReply(decision) {
     }
   }
 
-  return product?.nome ? `Perfeito, vamos seguir com ${product.nome}.` : null
+  return null
 }

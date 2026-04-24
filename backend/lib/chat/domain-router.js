@@ -36,6 +36,10 @@ function hasApiRuntimeSignal(message, focusedApiContext) {
     return true
   }
 
+  if (/\b(mais caro|mais barato|vale mais a pena|melhor opcao|qual melhor|qual e melhor|primeiro|segundo|terceiro)\b/.test(normalized)) {
+    return true
+  }
+
   return /\b\d{3,}\b/.test(normalized)
 }
 

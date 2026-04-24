@@ -1,4 +1,4 @@
-import { searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
+import { getMercadoLivreProductByIdForProject, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
 import { resolveRecentCatalogProductReference } from "@/lib/chat/catalog-follow-up"
 import { buildProductSearchCandidates, isMercadoLivreListingIntent } from "@/lib/chat/sales-heuristics"
 
@@ -55,6 +55,10 @@ function buildMercadoLivreAsset(item, index = 0) {
       status: sanitizeString(item?.status),
       availableQuantity: stockQuantity,
       currencyId: sanitizeString(item?.currencyId || "BRL"),
+      condition: sanitizeString(item?.condition),
+      warranty: sanitizeString(item?.warranty),
+      freeShipping: item?.freeShipping === true,
+      attributes: Array.isArray(item?.attributes) ? item.attributes : [],
     },
   }
 }
@@ -64,12 +68,49 @@ function buildCatalogProductFromItem(item) {
     return null
   }
 
+  const attributes = Array.isArray(item.attributes)
+    ? item.attributes
+        .map((attribute) => ({
+          id: sanitizeString(attribute?.id),
+          nome: sanitizeString(attribute?.name),
+          valor: sanitizeString(attribute?.valueName),
+        }))
+        .filter((attribute) => attribute.nome && attribute.valor)
+    : []
+  const material =
+    attributes.find((attribute) => /material/i.test(attribute.nome))?.valor ||
+    attributes.find((attribute) => /linea|linha/i.test(attribute.nome))?.valor ||
+    ""
+  const cor =
+    attributes.find((attribute) => /cor|color/i.test(attribute.nome))?.valor ||
+    attributes.find((attribute) => /estampa/i.test(attribute.nome))?.valor ||
+    ""
+  const primaryHighlights = [
+    formatCurrency(item.price, item.currencyId || "BRL"),
+    sanitizeNumber(item.availableQuantity, 0) > 0 ? `${sanitizeNumber(item.availableQuantity, 0)} em estoque` : "",
+    material,
+    cor,
+    item.freeShipping ? "frete gratis" : "",
+  ].filter(Boolean)
+  const variationHighlights = Array.isArray(item.variations)
+    ? item.variations
+        .slice(0, 3)
+        .map((variation) =>
+          Array.isArray(variation?.attributeCombinations)
+            ? variation.attributeCombinations
+                .map((attribute) => sanitizeString(attribute?.valueName))
+                .filter(Boolean)
+                .join(" / ")
+            : ""
+        )
+        .filter(Boolean)
+    : []
+  const descricaoLonga = sanitizeString(item.descriptionPlain || item.shortDescription)
+
   return {
     id: sanitizeString(item.id),
     nome: sanitizeString(item.title),
-    descricao: [formatCurrency(item.price, item.currencyId || "BRL"), sanitizeNumber(item.availableQuantity, 0) > 0 ? `${sanitizeNumber(item.availableQuantity, 0)} em estoque` : ""]
-      .filter(Boolean)
-      .join(" - "),
+    descricao: primaryHighlights.join(" - "),
     preco: sanitizeNumber(item.price, null),
     link: sanitizeString(item.permalink),
     imagem: sanitizeString(item.thumbnail),
@@ -77,6 +118,15 @@ function buildCatalogProductFromItem(item) {
     sellerName: sanitizeString(item.sellerName),
     availableQuantity: sanitizeNumber(item.availableQuantity, 0),
     status: sanitizeString(item.status),
+    condition: sanitizeString(item.condition),
+    warranty: sanitizeString(item.warranty),
+    freeShipping: item.freeShipping === true,
+    material: sanitizeString(material),
+    cor: sanitizeString(cor),
+    atributos: attributes,
+    imagens: Array.isArray(item.pictures) ? item.pictures.filter(Boolean) : [],
+    descricaoLonga,
+    variacoesResumo: variationHighlights,
   }
 }
 
@@ -101,20 +151,38 @@ function buildSelectedProductReply(product) {
     return null
   }
 
-  const pieces = [`Perfeito, vamos seguir com ${product.nome}.`]
+  const pieces = [`${product.nome} parece uma escolha forte para seguir agora.`]
   if (product.preco != null) {
     pieces.push(`Preco atual: ${formatCurrency(product.preco)}.`)
   }
+  if (product.material) {
+    pieces.push(`Material/linha em destaque: ${product.material}.`)
+  }
+  if (product.cor) {
+    pieces.push(`Visual que mais chama atencao nesse item: ${product.cor}.`)
+  }
   if (sanitizeNumber(product.availableQuantity, 0) > 0) {
-    pieces.push(`Estoque atual: ${sanitizeNumber(product.availableQuantity, 0)} unidades.`)
+    pieces.push(`Tenho ${sanitizeNumber(product.availableQuantity, 0)} unidade${sanitizeNumber(product.availableQuantity, 0) > 1 ? "s" : ""} em estoque agora.`)
+  }
+  if (product.freeShipping) {
+    pieces.push("Esse item esta com frete gratis no Mercado Livre.")
+  }
+  if (product.warranty) {
+    pieces.push(`Garantia informada no anuncio: ${product.warranty}.`)
+  }
+  if (Array.isArray(product.variacoesResumo) && product.variacoesResumo.length) {
+    pieces.push(`Variacoes visiveis no anuncio: ${product.variacoesResumo.join(", ")}.`)
+  }
+  if (product.descricaoLonga) {
+    pieces.push(`Resumo do anuncio: ${product.descricaoLonga.slice(0, 180)}${product.descricaoLonga.length > 180 ? "..." : ""}`)
   }
   if (product.status && product.status !== "active") {
     pieces.push(`Status atual no Mercado Livre: ${product.status}.`)
   }
   if (product.link) {
-    pieces.push("Se quiser fechar por la, eu tambem posso te mandar o link direto.")
+    pieces.push("Se quiser, eu ja te mando o link direto para voce olhar com calma ou seguir na compra.")
   }
-  pieces.push("Se quiser, tambem posso te mostrar outras opcoes parecidas.")
+  pieces.push("Se preferir, eu tambem comparo com a outra opcao da lista e te digo qual entrega melhor custo-beneficio.")
 
   return pieces.join(" ")
 }
@@ -133,6 +201,131 @@ function buildCatalogSearchState({ searchTerm, paging, products }) {
   }
 }
 
+function normalizeRecentCatalogProducts(context) {
+  return Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos.filter(Boolean) : []
+}
+
+function normalizeComparisonMessage(message) {
+  return String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+function detectCatalogComparisonIntent(message) {
+  const normalized = normalizeComparisonMessage(message)
+
+  if (/\b(vale mais a pena|qual e melhor|qual melhor|melhor opcao|compensa mais|qual voce indica|qual voce recomenda)\b/.test(normalized)) {
+    return "best_choice"
+  }
+
+  if (/\b(mais caro|maior preco|maior valor|produto mais caro)\b/.test(normalized)) {
+    return "highest_price"
+  }
+
+  if (/\b(mais barato|menor preco|menor valor|produto mais barato)\b/.test(normalized)) {
+    return "lowest_price"
+  }
+
+  return null
+}
+
+function resolveCatalogComparisonIndexes(message, products) {
+  const normalized = normalizeComparisonMessage(message)
+  const patterns = [
+    { pattern: /\b1\b|\bum\b|\bprimeiro\b|\bprimeira\b/, index: 0 },
+    { pattern: /\b2\b|\bsegundo\b|\bsegunda\b/, index: 1 },
+    { pattern: /\b3\b|\bterceiro\b|\bterceira\b/, index: 2 },
+  ]
+  const matchedIndexes = patterns.filter((item) => item.pattern.test(normalized)).map((item) => item.index)
+  const uniqueIndexes = [...new Set(matchedIndexes)].filter((index) => products[index])
+  return uniqueIndexes
+}
+
+function buildCatalogAdvantageLines(product) {
+  const lines = []
+  if (product?.freeShipping) lines.push("frete gratis")
+  if (product?.warranty) lines.push(`garantia ${product.warranty}`)
+  if (product?.preco != null) lines.push(`preco ${formatCurrency(product.preco)}`)
+  if (sanitizeNumber(product?.availableQuantity, 0) > 0) lines.push(`${sanitizeNumber(product.availableQuantity, 0)} em estoque`)
+  if (product?.material) lines.push(product.material)
+  if (product?.cor) lines.push(product.cor)
+  return lines
+}
+
+function scoreCatalogBestChoiceProduct(product) {
+  let score = 0
+  if (Number.isFinite(Number(product?.preco))) score += Math.max(0, 1000 - Number(product.preco)) / 100
+  if (sanitizeNumber(product?.availableQuantity, 0) > 0) score += 4
+  if (product?.freeShipping) score += 3
+  if (product?.warranty) score += 2
+  if (product?.material) score += 1
+  if (product?.cor) score += 1
+  return score
+}
+
+function buildCatalogBestChoiceReply(products, selectedIndexes) {
+  const comparedProducts = selectedIndexes.map((index) => products[index]).filter(Boolean)
+  if (comparedProducts.length < 2) {
+    return null
+  }
+
+  const ranked = [...comparedProducts].sort((left, right) => scoreCatalogBestChoiceProduct(right) - scoreCatalogBestChoiceProduct(left))
+  const winner = ranked[0]
+  const runnerUp = ranked[1]
+  if (!winner?.nome || !runnerUp?.nome) {
+    return null
+  }
+
+  const winnerReasons = buildCatalogAdvantageLines(winner).slice(0, 3)
+  const runnerReasons = buildCatalogAdvantageLines(runnerUp).slice(0, 2)
+
+  return [
+    `Entre ${winner.nome} e ${runnerUp.nome}, eu iria em ${winner.nome}.`,
+    winnerReasons.length ? `Ele sai na frente por ${winnerReasons.join(", ")}.` : "",
+    runnerReasons.length ? `${runnerUp.nome} ainda pode fazer sentido se o seu foco for ${runnerReasons.join(", ")}.` : "",
+    "Se quiser, eu tambem posso te dizer qual dos dois faz mais sentido pelo estilo ou pela faixa de preco.",
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
+
+function selectCatalogProductByComparison(products, comparisonIntent) {
+  const pricedProducts = (Array.isArray(products) ? products : []).filter((item) => Number.isFinite(Number(item?.preco)))
+  if (!pricedProducts.length || !comparisonIntent || !["highest_price", "lowest_price"].includes(comparisonIntent)) {
+    return null
+  }
+
+  return pricedProducts.reduce((selected, item) => {
+    if (!selected) {
+      return item
+    }
+
+    return comparisonIntent === "lowest_price"
+      ? Number(item.preco) < Number(selected.preco)
+        ? item
+        : selected
+      : Number(item.preco) > Number(selected.preco)
+        ? item
+        : selected
+  }, null)
+}
+
+function buildCatalogComparisonReply(product, comparisonIntent, totalProducts) {
+  if (!product?.nome || product?.preco == null || !comparisonIntent) {
+    return null
+  }
+
+  const intro =
+    comparisonIntent === "lowest_price"
+      ? "Dos itens que te mostrei, o mais barato e"
+      : "Dos itens que te mostrei, o mais caro e"
+  const price = formatCurrency(product.preco)
+  const detail = totalProducts > 1 ? ` entre ${totalProducts} opcoes recentes` : ""
+
+  return `${intro} ${product.nome}${detail}: ${price}.`
+}
+
 export function isMercadoLivrePurchaseIntent(message) {
   return /\b(gostei|quero|comprar|manda o link|vou querer)\b/i.test(String(message || ""))
 }
@@ -147,7 +340,10 @@ export function resolveMercadoLivreFlowState(input = {}) {
     (input.resolveRecentCatalogProductReference ?? resolveRecentCatalogProductReference)(input.latestUserMessage, input.context)
   const productSearchCandidates = (input.buildProductSearchCandidates ?? buildProductSearchCandidates)(input.latestUserMessage)
   const contextCatalog = input.context?.catalogo ?? {}
-  const loadMoreCatalogRequested = /\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || ""))
+  const recentCatalogProducts = normalizeRecentCatalogProducts(input.context)
+  const catalogComparisonIntent = detectCatalogComparisonIntent(input.latestUserMessage)
+  const loadMoreCatalogRequested =
+    !catalogComparisonIntent && /\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || ""))
 
   return {
     productSearchRequested: Boolean(input.detectProductSearch?.(input.latestUserMessage)),
@@ -155,8 +351,10 @@ export function resolveMercadoLivreFlowState(input = {}) {
       input.isMercadoLivreListingIntent?.(input.latestUserMessage) ?? isMercadoLivreListingIntent(input.latestUserMessage)
     ),
     loadMoreCatalogRequested,
+    catalogComparisonIntent,
     referencedCatalogProducts,
     currentCatalogProduct: referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? null,
+    recentCatalogProducts,
     catalogFollowUpDecision: input.catalogFollowUpDecision ?? null,
     productSearchTerm: productSearchCandidates[0] ?? "",
     lastSearchTerm: sanitizeString(contextCatalog.ultimaBusca),
@@ -169,8 +367,56 @@ export function resolveMercadoLivreFlowState(input = {}) {
 }
 
 export async function resolveMercadoLivreHeuristicState(input = {}) {
-  const currentProduct = input.currentCatalogProduct ?? input.referencedCatalogProducts?.[0] ?? input.context?.catalogo?.produtoAtual
+  let currentProduct = input.currentCatalogProduct ?? input.referencedCatalogProducts?.[0] ?? input.context?.catalogo?.produtoAtual
+  const recentCatalogProducts = Array.isArray(input.recentCatalogProducts) ? input.recentCatalogProducts : normalizeRecentCatalogProducts(input.context)
+  const catalogComparisonProduct = selectCatalogProductByComparison(recentCatalogProducts, input.catalogComparisonIntent)
+  const catalogComparisonIndexes = resolveCatalogComparisonIndexes(input.latestUserMessage, recentCatalogProducts)
   const projectHasMercadoLivre = hasMercadoLivreConnection(input.project, input.context)
+
+  if (catalogComparisonProduct) {
+    return {
+      selectedProductSalesReply: null,
+      mercadoLivreHeuristicReply: buildCatalogComparisonReply(
+        catalogComparisonProduct,
+        input.catalogComparisonIntent,
+        recentCatalogProducts.length
+      ),
+      mercadoLivreProducts: [],
+      mercadoLivreAssets: [],
+      catalogSearchState: null,
+      selectedCatalogProduct: catalogComparisonProduct,
+    }
+  }
+
+  if (input.catalogComparisonIntent === "best_choice") {
+    const comparisonReply = buildCatalogBestChoiceReply(recentCatalogProducts, catalogComparisonIndexes)
+    if (comparisonReply) {
+      return {
+        selectedProductSalesReply: null,
+        mercadoLivreHeuristicReply: comparisonReply,
+        mercadoLivreProducts: [],
+        mercadoLivreAssets: [],
+        catalogSearchState: null,
+        selectedCatalogProduct: null,
+      }
+    }
+  }
+
+  const shouldEnrichSelectedProduct =
+    Boolean(currentProduct?.id) &&
+    Boolean(input.project?.id) &&
+    projectHasMercadoLivre &&
+    (isMercadoLivreDetailIntent(input.latestUserMessage) || isMercadoLivrePurchaseIntent(input.latestUserMessage))
+
+  if (shouldEnrichSelectedProduct) {
+    const detailedProductResponse = await (input.resolveMercadoLivreProductById ?? getMercadoLivreProductByIdForProject)(
+      input.project,
+      currentProduct.id
+    )
+    if (detailedProductResponse?.item) {
+      currentProduct = buildCatalogProductFromItem(detailedProductResponse.item)
+    }
+  }
 
   if (currentProduct && (isMercadoLivreDetailIntent(input.latestUserMessage) || isMercadoLivrePurchaseIntent(input.latestUserMessage))) {
     const productAsset = currentProduct.link
@@ -185,11 +431,21 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
               permalink: currentProduct.link,
               thumbnail: currentProduct.imagem,
               sellerId: currentProduct.sellerId,
-              sellerName: currentProduct.sellerName,
-              status: currentProduct.status,
-            },
-            0
-          ),
+            sellerName: currentProduct.sellerName,
+            status: currentProduct.status,
+            condition: currentProduct.condition,
+            warranty: currentProduct.warranty,
+            freeShipping: currentProduct.freeShipping,
+            attributes: Array.isArray(currentProduct.atributos)
+              ? currentProduct.atributos.map((attribute) => ({
+                  id: attribute.id,
+                  name: attribute.nome,
+                  valueName: attribute.valor,
+                }))
+              : [],
+          },
+          0
+        ),
         ]
       : []
 
@@ -199,6 +455,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       mercadoLivreProducts: [],
       mercadoLivreAssets: productAsset,
       catalogSearchState: null,
+      selectedCatalogProduct: currentProduct,
     }
   }
 
@@ -209,6 +466,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       mercadoLivreProducts: input.mercadoLivreProducts ?? [],
       mercadoLivreAssets: [],
       catalogSearchState: null,
+      selectedCatalogProduct: currentProduct ?? null,
     }
   }
 
@@ -219,6 +477,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       mercadoLivreProducts: input.mercadoLivreProducts ?? [],
       mercadoLivreAssets: [],
       catalogSearchState: null,
+      selectedCatalogProduct: currentProduct ?? null,
     }
   }
 
@@ -234,6 +493,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       mercadoLivreProducts: input.mercadoLivreProducts ?? [],
       mercadoLivreAssets: [],
       catalogSearchState: null,
+      selectedCatalogProduct: currentProduct ?? null,
     }
   }
 
@@ -277,6 +537,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       mercadoLivreProducts: [],
       mercadoLivreAssets: [],
       catalogSearchState: null,
+      selectedCatalogProduct: null,
     }
   }
 
@@ -298,6 +559,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
         ...catalogSearchState,
         paginationHasMore: false,
       },
+      selectedCatalogProduct: null,
     }
   }
 
@@ -307,6 +569,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     mercadoLivreProducts: products,
     mercadoLivreAssets: assets,
     catalogSearchState,
+    selectedCatalogProduct: catalogSearchState.produtoAtual ?? null,
   }
 }
 

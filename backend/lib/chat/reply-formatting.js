@@ -198,6 +198,16 @@ function isMercadoLivreProductAsset(asset) {
   )
 }
 
+function isApiProductAsset(asset) {
+  return (
+    isPlainObject(asset) &&
+    asset.provider === "api_runtime" &&
+    asset.kind === "product" &&
+    typeof asset.targetUrl === "string" &&
+    asset.targetUrl.trim()
+  )
+}
+
 function resolveMercadoLivreWhatsAppTone(reply, followUpReply, assetIndex, totalAssets) {
   const combined = `${String(reply || "")} ${String(followUpReply || "")}`.toLowerCase()
 
@@ -246,6 +256,31 @@ function buildMercadoLivreWhatsAppSalesComment(asset, options = {}) {
   )
 }
 
+function buildApiProductWhatsAppSalesComment(asset, options = {}) {
+  const nome = typeof asset?.nome === "string" ? asset.nome.trim() : ""
+  const stockQuantity =
+    Number.isFinite(Number(asset?.metadata?.availableQuantity)) ? Number(asset.metadata.availableQuantity) : 0
+  const stockLabel = stockQuantity > 0 ? ` Tenho ${stockQuantity} em estoque agora.` : ""
+  const subject = nome ? `Esse ${nome}` : "Esse item"
+  const combined = `${String(options.reply || "")} ${String(options.followUpReply || "")}`.toLowerCase()
+
+  if (/\b(mais|outras|outros|opcoes|modelos)\b/.test(combined)) {
+    return formatWhatsAppOutboundTextSafe(
+      `${subject} entra como mais uma opcao nessa linha.${stockLabel} Se quiser, eu continuo te mandando outras alternativas parecidas.`
+    )
+  }
+
+  if (/\b(perfeito|vamos seguir|esse item|detalhes|link direto)\b/.test(combined) || Number(options.totalAssets ?? 1) === 1) {
+    return formatWhatsAppOutboundTextSafe(
+      `${subject} parece uma opcao forte para seguir agora.${stockLabel} Se quiser, eu te passo mais contexto ou separo outra alternativa.`
+    )
+  }
+
+  return formatWhatsAppOutboundTextSafe(
+    `${subject} pode combinar com o que voce pediu.${stockLabel} Se quiser, eu separo mais opcoes nessa mesma linha.`
+  )
+}
+
 export function sanitizeWhatsAppCustomerFacingReply(reply) {
   let sanitized = stripAssistantMetaArtifacts(reply)
 
@@ -280,15 +315,24 @@ export function buildWhatsAppMessageSequence(reply, assets, followUpReply) {
             return ""
           }
 
-          if (isMercadoLivreProductAsset(asset)) {
+          if (isMercadoLivreProductAsset(asset) || isApiProductAsset(asset)) {
+            const salesComment = isMercadoLivreProductAsset(asset)
+              ? buildMercadoLivreWhatsAppSalesComment(asset, {
+                  reply,
+                  followUpReply,
+                  assetIndex: index,
+                  totalAssets: Array.isArray(assets) ? Math.min(assets.length, 3) : 1,
+                })
+              : buildApiProductWhatsAppSalesComment(asset, {
+                  reply,
+                  followUpReply,
+                  assetIndex: index,
+                  totalAssets: Array.isArray(assets) ? Math.min(assets.length, 3) : 1,
+                })
+
             return [
               String(asset.targetUrl || "").trim(),
-              buildMercadoLivreWhatsAppSalesComment(asset, {
-                reply,
-                followUpReply,
-                assetIndex: index,
-                totalAssets: Array.isArray(assets) ? Math.min(assets.length, 3) : 1,
-              }),
+              salesComment,
             ]
               .filter(Boolean)
               .join("\n\n")

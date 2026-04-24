@@ -1,4 +1,5 @@
 import { buildSearchTokens, normalizeText, singularizeToken } from "@/lib/chat/text-utils"
+import { resolveRecentCatalogProductReference } from "@/lib/chat/catalog-follow-up"
 
 const ANALYTICAL_QUERY_SIGNALS = [
   "vale a pena",
@@ -108,6 +109,251 @@ function getDeps(deps = {}) {
     buildSearchTokens: deps.buildSearchTokens ?? buildSearchTokens,
     singularizeToken: deps.singularizeToken ?? singularizeToken,
   }
+}
+
+function sanitizeString(value) {
+  const normalized = String(value ?? "").trim()
+  return normalized || ""
+}
+
+function sanitizeNumber(value, fallback = null) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function normalizeComparisonMessage(message) {
+  return String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+function normalizeApiFieldName(name, deps) {
+  return deps.normalizeText(String(name || "").replace(/\./g, "_"))
+}
+
+function groupApiFieldsAsCatalogItem(api, deps) {
+  const fields = Array.isArray(api?.campos) ? api.campos : []
+  if (!fields.length) {
+    return null
+  }
+
+  const fieldMap = new Map(fields.map((field) => [normalizeApiFieldName(field.nome, deps), field.valor]))
+  const readField = (...keys) => {
+    for (const key of keys) {
+      if (fieldMap.has(key)) {
+        return fieldMap.get(key)
+      }
+    }
+    return undefined
+  }
+  const id =
+    sanitizeString(readField("id")) ||
+    sanitizeString(readField("sku")) ||
+    sanitizeString(readField("codigo")) ||
+    sanitizeString(api?.apiId)
+  const nome =
+    sanitizeString(readField("nome")) ||
+    sanitizeString(readField("titulo")) ||
+    sanitizeString(readField("title")) ||
+    sanitizeString(readField("produto")) ||
+    sanitizeString(readField("sku")) ||
+    sanitizeString(api?.nome)
+  const preco = sanitizeNumber(readField("preco", "valor"), null)
+  const availableQuantity = sanitizeNumber(readField("estoque", "quantidade"), 0)
+  const status =
+    sanitizeString(readField("status")) ||
+    (availableQuantity > 0 ? "disponivel" : "")
+  const warranty = sanitizeString(readField("garantia", "warranty"))
+  const material = sanitizeString(readField("material"))
+  const cor = sanitizeString(readField("cor", "color"))
+  const link = sanitizeString(readField("link", "url", "permalink"))
+  const imagem = sanitizeString(readField("imagem", "image", "thumbnail"))
+  const freeShippingValue = readField("frete_gratis", "frete gratis", "free_shipping", "free shipping")
+  const freeShipping = freeShippingValue === true || String(freeShippingValue).toLowerCase() === "true"
+  const descricao =
+    sanitizeString(readField("descricao")) ||
+    sanitizeString(readField("resumo")) ||
+    [
+      preco != null ? formatCurrencyValue(preco) : "",
+      availableQuantity > 0 ? `${availableQuantity} em estoque` : "",
+      material,
+      cor,
+      freeShipping ? "frete gratis" : "",
+    ]
+      .filter(Boolean)
+      .join(" - ")
+
+  const hasCatalogSignal = Boolean(nome && (preco != null || availableQuantity > 0 || warranty || material || cor || descricao))
+  if (!hasCatalogSignal) {
+    return null
+  }
+
+  return {
+    id,
+    nome,
+    descricao,
+    preco,
+    link,
+    imagem,
+    availableQuantity,
+    status,
+    warranty,
+    material,
+    cor,
+    freeShipping,
+    atributos: [
+      material ? { nome: "material", valor: material } : null,
+      cor ? { nome: "cor", valor: cor } : null,
+      warranty ? { nome: "garantia", valor: warranty } : null,
+    ].filter(Boolean),
+    source: "api_runtime",
+    apiId: sanitizeString(api?.apiId),
+    apiNome: sanitizeString(api?.nome),
+  }
+}
+
+export function extractApiCatalogProducts(apis = [], customDeps = {}) {
+  const deps = getDeps(customDeps)
+  return (apis ?? []).map((api) => groupApiFieldsAsCatalogItem(api, deps)).filter(Boolean)
+}
+
+export function buildApiCatalogSearchState(apis = [], customDeps = {}) {
+  const products = extractApiCatalogProducts(apis, customDeps)
+  if (!products.length) {
+    return null
+  }
+
+  return {
+    ultimaBusca: null,
+    paginationOffset: 0,
+    paginationNextOffset: 0,
+    paginationPoolLimit: products.length,
+    paginationHasMore: false,
+    paginationTotal: products.length,
+    produtoAtual: products.length === 1 ? products[0] : null,
+    ultimosProdutos: products,
+  }
+}
+
+function detectApiCatalogComparisonIntent(message) {
+  const normalized = normalizeComparisonMessage(message)
+  if (/\b(vale mais a pena|qual e melhor|qual melhor|melhor opcao|compensa mais|qual voce indica|qual voce recomenda)\b/.test(normalized)) {
+    return "best_choice"
+  }
+  if (/\b(mais caro|maior preco|maior valor|produto mais caro)\b/.test(normalized)) {
+    return "highest_price"
+  }
+  if (/\b(mais barato|menor preco|menor valor|produto mais barato)\b/.test(normalized)) {
+    return "lowest_price"
+  }
+  return null
+}
+
+function resolveApiCatalogComparisonIndexes(message, products) {
+  const normalized = normalizeComparisonMessage(message)
+  const patterns = [
+    { pattern: /\b1\b|\bum\b|\bprimeiro\b|\bprimeira\b/, index: 0 },
+    { pattern: /\b2\b|\bsegundo\b|\bsegunda\b/, index: 1 },
+    { pattern: /\b3\b|\bterceiro\b|\bterceira\b/, index: 2 },
+  ]
+  return [...new Set(patterns.filter((item) => item.pattern.test(normalized)).map((item) => item.index))].filter((index) => products[index])
+}
+
+function buildApiCatalogAdvantageLines(product) {
+  const lines = []
+  if (product?.freeShipping) lines.push("frete gratis")
+  if (product?.warranty) lines.push(`garantia ${product.warranty}`)
+  if (product?.preco != null) lines.push(`preco ${formatCurrencyValue(product.preco)}`)
+  if (sanitizeNumber(product?.availableQuantity, 0) > 0) lines.push(`${sanitizeNumber(product.availableQuantity, 0)} em estoque`)
+  if (product?.material) lines.push(product.material)
+  if (product?.cor) lines.push(product.cor)
+  return lines
+}
+
+function buildApiCatalogComparisonReply(products, comparisonIntent, indexes) {
+  if (!Array.isArray(products) || !products.length || !comparisonIntent) {
+    return null
+  }
+
+  if (comparisonIntent === "highest_price" || comparisonIntent === "lowest_price") {
+    const pricedProducts = products.filter((item) => Number.isFinite(Number(item?.preco)))
+    if (!pricedProducts.length) return null
+    const selected = pricedProducts.reduce((winner, item) => {
+      if (!winner) return item
+      return comparisonIntent === "lowest_price"
+        ? Number(item.preco) < Number(winner.preco) ? item : winner
+        : Number(item.preco) > Number(winner.preco) ? item : winner
+    }, null)
+    const intro = comparisonIntent === "lowest_price" ? "Dos itens que te mostrei, o mais barato e" : "Dos itens que te mostrei, o mais caro e"
+    return `${intro} ${selected.nome}: ${formatCurrencyValue(selected.preco)}.`
+  }
+
+  if (comparisonIntent === "best_choice" && indexes.length >= 2) {
+    const compared = indexes.map((index) => products[index]).filter(Boolean)
+    const scored = [...compared].sort((left, right) => {
+      const score = (item) =>
+        (item?.freeShipping ? 3 : 0) +
+        (item?.warranty ? 2 : 0) +
+        (sanitizeNumber(item?.availableQuantity, 0) > 0 ? 4 : 0) +
+        (Number.isFinite(Number(item?.preco)) ? Math.max(0, 1000 - Number(item.preco)) / 100 : 0)
+      return score(right) - score(left)
+    })
+    const winner = scored[0]
+    const runnerUp = scored[1]
+    if (!winner?.nome || !runnerUp?.nome) return null
+    return [
+      `Entre ${winner.nome} e ${runnerUp.nome}, eu iria em ${winner.nome}.`,
+      `Ele sai na frente por ${buildApiCatalogAdvantageLines(winner).slice(0, 3).join(", ")}.`,
+      `Se quiser, eu tambem posso te dizer qual dos dois faz mais sentido pelo estilo ou pela faixa de preco.`,
+    ].join(" ")
+  }
+
+  return null
+}
+
+function buildApiSelectedCatalogReply(product) {
+  if (!product?.nome) {
+    return null
+  }
+  return [
+    `${product.nome} parece a opcao mais consistente para seguir agora.`,
+    product.preco != null ? `Preco atual: ${formatCurrencyValue(product.preco)}.` : "",
+    sanitizeNumber(product.availableQuantity, 0) > 0 ? `Tenho ${sanitizeNumber(product.availableQuantity, 0)} em estoque.` : "",
+    product.freeShipping ? "Esse item esta com frete gratis." : "",
+    product.warranty ? `Garantia informada: ${product.warranty}.` : "",
+    product.link ? "Se quiser, eu posso te mandar o link direto." : "",
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
+
+export function resolveApiCatalogReply(message, context = {}, apis = [], customDeps = {}) {
+  const deps = getDeps(customDeps)
+  const contextProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos.filter(Boolean) : []
+  const products = contextProducts.length ? contextProducts : extractApiCatalogProducts(apis, deps)
+  if (!products.length) {
+    return null
+  }
+
+  const comparisonIntent = detectApiCatalogComparisonIntent(message)
+  if (comparisonIntent) {
+    return buildApiCatalogComparisonReply(products, comparisonIntent, resolveApiCatalogComparisonIndexes(message, products))
+  }
+
+  const reference = resolveRecentCatalogProductReference(message, {
+    ...context,
+    catalogo: {
+      ...(context?.catalogo && typeof context.catalogo === "object" ? context.catalogo : {}),
+      ultimosProdutos: products,
+    },
+  })
+
+  if (reference.length === 1) {
+    return buildApiSelectedCatalogReply(reference[0])
+  }
+
+  return null
 }
 
 function formatApiDateValue(value) {
