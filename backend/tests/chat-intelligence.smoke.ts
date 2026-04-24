@@ -406,12 +406,69 @@ const tests: TestCase[] = [
     name: "catalogo resolve item recente e segura ambiguidade",
     run: () => {
       const reference = decideCatalogFollowUpHeuristically("gostei da sopeira que mandou", catalogContext as never, deps as never);
-      const ambiguous = decideCatalogFollowUpHeuristically("quero o amarelo", catalogContext as never, deps as never);
+      const ambiguous = decideCatalogFollowUpHeuristically("gostei desse", catalogContext as never, deps as never);
       const resolved = resolveRecentCatalogProductReference("gostei da dopeira que mandou", catalogContext as never);
+      const resolvedByOrder = resolveRecentCatalogProductReference("quero o segundo", catalogContext as never);
+      const resolvedUniqueAmongMany = resolveRecentCatalogProductReference("quero o floral", catalogContext as never);
 
       assert.equal(reference?.kind, "recent_product_reference");
-      assert.equal(ambiguous?.kind, "recent_product_reference_ambiguous");
+      assert.equal(ambiguous?.kind, "recent_product_reference_unresolved");
       assert.equal(resolved.length, 1);
+      assert.equal(resolvedByOrder.length, 1);
+      assert.equal(resolvedByOrder[0]?.id, "MLB2");
+      assert.equal(resolvedUniqueAmongMany.length, 1);
+      assert.equal(resolvedUniqueAmongMany[0]?.id, "MLB3");
+    },
+  },
+  {
+    name: "catalogo bloqueia nova busca quando follow-up recente ficou ambiguo sem match textual",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "gostei desse" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-2",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-2",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+            ultimosProdutos: [
+              {
+                id: "MLB6540079826",
+                nome: "Aparelho De Jantar Oxford Ceramica",
+                descricao: "R$ 358,00 - 1 em estoque",
+              },
+              {
+                id: "MLB6540148274",
+                nome: "Aparelho De Jantar Oxford Ceramica Folk 20 Pecas",
+                descricao: "R$ 730,00 - 1 em estoque",
+              },
+            ],
+          },
+        } as never,
+        {
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar novamente");
+          },
+        }
+      );
+
+      assert.equal(result.metadata.provider, "local_heuristic");
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(result.reply, /quero confirmar qual voce quis dizer/i);
+      assert.match(result.reply, /1\. Aparelho De Jantar Oxford Ceramica/i);
+      assert.match(result.reply, /2\. Aparelho De Jantar Oxford Ceramica Folk 20 Pecas/i);
+      assert.match(result.reply, /me responde com 1, 2 ou 3/i);
     },
   },
   {

@@ -33,23 +33,74 @@ function productHaystack(product) {
   return normalizeText([product?.nome, product?.descricao].filter(Boolean).join(" "))
 }
 
-function scoreProduct(message, product) {
-  const normalized = normalizeText(message).replace(/\bdopeira\b/g, "sopeira").replace(/\bsoperia\b/g, "sopeira")
-  const haystack = productHaystack(product)
-  let score = 0
-  for (const token of normalized.split(/\s+/).filter((item) => item.length >= 4)) {
-    if (haystack.includes(token)) score += 1
+function normalizeCatalogMessage(message) {
+  return normalizeText(message).replace(/\bdopeira\b/g, "sopeira").replace(/\bsoperia\b/g, "sopeira")
+}
+
+function resolveProductByExplicitOrder(message, products) {
+  const normalized = normalizeCatalogMessage(message)
+  const explicitPatterns = [
+    { pattern: /\b1\b|\bum\b|\bprimeiro\b|\bprimeira\b|\bo primeiro\b|\ba primeira\b|\bo de cima\b/, index: 0 },
+    { pattern: /\b2\b|\bsegundo\b|\bsegunda\b|\bo segundo\b|\ba segunda\b|\bo do meio\b/, index: 1 },
+    { pattern: /\b3\b|\bterceiro\b|\bterceira\b|\bo terceiro\b|\ba terceira\b|\bo ultimo\b|\bo final\b/, index: 2 },
+  ]
+
+  const matched = explicitPatterns.find((item) => item.pattern.test(normalized))
+  if (!matched) {
+    return null
   }
-  return score
+
+  return products[matched.index] ? [products[matched.index]] : null
+}
+
+function resolveProductsByTitleTokens(message, products) {
+  const normalized = normalizeCatalogMessage(message)
+  const tokens = normalized
+    .split(/\s+/)
+    .filter((item) => item.length >= 4)
+    .filter(
+      (item) =>
+        ![
+          "gostei",
+          "quero",
+          "desse",
+          "dessa",
+          "esse",
+          "essa",
+          "mandou",
+          "mostrou",
+          "mostra",
+          "tenho",
+          "tenha",
+          "quiser",
+          "queria",
+        ].includes(item)
+    )
+
+  if (!tokens.length) {
+    return []
+  }
+
+  return products.filter((product) => {
+    const haystack = productHaystack(product)
+    return tokens.every((token) => haystack.includes(token))
+  })
 }
 
 export function resolveRecentCatalogProductReference(message, context) {
   const products = normalizeRecentCatalogProducts(context)
-  return products.filter((product) => scoreProduct(message, product) > 0)
+  const byOrder = resolveProductByExplicitOrder(message, products)
+  if (byOrder?.length) {
+    return byOrder
+  }
+
+  return resolveProductsByTitleTokens(message, products)
 }
 
 export function isRecentCatalogReferenceAttempt(message) {
-  return /\b(gostei|quero|esse|essa|desse|dessa|amarelo|floral|sopeira|dopeira|soperia)\b/i.test(String(message || ""))
+  return /\b(gostei|quero|esse|essa|desse|dessa|primeiro|primeira|segundo|segunda|terceiro|terceira|1|2|3)\b/i.test(
+    String(message || "")
+  )
 }
 
 export function isCatalogLoadMoreIntent(message) {
@@ -58,23 +109,13 @@ export function isCatalogLoadMoreIntent(message) {
 
 export function decideCatalogFollowUpHeuristically(message, context, deps = {}) {
   const products = normalizeRecentCatalogProducts(context)
-  if (!products.length || !isRecentCatalogReferenceAttempt(message)) {
+  if (!products.length) {
     return null
   }
 
   const matchedProducts = resolveRecentCatalogProductReference(message, context)
-  if (/\bamarelo\b/i.test(normalizeText(message))) {
-    const ambiguousMatches = products.filter((item) => /amarel[ao]/.test(productHaystack(item)))
-    if (ambiguousMatches.length > 1) {
-      return {
-        kind: "recent_product_reference_ambiguous",
-        confidence: 0.72,
-        reason: "Mensagem referencia mais de um produto recente.",
-        matchedProducts: ambiguousMatches,
-        usedLlm: false,
-        shouldBlockNewSearch: true,
-      }
-    }
+  if (!isRecentCatalogReferenceAttempt(message) && matchedProducts.length === 0) {
+    return null
   }
 
   if (matchedProducts.length === 1) {
@@ -102,6 +143,17 @@ export function decideCatalogFollowUpHeuristically(message, context, deps = {}) 
 
   const candidates = (deps.buildProductSearchCandidates ?? buildProductSearchCandidates)(message)
   const search = (deps.shouldSearchProducts ?? shouldSearchProducts)(message)
+  if (products.length > 1) {
+    return {
+      kind: "recent_product_reference_unresolved",
+      confidence: 0.61,
+      reason: "Mensagem parece referenciar os produtos recentes, mas sem sinal textual suficiente para resolver.",
+      matchedProducts: products.slice(0, 3),
+      usedLlm: false,
+      shouldBlockNewSearch: true,
+    }
+  }
+
   return search && candidates.length
     ? {
         kind: "catalog_search",
@@ -116,5 +168,14 @@ export function decideCatalogFollowUpHeuristically(message, context, deps = {}) 
 
 export function resolveCatalogReferenceHeuristicReply(decision) {
   const product = decision?.matchedProducts?.[0]
+  if (decision?.kind === "recent_product_reference_unresolved") {
+    const options = Array.isArray(decision?.matchedProducts) ? decision.matchedProducts.slice(0, 3) : []
+
+    if (options.length >= 2) {
+      const lines = options.map((item, index) => `${index + 1}. ${item?.nome}`).filter(Boolean)
+      return [`Quero confirmar qual voce quis dizer.`, ...lines, "Me responde com 1, 2 ou 3."].join("\n")
+    }
+  }
+
   return product?.nome ? `Perfeito, vamos seguir com ${product.nome}.` : null
 }

@@ -119,7 +119,8 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
   const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
   const catalogFollowUpDecision =
-    shouldUseMercadoLivre && (hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual)
+    (shouldUseMercadoLivre || hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual) &&
+    (hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual)
       ? decideCatalogFollowUpHeuristically(latestUserMessage, context, {
           buildProductSearchCandidates,
           shouldSearchProducts,
