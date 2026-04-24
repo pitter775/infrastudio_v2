@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { recordJsonApiUsage } from "@/lib/api-usage-metrics"
 import { cleanupAdminLogs, deleteAdminLogs, listAdminLogs, updateAdminLogPayload } from "@/lib/logs"
 import { LABORATORY_CHAT_SCENARIOS, recordLaboratoryChatScenarioRun, runLaboratoryChatScenario } from "@/lib/laboratory-scenarios"
 import { getSessionUser } from "@/lib/session"
@@ -9,10 +10,21 @@ function canAccessLaboratory(user) {
 }
 
 export async function GET(request) {
+  const startedAt = Date.now()
   const user = await getSessionUser()
 
   if (!canAccessLaboratory(user)) {
-    return NextResponse.json({ error: "Acesso negado." }, { status: 403 })
+    const payload = { error: "Acesso negado." }
+    recordJsonApiUsage({
+      route: "/api/admin/laboratorio",
+      method: "GET",
+      status: 403,
+      elapsedMs: Date.now() - startedAt,
+      userId: user?.id ?? null,
+      source: "admin_laboratory",
+      payload,
+    })
+    return NextResponse.json(payload, { status: 403 })
   }
 
   const { searchParams } = new URL(request.url)
@@ -23,9 +35,21 @@ export async function GET(request) {
     level: searchParams.get("level")?.trim() || "",
     search: searchParams.get("search")?.trim() || "",
     limit: searchParams.get("limit")?.trim() || "100",
+    compact: true,
   })
 
-  return NextResponse.json({ logs }, { status: 200 })
+  const payload = { logs }
+  recordJsonApiUsage({
+    route: "/api/admin/laboratorio",
+    method: "GET",
+    status: 200,
+    elapsedMs: Date.now() - startedAt,
+    userId: user.id,
+    projectId: searchParams.get("projectId")?.trim() || null,
+    source: "admin_laboratory",
+    payload,
+  })
+  return NextResponse.json(payload, { status: 200 })
 }
 
 export async function DELETE(request) {

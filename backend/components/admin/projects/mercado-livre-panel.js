@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Check, Copy, Files, MessageCircle, MessageSquare, PackageSearch, Store } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -147,7 +147,7 @@ export function MercadoLivrePanel({
     }
 
     void handleLoadTestItems()
-  }, [connectorMeta.oauthConnected, currentTab])
+  }, [connectorMeta.oauthConnected, currentTab, handleLoadTestItems])
 
   useEffect(() => {
     if (currentTab !== 'orders' || !connectorMeta.oauthConnected) {
@@ -155,7 +155,7 @@ export function MercadoLivrePanel({
     }
 
     void handleLoadOrders()
-  }, [connectorMeta.oauthConnected, currentTab])
+  }, [connectorMeta.oauthConnected, currentTab, handleLoadOrders])
 
   useEffect(() => {
     if (currentTab !== 'questions' || !connectorMeta.oauthConnected) {
@@ -163,7 +163,7 @@ export function MercadoLivrePanel({
     }
 
     void handleLoadQuestions()
-  }, [connectorMeta.oauthConnected, currentTab])
+  }, [connectorMeta.oauthConnected, currentTab, handleLoadQuestions])
 
   function handleResolveStore(event) {
     event.preventDefault()
@@ -308,7 +308,7 @@ export function MercadoLivrePanel({
     }
   }
 
-  async function handleLoadTestItems() {
+  const handleLoadTestItems = useCallback(async () => {
     setLoadingTestItems(true)
     setFeedback(null)
 
@@ -338,9 +338,9 @@ export function MercadoLivrePanel({
     } finally {
       setLoadingTestItems(false)
     }
-  }
+  }, [projectIdentifier])
 
-  async function handleLoadOrders(nextOffset = 0) {
+  const handleLoadOrders = useCallback(async (nextOffset = 0) => {
     setLoadingOrders(true)
     setFeedback(null)
 
@@ -380,9 +380,9 @@ export function MercadoLivrePanel({
     } finally {
       setLoadingOrders(false)
     }
-  }
+  }, [projectIdentifier])
 
-  async function handleLoadQuestions(nextOffset = 0) {
+  const handleLoadQuestions = useCallback(async (nextOffset = 0) => {
     setLoadingQuestions(true)
     setFeedback(null)
 
@@ -422,7 +422,7 @@ export function MercadoLivrePanel({
     } finally {
       setLoadingQuestions(false)
     }
-  }
+  }, [projectIdentifier])
 
   async function handleAnswerQuestion(questionId) {
     const nextText = String(questionDrafts?.[questionId] || '').trim()
@@ -504,18 +504,6 @@ export function MercadoLivrePanel({
   function handlePanelTabChange(tabId) {
     setActiveTab(tabId)
     onTabChange?.(tabId)
-
-    if (tabId === 'test' && connectorMeta.oauthConnected && !loadingTestItems) {
-      void handleLoadTestItems()
-    }
-
-    if (tabId === 'orders' && connectorMeta.oauthConnected && !loadingOrders) {
-      void handleLoadOrders(0)
-    }
-
-    if (tabId === 'questions' && connectorMeta.oauthConnected && !loadingQuestions) {
-      void handleLoadQuestions(0)
-    }
   }
 
   return (

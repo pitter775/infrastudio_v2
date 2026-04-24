@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { CalendarClock, ChevronDown, Clock, LoaderCircle, Save } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
@@ -165,7 +165,7 @@ export default function AgendaPage() {
   )
   const groupedSlots = useMemo(() => groupSlotsByMonthWeek(slots), [slots])
 
-  async function loadAgenda(targetProjectId = projectId) {
+  const loadAgenda = useCallback(async (targetProjectId = projectId) => {
     if (!targetProjectId) return
 
     setLoading(true)
@@ -192,7 +192,7 @@ export default function AgendaPage() {
     }
 
     setLoading(false)
-  }
+  }, [projectId])
 
   useEffect(() => {
     async function loadProjects() {
@@ -214,7 +214,7 @@ export default function AgendaPage() {
     }
 
     void loadProjects()
-  }, [])
+  }, [loadAgenda])
 
   function handleProjectChange(nextProjectId) {
     setProjectId(nextProjectId)

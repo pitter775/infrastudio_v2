@@ -232,20 +232,97 @@ export async function appendMessage(input) {
   return mapMensagem(data)
 }
 
-export async function listChatMessages(chatId) {
+export async function listChatMessages(chatId, options = {}) {
   const supabase = getSupabaseAdminClient()
-  const { data, error } = await supabase
+  let query = supabase
     .from("mensagens")
     .select("id, chat_id, role, conteudo, canal, identificador_externo, tokens_input, tokens_output, custo, metadata, created_at")
     .eq("chat_id", chatId)
-    .order("created_at", { ascending: true })
+    .order("created_at", { ascending: options.ascending !== false })
+
+  if (Number.isFinite(options.limit) && options.limit > 0) {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
 
   if (error || !data) {
     console.error("[chats] failed to list messages", error)
     return []
   }
 
-  return data.map((row) => mapMensagem(row))
+  const messages = data.map((row) => mapMensagem(row))
+  return options.ascending === false ? messages : messages
+}
+
+export async function listLatestChatMessages(chatIds, options = {}) {
+  const normalizedChatIds = Array.from(
+    new Set((Array.isArray(chatIds) ? chatIds : []).map((item) => String(item || "").trim()).filter(Boolean)),
+  )
+
+  if (!normalizedChatIds.length) {
+    return new Map()
+  }
+
+  const perChatLimit = Math.min(Math.max(Number(options.perChatLimit ?? 1) || 1, 1), 5)
+  const batchSize = Math.min(Math.max(Number(options.batchSize ?? normalizedChatIds.length * 4) || normalizedChatIds.length * 4, normalizedChatIds.length), 500)
+  const maxRounds = Math.min(Math.max(Number(options.maxRounds ?? 4) || 4, 1), 8)
+  const supabase = getSupabaseAdminClient()
+  const collected = new Map()
+  let cursor = null
+
+  for (let round = 0; round < maxRounds; round += 1) {
+    let query = supabase
+      .from("mensagens")
+      .select("id, chat_id, role, conteudo, canal, identificador_externo, tokens_input, tokens_output, custo, metadata, created_at")
+      .in("chat_id", normalizedChatIds)
+      .order("created_at", { ascending: false })
+      .limit(batchSize)
+
+    if (cursor) {
+      query = query.lt("created_at", cursor)
+    }
+
+    const { data, error } = await query
+
+    if (error || !Array.isArray(data) || !data.length) {
+      if (error) {
+        console.error("[chats] failed to list latest messages", error)
+      }
+      break
+    }
+
+    for (const row of data) {
+      const chatId = String(row.chat_id || "").trim()
+      if (!chatId) {
+        continue
+      }
+
+      const currentMessages = collected.get(chatId) ?? []
+      if (currentMessages.length >= perChatLimit) {
+        continue
+      }
+
+      currentMessages.push(mapMensagem(row))
+      collected.set(chatId, currentMessages)
+    }
+
+    if (normalizedChatIds.every((chatId) => (collected.get(chatId)?.length ?? 0) >= perChatLimit)) {
+      break
+    }
+
+    cursor = data.at(-1)?.created_at ?? null
+    if (!cursor) {
+      break
+    }
+  }
+
+  return new Map(
+    normalizedChatIds.map((chatId) => [
+      chatId,
+      ((collected.get(chatId) ?? []).slice(0, perChatLimit)).reverse(),
+    ]),
+  )
 }
 
 export async function listRecentMessagesByExternalIdentifier(input) {

@@ -1,8 +1,8 @@
 import "server-only"
 
-import { getChatHandoffByChatId } from "@/lib/chat-handoffs"
+import { listChatHandoffsByChatIds } from "@/lib/chat-handoffs"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
-import { appendMessage, getChatById, listChatMessages } from "@/lib/chats"
+import { appendMessage, getChatById, listChatMessages, listLatestChatMessages } from "@/lib/chats"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 function formatTime(value) {
@@ -88,25 +88,66 @@ export function mapAdminConversationMessage(message) {
   }
 }
 
-async function loadMessagesForChat(chatId) {
-  const messages = await listChatMessages(chatId)
+async function loadMessagesForChat(chatId, options = {}) {
+  const messages = await listChatMessages(chatId, options)
   return messages.map(mapAdminConversationMessage)
 }
 
-async function loadHandoff(chat) {
-  const handoff = await getChatHandoffByChatId(chat.id)
+function mapConversationStatus(handoff) {
   const autoPauseActive = handoff?.metadata?.autoPause?.active === true
+  return handoff?.status === "human"
+    ? "humano"
+    : autoPauseActive
+      ? "pausado_loop"
+      : handoff?.status === "pending_human"
+        ? "pendente_humano"
+        : "ia"
+}
+
+function loadHandoffFromMap(chatId, handoffsByChatId) {
+  const handoff = handoffsByChatId.get(chatId) ?? null
   return {
     handoff,
-    status:
-      handoff?.status === "human"
-        ? "humano"
-        : autoPauseActive
-          ? "pausado_loop"
-          : handoff?.status === "pending_human"
-            ? "pendente_humano"
-            : "ia",
+    status: mapConversationStatus(handoff),
   }
+}
+
+async function listChatsByIds(chatIds) {
+  const normalizedChatIds = Array.from(new Set((Array.isArray(chatIds) ? chatIds : []).filter(Boolean))).slice(0, 8)
+  if (!normalizedChatIds.length) {
+    return []
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from("chats")
+    .select(
+      "id, titulo, contato_nome, contato_telefone, contato_avatar_url, status, created_at, updated_at, total_tokens, total_custo, agente_id, usuario_id, projeto_id, canal, identificador_externo, contexto"
+    )
+    .in("id", normalizedChatIds)
+
+  if (error || !Array.isArray(data)) {
+    if (error) {
+      console.error("[admin-conversations] failed to load chats by ids", error)
+    }
+    return []
+  }
+
+  return normalizedChatIds
+    .map((chatId) => data.find((item) => item.id === chatId))
+    .filter(Boolean)
+    .map((row) => ({
+      id: row.id,
+      titulo: row.titulo || "Nova conversa",
+      contatoNome: row.contato_nome,
+      contatoTelefone: row.contato_telefone,
+      contatoAvatarUrl: row.contato_avatar_url,
+      updatedAt: row.updated_at,
+      canal: row.canal || "web",
+      contexto: row.contexto ?? {},
+      identificadorExterno: row.identificador_externo ?? null,
+      projetoId: row.projeto_id ?? null,
+    }))
 }
 
 function getScopedProjectIds(user) {
@@ -174,6 +215,11 @@ export async function listAdminConversations(user) {
       return []
     }
 
+    const chatIds = data.map((row) => row.id)
+    const [handoffsByChatId, latestMessagesByChatId] = await Promise.all([
+      listChatHandoffsByChatIds(chatIds),
+      listLatestChatMessages(chatIds, { perChatLimit: 1, batchSize: 200, maxRounds: 5 }),
+    ])
     const hydratedRows = await Promise.all(
       data.map(async (row) => {
         const chat = {
@@ -186,8 +232,8 @@ export async function listAdminConversations(user) {
           canal: row.canal || "web",
           contexto: row.contexto ?? {},
         }
-        const mensagens = await loadMessagesForChat(chat.id)
-        const handoff = await loadHandoff(chat)
+        const mensagens = (latestMessagesByChatId.get(chat.id) ?? []).map(mapAdminConversationMessage)
+        const handoff = loadHandoffFromMap(chat.id, handoffsByChatId)
 
         return { row, chat, mensagens, handoff }
       }),
@@ -223,7 +269,9 @@ export async function listAdminConversations(user) {
       }
 
       currentGroup.chatIds.push(item.chat.id)
-      currentGroup.mensagens.push(...item.mensagens)
+      if (item.mensagens[0]) {
+        currentGroup.mensagens = [item.mensagens[0]]
+      }
 
       if (new Date(item.chat.updatedAt).getTime() >= new Date(currentGroup.updatedAt).getTime()) {
         currentGroup.primaryChatId = item.chat.id
@@ -263,11 +311,13 @@ export async function listAdminConversations(user) {
     return Array.from(grouped.values())
       .map((conversation) => ({
         id: conversation.primaryChatId,
+        chatIds: conversation.chatIds,
         cliente: conversation.cliente,
         projeto: conversation.projeto ?? null,
         origem: conversation.origem,
         status: conversation.status,
         handoff: conversation.handoff,
+        totalMensagens: conversation.chatIds.length,
         mensagens: conversation.mensagens.sort(
           (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
         ),
@@ -277,6 +327,59 @@ export async function listAdminConversations(user) {
   } catch (error) {
     console.error("[admin-conversations] failed to list conversations", error)
     return []
+  }
+}
+
+export async function getAdminConversationDetail(input, user) {
+  const primaryChatId = String(input?.chatId || "").trim()
+  if (!primaryChatId) {
+    return null
+  }
+
+  const requestedChatIds = Array.isArray(input?.chatIds)
+    ? input.chatIds.map((item) => String(item || "").trim()).filter(Boolean)
+    : []
+  const chatIds = Array.from(new Set([primaryChatId, ...requestedChatIds])).slice(0, 8)
+  const handoffsByChatId = await listChatHandoffsByChatIds(chatIds)
+
+  const chats = (
+    await Promise.all(
+      (await listChatsByIds(chatIds)).map(async (chat) => {
+        if (!chat || !canAccessConversation(user, chat)) {
+          return null
+        }
+
+        const mensagens = await loadMessagesForChat(chat.id, { limit: 80 })
+        const handoff = loadHandoffFromMap(chat.id, handoffsByChatId)
+
+        return { chat, mensagens, handoff }
+      }),
+    )
+  ).filter(Boolean)
+
+  if (!chats.length) {
+    return null
+  }
+
+  const primaryChat = chats.find((item) => item.chat.id === primaryChatId) ?? chats[0]
+  const mergedMessages = chats
+    .flatMap((item) => item.mensagens)
+    .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime())
+
+  return {
+    id: primaryChat.chat.id,
+    chatIds: chats.map((item) => item.chat.id),
+    cliente: {
+      nome: primaryChat.chat.contatoNome || primaryChat.chat.titulo || "Cliente",
+      telefone: primaryChat.chat.contatoTelefone || primaryChat.chat.identificadorExterno || "",
+      avatarUrl: primaryChat.chat.contatoAvatarUrl || null,
+    },
+    projeto: null,
+    origem: primaryChat.chat.canal === "whatsapp" ? "whatsapp" : "site",
+    status: primaryChat.handoff.status,
+    handoff: primaryChat.handoff.handoff,
+    mensagens: mergedMessages,
+    updatedAt: primaryChat.chat.updatedAt,
   }
 }
 

@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Bell, CreditCard, LoaderCircle, MessageSquareQuote, MessageSquareText, RefreshCcw } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
@@ -44,7 +44,7 @@ export function AdminNotificationsPage() {
     }
   }
 
-  async function loadItems() {
+  const loadItems = useCallback(async () => {
     try {
       setLoading(true)
       setError("")
@@ -65,11 +65,11 @@ export function AdminNotificationsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   useEffect(() => {
-    loadItems()
-  }, [])
+    void loadItems()
+  }, [loadItems])
 
   return (
     <div className="min-h-0">

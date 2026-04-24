@@ -175,6 +175,32 @@ function sanitizeSessionForPersistence(sessionData) {
   return nextSession
 }
 
+function resolveWorkerSnapshotStatus(snapshot) {
+  if (!isPlainObject(snapshot)) {
+    return ""
+  }
+
+  const candidates = [
+    snapshot.connectionStatus,
+    snapshot.status,
+    snapshot.clientStatus,
+    snapshot.currentClientState,
+    snapshot.clientState,
+    snapshot.state,
+  ]
+
+  for (const candidate of candidates) {
+    const normalized = String(candidate || "").trim()
+    if (normalized) {
+      return normalized
+    }
+  }
+
+  const notes = String(snapshot.notes || snapshot.message || "").trim()
+  const statusMatch = notes.match(/estado atual do cliente:\s*([A-Z_]+)/i)
+  return statusMatch?.[1] || ""
+}
+
 function areJsonObjectsEqual(left, right) {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
 }
@@ -184,11 +210,14 @@ function mergeRuntimeSnapshotIntoChannel(channel, snapshot) {
     return channel
   }
 
+  const runtimeStatus = resolveWorkerSnapshotStatus(snapshot)
+
   return {
     ...channel,
-    connectionStatus: snapshot.status || channel.connectionStatus,
-    qrCodeDataUrl: snapshot.qrCodeDataUrl || null,
-    qrCodeText: snapshot.qrCodeText || null,
+    connectionStatus: runtimeStatus || channel.connectionStatus,
+    qrCodeDataUrl: snapshot.qrCodeDataUrl || channel.qrCodeDataUrl || null,
+    qrCodeText: snapshot.qrCodeText || channel.qrCodeText || null,
+    notes: sanitizeWorkerMessage(snapshot.notes || channel.notes || ""),
     lastError: sanitizeWorkerMessage(snapshot.lastError || channel.lastError || ""),
   }
 }
@@ -200,10 +229,57 @@ async function loadWorkerSnapshot(channelId) {
 
   try {
     const data = await callWhatsAppWorker(`/status?channelId=${encodeURIComponent(channelId)}`)
-    return isPlainObject(data) ? data : null
+    return isPlainObject(data)
+      ? {
+          ...data,
+          status: resolveWorkerSnapshotStatus(data) || data.status || "",
+        }
+      : null
   } catch {
     return null
   }
+}
+
+function shouldLoadRuntimeSnapshot(channel, options = {}) {
+  if (options.includeRuntimeSnapshot !== true) {
+    return false
+  }
+
+  return Boolean(channel?.id)
+}
+
+function buildPersistableSnapshotPatch(snapshot) {
+  if (!isPlainObject(snapshot)) {
+    return null
+  }
+
+  const patch = {}
+  const connectionStatus = resolveWorkerSnapshotStatus(snapshot)
+
+  if (isConnectedConnectionStatus(connectionStatus) || isDisconnectedConnectionStatus(connectionStatus)) {
+    patch.connectionStatus = connectionStatus
+  }
+
+  if (typeof snapshot.notes === "string" && snapshot.notes.trim()) {
+    patch.notes = snapshot.notes
+  }
+
+  if (typeof snapshot.lastError === "string" && snapshot.lastError.trim()) {
+    patch.lastError = snapshot.lastError
+  }
+
+  return Object.keys(patch).length ? patch : null
+}
+
+async function reconcileChannelWithWorkerSnapshot(channel, snapshot) {
+  const mergedChannel = mergeRuntimeSnapshotIntoChannel(channel, snapshot)
+  const patch = buildPersistableSnapshotPatch(snapshot)
+
+  if (!channel?.id || !patch) {
+    return mergedChannel
+  }
+
+  return (await updateWhatsAppChannelSession(channel.id, patch)) ?? mergedChannel
 }
 
 function normalizePhone(value) {
@@ -270,7 +346,7 @@ export function getWhatsAppWorkerBaseUrl() {
   )
 }
 
-export async function listWhatsAppChannelsForUser(project, user) {
+export async function listWhatsAppChannelsForUser(project, user, options = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
     return []
   }
@@ -295,8 +371,12 @@ export async function listWhatsAppChannelsForUser(project, user) {
 
     await cleanupExtraChannelsForProject(supabase, project.id, primaryChannel.id)
     const mappedChannel = mapChannel(primaryChannel)
+    if (!shouldLoadRuntimeSnapshot(mappedChannel, options)) {
+      return [mappedChannel]
+    }
+
     const workerSnapshot = await loadWorkerSnapshot(mappedChannel.id)
-    return [mergeRuntimeSnapshotIntoChannel(mappedChannel, workerSnapshot)]
+    return [await reconcileChannelWithWorkerSnapshot(mappedChannel, workerSnapshot)]
   } catch (error) {
     console.error("[whatsapp] failed to list channels", error)
     return []
@@ -395,7 +475,7 @@ export async function createWhatsAppChannelForUser(project, input, user) {
   }
 }
 
-export async function getWhatsAppChannelForUser(channelId, project, user) {
+export async function getWhatsAppChannelForUser(channelId, project, user, options = {}) {
   if (!channelId || !project?.id || !userCanAccessProject(user, project.id)) {
     return null
   }
@@ -417,8 +497,12 @@ export async function getWhatsAppChannelForUser(channelId, project, user) {
     }
 
     const mappedChannel = mapChannel(data)
+    if (!shouldLoadRuntimeSnapshot(mappedChannel, options)) {
+      return mappedChannel
+    }
+
     const workerSnapshot = await loadWorkerSnapshot(mappedChannel.id)
-    return mergeRuntimeSnapshotIntoChannel(mappedChannel, workerSnapshot)
+    return await reconcileChannelWithWorkerSnapshot(mappedChannel, workerSnapshot)
   } catch (error) {
     console.error("[whatsapp] failed to get channel", error)
     return null
@@ -449,8 +533,12 @@ export async function getPrimaryWhatsAppChannelByProjectId(projectId, deps = {})
 
     await cleanupExtraChannelsForProject(supabase, projectId, data.id)
     const mappedChannel = mapChannel(data)
+    if (!shouldLoadRuntimeSnapshot(mappedChannel, deps)) {
+      return mappedChannel
+    }
+
     const workerSnapshot = await loadWorkerSnapshot(mappedChannel.id)
-    return mergeRuntimeSnapshotIntoChannel(mappedChannel, workerSnapshot)
+    return await reconcileChannelWithWorkerSnapshot(mappedChannel, workerSnapshot)
   } catch (error) {
     console.error("[whatsapp] failed to load primary project channel", error)
     return null

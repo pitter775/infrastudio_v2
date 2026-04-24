@@ -81,6 +81,28 @@ export async function getChatHandoffByChatId(chatId) {
   return data ? mapChatHandoff(data) : null
 }
 
+export async function listChatHandoffsByChatIds(chatIds) {
+  const normalizedChatIds = Array.from(
+    new Set((Array.isArray(chatIds) ? chatIds : []).map((item) => String(item || "").trim()).filter(Boolean)),
+  )
+
+  if (!normalizedChatIds.length) {
+    return new Map()
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const { data, error } = await supabase.from("chat_handoffs").select("*").in("chat_id", normalizedChatIds)
+
+  if (error || !Array.isArray(data)) {
+    if (error) {
+      console.error("[chat-handoffs] failed to load handoffs by chats", error)
+    }
+    return new Map()
+  }
+
+  return new Map(data.map((row) => [row.chat_id, mapChatHandoff(row)]))
+}
+
 async function ensureChatHandoff(input) {
   const existing = await getChatHandoffByChatId(input.chatId)
   if (existing) {

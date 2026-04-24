@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 
+import { recordJsonApiUsage } from "@/lib/api-usage-metrics"
 import { buildSilentChatResult } from "@/lib/chat/result-builders"
 import { buildInitialChatContext, isSavedWhatsAppContact, processChatRequest, resolveProjectAgent } from "@/lib/chat/service"
 import { buildAiObservability } from "@/lib/admin-conversations"
@@ -497,16 +498,36 @@ function mapPublicChatMessage(message) {
 
 export async function GET(request) {
   const origin = request.headers.get("origin")
+  const startedAt = Date.now()
   const url = new URL(request.url)
   const chatId = String(url.searchParams.get("chatId") || "").trim()
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 20), 1), 50)
 
   if (!chatId) {
-    return jsonChatResponse({ error: "chatId obrigatorio." }, { status: 400, origin })
+    const payload = { error: "chatId obrigatorio." }
+    recordJsonApiUsage({
+      route: "/api/chat",
+      method: "GET",
+      status: 400,
+      elapsedMs: Date.now() - startedAt,
+      source: "public_chat_sync",
+      payload,
+    })
+    return jsonChatResponse(payload, { status: 400, origin })
   }
 
   const chat = await getChatById(chatId)
   if (!chat) {
-    return jsonChatResponse({ error: "Conversa nao encontrada." }, { status: 404, origin })
+    const payload = { error: "Conversa nao encontrada." }
+    recordJsonApiUsage({
+      route: "/api/chat",
+      method: "GET",
+      status: 404,
+      elapsedMs: Date.now() - startedAt,
+      source: "public_chat_sync",
+      payload,
+    })
+    return jsonChatResponse(payload, { status: 404, origin })
   }
 
   const widgetSlug = String(url.searchParams.get("widgetSlug") || "").trim()
@@ -524,17 +545,41 @@ export async function GET(request) {
   const agentMatches = !resolved.agente?.id || !chat.agenteId || resolved.agente.id === chat.agenteId
 
   if ((widgetSlug || projeto || agente) && (!projectMatches || !agentMatches)) {
-    return jsonChatResponse({ error: "Acesso negado." }, { status: 403, origin })
+    const payload = { error: "Acesso negado." }
+    recordJsonApiUsage({
+      route: "/api/chat",
+      method: "GET",
+      status: 403,
+      elapsedMs: Date.now() - startedAt,
+      projectId: chat.projetoId,
+      source: "public_chat_sync",
+      payload,
+    })
+    return jsonChatResponse(payload, { status: 403, origin })
   }
 
   const after = String(url.searchParams.get("after") || "").trim()
   const afterTime = after ? new Date(after).getTime() : null
-  const messages = (await listChatMessages(chatId))
+  let messages = (await listChatMessages(chatId, { ascending: false, limit: afterTime ? 50 : limit }))
     .filter((message) => message.role === "assistant")
     .filter((message) => !afterTime || new Date(message.createdAt).getTime() > afterTime)
     .map(mapPublicChatMessage)
 
-  return jsonChatResponse({ chatId, messages }, { status: 200, origin })
+  if (!afterTime) {
+    messages = messages.reverse()
+  }
+
+  const payload = { chatId, messages }
+  recordJsonApiUsage({
+    route: "/api/chat",
+    method: "GET",
+    status: 200,
+    elapsedMs: Date.now() - startedAt,
+    projectId: chat.projetoId,
+    source: "public_chat_sync",
+    payload,
+  })
+  return jsonChatResponse(payload, { status: 200, origin })
 }
 
 export async function POST(request) {
@@ -667,6 +712,16 @@ export async function POST(request) {
       responsePayload.simulatorContext = adminAgentTestRuntime?.getContext() ?? null
     }
 
+    recordJsonApiUsage({
+      route: "/api/chat",
+      method: "POST",
+      status: 200,
+      elapsedMs: Date.now() - startedAt,
+      projectId: result?.diagnostics?.projetoId ?? null,
+      source: isAdminAgentTest ? "admin_agent_test" : normalizedBody?.canal || normalizedBody?.source || "public_chat",
+      payload: responsePayload,
+    })
+
     return jsonChatResponse(responsePayload, { status: 200, origin })
   } catch (error) {
     console.error("CHAT ERROR:", error)
@@ -681,14 +736,21 @@ export async function POST(request) {
       errorSource: inferChatFailureOrigin(error),
     })
 
-    return jsonChatResponse(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Erro interno no chat",
-      },
-      { status: 500, origin }
-    )
+    const payload = {
+      error:
+        error instanceof Error
+          ? error.message
+          : "Erro interno no chat",
+    }
+    recordJsonApiUsage({
+      route: "/api/chat",
+      method: "POST",
+      status: 500,
+      elapsedMs: Date.now() - startedAt,
+      source: "public_chat",
+      payload,
+    })
+
+    return jsonChatResponse(payload, { status: 500, origin })
   }
 }

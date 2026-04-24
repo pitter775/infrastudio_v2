@@ -156,7 +156,7 @@ export function ProjectPanel({
     setAgentActive(agent?.active !== false)
     setVersions(agent?.versions || [])
     setEditorStatus({ type: 'idle', message: '' })
-  }, [agentServerSnapshot, initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
+  }, [agent?.active, agent?.versions, agentServerSnapshot, initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
 
   useEffect(() => {
     const nextTab = resolveAgentTab(initialAgentTab)

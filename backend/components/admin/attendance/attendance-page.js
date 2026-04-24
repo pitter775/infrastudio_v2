@@ -193,17 +193,29 @@ async function fileToBase64(file) {
   })
 }
 
-async function normalizeAttachmentFiles(fileList) {
-  const files = Array.from(fileList || []).slice(0, 5)
+const MAX_ATTACHMENT_FILES = 5
+const MAX_ATTACHMENT_SIZE_BYTES = 2 * 1024 * 1024
 
-  return Promise.all(
-    files.map(async (file) => ({
+async function normalizeAttachmentFiles(fileList) {
+  const files = Array.from(fileList || []).slice(0, MAX_ATTACHMENT_FILES)
+  const acceptedFiles = files.filter((file) => Number(file.size || 0) <= MAX_ATTACHMENT_SIZE_BYTES)
+  const rejectedFiles = files
+    .filter((file) => Number(file.size || 0) > MAX_ATTACHMENT_SIZE_BYTES)
+    .map((file) => file.name)
+
+  const attachments = await Promise.all(
+    acceptedFiles.map(async (file) => ({
       name: file.name,
       type: file.type || "application/octet-stream",
       size: file.size,
       dataBase64: await fileToBase64(file),
     })),
   )
+
+  return {
+    attachments,
+    rejectedFiles,
+  }
 }
 
 function Tag({ children, className }) {
@@ -239,6 +251,7 @@ function ConversationItem({ conversation, active, onClick }) {
   const lastMessage = getLastMessage(conversation)
   const initials = getInitials(conversation.cliente.nome)
   const loopPaused = conversation.status === "pausado_loop"
+  const totalMessages = Number(conversation.totalMensagens ?? conversation.mensagens.length)
 
   return (
     <button
@@ -268,9 +281,11 @@ function ConversationItem({ conversation, active, onClick }) {
         <div className="shrink-0 text-right">
           <div className="text-[10px] text-slate-500">{lastMessage?.horario}</div>
           <div className="mt-1 flex flex-col items-end gap-1">
-            <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-sky-400">
-              {conversation.mensagens.length} msg
-            </div>
+            {totalMessages > 0 ? (
+              <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-sky-400">
+                {totalMessages} msg
+              </div>
+            ) : null}
             {loopPaused ? (
               <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-200">
                 Loop
@@ -481,6 +496,7 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
   const [texto, setTexto] = useState("")
   const [attachments, setAttachments] = useState([])
   const [isSending, setIsSending] = useState(false)
+  const [attachmentFeedback, setAttachmentFeedback] = useState("")
   const inputRef = useRef(null)
   const touchTimerRef = useRef(null)
   const claimInFlightRef = useRef(false)
@@ -590,6 +606,7 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
         onStatusChanged?.(conversation.id, messageData.status || "humano", messageData.handoff ?? null)
         setTexto("")
         setAttachments([])
+        setAttachmentFeedback("")
       }
     } finally {
       setIsSending(false)
@@ -636,6 +653,9 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
           className="block w-full resize-none border-0 bg-transparent px-0.5 py-1 text-sm leading-6 text-slate-100 outline-none placeholder:text-slate-500"
           style={{ minHeight: 44, maxHeight: 136, overflowY: "auto", scrollbarWidth: "none", msOverflowStyle: "none" }}
         />
+        {attachmentFeedback ? (
+          <div className="mb-2 text-[11px] text-amber-200">{attachmentFeedback}</div>
+        ) : null}
         {attachments.length ? (
           <div className="mb-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
             {attachments.map((attachment, index) => (
@@ -677,8 +697,13 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
                 multiple
                 className="sr-only"
                 onChange={async (event) => {
-                  const nextAttachments = await normalizeAttachmentFiles(event.target.files)
+                  const { attachments: nextAttachments, rejectedFiles } = await normalizeAttachmentFiles(event.target.files)
                   setAttachments(nextAttachments)
+                  setAttachmentFeedback(
+                    rejectedFiles.length
+                      ? `Alguns anexos foram ignorados por excederem 2 MB: ${rejectedFiles.slice(0, 2).join(", ")}${rejectedFiles.length > 2 ? "..." : ""}`
+                      : "",
+                  )
                   event.target.value = ""
                 }}
               />
@@ -1273,7 +1298,8 @@ export default function AttendancePage() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [conversations, setConversations] = useState([])
-  const [selectedConversation, setSelectedConversation] = useState(null)
+  const [selectedConversationId, setSelectedConversationId] = useState(null)
+  const [conversationDetails, setConversationDetails] = useState({})
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [activeFilter, setActiveFilter] = useState("all")
@@ -1281,6 +1307,40 @@ export default function AttendancePage() {
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
+
+  async function fetchConversationList() {
+    const response = await fetch("/api/admin/conversations", { cache: "no-store" })
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || "Nao foi possivel carregar as conversas.")
+    }
+
+    return data.conversations ?? []
+  }
+
+  async function fetchConversationDetail(conversation) {
+    if (!conversation?.id) {
+      return null
+    }
+
+    const params = new URLSearchParams()
+    if (Array.isArray(conversation.chatIds) && conversation.chatIds.length) {
+      params.set("chatIds", conversation.chatIds.join(","))
+    }
+
+    const response = await fetch(
+      `/api/admin/conversations/${conversation.id}/messages${params.toString() ? `?${params.toString()}` : ""}`,
+      { cache: "no-store" },
+    )
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.error || "Nao foi possivel carregar a conversa.")
+    }
+
+    return data.conversation ?? null
+  }
 
   useEffect(() => {
     async function loadUser() {
@@ -1301,15 +1361,9 @@ export default function AttendancePage() {
     async function loadConversations() {
       try {
         setLoadError(null)
-        const response = await fetch("/api/admin/conversations")
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "Nao foi possivel carregar as conversas.")
-        }
-
-        setConversations(data.conversations ?? [])
-        setSelectedConversation(data.conversations?.[0] ?? null)
+        const nextConversations = await fetchConversationList()
+        setConversations(nextConversations)
+        setSelectedConversationId((current) => current || nextConversations[0]?.id || null)
       } catch (error) {
         setLoadError(error.message || "Nao foi possivel carregar as conversas.")
       } finally {
@@ -1322,30 +1376,65 @@ export default function AttendancePage() {
 
   useEffect(() => {
     const timer = window.setInterval(async () => {
+      if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+        return
+      }
+
       try {
-        const response = await fetch("/api/admin/conversations")
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || "Nao foi possivel atualizar as conversas.")
-        }
-
+        const nextConversations = await fetchConversationList()
         setLoadError(null)
-        setConversations(data.conversations ?? [])
-        setSelectedConversation((current) => {
-          if (!current) {
-            return data.conversations?.[0] ?? null
-          }
-
-          return data.conversations?.find((conversation) => conversation.id === current.id) ?? current
-        })
+        setConversations(nextConversations)
+        setSelectedConversationId((current) => current || nextConversations[0]?.id || null)
       } catch (error) {
         setLoadError(error.message || "Nao foi possivel atualizar as conversas.")
       }
-    }, 10000)
+    }, 20000)
 
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    async function loadConversationDetail() {
+      if (!selectedConversationId) {
+        return
+      }
+
+      const selectedPreview = conversations.find((conversation) => conversation.id === selectedConversationId)
+      if (!selectedPreview) {
+        return
+      }
+
+      const cachedDetail = conversationDetails[selectedConversationId]
+      const shouldRefreshDetail =
+        !cachedDetail ||
+        (selectedPreview.updatedAt &&
+          cachedDetail.updatedAt &&
+          new Date(selectedPreview.updatedAt).getTime() > new Date(cachedDetail.updatedAt).getTime())
+
+      if (!shouldRefreshDetail) {
+        return
+      }
+
+      try {
+        const detail = await fetchConversationDetail(selectedPreview)
+        if (!detail) {
+          return
+        }
+
+        setConversationDetails((current) => ({
+          ...current,
+          [selectedConversationId]: {
+            ...selectedPreview,
+            ...detail,
+            projeto: detail.projeto ?? selectedPreview.projeto ?? null,
+            totalMensagens: detail.mensagens?.length ?? selectedPreview.totalMensagens ?? 0,
+          },
+        }))
+      } catch {}
+    }
+
+    void loadConversationDetail()
+  }, [conversationDetails, conversations, selectedConversationId])
 
   useEffect(() => {
     function syncMobile() {
@@ -1418,10 +1507,25 @@ export default function AttendancePage() {
   const hasMultipleProjects = projectOptions.length > 2
 
   const activeConversation =
-    filteredConversations.find((conversation) => conversation.id === selectedConversation?.id) ??
-    filteredConversations[0] ??
-    conversations[0] ??
-    null
+    (() => {
+      const selectedPreview =
+        filteredConversations.find((conversation) => conversation.id === selectedConversationId) ??
+        filteredConversations[0] ??
+        conversations[0] ??
+        null
+
+      if (!selectedPreview) {
+        return null
+      }
+
+      return conversationDetails[selectedPreview.id]
+        ? {
+            ...selectedPreview,
+            ...conversationDetails[selectedPreview.id],
+            projeto: conversationDetails[selectedPreview.id].projeto ?? selectedPreview.projeto ?? null,
+          }
+        : selectedPreview
+    })()
 
   const filterCounts = {
     all: conversations.length,
@@ -1432,11 +1536,11 @@ export default function AttendancePage() {
   useEffect(() => {
     if (
       filteredConversations.length > 0 &&
-      !filteredConversations.some((conversation) => conversation.id === selectedConversation?.id)
+      !filteredConversations.some((conversation) => conversation.id === selectedConversationId)
     ) {
-      setSelectedConversation(filteredConversations[0])
+      setSelectedConversationId(filteredConversations[0].id)
     }
-  }, [filteredConversations, selectedConversation?.id])
+  }, [filteredConversations, selectedConversationId])
 
   useEffect(() => {
     const conversationId = searchParams.get("conversa")
@@ -1453,7 +1557,7 @@ export default function AttendancePage() {
       return
     }
 
-    setSelectedConversation(conversation)
+    setSelectedConversationId(conversation.id)
 
     if (isMobile) {
       setMobileChatOpen(true)
@@ -1479,24 +1583,29 @@ export default function AttendancePage() {
         conversation.id === conversationId
           ? {
               ...conversation,
-              mensagens: [...conversation.mensagens, message],
+              mensagens: [...(conversation.mensagens || []).slice(-1), message],
+              totalMensagens: Number(conversation.totalMensagens ?? conversation.mensagens?.length ?? 0) + 1,
+              updatedAt: message.createdAt || conversation.updatedAt,
             }
           : conversation
       )
     )
 
-    setSelectedConversation((currentConversation) =>
-      currentConversation?.id === conversationId
+    setConversationDetails((current) => ({
+      ...current,
+      [conversationId]: current[conversationId]
         ? {
-            ...currentConversation,
-            mensagens: [...currentConversation.mensagens, message],
+            ...current[conversationId],
+            mensagens: [...(current[conversationId].mensagens || []), message],
+            totalMensagens: Number(current[conversationId].totalMensagens ?? current[conversationId].mensagens?.length ?? 0) + 1,
+            updatedAt: message.createdAt || current[conversationId].updatedAt,
           }
-        : currentConversation
-    )
+        : current[conversationId],
+    }))
   }
 
   function handleConversationSelect(conversation) {
-    setSelectedConversation(conversation)
+    setSelectedConversationId(conversation.id)
     setConversationQuery(conversation.id)
 
     if (isMobile) {
@@ -1518,11 +1627,12 @@ export default function AttendancePage() {
       )
     )
 
-    setSelectedConversation((currentConversation) =>
-      currentConversation?.id === conversationId
-        ? { ...currentConversation, status, ...(typeof handoff !== "undefined" ? { handoff } : {}) }
-        : currentConversation
-    )
+    setConversationDetails((current) => ({
+      ...current,
+      [conversationId]: current[conversationId]
+        ? { ...current[conversationId], status, ...(typeof handoff !== "undefined" ? { handoff } : {}) }
+        : current[conversationId],
+    }))
   }
 
   if (loading) {

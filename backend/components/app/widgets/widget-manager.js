@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { Bot, BookOpen, CheckCircle2, Code2, Copy, ExternalLink, LoaderCircle, Pencil, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -97,12 +97,16 @@ function buildPreviewUrl(project, widget) {
 export function WidgetManager({ project, initialWidgetId = null, activeTab: controlledActiveTab, onTabChange, onFooterStateChange, onStatsChange, compact = false }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const endpoint = `/api/app/projetos/${projectIdentifier}/widgets`
-  const [widgets, setWidgets] = useState([])
+  const initialWidgets = useMemo(
+    () => (project.chatWidgets || []).map(normalizeWidget),
+    [project.chatWidgets],
+  )
+  const [widgets, setWidgets] = useState(initialWidgets)
   const [form, setForm] = useState(emptyForm)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(initialWidgets.length === 0)
   const [saving, setSaving] = useState(false)
   const [status, setStatus] = useState({ type: "idle", message: "" })
-  const [selectedWidgetId, setSelectedWidgetId] = useState(null)
+  const [selectedWidgetId, setSelectedWidgetId] = useState(initialWidgetId || initialWidgets[0]?.id || null)
   const [activeTab, setActiveTab] = useState("edit")
   const currentTab = controlledActiveTab || activeTab
 
@@ -112,33 +116,52 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
     [selectedWidgetId, widgets],
   )
 
+  const loadWidgets = useCallback(async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(endpoint)
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || "Nao foi possivel carregar os widgets.")
+      }
+
+      const nextWidgets = (data.widgets || []).map(normalizeWidget)
+      setWidgets(nextWidgets)
+      setSelectedWidgetId((current) => current || nextWidgets[0]?.id || null)
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setLoading(false)
+    }
+  }, [endpoint])
+
+  useEffect(() => {
+    setWidgets(initialWidgets)
+    setSelectedWidgetId(initialWidgetId || initialWidgets[0]?.id || null)
+    setLoading(initialWidgets.length === 0)
+  }, [initialWidgetId, initialWidgets])
+
   useEffect(() => {
     let active = true
 
-    async function loadWidgets() {
-      setLoading(true)
-      try {
-        const response = await fetch(endpoint)
-        const data = await response.json()
-
-        if (active && response.ok) {
-          const nextWidgets = (data.widgets || []).map(normalizeWidget)
-          setWidgets(nextWidgets)
-          setSelectedWidgetId((current) => current || nextWidgets[0]?.id || null)
-        }
-      } finally {
-        if (active) {
-          setLoading(false)
-        }
+    if (initialWidgets.length > 0) {
+      return () => {
+        active = false
       }
     }
 
-    loadWidgets()
+    ;(async () => {
+      await loadWidgets()
+      if (!active) {
+        return
+      }
+    })()
 
     return () => {
       active = false
     }
-  }, [endpoint])
+  }, [initialWidgets.length, loadWidgets])
 
   useEffect(() => {
     if (!initialWidgetId || !widgets.length) {
@@ -150,7 +173,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
       setSelectedWidgetId(widget.id)
       startEdit(widget)
     }
-  }, [initialWidgetId, widgets])
+  }, [initialWidgetId, startEdit, widgets])
 
   useEffect(() => {
     if (!form.id && selectedWidget) {
@@ -187,12 +210,12 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
     })
   }
 
-  function startEdit(widget) {
+  const startEdit = useCallback((widget) => {
     setForm(widget)
     setActiveTab("edit")
     onTabChange?.("edit")
     setStatus({ type: "idle", message: "" })
-  }
+  }, [onTabChange])
 
   function resetForm() {
     setForm(emptyForm)

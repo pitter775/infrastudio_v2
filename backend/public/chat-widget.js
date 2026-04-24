@@ -99,6 +99,7 @@
     var pollingMessages = false;
     var requestInFlight = false;
     var messageOrderCounter = 0;
+    var syncTimer = null;
     var mobileCloseGesture = {
       active: false,
       startX: 0,
@@ -173,12 +174,12 @@
     if (Array.isArray(messages) && messages.length) {
       messages = messages.map(function (message, index) {
         return assignMessageOrder(message, index + 1);
-      });
+      }).slice(-30);
     }
 
     function getMessageTimestamp(message) {
       var createdAt = message && message.createdAt ? new Date(message.createdAt).getTime() : Number.NaN;
-      return Number.isFinite(createdAt) ? createdAt : 0;
+      return Number.isFinite(createdAt) ? createdAt : null;
     }
 
     function sortMessagesChronologically() {
@@ -186,14 +187,22 @@
         var leftTime = getMessageTimestamp(left);
         var rightTime = getMessageTimestamp(right);
 
+        if (leftTime !== null && rightTime !== null && leftTime !== rightTime) {
+          return leftTime - rightTime;
+        }
+
+        if (leftTime !== null && rightTime === null) {
+          return -1;
+        }
+
+        if (leftTime === null && rightTime !== null) {
+          return 1;
+        }
+
         var leftOrder = left && typeof left.order === "number" ? left.order : 0;
         var rightOrder = right && typeof right.order === "number" ? right.order : 0;
         if (leftOrder !== rightOrder) {
           return leftOrder - rightOrder;
-        }
-
-        if (leftTime !== rightTime) {
-          return leftTime - rightTime;
         }
 
         return String(left && left.id ? left.id : "").localeCompare(String(right && right.id ? right.id : ""));
@@ -438,6 +447,16 @@
     title.className = "chat-title";
     title.textContent = widgetTitle;
     titleWrap.appendChild(title);
+
+    function updateWidgetTitle(nextTitle) {
+      var normalizedTitle = String(nextTitle || "").trim();
+      if (!normalizedTitle) {
+        return;
+      }
+
+      widgetTitle = normalizedTitle;
+      title.textContent = normalizedTitle;
+    }
 
     var subtitle = document.createElement("div");
     subtitle.className = "chat-subtitle";
@@ -1336,11 +1355,12 @@
       }
 
       try {
+        var persistedMessages = Array.isArray(messages) ? messages.slice(-30) : [];
         window.localStorage.setItem(
           storageKey,
           JSON.stringify({
             chatId: chatId,
-            messages: messages,
+            messages: persistedMessages,
             leadContact: leadContact,
             lastSyncedMessageAt: lastSyncedMessageAt,
           }),
@@ -1682,6 +1702,44 @@
       return divider;
     }
 
+    async function syncWidgetUiConfig() {
+      if (!widgetSlug) {
+        return;
+      }
+
+      try {
+        var params = new URLSearchParams({
+          widgetSlug: widgetSlug,
+        });
+
+        if (projeto) {
+          params.set("projeto", projeto);
+        }
+
+        if (agente) {
+          params.set("agente", agente);
+        }
+
+        var response = await fetch(apiBase + "/api/chat/config?" + params.toString(), {
+          method: "GET",
+          credentials: "omit",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        var payload = await response.json().catch(function () {
+          return {};
+        });
+
+        if (payload && payload.ui && payload.ui.title) {
+          updateWidgetTitle(payload.ui.title);
+        }
+      } catch (error) {
+      }
+    }
+
     function renderMessages(options) {
       var settings = options && typeof options === "object" ? options : {};
       var shouldStickToBottom = settings.forceScroll === true || isNearBottom();
@@ -1872,7 +1930,7 @@
     }
 
     async function syncServerMessages() {
-      if (!chatId || pollingMessages || requestInFlight) {
+      if (!chatId || pollingMessages || requestInFlight || document.visibilityState === "hidden") {
         return;
       }
 
@@ -1881,6 +1939,7 @@
         var params = new URLSearchParams({
           chatId: chatId,
           widgetSlug: widgetSlug,
+          limit: "20",
         });
         if (projeto) {
           params.set("projeto", projeto);
@@ -1926,6 +1985,22 @@
       } finally {
         pollingMessages = false;
       }
+    }
+
+    function getSyncIntervalMs() {
+      return document.visibilityState === "visible" && open ? 12000 : 30000;
+    }
+
+    function scheduleSyncLoop() {
+      if (syncTimer) {
+        window.clearInterval(syncTimer);
+      }
+
+      syncTimer = window.setInterval(function () {
+        if (open && document.visibilityState === "visible") {
+          void syncServerMessages();
+        }
+      }, getSyncIntervalMs());
     }
 
     async function sendMessage(text, options) {
@@ -2329,13 +2404,17 @@
       addListener(window.visualViewport, "scroll", syncViewportMetrics);
     }
 
-    var syncTimer = window.setInterval(function () {
-      if (open) {
+    scheduleSyncLoop();
+    addListener(document, "visibilitychange", function () {
+      scheduleSyncLoop();
+      if (open && document.visibilityState === "visible") {
         void syncServerMessages();
       }
-    }, 4000);
+    });
     addCleanup(function () {
-      window.clearInterval(syncTimer);
+      if (syncTimer) {
+        window.clearInterval(syncTimer);
+      }
     });
 
     updateLauncherVisual();
@@ -2347,6 +2426,7 @@
     updateHumanHandoffState(null);
     renderMessages();
     updateExpandState();
+    void syncWidgetUiConfig();
 
     globalApi.instances[widgetSlug] = {
       destroy: destroy,

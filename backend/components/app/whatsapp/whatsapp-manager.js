@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useState } from "react"
-import { AlertTriangle, CheckCircle2, LoaderCircle, MessageCircle, Pencil, Plus, Power, QrCode, RotateCcw, Trash2, Users, XCircle } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
+import { AlertTriangle, CheckCircle2, LoaderCircle, MessageCircle, Pencil, Plus, Power, QrCode, Trash2, Users, XCircle } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -155,14 +155,18 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   const activeAlertContacts = contacts.filter((contact) => contact.ativo !== false && contact.receberAlertas !== false)
   const primaryConnectedChannel = connectedChannels[0] || channels[0] || null
   const shouldWarnMissingAttendant = connectedChannels.length > 0 && activeAlertContacts.length === 0
+  const channelActionClassName = "h-8 gap-2 rounded-lg border border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.06]"
+  const channelPrimaryActionClassName = "h-8 gap-2 rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+  const channelDangerActionClassName = "h-8 gap-2 rounded-lg border border-red-500/20 bg-red-500/10 text-red-200 hover:bg-red-500/20 hover:text-red-100"
 
-  async function loadChannels(options = {}) {
+  const loadChannels = useCallback(async (options = {}) => {
     if (!options.silent) {
       setLoading(true)
     }
 
     try {
-      const response = await fetch(endpoint)
+      const url = options.refreshRuntime ? `${endpoint}?refresh=1` : endpoint
+      const response = await fetch(url)
       const data = await response.json()
 
       if (response.ok) {
@@ -177,9 +181,9 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     }
 
     return []
-  }
+  }, [endpoint])
 
-  async function loadContacts() {
+  const loadContacts = useCallback(async () => {
     try {
       const response = await fetch(contactsEndpoint)
       const data = await response.json().catch(() => ({}))
@@ -188,12 +192,12 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         setContacts(data.contacts || [])
       }
     } catch {}
-  }
+  }, [contactsEndpoint])
 
   useEffect(() => {
-    loadChannels()
-    loadContacts()
-  }, [endpoint, contactsEndpoint])
+    void loadChannels()
+    void loadContacts()
+  }, [loadChannels, loadContacts])
 
   useEffect(() => {
     if (!pendingChannelId) {
@@ -204,10 +208,15 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     let timeoutId = null
 
     async function syncPendingChannel() {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        timeoutId = window.setTimeout(syncPendingChannel, QR_POLL_INTERVAL_IDLE_MS)
+        return
+      }
+
       let currentChannel = null
       let snapshot = null
       let nextPollDelay = QR_POLL_INTERVAL_IDLE_MS
-      const nextChannels = await loadChannels({ silent: true })
+      const nextChannels = await loadChannels({ silent: true, refreshRuntime: true })
       if (!active) {
         return
       }
@@ -317,7 +326,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         window.clearTimeout(timeoutId)
       }
     }
-  }, [endpoint, hasSeenQr, pendingChannelId, pendingQrExpiresAt])
+  }, [endpoint, hasSeenQr, loadChannels, pendingChannelId, pendingQrExpiresAt])
 
   useEffect(() => {
     if (!pendingQrExpiresAt) {
@@ -356,7 +365,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       window.clearInterval(ticker)
       window.clearTimeout(timeout)
     }
-  }, [pendingChannelId, pendingQrExpiresAt])
+  }, [finalizePendingConnectionCheck, pendingChannelId, pendingQrExpiresAt])
 
   useEffect(() => {
     if (!qrSnapshot?.channelId) {
@@ -386,12 +395,12 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     onStatsChange?.({ whatsapp: channels.length })
   }, [channels.length, onStatsChange])
 
-  async function finalizePendingConnectionCheck(channelId) {
+  const finalizePendingConnectionCheck = useCallback(async (channelId) => {
     if (!channelId) {
       return false
     }
 
-    const nextChannels = await loadChannels({ silent: true })
+    const nextChannels = await loadChannels({ silent: true, refreshRuntime: true })
     const currentChannel = nextChannels.find((channel) => channel.id === channelId)
 
     if (isConnectedChannel(currentChannel?.connectionStatus)) {
@@ -425,7 +434,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     } catch {}
 
     return false
-  }
+  }, [endpoint, loadChannels])
 
   async function createChannel(event) {
     event.preventDefault()
@@ -510,21 +519,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         }
       }
 
-      await loadChannels({ silent: true })
-    } catch (error) {
-      setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
-    } finally {
-      setBusyId(null)
-    }
-  }
-
-  async function refreshChannel(channel) {
-    setBusyId(channel.id)
-    setStatus({ type: "idle", message: "" })
-
-    try {
-      await runAction(channel, "qr")
-      await loadChannels({ silent: true })
+      await loadChannels({ silent: true, refreshRuntime: action !== "disconnect" })
     } catch (error) {
       setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
     } finally {
@@ -734,7 +729,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         <>
       {loading ? (
       <div className="mb-4 inline-flex items-center gap-2 rounded-lg border border-amber-400/20 bg-amber-500/10 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
-        <RotateCcw className="h-3.5 w-3.5 animate-spin" />
+        <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
         Verificando cadastro
       </div>
       ) : null}
@@ -860,33 +855,18 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                       type="button"
                       size="sm"
                       variant="ghost"
-                      className="h-8 gap-1.5 rounded-lg border border-amber-400/20 bg-amber-500/10 px-2.5 text-amber-200 hover:bg-amber-500/20 hover:text-amber-100"
-                      onClick={() => refreshChannel(channel)}
-                      disabled={busyId === channel.id || qrFlowLocked}
-                    >
-                      <RotateCcw className={cn("h-3.5 w-3.5", busyId === channel.id && "animate-spin")} />
-                      Atualizar
-                    </Button>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="gap-2 border border-sky-500/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
+                      className={channelPrimaryActionClassName}
                       onClick={() => runAction(channel, "connect")}
                       disabled={busyId === channel.id || online || qrFlowLocked}
                     >
                       {busyId === channel.id ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Power className="h-4 w-4" />}
                       {online ? "Conectado" : "Conectar"}
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" className="gap-2" onClick={() => runAction(channel, "qr")} disabled={busyId === channel.id || online || qrFlowLocked}>
-                      <QrCode className="h-4 w-4" />
-                      Gerar QR
-                    </Button>
-                    <Button type="button" size="sm" variant="ghost" className="gap-2" onClick={() => runAction(channel, "disconnect")} disabled={busyId === channel.id || qrFlowLocked}>
-                      <RotateCcw className="h-4 w-4" />
+                    <Button type="button" size="sm" variant="ghost" className={channelActionClassName} onClick={() => runAction(channel, "disconnect")} disabled={busyId === channel.id || qrFlowLocked}>
+                      <Power className="h-4 w-4" />
                       Desconectar
                     </Button>
-                    <Button type="button" size="sm" variant="ghost" className="gap-2 text-red-200" onClick={() => setDeleteChannelTarget(channel)} disabled={busyId === channel.id || qrFlowLocked}>
+                    <Button type="button" size="sm" variant="ghost" className={channelDangerActionClassName} onClick={() => setDeleteChannelTarget(channel)} disabled={busyId === channel.id || qrFlowLocked}>
                       <Trash2 className="h-4 w-4" />
                       Remover
                     </Button>
@@ -920,20 +900,10 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           {qrSnapshot.qrCodeDataUrl ? (
             <img src={qrSnapshot.qrCodeDataUrl} alt="QR Code do WhatsApp" className="mt-3 h-56 w-56 rounded-lg border border-zinc-200 bg-white p-2" />
           ) : (
-            <p className="mt-3 text-sm text-slate-400">QR indisponivel. Use o botao Gerar QR quando precisar de um novo codigo.</p>
+            <p className="mt-3 text-sm text-slate-400">QR indisponivel no momento. Se a conexao estiver ativa, o painel atualiza sozinho.</p>
           )}
         </div>
       ) : null}
-
-      <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-        <p className="text-sm font-semibold text-white">Fluxo rapido</p>
-        <div className="mt-3 space-y-2 text-sm text-slate-400">
-          <p>1. Crie o canal com o numero oficial.</p>
-          <p>2. Clique em conectar e aguarde o pareamento iniciar.</p>
-          <p>3. Depois que o QR for lido, aguarde a confirmacao do dispositivo.</p>
-          <p>4. Quando conectar, o status vira conectado e o QR some automaticamente.</p>
-        </div>
-      </div>
         </>
       ) : null}
 

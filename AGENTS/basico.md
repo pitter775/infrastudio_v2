@@ -7,6 +7,8 @@
 - nao criar estrutura paralela
 - nao duplicar componente ou utilitario existente
 - nao reintroduzir imports do legado `C:\Projetos\infrastudio`
+- performance e regra obrigatoria em toda evolucao, principalmente em banco, egress e consultas
+- toda query deve ser otimizada: buscar so o necessario, usar `limit` quando fizer sentido e evitar `select *`, N+1, payload grande e refetch/polling desnecessario
 - se houver conflito entre rapidez e padrao do projeto, manter o padrao
 
 ## Workspace

@@ -14,7 +14,7 @@ export default async function Page() {
 
   const [projects, logs] =
     currentUser?.role === "admin"
-      ? await Promise.all([listProjectsForUser(currentUser), listAdminLogs({ limit: 100 })])
+      ? await Promise.all([listProjectsForUser(currentUser), listAdminLogs({ limit: 50, compact: true })])
       : [[], []]
 
   return <AdminLaboratoryPage initialLogs={logs} projects={projects} currentUser={currentUser} />

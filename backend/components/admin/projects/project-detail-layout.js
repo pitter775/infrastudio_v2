@@ -35,7 +35,7 @@ export function buildIntegrationPanels(project) {
       routeY: 292,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'WhatsApp',
-      description: 'Canais WhatsApp vinculados ao projeto.',
+      description: 'Canal do Whatsapp, adicione atendentedes a esse canal.',
       statusLabel: `${project.integrations.whatsapp} numeros ativos`,
       isAvailable:
         (project.whatsappChannels?.length || 0) > 0 || Number(project.integrations?.whatsapp || 0) > 0,

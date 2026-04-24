@@ -63,7 +63,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
       }),
     [agent?.active, agent?.description, agent?.id, agent?.name, agent?.prompt, agent?.runtimeConfig, agent?.versions],
   )
-  const initialEditorState = useMemo(() => buildEditorState(agent), [agentSourceSnapshot])
+  const initialEditorState = useMemo(() => buildEditorState(agent), [agent])
   const [name, setName] = useState(initialEditorState.name)
   const [description, setDescription] = useState(initialEditorState.description)
   const [prompt, setPrompt] = useState(initialEditorState.prompt)
@@ -95,7 +95,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
     setActive(initialEditorState.active)
     setLastSavedState(initialEditorState)
     setVersions(agent?.versions || [])
-  }, [agentSourceSnapshot])
+  }, [agent?.versions, agentSourceSnapshot, initialEditorState])
 
   function applyAgentState(nextAgent) {
     const nextState = {

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { AlertTriangle, ArrowUpDown, FlaskConical, LoaderCircle, RefreshCcw, Search, Trash2 } from "lucide-react"
 
 import { AdminPageHeader } from "@/components/admin/page-header"
@@ -115,7 +115,7 @@ function buildQuery(filters) {
     }
   }
 
-  params.set("limit", "100")
+  params.set("limit", "50")
   return params.toString()
 }
 
@@ -289,20 +289,14 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     }))
   }
 
-  async function refreshLogs(nextFilters = filters) {
+  const refreshLogs = useCallback(async (nextFilters = filters) => {
     setLoading(true)
     setFeedback(null)
 
-    const [logsResponse, dumpsResponse] = await Promise.all([
-      fetch(`/api/admin/laboratorio?${buildQuery(nextFilters)}`, {
-        cache: "no-store",
-      }),
-      fetch("/api/admin/laboratorio/payload-dumps", {
-        cache: "no-store",
-      }),
-    ])
+    const logsResponse = await fetch(`/api/admin/laboratorio?${buildQuery(nextFilters)}`, {
+      cache: "no-store",
+    })
     const data = await logsResponse.json()
-    const dumpsData = await dumpsResponse.json().catch(() => ({}))
 
     if (!logsResponse.ok) {
       setFeedback(data.error ?? "Nao foi possivel carregar os logs.")
@@ -311,22 +305,32 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     }
 
     setLogs(data.logs ?? [])
-    if (dumpsResponse.ok) {
-      setPayloadDumps({
-        enabled: dumpsData.enabled === true,
-        files: Array.isArray(dumpsData.files) ? dumpsData.files : [],
-      })
-    }
     setLoading(false)
-  }
+  }, [filters])
+
+  const refreshPayloadDumps = useCallback(async () => {
+    const response = await fetch("/api/admin/laboratorio/payload-dumps", {
+      cache: "no-store",
+    })
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      return
+    }
+
+    setPayloadDumps({
+      enabled: data.enabled === true,
+      files: Array.isArray(data.files) ? data.files : [],
+    })
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      void refreshLogs()
+      void Promise.all([refreshLogs(), refreshPayloadDumps()])
     }, 0)
 
     return () => window.clearTimeout(timer)
-  }, [])
+  }, [refreshLogs, refreshPayloadDumps])
 
   async function togglePayloadDump(enabled) {
     setDumpBusy(true)
@@ -349,6 +353,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
       ...current,
       enabled: data.enabled === true,
     }))
+    await refreshPayloadDumps()
     setFeedback(data.enabled ? "Gravacao de dump JSON ativada." : "Gravacao de dump JSON desativada.")
     setDumpBusy(false)
   }
@@ -368,10 +373,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
       return
     }
 
-    setPayloadDumps((current) => ({
-      ...current,
-      files: [],
-    }))
+    await refreshPayloadDumps()
     setFeedback(`${data.deleted ?? 0} dump(s) removido(s).`)
     setDumpBusy(false)
   }
@@ -608,7 +610,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
                 <div className="mt-3 space-y-1 text-xs text-slate-400">
                   <div>diff: {formatDiff(entry.payload?.diff)}</div>
                   <div>similaridade: {Number(entry.payload?.diff?.similarity ?? 0).toFixed(2)}</div>
-                  {entry.payload?.baselineReply ? <div>baseline anterior: carregado</div> : <div>baseline anterior: primeira rodada</div>}
+                  {entry.payload?.baselineReplyAvailable ? <div>baseline anterior: carregado</div> : <div>baseline anterior: primeira rodada</div>}
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">

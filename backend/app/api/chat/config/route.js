@@ -1,8 +1,8 @@
-import { getAgenteByIdentifier } from "@/lib/agentes"
+import { getAgenteById, getAgenteByIdentifier } from "@/lib/agentes"
 import { recordChatConfigEvent } from "@/lib/chat/diagnostics"
 import { emptyChatOptionsResponse, jsonChatResponse } from "@/lib/chat/http"
 import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
-import { getProjetoByIdentifier } from "@/lib/projetos"
+import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
 
 export async function OPTIONS(request) {
   return emptyChatOptionsResponse(request.headers.get("origin"))
@@ -19,19 +19,25 @@ export async function GET(request) {
     const agenteIdentifier = searchParams.get("agente")?.trim() || ""
     const widgetSlug = searchParams.get("widgetSlug")?.trim() || searchParams.get("widget")?.trim() || ""
 
-    if (!projetoIdentifier) {
+    if (!projetoIdentifier && !widgetSlug) {
       await recordChatConfigEvent({
         event: "validation_error",
         origin,
         host,
         status: 400,
         elapsedMs: Date.now() - startedAt,
-        error: "Parametro `projeto` obrigatorio.",
+        error: "Parametro `projeto` ou `widgetSlug` obrigatorio.",
       })
-      return jsonChatResponse({ error: "Parametro `projeto` obrigatorio." }, { status: 400, origin })
+      return jsonChatResponse({ error: "Parametro `projeto` ou `widgetSlug` obrigatorio." }, { status: 400, origin })
     }
 
-    const projeto = await getProjetoByIdentifier(projetoIdentifier)
+    const requestedWidget = widgetSlug ? await getChatWidgetBySlug(widgetSlug) : null
+    const projeto = projetoIdentifier
+      ? await getProjetoByIdentifier(projetoIdentifier)
+      : requestedWidget?.projetoId
+        ? await getProjetoById(requestedWidget.projetoId)
+        : null
+
     if (!projeto) {
       await recordChatConfigEvent({
         event: "not_found",
@@ -46,8 +52,12 @@ export async function GET(request) {
       return jsonChatResponse({ error: "Projeto nao encontrado." }, { status: 404, origin })
     }
 
-    let agente = agenteIdentifier ? await getAgenteByIdentifier(agenteIdentifier, projeto.id) : null
-    const explicitAgentRequested = Boolean(agenteIdentifier)
+    let agente = agenteIdentifier
+      ? await getAgenteByIdentifier(agenteIdentifier, projeto.id)
+      : requestedWidget?.agenteId
+        ? await getAgenteById(requestedWidget.agenteId)
+        : null
+    const explicitAgentRequested = Boolean(agenteIdentifier || requestedWidget?.agenteId)
 
     if (agente && (!agente.active || agente.projectId !== projeto.id)) {
       agente = null
@@ -77,7 +87,6 @@ export async function GET(request) {
       )
     }
 
-    const requestedWidget = widgetSlug ? await getChatWidgetBySlug(widgetSlug) : null
     const widget =
       requestedWidget?.projetoId === projeto.id && requestedWidget?.agenteId === agente.id
         ? requestedWidget

@@ -1,4 +1,5 @@
-import { appendAdminConversationMessage } from "@/lib/admin-conversations"
+import { recordJsonApiUsage } from "@/lib/api-usage-metrics"
+import { appendAdminConversationMessage, getAdminConversationDetail } from "@/lib/admin-conversations"
 import { claimHumanHandoff, touchHumanHandoff } from "@/lib/chat-handoffs"
 import { getChatById } from "@/lib/chats"
 import { getSessionUser } from "@/lib/session"
@@ -23,11 +24,74 @@ function getWhatsAppReplyTarget(chat) {
   return channelId && to ? { channelId, to } : null
 }
 
-export async function POST(request, { params }) {
+export async function GET(request, { params }) {
+  const startedAt = Date.now()
   const user = await getSessionUser()
 
   if (!user) {
-    return Response.json({ success: false, error: "Nao autenticado." }, { status: 401 })
+    const payload = { success: false, error: "Nao autenticado." }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "GET",
+      status: 401,
+      elapsedMs: Date.now() - startedAt,
+      source: "admin_attendance_detail",
+      payload,
+    })
+    return Response.json(payload, { status: 401 })
+  }
+
+  const { id } = await params
+  const url = new URL(request.url)
+  const chatIds = String(url.searchParams.get("chatIds") || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+
+  const conversation = await getAdminConversationDetail({ chatId: id, chatIds }, user)
+  if (!conversation) {
+    const payload = { success: false, error: "Conversa nao encontrada" }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "GET",
+      status: 404,
+      elapsedMs: Date.now() - startedAt,
+      userId: user.id,
+      source: "admin_attendance_detail",
+      payload,
+    })
+    return Response.json(payload, { status: 404 })
+  }
+
+  const payload = { success: true, conversation }
+  recordJsonApiUsage({
+    route: "/api/admin/conversations/[id]/messages",
+    method: "GET",
+    status: 200,
+    elapsedMs: Date.now() - startedAt,
+    userId: user.id,
+    projectId: conversation?.projectId || conversation?.projetoId || null,
+    source: "admin_attendance_detail",
+    payload,
+  })
+  return Response.json(payload)
+}
+
+export async function POST(request, { params }) {
+  const startedAt = Date.now()
+  const user = await getSessionUser()
+
+  if (!user) {
+    const payload = { success: false, error: "Nao autenticado." }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "POST",
+      status: 401,
+      elapsedMs: Date.now() - startedAt,
+      source: "admin_attendance_send",
+      payload,
+    })
+    return Response.json(payload, { status: 401 })
   }
 
   const { id } = await params
@@ -37,14 +101,32 @@ export async function POST(request, { params }) {
   const chat = await getChatById(id)
 
   if (!chat) {
-    return Response.json({ success: false, error: "Conversa nao encontrada" }, { status: 404 })
+    const payload = { success: false, error: "Conversa nao encontrada" }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "POST",
+      status: 404,
+      elapsedMs: Date.now() - startedAt,
+      userId: user.id,
+      source: "admin_attendance_send",
+      payload,
+    })
+    return Response.json(payload, { status: 404 })
   }
 
   if (!texto && !hasAttachments) {
-    return Response.json(
-      { success: false, error: "Mensagem vazia" },
-      { status: 400 }
-    )
+    const payload = { success: false, error: "Mensagem vazia" }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "POST",
+      status: 400,
+      elapsedMs: Date.now() - startedAt,
+      userId: user.id,
+      projectId: chat.projetoId,
+      source: "admin_attendance_send",
+      payload,
+    })
+    return Response.json(payload, { status: 400 })
   }
 
   const handoff = await claimHumanHandoff({
@@ -58,11 +140,33 @@ export async function POST(request, { params }) {
   const message = await appendAdminConversationMessage(id, texto, body.attachments, user)
 
   if (message === false) {
-    return Response.json({ success: false, error: "Acesso negado" }, { status: 403 })
+    const payload = { success: false, error: "Acesso negado" }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "POST",
+      status: 403,
+      elapsedMs: Date.now() - startedAt,
+      userId: user.id,
+      projectId: chat.projetoId,
+      source: "admin_attendance_send",
+      payload,
+    })
+    return Response.json(payload, { status: 403 })
   }
 
   if (!message) {
-    return Response.json({ success: false, error: "Conversa nao encontrada" }, { status: 404 })
+    const payload = { success: false, error: "Conversa nao encontrada" }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "POST",
+      status: 404,
+      elapsedMs: Date.now() - startedAt,
+      userId: user.id,
+      projectId: chat.projetoId,
+      source: "admin_attendance_send",
+      payload,
+    })
+    return Response.json(payload, { status: 404 })
   }
 
   const whatsappTarget = chat.canal === "whatsapp" ? getWhatsAppReplyTarget(chat) : null
@@ -75,11 +179,22 @@ export async function POST(request, { params }) {
         })
       : null
 
-  return Response.json({
+  const payload = {
     success: true,
     message,
     handoff,
     status: handoff?.status === "human" ? "humano" : "ia",
     whatsappDelivery,
+  }
+  recordJsonApiUsage({
+    route: "/api/admin/conversations/[id]/messages",
+    method: "POST",
+    status: 200,
+    elapsedMs: Date.now() - startedAt,
+    userId: user.id,
+    projectId: chat.projetoId,
+    source: "admin_attendance_send",
+    payload,
   })
+  return Response.json(payload)
 }

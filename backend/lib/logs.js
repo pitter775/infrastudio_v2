@@ -19,6 +19,189 @@ function truncateText(value, max = 240) {
   return normalized.length > max ? `${normalized.slice(0, max - 3)}...` : normalized
 }
 
+function toOptionalNumber(value) {
+  if (value == null || value === "") {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function toOptionalBoolean(value) {
+  if (typeof value === "boolean") {
+    return value
+  }
+
+  const normalized = String(value || "").trim().toLowerCase()
+  if (normalized === "true") {
+    return true
+  }
+
+  if (normalized === "false") {
+    return false
+  }
+
+  return null
+}
+
+function toOptionalArray(value) {
+  return Array.isArray(value) ? value : []
+}
+
+function buildCompactLogSelect() {
+  return [
+    "id",
+    "projeto_id",
+    "tipo",
+    "origem",
+    "descricao",
+    "created_at",
+    "payload_level:payload->>level",
+    "payload_event:payload->>event",
+    "payload_error:payload->>error",
+    "payload_app_error_code:payload->>appErrorCode",
+    "payload_error_code:payload->>errorCode",
+    "payload_status:payload->>status",
+    "payload_tokens:payload->>tokens",
+    "payload_cost:payload->>cost",
+    "payload_mercado_pago_resource_id:payload->>mercadoPagoResourceId",
+    "payload_intent_id:payload->>intentId",
+    "payload_widget_slug:payload->>widgetSlug",
+    "payload_agente:payload->>agente",
+    "payload_chat_id:payload->>chatId",
+    "payload_case_id:payload->>caseId",
+    "payload_human_score:payload->>humanScore",
+    "payload_human_notes:payload->>humanNotes",
+    "payload_matched_expected_agent:payload->>matchedExpectedAgent",
+    "payload_matched_expected_project:payload->>matchedExpectedProject",
+    "payload_error_source:payload->>errorSource",
+    "payload_elapsed_ms:payload->>elapsedMs",
+    "payload_scenario_id:payload->>scenarioId",
+    "payload_baseline_log_id:payload->>baselineLogId",
+    "payload_billing_blocked:payload->billingState->>blocked",
+    "payload_billing_available_credit_tokens:payload->billingState->>availableCreditTokens",
+    "payload_observability_provider:payload->observability->>provider",
+    "payload_observability_model:payload->observability->>model",
+    "payload_observability_domain_stage:payload->observability->>domainStage",
+    "payload_observability_heuristic_stage:payload->observability->>heuristicStage",
+    "payload_observability_route_stage:payload->observability->>routeStage",
+    "payload_observability_input_tokens:payload->observability->usage->>inputTokens",
+    "payload_observability_output_tokens:payload->observability->usage->>outputTokens",
+    "payload_observability_estimated_cost_usd:payload->observability->usage->>estimatedCostUsd",
+    "payload_diagnostics_provider:payload->diagnostics->>provider",
+    "payload_diagnostics_model:payload->diagnostics->>model",
+    "payload_diagnostics_domain_stage:payload->diagnostics->>domainStage",
+    "payload_diagnostics_heuristic_stage:payload->diagnostics->>heuristicStage",
+    "payload_diagnostics_route_stage:payload->diagnostics->>routeStage",
+    "payload_diagnostics_input_tokens:payload->diagnostics->>inputTokens",
+    "payload_diagnostics_output_tokens:payload->diagnostics->>outputTokens",
+    "payload_diagnostics_custo:payload->diagnostics->>custo",
+    "payload_diff_similarity:payload->diff->>similarity",
+    "payload_diff_changed:payload->diff->>changed",
+    "payload_diff_added:payload->diff->added",
+    "payload_diff_removed:payload->diff->removed",
+  ].join(", ")
+}
+
+function buildCompactLogPayload(row) {
+  const observability = {
+    provider: row?.payload_observability_provider || null,
+    model: row?.payload_observability_model || null,
+    domainStage: row?.payload_observability_domain_stage || null,
+    heuristicStage: row?.payload_observability_heuristic_stage || null,
+    routeStage: row?.payload_observability_route_stage || null,
+    usage: {
+      inputTokens: toOptionalNumber(row?.payload_observability_input_tokens),
+      outputTokens: toOptionalNumber(row?.payload_observability_output_tokens),
+      estimatedCostUsd: toOptionalNumber(row?.payload_observability_estimated_cost_usd),
+    },
+  }
+  const diagnostics = {
+    provider: row?.payload_diagnostics_provider || null,
+    model: row?.payload_diagnostics_model || null,
+    domainStage: row?.payload_diagnostics_domain_stage || null,
+    heuristicStage: row?.payload_diagnostics_heuristic_stage || null,
+    routeStage: row?.payload_diagnostics_route_stage || null,
+    inputTokens: toOptionalNumber(row?.payload_diagnostics_input_tokens),
+    outputTokens: toOptionalNumber(row?.payload_diagnostics_output_tokens),
+    custo: toOptionalNumber(row?.payload_diagnostics_custo),
+  }
+  const payload = {
+    level: row?.payload_level || null,
+    event: row?.payload_event || null,
+    error: row?.payload_error || null,
+    appErrorCode: row?.payload_app_error_code || null,
+    errorCode: row?.payload_error_code || null,
+    status: row?.payload_status || null,
+    tokens: toOptionalNumber(row?.payload_tokens),
+    cost: toOptionalNumber(row?.payload_cost),
+    mercadoPagoResourceId: row?.payload_mercado_pago_resource_id || null,
+    intentId: row?.payload_intent_id || null,
+    widgetSlug: row?.payload_widget_slug || null,
+    agente: row?.payload_agente || null,
+    chatId: row?.payload_chat_id || null,
+    caseId: row?.payload_case_id || null,
+    humanScore: toOptionalNumber(row?.payload_human_score),
+    humanNotes: row?.payload_human_notes || null,
+    matchedExpectedAgent: toOptionalBoolean(row?.payload_matched_expected_agent),
+    matchedExpectedProject: toOptionalBoolean(row?.payload_matched_expected_project),
+    errorSource: row?.payload_error_source || null,
+    elapsedMs: toOptionalNumber(row?.payload_elapsed_ms),
+    scenarioId: row?.payload_scenario_id || null,
+    baselineLogId: row?.payload_baseline_log_id || null,
+    baselineReplyAvailable: Boolean(row?.payload_baseline_log_id),
+    billingState: {
+      blocked: toOptionalBoolean(row?.payload_billing_blocked),
+      availableCreditTokens: toOptionalNumber(row?.payload_billing_available_credit_tokens),
+    },
+    observability,
+    diagnostics,
+    diff: {
+      similarity: toOptionalNumber(row?.payload_diff_similarity),
+      changed: toOptionalBoolean(row?.payload_diff_changed),
+      added: toOptionalArray(row?.payload_diff_added),
+      removed: toOptionalArray(row?.payload_diff_removed),
+    },
+  }
+
+  if (!payload.billingState.blocked && payload.billingState.availableCreditTokens == null) {
+    delete payload.billingState
+  }
+
+  if (
+    !payload.observability.provider &&
+    !payload.observability.model &&
+    !payload.observability.domainStage &&
+    !payload.observability.heuristicStage &&
+    !payload.observability.routeStage &&
+    payload.observability.usage.inputTokens == null &&
+    payload.observability.usage.outputTokens == null &&
+    payload.observability.usage.estimatedCostUsd == null
+  ) {
+    delete payload.observability
+  }
+
+  if (
+    !payload.diagnostics.provider &&
+    !payload.diagnostics.model &&
+    !payload.diagnostics.domainStage &&
+    !payload.diagnostics.heuristicStage &&
+    !payload.diagnostics.routeStage &&
+    payload.diagnostics.inputTokens == null &&
+    payload.diagnostics.outputTokens == null &&
+    payload.diagnostics.custo == null
+  ) {
+    delete payload.diagnostics
+  }
+
+  if (!payload.diff.changed && payload.diff.similarity == null && !payload.diff.added.length && !payload.diff.removed.length) {
+    delete payload.diff
+  }
+
+  return payload
+}
+
 const SUPPRESSED_LOG_TYPES = [
   "chat_runtime_event",
   "openai_event",
@@ -257,7 +440,10 @@ export function isNoisyOperationalLog(entry) {
 }
 
 export function mapLogRow(row, projectMap = new Map()) {
-  const payload = row?.payload && typeof row.payload === "object" && !Array.isArray(row.payload) ? row.payload : {}
+  const payload =
+    row?.payload && typeof row.payload === "object" && !Array.isArray(row.payload)
+      ? row.payload
+      : buildCompactLogPayload(row)
   const project = projectMap.get(row?.projeto_id) ?? null
   const level = normalizeLogLevel(payload.level)
 
@@ -398,11 +584,12 @@ export async function listAdminLogs(filters = {}, deps = {}) {
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const safeLimit = Math.min(Math.max(Number(filters.limit ?? 100) || 100, 1), 200)
+    const compact = filters.compact === true
 
     let query = applySuppressedLogFilters(
       supabase
       .from("logs")
-      .select("id, projeto_id, tipo, origem, descricao, payload, created_at")
+      .select(compact ? buildCompactLogSelect() : "id, projeto_id, tipo, origem, descricao, payload, created_at")
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(safeLimit),
       filters,

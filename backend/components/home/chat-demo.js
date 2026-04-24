@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, CheckCheck, Paperclip, Phone, Send, Smile, Video } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -74,7 +74,7 @@ export function PremiumHomeChatDemo() {
   const timersRef = useRef([])
   const pausedRef = useRef(false)
 
-  const armTimer = (entry, delay) => {
+  const armTimer = useCallback((entry, delay) => {
     entry.remaining = delay
     entry.dueAt = Date.now() + delay
     entry.id = window.setTimeout(() => {
@@ -82,18 +82,18 @@ export function PremiumHomeChatDemo() {
       entry.id = null
       entry.callback()
     }, delay)
-  }
+  }, [])
 
-  const clearTimers = () => {
+  const clearTimers = useCallback(() => {
     timersRef.current.forEach((timer) => {
       if (timer.id !== null) {
         window.clearTimeout(timer.id)
       }
     })
     timersRef.current = []
-  }
+  }, [])
 
-  const schedule = (callback, delay) => {
+  const schedule = useCallback((callback, delay) => {
     const entry = {
       callback,
       dueAt: Date.now() + delay,
@@ -106,9 +106,9 @@ export function PremiumHomeChatDemo() {
     if (!pausedRef.current) {
       armTimer(entry, delay)
     }
-  }
+  }, [armTimer])
 
-  const pauseTimers = () => {
+  const pauseTimers = useCallback(() => {
     if (pausedRef.current) return
 
     pausedRef.current = true
@@ -122,9 +122,9 @@ export function PremiumHomeChatDemo() {
 
       timer.remaining = Math.max(0, timer.dueAt - now)
     })
-  }
+  }, [])
 
-  const resumeTimers = () => {
+  const resumeTimers = useCallback(() => {
     if (!pausedRef.current) return
 
     pausedRef.current = false
@@ -134,9 +134,9 @@ export function PremiumHomeChatDemo() {
         armTimer(timer, timer.remaining)
       }
     })
-  }
+  }, [armTimer])
 
-  const startNextCycle = () => {
+  const startNextCycle = useCallback(() => {
     clearTimers()
     setFace('front')
     setMessages([])
@@ -148,16 +148,16 @@ export function PremiumHomeChatDemo() {
     setShowWhatsActions(false)
     setPressedAction(null)
     setCycle((current) => current + 1)
-  }
+  }, [clearTimers])
 
-  const clearFrontFace = () => {
+  const clearFrontFace = useCallback(() => {
     setMessages([])
     setIsTyping(false)
     setShowWhatsappButton(false)
     setChatCtaPressed(false)
-  }
+  }, [])
 
-  const confirmWhatsappSequence = () => {
+  const confirmWhatsappSequence = useCallback(() => {
     clearTimers()
     setShowWhatsActions(false)
     setPressedAction('continue')
@@ -177,9 +177,9 @@ export function PremiumHomeChatDemo() {
     schedule(() => {
       startNextCycle()
     }, 3600 + FLIP_DURATION_MS + 280)
-  }
+  }, [clearFrontFace, clearTimers, schedule, startNextCycle])
 
-  const startWhatsappSequence = () => {
+  const startWhatsappSequence = useCallback(() => {
     clearTimers()
     setShowWhatsappButton(false)
     setIsTyping(false)
@@ -218,7 +218,7 @@ export function PremiumHomeChatDemo() {
     schedule(() => {
       confirmWhatsappSequence()
     }, FLIP_DURATION_MS + 6500)
-  }
+  }, [clearTimers, confirmWhatsappSequence, schedule])
 
   useEffect(() => {
     const node = rootRef.current
@@ -245,7 +245,7 @@ export function PremiumHomeChatDemo() {
     }
 
     pauseTimers()
-  }, [isVisible])
+  }, [isVisible, pauseTimers, resumeTimers])
 
   useEffect(() => {
     clearTimers()
@@ -282,7 +282,7 @@ export function PremiumHomeChatDemo() {
     return () => {
       clearTimers()
     }
-  }, [cycle])
+  }, [clearTimers, cycle, schedule, startWhatsappSequence])
 
   useEffect(() => {
     if (!chatScrollRef.current || face !== 'front') return

@@ -130,7 +130,6 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       return [
         { id: 'connect', label: 'Conectar', icon: MessageSquare },
         { id: 'attendants', label: 'Atendentes', icon: Users },
-        { id: 'tutorial', label: 'Tutorial', icon: Files },
       ]
     }
 
