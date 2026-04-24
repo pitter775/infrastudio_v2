@@ -658,7 +658,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
               className="inline-flex items-center justify-center gap-2 rounded-full border border-blue-200 bg-white px-8 py-4 font-semibold text-slate-800 shadow-[0_14px_34px_-24px_rgba(15,23,42,0.18)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:bg-blue-50 dark:rounded-xl dark:border-cyan-400/30 dark:bg-[#0d1834] dark:text-cyan-100 dark:shadow-[0_18px_40px_-24px_rgba(8,145,178,0.35)] dark:hover:border-cyan-300/45 dark:hover:bg-[#102044]"
             >
               <Sparkles size={18} className="animate-pulse text-blue-500 dark:text-cyan-200" />
-              Comece agora no teste gratuito! 
+              Comece agora no plano gratuito! 
             </button>
           </motion.div>
 
