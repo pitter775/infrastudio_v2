@@ -199,6 +199,47 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     void loadContacts()
   }, [loadChannels, loadContacts])
 
+  const finalizePendingConnectionCheck = useCallback(async (channelId) => {
+    if (!channelId) {
+      return false
+    }
+
+    const nextChannels = await loadChannels({ silent: true, refreshRuntime: true })
+    const currentChannel = nextChannels.find((channel) => channel.id === channelId)
+
+    if (isConnectedChannel(currentChannel?.connectionStatus)) {
+      setPendingChannelId(null)
+      setPendingQrExpiresAt(null)
+      setQrSnapshot(null)
+      setHasSeenQr(false)
+      setConnectionHint("")
+      setStatus({ type: "success", message: "WhatsApp conectado com sucesso." })
+      return true
+    }
+
+    try {
+      const response = await fetch(`${endpoint}/${channelId}/qr`)
+      const data = await response.json().catch(() => ({}))
+      const snapshot = data.snapshot || null
+
+      if (isConnectedChannel(snapshot?.status)) {
+        setPendingChannelId(null)
+        setPendingQrExpiresAt(null)
+        setQrSnapshot(null)
+        setHasSeenQr(false)
+        setConnectionHint("")
+        setStatus({ type: "success", message: "WhatsApp conectado com sucesso." })
+        return true
+      }
+
+      if (snapshot?.qrCodeDataUrl) {
+        setQrSnapshot(snapshot)
+      }
+    } catch {}
+
+    return false
+  }, [endpoint, loadChannels])
+
   useEffect(() => {
     if (!pendingChannelId) {
       return
@@ -394,47 +435,6 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   useEffect(() => {
     onStatsChange?.({ whatsapp: channels.length })
   }, [channels.length, onStatsChange])
-
-  const finalizePendingConnectionCheck = useCallback(async (channelId) => {
-    if (!channelId) {
-      return false
-    }
-
-    const nextChannels = await loadChannels({ silent: true, refreshRuntime: true })
-    const currentChannel = nextChannels.find((channel) => channel.id === channelId)
-
-    if (isConnectedChannel(currentChannel?.connectionStatus)) {
-      setPendingChannelId(null)
-      setPendingQrExpiresAt(null)
-      setQrSnapshot(null)
-      setHasSeenQr(false)
-      setConnectionHint("")
-      setStatus({ type: "success", message: "WhatsApp conectado com sucesso." })
-      return true
-    }
-
-    try {
-      const response = await fetch(`${endpoint}/${channelId}/qr`)
-      const data = await response.json().catch(() => ({}))
-      const snapshot = data.snapshot || null
-
-      if (isConnectedChannel(snapshot?.status)) {
-        setPendingChannelId(null)
-        setPendingQrExpiresAt(null)
-        setQrSnapshot(null)
-        setHasSeenQr(false)
-        setConnectionHint("")
-        setStatus({ type: "success", message: "WhatsApp conectado com sucesso." })
-        return true
-      }
-
-      if (snapshot?.qrCodeDataUrl) {
-        setQrSnapshot(snapshot)
-      }
-    } catch {}
-
-    return false
-  }, [endpoint, loadChannels])
 
   async function createChannel(event) {
     event.preventDefault()
