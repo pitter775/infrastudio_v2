@@ -306,22 +306,28 @@ function MessageBubble({ message }) {
   const isAgent = message.autor === "atendente"
   const [showAiTrace, setShowAiTrace] = useState(false)
   const trace = message.observability
+  const bubbleClassName = isAgent
+    ? "rounded-[9px] rounded-br-[4px] bg-sky-800/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_2px_4px_rgba(0,0,0,0.28)]"
+    : "rounded-[14px] rounded-bl-[4px] bg-[rgba(30,41,59,0.92)] text-[rgba(226,232,240,0.86)] shadow-[inset_0_1px_0_rgba(255,255,255,0.01),0_2px_4px_rgba(0,0,0,0.08)]"
+  const labelClassName = isAgent ? "text-sky-100/70" : "text-slate-500"
+  const contentClassName = isAgent
+    ? "text-white [&_a]:text-white/90 [&_code]:font-mono [&_em]:italic [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-white [&_s]:line-through"
+    : "text-[rgba(226,232,240,0.86)] [&_a]:text-sky-300 [&_code]:font-mono [&_em]:italic [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-white [&_s]:line-through"
+  const timeClassName = isAgent ? "text-sky-100/60" : "text-slate-500"
 
   return (
     <div className={cn("flex", isAgent ? "justify-end" : "justify-start")}>
       <div
         className={cn(
-          "max-w-[82%] rounded-[14px] border-0 px-3.5 py-3 text-sm shadow-none",
-          isAgent
-            ? "rounded-br-md bg-sky-500/55 text-white"
-            : "rounded-bl-md bg-transparent text-slate-200"
+          "max-w-[82%] border-0 px-3 py-2.5 text-sm",
+          bubbleClassName,
         )}
       >
-        <div className="text-[9px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+        <div className={cn("text-[9px] font-semibold uppercase tracking-[0.22em]", labelClassName)}>
           {isAgent ? "Administrador" : "Cliente"}
         </div>
         <div
-          className="mt-2 leading-6 [&_a]:text-sky-300 [&_code]:font-mono [&_em]:italic [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-white [&_s]:line-through"
+          className={cn("mt-2 leading-6", contentClassName)}
           dangerouslySetInnerHTML={{ __html: formatWhatsappText(message.texto) }}
         />
         {trace ? (
@@ -470,7 +476,7 @@ function MessageBubble({ message }) {
             })}
           </div>
         ) : null}
-        <div className="mt-3 text-[10px] text-slate-500">{message.horario}</div>
+        <div className={cn("mt-3 text-[10px]", timeClassName)}>{message.horario}</div>
       </div>
     </div>
   )
@@ -1094,10 +1100,10 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
             side="right"
             showCloseButton={false}
             className={cn(
-              "z-[151] border-l border-white/5 overflow-visible",
+              "z-[271] border-l border-white/5 overflow-visible",
               compactMobileHeader ? "inset-y-0 right-0 w-screen max-w-none rounded-none" : "w-[92vw] max-w-[420px]",
             )}
-            overlayClassName="z-[150]"
+            overlayClassName="z-[270]"
           >
             <SheetClose className="absolute left-0 top-[96px] z-40 hidden -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none sm:inline-flex">
               <ChevronRight className="h-4 w-4" />

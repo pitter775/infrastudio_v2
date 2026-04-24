@@ -4,7 +4,7 @@ import { expireStalePendingBillingRecords } from "@/lib/billing"
 import { createLogEntry } from "@/lib/logs"
 import { createCheckoutIntent, createTopUpCheckoutPreference } from "@/lib/mercado-pago-billing"
 import { getProjectForUser } from "@/lib/projetos"
-import { listPublicPlans } from "@/lib/public-planos-server"
+import { getServerPlanCheckoutUrl, listPublicPlans, TEST_BASIC_PLAN_CHECKOUT_URL } from "@/lib/public-planos-server"
 import { normalizePlanKey } from "@/lib/public-planos"
 import { getSessionUser } from "@/lib/session"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
@@ -25,6 +25,7 @@ export async function POST(request, { params }) {
 
   const body = await request.json().catch(() => ({}))
   const type = body?.type === "topup" ? "topup" : "plan"
+  const normalizedTestMode = String(body?.testMode || "").trim().toLowerCase()
   const supabase = getSupabaseAdminClient()
 
   await expireStalePendingBillingRecords(project.id, { supabase }).catch(() => null)
@@ -90,9 +91,20 @@ export async function POST(request, { params }) {
   const planKey = normalizePlanKey(body?.planKey || body?.planName || "")
   const plans = await listPublicPlans()
   const selectedPlan = plans.find((plan) => plan.key === planKey)
+  const checkoutUrl =
+    normalizedTestMode === "basic_sheet_test" && planKey === "basic"
+      ? TEST_BASIC_PLAN_CHECKOUT_URL
+      : getServerPlanCheckoutUrl(selectedPlan?.key)
+  const planPrice = normalizedTestMode === "basic_sheet_test" && planKey === "basic"
+    ? Number(body?.price || 1)
+    : selectedPlan?.monthlyPrice
 
   if (!selectedPlan?.id) {
     return NextResponse.json({ error: "Plano invalido." }, { status: 400 })
+  }
+
+  if (!checkoutUrl) {
+    return NextResponse.json({ error: "Checkout deste plano indisponivel no momento." }, { status: 400 })
   }
 
   const intentResult = await createCheckoutIntent(
@@ -104,8 +116,8 @@ export async function POST(request, { params }) {
       planId: selectedPlan.id,
       planKey: selectedPlan.key,
       planName: selectedPlan.name,
-      price: selectedPlan.monthlyPrice,
-      checkoutUrl: body?.checkoutUrl || selectedPlan.checkoutUrl || "",
+      price: planPrice,
+      checkoutUrl,
       source: body?.source || "app_checkout",
     },
     { supabase },
@@ -153,7 +165,7 @@ export async function POST(request, { params }) {
       ok: true,
       type: "plan",
       intentId: intentResult.intentId,
-      checkoutUrl: body?.checkoutUrl || selectedPlan.checkoutUrl || null,
+      checkoutUrl,
       plan: {
         id: selectedPlan.id,
         key: selectedPlan.key,

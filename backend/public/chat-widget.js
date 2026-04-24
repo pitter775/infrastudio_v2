@@ -184,6 +184,13 @@
 
     function sortMessagesChronologically() {
       messages.sort(function (left, right) {
+        var leftOrder = left && typeof left.order === "number" ? left.order : null;
+        var rightOrder = right && typeof right.order === "number" ? right.order : null;
+
+        if (leftOrder !== null && rightOrder !== null && leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
+        }
+
         var leftTime = getMessageTimestamp(left);
         var rightTime = getMessageTimestamp(right);
 
@@ -199,9 +206,15 @@
           return 1;
         }
 
-        var leftOrder = left && typeof left.order === "number" ? left.order : 0;
-        var rightOrder = right && typeof right.order === "number" ? right.order : 0;
-        if (leftOrder !== rightOrder) {
+        if (leftOrder !== null && rightOrder === null) {
+          return -1;
+        }
+
+        if (leftOrder === null && rightOrder !== null) {
+          return 1;
+        }
+
+        if ((leftOrder || 0) !== (rightOrder || 0)) {
           return leftOrder - rightOrder;
         }
 
@@ -899,6 +912,16 @@
       }
 
       return wrap;
+    }
+
+    function hasInlineWhatsAppAction(message) {
+      if (!message || !Array.isArray(message.actions) || !message.actions.length) {
+        return false;
+      }
+
+      return message.actions.some(function (action) {
+        return action && action.type === "whatsapp_link" && action.url;
+      });
     }
 
     function getActionIconMarkup(action) {
@@ -1768,7 +1791,7 @@
           meta.className = "chat-message-meta";
           meta.innerHTML = createClockIcon() + "<span>" + escapeHtml(formatMessageTime(message)) + "</span>";
           bubble.appendChild(meta);
-          if (message.isAi && message.cta && message.cta.url) {
+          if (message.isAi && message.cta && message.cta.url && !hasInlineWhatsAppAction(message)) {
             var cta = createWhatsAppButton(message.cta);
             if (cta) {
               bubble.appendChild(cta);

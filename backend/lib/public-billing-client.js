@@ -23,8 +23,8 @@ export function buildBillingIntentPayload(item, projectId) {
     planId: item.id,
     planKey: item.key,
     planName: item.name,
-    price: item.monthlyPrice,
-    checkoutUrl: item.checkoutUrl,
+    price: item.checkoutPrice ?? item.monthlyPrice,
+    testMode: item.testMode || "",
     createdAt: new Date().toISOString(),
   }
 }
@@ -54,12 +54,12 @@ export async function startBillingCheckout(intent, options = {}) {
   const persistedIntent = {
     ...intent,
     intentId: payload?.intentId || null,
-    checkoutUrl: payload?.checkoutUrl || intent.checkoutUrl || "",
+    checkoutUrl: payload?.checkoutUrl || "",
     registeredAt: new Date().toISOString(),
   }
 
   window.localStorage.setItem(BILLING_INTENT_STORAGE_KEY, JSON.stringify(persistedIntent))
-  const resolvedCheckoutUrl = payload?.checkoutUrl || intent.checkoutUrl || ""
+  const resolvedCheckoutUrl = payload?.checkoutUrl || ""
   if (!resolvedCheckoutUrl) {
     return { ok: false, error: "Checkout indisponivel." }
   }

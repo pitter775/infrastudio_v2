@@ -163,6 +163,13 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
     }
   }, [initialWidgets.length, loadWidgets])
 
+  const startEdit = useCallback((widget) => {
+    setForm(widget)
+    setActiveTab("edit")
+    onTabChange?.("edit")
+    setStatus({ type: "idle", message: "" })
+  }, [onTabChange])
+
   useEffect(() => {
     if (!initialWidgetId || !widgets.length) {
       return
@@ -209,13 +216,6 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
       return next
     })
   }
-
-  const startEdit = useCallback((widget) => {
-    setForm(widget)
-    setActiveTab("edit")
-    onTabChange?.("edit")
-    setStatus({ type: "idle", message: "" })
-  }, [onTabChange])
 
   function resetForm() {
     setForm(emptyForm)

@@ -168,6 +168,25 @@ function TopUpCard({ offer, onCheckout, loadingKey }) {
   )
 }
 
+function resolveBasicTestPlan(plans) {
+  const basicPlan = (plans || []).find((plan) => plan?.key === 'basic')
+
+  if (!basicPlan?.id) {
+    return null
+  }
+
+  return {
+    ...basicPlan,
+    id: `${basicPlan.id}-test-basic-sheet`,
+    name: 'Basic Teste',
+    description: 'Assinatura de teste por R$ 1 para validar o fluxo e ativar o plano Basic neste projeto.',
+    monthlyPrice: 1,
+    checkoutPrice: 1,
+    featured: false,
+    testMode: 'basic_sheet_test',
+  }
+}
+
 export function ProjectBillingModal({ open, onOpenChange, summary }) {
   const [plans, setPlans] = useState([])
   const [topUpOffers, setTopUpOffers] = useState([])
@@ -213,6 +232,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     () => [...plans].sort((first, second) => Number(first?.monthlyPrice || 0) - Number(second?.monthlyPrice || 0)),
     [plans],
   )
+  const basicTestPlan = useMemo(() => resolveBasicTestPlan(plans), [plans])
   const freePlan = useMemo(
     () => plans.find((plan) => plan?.isFree) || null,
     [plans],
@@ -390,6 +410,21 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
             <CheckCircle2 className="h-4 w-4 text-cyan-300" />
             <h3 className="text-lg font-semibold text-white">Planos</h3>
           </div>
+
+          {basicTestPlan ? (
+            <div className="mb-6">
+              <div className="mb-4 flex items-center gap-2">
+                <CreditCard className="h-4 w-4 text-amber-300" />
+                <h3 className="text-lg font-semibold text-white">Teste de assinatura</h3>
+              </div>
+              <PlanCard
+                plan={basicTestPlan}
+                currentPlanId=""
+                onCheckout={handleCheckout}
+                loadingKey={actionKey}
+              />
+            </div>
+          ) : null}
 
           {loading ? (
             <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">

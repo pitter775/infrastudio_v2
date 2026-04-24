@@ -141,6 +141,122 @@ export function MercadoLivrePanel({
     })
   }, [currentTab, onFooterStateChange, resolvingStore, savingConnector, step])
 
+  const handleLoadTestItems = useCallback(async () => {
+    setLoadingTestItems(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/test?limit=8`, {
+        cache: 'no-store',
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setTestItems([])
+        if (data.connector) {
+          applyConnector(data.connector)
+        }
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar os itens da loja.' })
+        return
+      }
+
+      if (data.connector) {
+        applyConnector(data.connector)
+      }
+
+      setTestItems(Array.isArray(data.items) ? data.items : [])
+    } catch {
+      setTestItems([])
+      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar os itens da loja.' })
+    } finally {
+      setLoadingTestItems(false)
+    }
+  }, [projectIdentifier])
+
+  const handleLoadOrders = useCallback(async (nextOffset = 0) => {
+    setLoadingOrders(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(
+        `/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/orders?limit=10&offset=${nextOffset}`,
+        {
+          cache: 'no-store',
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setOrders([])
+        setOrdersPaging({ total: 0, offset: 0, limit: 10 })
+        if (data.connector) {
+          applyConnector(data.connector)
+        }
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar os pedidos da loja.' })
+        return
+      }
+
+      if (data.connector) {
+        applyConnector(data.connector)
+      }
+
+      setOrders(Array.isArray(data.orders) ? data.orders : [])
+      setOrdersPaging({
+        total: Number(data?.paging?.total || 0),
+        offset: Number(data?.paging?.offset || 0),
+        limit: Number(data?.paging?.limit || 10),
+      })
+    } catch {
+      setOrders([])
+      setOrdersPaging({ total: 0, offset: 0, limit: 10 })
+      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar os pedidos da loja.' })
+    } finally {
+      setLoadingOrders(false)
+    }
+  }, [projectIdentifier])
+
+  const handleLoadQuestions = useCallback(async (nextOffset = 0) => {
+    setLoadingQuestions(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(
+        `/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/questions?limit=10&offset=${nextOffset}`,
+        {
+          cache: 'no-store',
+        },
+      )
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setQuestions([])
+        setQuestionsPaging({ total: 0, offset: 0, limit: 10 })
+        if (data.connector) {
+          applyConnector(data.connector)
+        }
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar as perguntas da loja.' })
+        return
+      }
+
+      if (data.connector) {
+        applyConnector(data.connector)
+      }
+
+      setQuestions(Array.isArray(data.questions) ? data.questions : [])
+      setQuestionsPaging({
+        total: Number(data?.paging?.total || 0),
+        offset: Number(data?.paging?.offset || 0),
+        limit: Number(data?.paging?.limit || 10),
+      })
+    } catch {
+      setQuestions([])
+      setQuestionsPaging({ total: 0, offset: 0, limit: 10 })
+      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar as perguntas da loja.' })
+    } finally {
+      setLoadingQuestions(false)
+    }
+  }, [projectIdentifier])
+
   useEffect(() => {
     if (currentTab !== 'test' || !connectorMeta.oauthConnected) {
       return
@@ -307,122 +423,6 @@ export function MercadoLivrePanel({
       setStartingOAuth(false)
     }
   }
-
-  const handleLoadTestItems = useCallback(async () => {
-    setLoadingTestItems(true)
-    setFeedback(null)
-
-    try {
-      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/test?limit=8`, {
-        cache: 'no-store',
-      })
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        setTestItems([])
-        if (data.connector) {
-          applyConnector(data.connector)
-        }
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar os itens da loja.' })
-        return
-      }
-
-      if (data.connector) {
-        applyConnector(data.connector)
-      }
-
-      setTestItems(Array.isArray(data.items) ? data.items : [])
-    } catch {
-      setTestItems([])
-      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar os itens da loja.' })
-    } finally {
-      setLoadingTestItems(false)
-    }
-  }, [projectIdentifier])
-
-  const handleLoadOrders = useCallback(async (nextOffset = 0) => {
-    setLoadingOrders(true)
-    setFeedback(null)
-
-    try {
-      const response = await fetch(
-        `/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/orders?limit=10&offset=${nextOffset}`,
-        {
-          cache: 'no-store',
-        },
-      )
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        setOrders([])
-        setOrdersPaging({ total: 0, offset: 0, limit: 10 })
-        if (data.connector) {
-          applyConnector(data.connector)
-        }
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar os pedidos da loja.' })
-        return
-      }
-
-      if (data.connector) {
-        applyConnector(data.connector)
-      }
-
-      setOrders(Array.isArray(data.orders) ? data.orders : [])
-      setOrdersPaging({
-        total: Number(data?.paging?.total || 0),
-        offset: Number(data?.paging?.offset || 0),
-        limit: Number(data?.paging?.limit || 10),
-      })
-    } catch {
-      setOrders([])
-      setOrdersPaging({ total: 0, offset: 0, limit: 10 })
-      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar os pedidos da loja.' })
-    } finally {
-      setLoadingOrders(false)
-    }
-  }, [projectIdentifier])
-
-  const handleLoadQuestions = useCallback(async (nextOffset = 0) => {
-    setLoadingQuestions(true)
-    setFeedback(null)
-
-    try {
-      const response = await fetch(
-        `/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/questions?limit=10&offset=${nextOffset}`,
-        {
-          cache: 'no-store',
-        },
-      )
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        setQuestions([])
-        setQuestionsPaging({ total: 0, offset: 0, limit: 10 })
-        if (data.connector) {
-          applyConnector(data.connector)
-        }
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar as perguntas da loja.' })
-        return
-      }
-
-      if (data.connector) {
-        applyConnector(data.connector)
-      }
-
-      setQuestions(Array.isArray(data.questions) ? data.questions : [])
-      setQuestionsPaging({
-        total: Number(data?.paging?.total || 0),
-        offset: Number(data?.paging?.offset || 0),
-        limit: Number(data?.paging?.limit || 10),
-      })
-    } catch {
-      setQuestions([])
-      setQuestionsPaging({ total: 0, offset: 0, limit: 10 })
-      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar as perguntas da loja.' })
-    } finally {
-      setLoadingQuestions(false)
-    }
-  }, [projectIdentifier])
 
   async function handleAnswerQuestion(questionId) {
     const nextText = String(questionDrafts?.[questionId] || '').trim()

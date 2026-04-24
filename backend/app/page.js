@@ -25,18 +25,25 @@ const HOME_CHAT_WIDGET_FALLBACK = {
 const HOME_DATA_TIMEOUT_MS = 3500
 
 function withTimeout(promise, fallback, label) {
+  let timeoutId = null
+
+  const fallbackPromise = new Promise((resolve) => {
+    timeoutId = setTimeout(() => {
+      resolve(fallback)
+    }, HOME_DATA_TIMEOUT_MS)
+  })
+
   return Promise.race([
     Promise.resolve(promise).catch((error) => {
       console.error(`[home] failed to load ${label}`, error)
       return fallback
     }),
-    new Promise((resolve) => {
-      setTimeout(() => {
-        console.error(`[home] timed out loading ${label}`)
-        resolve(fallback)
-      }, HOME_DATA_TIMEOUT_MS)
-    }),
-  ])
+    fallbackPromise,
+  ]).finally(() => {
+    if (timeoutId) {
+      clearTimeout(timeoutId)
+    }
+  })
 }
 
 export default async function Home() {

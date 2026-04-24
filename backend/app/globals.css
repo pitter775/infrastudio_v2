@@ -121,6 +121,16 @@ body {
   text-transform: lowercase;
 }
 
+.font-brand-conthrax {
+  font-family: var(--font-infrastudio-conthrax), var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  letter-spacing: 0.09em;
+}
+
+.font-home-hero-conthrax {
+  font-family: var(--font-infrastudio-conthrax), var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  letter-spacing: -0.03em;
+}
+
 input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,

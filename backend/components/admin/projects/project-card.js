@@ -105,24 +105,53 @@ function resolveEntityAvatar(project) {
 
 function getProjectServiceIcons(project) {
   const icons = []
-  const integrations = project.directConnections || project.integrations || {}
+  const directConnections =
+    project.directConnections && typeof project.directConnections === 'object' ? project.directConnections : {}
+  const integrations =
+    project.integrations && typeof project.integrations === 'object' ? project.integrations : {}
+  const apiCount = Number(
+    directConnections.apis ??
+      directConnections.api ??
+      integrations.apis ??
+      integrations.api ??
+      project.apis?.length ??
+      0,
+  )
+  const whatsappCount = Number(
+    directConnections.whatsapp ??
+      integrations.whatsapp ??
+      project.whatsappChannels?.length ??
+      0,
+  )
+  const chatWidgetCount = Number(
+    directConnections.chatWidget ??
+      directConnections.chat_widget ??
+      integrations.chatWidget ??
+      integrations.chat_widget ??
+      project.chatWidgets?.length ??
+      0,
+  )
+  const mercadoLivreCount = Number(
+    directConnections.mercadoLivre ??
+      directConnections.mercado_livre ??
+      integrations.mercadoLivre ??
+      integrations.mercado_livre ??
+      0,
+  )
 
-  if (
-    (project.apis?.length || 0) > 0 ||
-    Number(integrations.apis || 0) > 0
-  ) {
+  if (apiCount > 0) {
     icons.push('apis')
   }
 
-  if (Number(integrations.whatsapp || 0) > 0) {
+  if (whatsappCount > 0) {
     icons.push('whatsapp')
   }
 
-  if (Number(integrations.chatWidget || 0) > 0) {
+  if (chatWidgetCount > 0) {
     icons.push('chatWidget')
   }
 
-  if (Number(integrations.mercadoLivre || 0) > 0) {
+  if (mercadoLivreCount > 0) {
     icons.push('mercadoLivre')
   }
 

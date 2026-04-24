@@ -7,11 +7,11 @@ import * as THREE from "three"
 
 const FACE_COLORS = {
   front: "#2563eb",
-  back: "#0ace00",
+  back: "#244611",
   right: "#06b6d4",
-  left: "#7c3aed",
-  top: "#ea4848",
-  bottom: "#360666",
+  left: "#7234df",
+  top: "#9c7b2a",
+  bottom: "#aa9f25",
 }
 
 const FACE_DEFINITIONS = [
@@ -231,7 +231,7 @@ function Cubie({ position, stickers, entryOffset, entrySpin, delay, introProgres
           roughness={0.7}
           metalness={0.16}
           transparent
-          opacity={0.42}
+          opacity={0.82}
           depthWrite={false}
         />
       </mesh>

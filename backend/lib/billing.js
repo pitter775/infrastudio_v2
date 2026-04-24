@@ -602,6 +602,81 @@ async function ensureOpenBillingCycle(projectId, deps = {}) {
   }
 }
 
+export async function restartProjectBillingCycle(projectId, input = {}, deps = {}) {
+  if (!projectId) {
+    return null
+  }
+
+  const runtime = await loadProjectBillingRuntime(projectId, deps)
+  const now = new Date()
+  const { endIso } = getCurrentCycleWindow()
+  const planId = input.planId ?? runtime.config?.planId ?? runtime.plan?.id ?? null
+  const limits = {
+    inputTokens: input.limits?.inputTokens ?? runtime.config?.limits?.inputTokens ?? null,
+    outputTokens: input.limits?.outputTokens ?? runtime.config?.limits?.outputTokens ?? null,
+    totalTokens: input.limits?.totalTokens ?? runtime.config?.limits?.totalTokens ?? null,
+    monthlyCost: input.limits?.monthlyCost ?? runtime.config?.limits?.monthlyCost ?? null,
+  }
+  const allowOverage = input.allowOverage ?? runtime.config?.allowOverage ?? runtime.plan?.allowOverage ?? false
+  const overageTokenCost =
+    input.overageTokenCost ?? runtime.config?.overageTokenCost ?? runtime.plan?.overageTokenCost ?? 0
+
+  if (runtime.cycleRow?.id) {
+    const { error: closeCycleError } = await runtime.supabase
+      .from("projetos_ciclos_uso")
+      .update({
+        fechado: true,
+        data_fim: now.toISOString(),
+      })
+      .eq("id", runtime.cycleRow.id)
+
+    if (closeCycleError) {
+      console.error("[billing] failed to close billing cycle on plan change", closeCycleError)
+      return null
+    }
+  }
+
+  const payload = {
+    projeto_id: projectId,
+    data_inicio: now.toISOString(),
+    data_fim: endIso,
+    tokens_input: 0,
+    tokens_output: 0,
+    custo_total: 0,
+    fechado: false,
+    limite_tokens_input: limits.inputTokens,
+    limite_tokens_output: limits.outputTokens,
+    limite_tokens_total: limits.totalTokens,
+    limite_custo: limits.monthlyCost,
+    custo_token_excedente: overageTokenCost,
+    permitir_excedente: allowOverage === true,
+    alerta_80: false,
+    alerta_100: false,
+    bloqueado: false,
+    excedente_tokens: 0,
+    excedente_custo: 0,
+    plano_id: planId,
+  }
+
+  const { data, error } = await runtime.supabase
+    .from("projetos_ciclos_uso")
+    .insert(payload)
+    .select(
+      "id, projeto_id, data_inicio, data_fim, tokens_input, tokens_output, custo_total, fechado, limite_tokens_input, limite_tokens_output, limite_tokens_total, limite_custo, custo_token_excedente, permitir_excedente, alerta_80, alerta_100, bloqueado, excedente_tokens, excedente_custo, plano_id",
+    )
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error("[billing] failed to create restarted billing cycle", error)
+    return null
+  }
+
+  return {
+    ...runtime,
+    cycleRow: data,
+  }
+}
+
 async function applyTopUpConsumption({ projectId, exceededTokens, topUpRows, supportsPartialTopUps, supabase }) {
   if (!projectId || exceededTokens <= 0 || !Array.isArray(topUpRows) || topUpRows.length === 0) {
     return

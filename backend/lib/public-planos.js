@@ -1,18 +1,9 @@
 export const BILLING_INTENT_STORAGE_KEY = "infrastudio-billing-intent"
 
-export const PLAN_CHECKOUT_URLS = {
-  basic:
-    "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=0f2565c2c1f941a6bdc4a992d711c46b",
-  plus:
-    "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=40b1aca501e241918c5973a77984aefe",
-  pro: "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=214f913e06ba4a549c98453adbcd6f9c",
-  scale: "",
-}
-
 export const TEST_TOP_UP_OFFER = {
-  id: "topup-test-100k",
+  id: "topup-test-200k",
   price: 1,
-  tokens: 100000,
+  tokens: 200000,
 }
 
 export const TOP_UP_OFFERS = [
@@ -87,8 +78,4 @@ export function formatCredits(value) {
   }
 
   return `${new Intl.NumberFormat("pt-BR").format(Number(value || 0))} créditos`
-}
-
-export function getPlanCheckoutUrl(planKey) {
-  return PLAN_CHECKOUT_URLS[planKey] || ""
 }

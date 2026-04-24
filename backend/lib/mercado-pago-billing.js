@@ -3,7 +3,12 @@ import "server-only"
 import crypto from "node:crypto"
 
 import { createLogEntry } from "@/lib/logs"
-import { listBillingPlans, refreshProjectBillingState, updateProjectBillingSettings } from "@/lib/billing"
+import {
+  listBillingPlans,
+  refreshProjectBillingState,
+  restartProjectBillingCycle,
+  updateProjectBillingSettings,
+} from "@/lib/billing"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 function normalizeEmail(value) {
@@ -223,35 +228,6 @@ async function upsertPendingSubscription({ supabase, projectId, planId }) {
   return error ? { ok: false, error } : { ok: true }
 }
 
-async function updateOpenCycleFromPlan({ supabase, projectId, plan }) {
-  const openCycle = await supabase
-    .from("projetos_ciclos_uso")
-    .select("id")
-    .eq("projeto_id", projectId)
-    .eq("fechado", false)
-    .order("data_inicio", { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (openCycle.error || !openCycle.data?.id) {
-    return
-  }
-
-  await supabase
-    .from("projetos_ciclos_uso")
-    .update({
-      plano_id: plan.id,
-      limite_tokens_input: plan.limits?.inputTokens ?? null,
-      limite_tokens_output: plan.limits?.outputTokens ?? null,
-      limite_tokens_total: plan.limits?.totalTokens ?? null,
-      limite_custo: plan.limits?.monthlyCost ?? null,
-      custo_token_excedente: plan.overageTokenCost ?? 0,
-      permitir_excedente: plan.allowOverage === true,
-      bloqueado: false,
-    })
-    .eq("id", openCycle.data.id)
-}
-
 async function confirmProjectPlan({ supabase, intent, plan, resourceId, resourcePayload }) {
   const now = new Date().toISOString()
 
@@ -302,7 +278,21 @@ async function confirmProjectPlan({ supabase, intent, plan, resourceId, resource
     })
   }
 
-  await updateOpenCycleFromPlan({ supabase, projectId: intent.projeto_id, plan })
+  await restartProjectBillingCycle(
+    intent.projeto_id,
+    {
+      planId: plan.id,
+      limits: {
+        inputTokens: plan.limits?.inputTokens ?? null,
+        outputTokens: plan.limits?.outputTokens ?? null,
+        totalTokens: plan.limits?.totalTokens ?? null,
+        monthlyCost: plan.limits?.monthlyCost ?? null,
+      },
+      allowOverage: plan.allowOverage === true,
+      overageTokenCost: plan.overageTokenCost ?? 0,
+    },
+    { supabase },
+  )
 
   await supabase
     .from("projetos_checkout_intencoes")

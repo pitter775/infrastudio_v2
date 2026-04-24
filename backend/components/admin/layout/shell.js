@@ -38,6 +38,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { UserAvatar } from '@/components/ui/user-avatar'
+import { conthrax } from '@/lib/fonts'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -147,8 +148,9 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
           <LogoCubo3D animado tamanho={20} velocidade={0.16} />
 
           {collapsed ? null : (
-            <span className="font-brand-logo text-sm text-white">
-              InfraStudio
+            <span className={`${conthrax.className} font-brand-conthrax text-[0.72rem] leading-none`}>
+              <span className="text-white">Infra</span>
+              <span className="text-[#2B6BEE]">Studio</span>
             </span>
           )}
         </div>
