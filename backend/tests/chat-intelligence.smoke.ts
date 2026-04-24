@@ -700,6 +700,66 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador prioriza listagem real no web quando busca produto da loja",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "preciso de um jogo de jantar" }] as never,
+        {
+          agente: {
+            id: "agent-mercado-livre",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-mercado-livre",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+        } as never,
+        {
+          resolveMercadoLivreSearch: async () => ({
+            items: [
+              {
+                id: "MLB6540079826",
+                title: "Aparelho De Jantar Oxford Ceramica",
+                price: 358,
+                currencyId: "BRL",
+                availableQuantity: 1,
+                permalink: "https://produto.mercadolivre.com.br/MLB6540079826",
+                thumbnail: "https://example.com/item-1.jpg",
+                sellerId: "6918112",
+                sellerName: "PITTER774",
+                status: "active",
+              },
+            ],
+            connector: {
+              config: {
+                oauthNickname: "PITTER774",
+              },
+            },
+            paging: {
+              total: 1,
+              offset: 0,
+              nextOffset: 0,
+              poolLimit: 24,
+              hasMore: false,
+            },
+            error: null,
+          }),
+        }
+      );
+
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.equal(result.assets.length, 1);
+      assert.match(result.reply, /encontrei 1 produto da loja pitter774/i);
+      assert.match(result.assets[0]?.nome ?? "", /Aparelho De Jantar Oxford Ceramica/i);
+    },
+  },
+  {
     name: "orquestrador nao captura lead cedo quando pergunta sobre servico",
     run: async () => {
       const result = await executeSalesOrchestrator(

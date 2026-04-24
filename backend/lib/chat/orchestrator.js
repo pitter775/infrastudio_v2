@@ -132,9 +132,12 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     catalogFollowUpDecision,
     detectProductSearch: (message) =>
       shouldUseMercadoLivre &&
-      shouldContinueProductSearch(history, message, context, {
+      (shouldSearchProducts(message, {
+        normalizeText,
+      }) ||
+        shouldContinueProductSearch(history, message, context, {
           isGreetingOrAckMessage,
-        }),
+        })),
     buildProductSearchCandidates,
     isMercadoLivreListingIntent: () => shouldUseMercadoLivre,
   })
@@ -151,6 +154,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     paginationPoolLimit: mercadoLivreFlowState.paginationPoolLimit,
     currentCatalogProduct: mercadoLivreFlowState.currentCatalogProduct,
     referencedCatalogProducts: mercadoLivreFlowState.referencedCatalogProducts,
+    resolveMercadoLivreSearch: options.resolveMercadoLivreSearch,
   })
   const mercadoLivreReply = resolveMercadoLivreHeuristicReply(mercadoLivreState)
   const mercadoLivreAssets = Array.isArray(mercadoLivreState?.mercadoLivreAssets) ? mercadoLivreState.mercadoLivreAssets : []
@@ -178,6 +182,12 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const leadNameAcknowledgementReply =
     leadNameReplyDetected && extractedLeadName ? buildLeadNameAcknowledgementReply(extractedLeadName, true) : null
   const currentCatalogProduct = mercadoLivreSelectedProduct ?? context?.catalogo?.produtoAtual ?? null
+  const shouldPreferMercadoLivreListing =
+    shouldUseMercadoLivre &&
+    mercadoLivreAssets.length > 0 &&
+    (mercadoLivreFlowState.productSearchRequested ||
+      mercadoLivreFlowState.genericMercadoLivreListingRequested ||
+      mercadoLivreFlowState.loadMoreCatalogRequested)
   const catalogPricingReply = runtimeConfig?.pricingCatalog?.enabled
     ? buildCatalogPricingReply(history, context, {
         normalizeText,
@@ -272,7 +282,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
-  if (catalogPricingReply) {
+  if (catalogPricingReply && !shouldPreferMercadoLivreListing) {
     return buildHeuristicReplyResult(catalogPricingReply, {
       ...heuristicMetadata,
       heuristicStage: "pricing_catalog",

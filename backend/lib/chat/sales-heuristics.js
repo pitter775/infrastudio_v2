@@ -142,7 +142,7 @@ export function shouldSearchProducts(message, deps = {}) {
     }
   }
 
-  return /\b(tem|produto|produtos|procuro|buscar|busca|mostra|mostrar|vende|loja|catalogo|mercado livre|ml)\b/.test(
+  return /\b(tem|produto|produtos|procuro|buscar|busca|mostra|mostrar|vende|loja|catalogo|mercado livre|ml|preciso|quero|busco|procurando)\b/.test(
     normalized
   )
 }
@@ -189,7 +189,9 @@ export function shouldUseMercadoLivreConnectorFallback(history, latestUserMessag
 }
 
 export function isMercadoLivreListingIntent(message, deps = {}) {
-  return /\b(lista|listar|opcoes|modelos|produtos|mais)\b/.test((deps.normalizeText ?? normalizeText)(message))
+  return /\b(lista|listar|opcoes|modelos|produtos|mais|preciso|quero|procuro|busco|procurando)\b/.test(
+    (deps.normalizeText ?? normalizeText)(message)
+  )
 }
 
 export function detectCatalogItems(history = [], deps = {}) {

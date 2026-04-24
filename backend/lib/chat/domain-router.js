@@ -45,7 +45,7 @@ function hasCatalogSignal(message) {
     return false
   }
 
-  return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|tem|vende|estoque|modelo|opcoes|opcao|mostra|mostrar|procuro|quero ver|link)\b/.test(
+  return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|tem|vende|estoque|modelo|opcoes|opcao|mostra|mostrar|procuro|quero ver|link|preciso|quero|busco|procurando)\b/.test(
     normalized
   )
 }
