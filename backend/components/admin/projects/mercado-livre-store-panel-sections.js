@@ -6,7 +6,17 @@ import { Button } from '@/components/ui/button'
 
 import { StorePanelField, StorePanelInput, StorePanelTextarea, StorePanelToggle } from '@/components/admin/projects/mercado-livre-store-panel-fields'
 
-export function StoreGeneralSection({ draft, setDraft, project, publicUrl, publicUrlCopied, snapshotTotal = 0, onCopyPublicUrl }) {
+export function StoreGeneralSection({
+  draft,
+  setDraft,
+  project,
+  publicUrl,
+  publicUrlCopied,
+  snapshotTotal = 0,
+  onCopyPublicUrl,
+  onRestoreDefaults,
+  restoringDefaults = false,
+}) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
@@ -42,6 +52,16 @@ export function StoreGeneralSection({ draft, setDraft, project, publicUrl, publi
             <Copy className="h-4 w-4" />
             {publicUrlCopied ? 'Link copiado' : 'Copiar link'}
           </button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onRestoreDefaults}
+            disabled={restoringDefaults}
+            className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 text-sm text-amber-100"
+          >
+            <RefreshCcw className={`mr-2 h-4 w-4 ${restoringDefaults ? 'animate-spin' : ''}`} />
+            {restoringDefaults ? 'Restaurando...' : 'Restaurar padroes'}
+          </Button>
         </div>
         <div className="mt-2 text-xs text-slate-400">
           A loja fica ativa por padrao ao salvar. Se desligar manualmente, o link publico volta a responder `404`.

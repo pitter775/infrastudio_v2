@@ -150,7 +150,7 @@ export function buildActionSuggestionReply(actions, baseText = "", options = {})
   if (hasWhatsApp && hasAgenda) {
     suggestion = forceWhatsAppSuggestion
       ? "Podemos continuar no WhatsApp ou marcar um horario para entrar em contato com voce."
-      : "Se preferir, voce pode marcar um horario para contato."
+      : "Se preferir, podemos continuar no WhatsApp ou marcar um horario para contato."
   } else if (hasWhatsApp && forceWhatsAppSuggestion) {
     suggestion = "Se preferir, podemos continuar no WhatsApp."
   } else if (hasAgenda) {

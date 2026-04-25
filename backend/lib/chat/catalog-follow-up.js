@@ -2,6 +2,53 @@ import { buildProductSearchCandidates, shouldSearchProducts } from "@/lib/chat/s
 import { normalizeText } from "@/lib/chat/text-utils"
 
 const RECENT_CATALOG_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 12
+const REFINEMENT_STOPWORDS = new Set([
+  "gostei",
+  "quero",
+  "queria",
+  "desse",
+  "dessa",
+  "esse",
+  "essa",
+  "me",
+  "fala",
+  "falar",
+  "mais",
+  "sobre",
+  "dele",
+  "dela",
+  "dele",
+  "manda",
+  "mostra",
+  "mostrar",
+  "detalhes",
+  "detalhe",
+  "informacao",
+  "informacoes",
+  "produto",
+  "produtos",
+  "item",
+  "itens",
+  "quais",
+  "qual",
+  "tem",
+  "com",
+  "sem",
+  "para",
+  "pra",
+  "por",
+  "uma",
+  "uns",
+  "umas",
+  "dos",
+  "das",
+  "nos",
+  "nas",
+])
+const REFINEMENT_HINT_PATTERN =
+  /\b(inox|vidro|cristal|porcelana|ceramica|madeira|metal|prata|bronze|dourado|azul|verde|amarelo|preto|branco|bege|rosa|redondo|quadrado|grande|pequeno|moderno|antigo|vintage|rustico|industrial|material|cor|modelo|acabamento|estilo)\b/
+const REFINEMENT_SEARCH_PATTERN =
+  /\b(quero|queria|procuro|busco|preciso|tem|com|sem|de|na cor|material|modelo|estilo|acabamento)\b/
 
 function isCatalogSnapshotFresh(context) {
   const snapshotCreatedAt = context?.catalogo?.snapshotCreatedAt
@@ -35,6 +82,13 @@ function productHaystack(product) {
 
 function normalizeCatalogMessage(message) {
   return normalizeText(message).replace(/\bdopeira\b/g, "sopeira").replace(/\bsoperia\b/g, "sopeira")
+}
+
+function extractCatalogMessageTokens(message) {
+  return normalizeCatalogMessage(message)
+    .split(/\s+/)
+    .filter((token) => token.length >= 3)
+    .filter((token) => !REFINEMENT_STOPWORDS.has(token))
 }
 
 function resolveProductByExplicitOrder(message, products) {
@@ -107,10 +161,47 @@ export function isCatalogLoadMoreIntent(message) {
   return /\b(mais|outras|outros|modelos|opcoes)\b/i.test(String(message || ""))
 }
 
+export function detectCatalogSearchRefinement(message, context, deps = {}) {
+  const products = normalizeRecentCatalogProducts(context)
+  if (!products.length) {
+    return null
+  }
+
+  const normalized = normalizeCatalogMessage(message)
+  const searchRequested = (deps.shouldSearchProducts ?? shouldSearchProducts)(message)
+  const searchCandidates = (deps.buildProductSearchCandidates ?? buildProductSearchCandidates)(message)
+  const messageTokens = extractCatalogMessageTokens(message)
+
+  if (!messageTokens.length || (!searchRequested && !REFINEMENT_HINT_PATTERN.test(normalized) && !REFINEMENT_SEARCH_PATTERN.test(normalized))) {
+    return null
+  }
+
+  const uncoveredTokens = messageTokens.filter((token) => !products.some((product) => productHaystack(product).includes(token)))
+  if (!uncoveredTokens.length) {
+    return null
+  }
+
+  return {
+    kind: "catalog_search_refinement",
+    confidence: 0.8,
+    reason: "Mensagem adiciona filtros novos fora da ultima lista mostrada.",
+    matchedProducts: [],
+    searchCandidates,
+    uncoveredTokens,
+    usedLlm: false,
+    shouldBlockNewSearch: false,
+  }
+}
+
 export function decideCatalogFollowUpHeuristically(message, context, deps = {}) {
   const products = normalizeRecentCatalogProducts(context)
   if (!products.length) {
     return null
+  }
+
+  const refinementDecision = detectCatalogSearchRefinement(message, context, deps)
+  if (refinementDecision) {
+    return refinementDecision
   }
 
   const matchedProducts = resolveRecentCatalogProductReference(message, context)

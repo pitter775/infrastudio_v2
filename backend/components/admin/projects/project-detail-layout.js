@@ -119,31 +119,36 @@ export function getPanelAccentClasses(colorClassName) {
     case 'emerald':
       return {
         connector: 'border-emerald-400/80',
-        button: 'border-emerald-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(52,211,153,0.24),0_0_44px_rgba(5,150,105,0.16)]',
+        button:
+          'border-emerald-400/55 bg-emerald-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(52,211,153,0.24),0_0_44px_rgba(5,150,105,0.16)]',
         icon: 'text-emerald-300',
       }
     case 'amber':
       return {
         connector: 'border-amber-400/80',
-        button: 'border-amber-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(251,191,36,0.24),0_0_44px_rgba(217,119,6,0.16)]',
+        button:
+          'border-amber-400/55 bg-amber-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(251,191,36,0.24),0_0_44px_rgba(217,119,6,0.16)]',
         icon: 'text-amber-300',
       }
     case 'sky':
       return {
         connector: 'border-sky-400/80',
-        button: 'border-sky-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
+        button:
+          'border-sky-400/55 bg-sky-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
         icon: 'text-sky-300',
       }
     case 'violet':
       return {
         connector: 'border-fuchsia-400/80',
-        button: 'border-fuchsia-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(217,70,239,0.24),0_0_44px_rgba(162,28,175,0.16)]',
+        button:
+          'border-fuchsia-400/55 bg-fuchsia-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(217,70,239,0.24),0_0_44px_rgba(162,28,175,0.16)]',
         icon: 'text-fuchsia-300',
       }
     default:
       return {
         connector: 'border-sky-400/80',
-        button: 'border-sky-400/50 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
+        button:
+          'border-sky-400/55 bg-sky-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
         icon: 'text-sky-300',
       }
   }

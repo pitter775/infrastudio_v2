@@ -304,18 +304,42 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       ) : null}
       {panel.id === 'whatsapp' && whatsappFooter.canSaveContact ? (
         <div className="border-t border-white/5 px-6 py-4">
-          <div className="flex justify-end">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             {activeTab === 'attendants' ? (
-              <Button
-                type="submit"
-                form="whatsapp-contact-form"
-                disabled={whatsappFooter.savingContact}
-                variant="ghost"
-                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {whatsappFooter.savingContact ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {whatsappFooter.savingContact ? 'Salvando...' : 'Salvar atendente'}
-              </Button>
+              <>
+                <div className="flex flex-wrap items-center gap-3">
+                  {whatsappFooter.canCreateContact ? (
+                    <Button
+                      type="reset"
+                      form="whatsapp-contact-form"
+                      variant="ghost"
+                      className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                    >
+                      Cadastrar novo atendente
+                    </Button>
+                  ) : null}
+                  {whatsappFooter.canCancelContact ? (
+                    <Button
+                      type="reset"
+                      form="whatsapp-contact-form"
+                      variant="ghost"
+                      className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                    >
+                      Cancelar
+                    </Button>
+                  ) : null}
+                </div>
+                <Button
+                  type="submit"
+                  form="whatsapp-contact-form"
+                  disabled={whatsappFooter.savingContact}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {whatsappFooter.savingContact ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {whatsappFooter.savingContact ? 'Salvando...' : 'Salvar atendente'}
+                </Button>
+              </>
             ) : null}
           </div>
         </div>

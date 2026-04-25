@@ -1,5 +1,5 @@
 import { getMercadoLivreProductByIdForProject, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
-import { resolveRecentCatalogProductReference } from "@/lib/chat/catalog-follow-up"
+import { detectCatalogSearchRefinement, resolveRecentCatalogProductReference } from "@/lib/chat/catalog-follow-up"
 import { buildProductSearchCandidates, isMercadoLivreListingIntent } from "@/lib/chat/sales-heuristics"
 
 function sanitizeString(value) {
@@ -170,11 +170,23 @@ function buildSelectedProductReply(product) {
   if (product.warranty) {
     pieces.push(`Garantia informada no anuncio: ${product.warranty}.`)
   }
+  if (product.condition) {
+    pieces.push(`Condicao do item no anuncio: ${product.condition}.`)
+  }
+  if (Array.isArray(product.atributos) && product.atributos.length) {
+    const highlightedAttributes = product.atributos
+      .filter((attribute) => attribute?.nome && attribute?.valor)
+      .slice(0, 4)
+      .map((attribute) => `${attribute.nome}: ${attribute.valor}`)
+    if (highlightedAttributes.length) {
+      pieces.push(`Pontos confirmados no anuncio: ${highlightedAttributes.join(", ")}.`)
+    }
+  }
   if (Array.isArray(product.variacoesResumo) && product.variacoesResumo.length) {
     pieces.push(`Variacoes visiveis no anuncio: ${product.variacoesResumo.join(", ")}.`)
   }
   if (product.descricaoLonga) {
-    pieces.push(`Resumo do anuncio: ${product.descricaoLonga.slice(0, 180)}${product.descricaoLonga.length > 180 ? "..." : ""}`)
+    pieces.push(`Resumo do anuncio: ${product.descricaoLonga.slice(0, 320)}${product.descricaoLonga.length > 320 ? "..." : ""}`)
   }
   if (product.status && product.status !== "active") {
     pieces.push(`Status atual no Mercado Livre: ${product.status}.`)
@@ -182,7 +194,7 @@ function buildSelectedProductReply(product) {
   if (product.link) {
     pieces.push("Se quiser, eu ja te mando o link direto para voce olhar com calma ou seguir na compra.")
   }
-  pieces.push("Se preferir, eu tambem comparo com a outra opcao da lista e te digo qual entrega melhor custo-beneficio.")
+  pieces.push("Se preferir, eu tambem comparo com outra opcao da lista e te digo qual entrega melhor custo-beneficio.")
 
   return pieces.join(" ")
 }
@@ -331,34 +343,48 @@ export function isMercadoLivrePurchaseIntent(message) {
 }
 
 export function isMercadoLivreDetailIntent(message) {
-  return /\b(garantia|frete|estoque|detalhes|cor|material|serve|combina|link|preco|valor|quanto)\b/i.test(String(message || ""))
+  return /\b(garantia|frete|estoque|detalhes|detalhe|mais informac(?:ao|oes)|me fala mais|explica melhor|descricao|especificac(?:ao|oes)|ficha tecnica|cor|material|serve|combina|link|preco|valor|quanto)\b/i.test(
+    String(message || "")
+  )
 }
 
 export function resolveMercadoLivreFlowState(input = {}) {
+  const inferredRefinementDecision =
+    input.catalogFollowUpDecision ??
+    detectCatalogSearchRefinement(input.latestUserMessage, input.context, {
+      buildProductSearchCandidates: input.buildProductSearchCandidates,
+      shouldSearchProducts: input.detectProductSearch,
+    })
   const referencedCatalogProducts =
-    input.catalogFollowUpDecision?.matchedProducts ??
+    inferredRefinementDecision?.matchedProducts ??
     (input.resolveRecentCatalogProductReference ?? resolveRecentCatalogProductReference)(input.latestUserMessage, input.context)
   const productSearchCandidates = (input.buildProductSearchCandidates ?? buildProductSearchCandidates)(input.latestUserMessage)
   const contextCatalog = input.context?.catalogo ?? {}
   const recentCatalogProducts = normalizeRecentCatalogProducts(input.context)
   const catalogComparisonIntent = detectCatalogComparisonIntent(input.latestUserMessage)
+  const forceNewSearch = inferredRefinementDecision?.kind === "catalog_search_refinement"
   const loadMoreCatalogRequested =
-    !catalogComparisonIntent && /\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || ""))
+    !forceNewSearch &&
+    !catalogComparisonIntent &&
+    /\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || ""))
 
   return {
-    productSearchRequested: Boolean(input.detectProductSearch?.(input.latestUserMessage)),
+    productSearchRequested: forceNewSearch || Boolean(input.detectProductSearch?.(input.latestUserMessage)),
     genericMercadoLivreListingRequested: Boolean(
       input.isMercadoLivreListingIntent?.(input.latestUserMessage) ?? isMercadoLivreListingIntent(input.latestUserMessage)
     ),
+    forceNewSearch,
     loadMoreCatalogRequested,
     catalogComparisonIntent,
     referencedCatalogProducts,
-    currentCatalogProduct: referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? null,
+    currentCatalogProduct: forceNewSearch ? null : referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? null,
     recentCatalogProducts,
-    catalogFollowUpDecision: input.catalogFollowUpDecision ?? null,
-    productSearchTerm: productSearchCandidates[0] ?? "",
+    catalogFollowUpDecision: inferredRefinementDecision ?? null,
+    productSearchTerm: inferredRefinementDecision?.searchCandidates?.[0] ?? productSearchCandidates[0] ?? "",
     lastSearchTerm: sanitizeString(contextCatalog.ultimaBusca),
-    paginationOffset: loadMoreCatalogRequested
+    paginationOffset: forceNewSearch
+      ? 0
+      : loadMoreCatalogRequested
       ? sanitizeNumber(contextCatalog.paginationNextOffset, sanitizeNumber(contextCatalog.paginationOffset, 0))
       : 0,
     paginationPoolLimit: sanitizeNumber(contextCatalog.paginationPoolLimit, 24),
@@ -484,7 +510,8 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   const shouldSearch =
     input.productSearchRequested ||
     input.genericMercadoLivreListingRequested ||
-    input.loadMoreCatalogRequested
+    input.loadMoreCatalogRequested ||
+    input.forceNewSearch
 
   if (!shouldSearch) {
     return {
@@ -497,17 +524,18 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     }
   }
 
-  const searchTerm = input.loadMoreCatalogRequested
+  const freshSearchTerm = sanitizeString(input.productSearchTerm) || sanitizeString(input.latestUserMessage)
+  const searchTerm = input.forceNewSearch
+    ? freshSearchTerm || sanitizeString(input.lastSearchTerm) || sanitizeString(input.context?.catalogo?.ultimaBusca)
+    : input.loadMoreCatalogRequested
     ? sanitizeString(input.lastSearchTerm) ||
       sanitizeString(input.context?.catalogo?.ultimaBusca) ||
-      sanitizeString(input.productSearchTerm) ||
-      sanitizeString(input.latestUserMessage)
-    : sanitizeString(input.productSearchTerm) ||
+      freshSearchTerm
+    : freshSearchTerm ||
       sanitizeString(input.lastSearchTerm) ||
-      sanitizeString(input.context?.catalogo?.ultimaBusca) ||
-      sanitizeString(input.latestUserMessage)
+      sanitizeString(input.context?.catalogo?.ultimaBusca)
 
-  const searchOffset = input.loadMoreCatalogRequested ? sanitizeNumber(input.paginationOffset, 0) : 0
+  const searchOffset = input.loadMoreCatalogRequested && !input.forceNewSearch ? sanitizeNumber(input.paginationOffset, 0) : 0
   const poolLimit = input.loadMoreCatalogRequested
     ? Math.max(12, sanitizeNumber(input.paginationPoolLimit, 24))
     : Math.max(18, sanitizeNumber(input.paginationPoolLimit, 24))

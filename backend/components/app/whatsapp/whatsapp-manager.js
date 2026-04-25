@@ -158,6 +158,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   const channelActionClassName = "h-8 gap-2 rounded-lg border border-white/10 bg-white/[0.03] text-slate-200 hover:border-white/20 hover:bg-white/[0.06]"
   const channelPrimaryActionClassName = "h-8 gap-2 rounded-lg border border-sky-500/20 bg-sky-500/10 text-sky-100 hover:bg-sky-500/20"
   const channelDangerActionClassName = "h-8 gap-2 rounded-lg border border-red-500/20 bg-red-500/10 text-red-200 hover:bg-red-500/20 hover:text-red-100"
+  const isEditingContact = Boolean(contactForm.id)
 
   const loadChannels = useCallback(async (options = {}) => {
     if (!options.silent) {
@@ -428,9 +429,12 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       activeTab: currentTab,
       hasChannel: channels.length > 0,
       canSaveContact: currentTab === "attendants",
+      canCancelContact: currentTab === "attendants" && isEditingContact,
+      canCreateContact: currentTab === "attendants" && contacts.length > 0,
+      editingContact: isEditingContact,
       savingContact,
     })
-  }, [channels.length, currentTab, onFooterStateChange, savingContact])
+  }, [channels.length, contacts.length, currentTab, isEditingContact, onFooterStateChange, savingContact])
 
   useEffect(() => {
     onStatsChange?.({ whatsapp: channels.length })
@@ -531,6 +535,11 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     setContactForm((current) => ({ ...current, [field]: value }))
   }
 
+  function resetContactForm() {
+    setContactForm(emptyContactForm)
+    setStatus({ type: "idle", message: "" })
+  }
+
   function editContact(contact) {
     setContactForm({
       id: contact.id,
@@ -585,7 +594,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setContacts((current) =>
         contactForm.id ? current.map((item) => (item.id === data.contact.id ? data.contact : item)) : [data.contact, ...current],
       )
-      setContactForm(emptyContactForm)
+      resetContactForm()
       setStatus({ type: "success", message: contactForm.id ? "Atendente atualizado." : "Atendente criado." })
     } catch (error) {
       setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
@@ -909,7 +918,31 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
       {currentTab === "attendants" ? (
         <div>
-          <form id="whatsapp-contact-form" className="grid gap-4 md:grid-cols-2" onSubmit={saveContact}>
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            {contacts.length ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200"
+                onClick={resetContactForm}
+              >
+                <Plus className="h-4 w-4" />
+                Cadastrar novo atendente
+              </Button>
+            ) : null}
+            {isEditingContact ? (
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                onClick={resetContactForm}
+              >
+                Cancelar
+              </Button>
+            ) : null}
+          </div>
+
+          <form id="whatsapp-contact-form" className="grid gap-4 md:grid-cols-2" onSubmit={saveContact} onReset={resetContactForm}>
             <label className="block">
               <span className={labelClassName}>Nome</span>
               <input

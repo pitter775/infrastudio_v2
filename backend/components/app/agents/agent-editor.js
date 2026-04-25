@@ -261,15 +261,27 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ url: setupSiteUrl.trim() }),
+          body: JSON.stringify({
+            url: setupSiteUrl.trim(),
+            currentPrompt: setupBusinessContext.trim(),
+          }),
         })
         const summaryData = await summaryResponse.json().catch(() => ({}))
 
         if (summaryResponse.ok && (summaryData.mergedEditorDraft || summaryData.summary)) {
-          const mergedPrompt = String(summaryData.mergedEditorDraft || "").trim()
-            || [createdAgent.promptBase || createdAgent.prompt || "", "Resumo do site:", summaryData.summary]
-              .filter(Boolean)
-              .join("\n\n")
+          const basePrompt = String(createdAgent.promptBase || createdAgent.prompt || setupBusinessContext || "").trim()
+          const mergedPrompt = basePrompt
+            ? [
+                basePrompt,
+                summaryData.summary ? `Resumo do site:\n${summaryData.summary}` : "",
+                summaryData.promptSuggestion ? `Prompt base sugerido:\n${summaryData.promptSuggestion}` : "",
+              ]
+                .filter(Boolean)
+                .join("\n\n")
+            : String(summaryData.mergedEditorDraft || "").trim()
+              || [summaryData.summary ? `Resumo do site:\n${summaryData.summary}` : "", summaryData.promptSuggestion ? `Prompt base sugerido:\n${summaryData.promptSuggestion}` : ""]
+                .filter(Boolean)
+                .join("\n\n")
 
           await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
             method: "PATCH",

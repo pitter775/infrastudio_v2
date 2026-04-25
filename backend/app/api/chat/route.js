@@ -531,11 +531,13 @@ export async function GET(request) {
   }
 
   const widgetSlug = String(url.searchParams.get("widgetSlug") || "").trim()
+  const widgetId = String(url.searchParams.get("widgetId") || "").trim()
   const projeto = String(url.searchParams.get("projeto") || "").trim()
   const agente = String(url.searchParams.get("agente") || "").trim()
   const resolved =
-    widgetSlug || projeto || agente
+    widgetId || widgetSlug || projeto || agente
       ? await resolveProjectAgent({
+          widgetId: widgetId || undefined,
           widgetSlug: widgetSlug || undefined,
           projeto: projeto || undefined,
           agente: agente || undefined,
@@ -544,7 +546,7 @@ export async function GET(request) {
   const projectMatches = !resolved.projeto?.id || !chat.projetoId || resolved.projeto.id === chat.projetoId
   const agentMatches = !resolved.agente?.id || !chat.agenteId || resolved.agente.id === chat.agenteId
 
-  if ((widgetSlug || projeto || agente) && (!projectMatches || !agentMatches)) {
+  if ((widgetId || widgetSlug || projeto || agente) && (!projectMatches || !agentMatches)) {
     const payload = { error: "Acesso negado." }
     recordJsonApiUsage({
       route: "/api/chat",

@@ -107,6 +107,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   const [snapshotSyncing, setSnapshotSyncing] = useState(false)
   const [snapshot, setSnapshot] = useState(null)
   const [publicUrlCopied, setPublicUrlCopied] = useState(false)
+  const [restoringDefaults, setRestoringDefaults] = useState(false)
 
   const widgetOptions = useMemo(
     () => (Array.isArray(project.chatWidgets) ? project.chatWidgets : []).map((widget) => ({
@@ -384,6 +385,33 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     }
   }
 
+  async function handleRestoreDefaults() {
+    setRestoringDefaults(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store`, {
+        method: 'POST',
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel restaurar os padroes da loja.' })
+        return
+      }
+
+      setDraft(buildInitialDraft(project, data.store))
+      setFeedback({
+        tone: 'success',
+        text: 'Padroes restaurados. Loja, widget vinculado e slug principal foram reativados.',
+      })
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel restaurar os padroes da loja.' })
+    } finally {
+      setRestoringDefaults(false)
+    }
+  }
+
   if (loading) {
     return <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">Carregando loja...</div>
   }
@@ -436,6 +464,8 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           publicUrlCopied={publicUrlCopied}
           snapshotTotal={Number(snapshot?.total || 0)}
           onCopyPublicUrl={handleCopyPublicUrl}
+          onRestoreDefaults={handleRestoreDefaults}
+          restoringDefaults={restoringDefaults}
         />
       ) : null}
 

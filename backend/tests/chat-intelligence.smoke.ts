@@ -472,6 +472,94 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "catalogo libera nova busca quando o usuario refina a lista com atributo novo",
+    run: async () => {
+      let receivedSearchTerm = "";
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "quero um jogo de jantar de inox" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-refinement",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-refinement",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+            ultimaBusca: "jogo de jantar",
+            ultimosProdutos: [
+              {
+                id: "MLB-A",
+                nome: "Jogo de jantar porcelana azul",
+                descricao: "porcelana azul 20 pecas",
+              },
+              {
+                id: "MLB-B",
+                nome: "Jogo de jantar ceramica branco",
+                descricao: "ceramica branca 30 pecas",
+              },
+              {
+                id: "MLB-C",
+                nome: "Jogo de jantar vidro transparente",
+                descricao: "vidro transparente 18 pecas",
+              },
+            ],
+          },
+        } as never,
+        {
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            receivedSearchTerm = String(options.searchTerm || "");
+            return {
+              items: [
+                {
+                  id: "MLB-INOX-1",
+                  title: "Jogo de jantar em inox 24 pecas",
+                  price: 890,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/inox",
+                  thumbnail: "https://example.com/inox.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "MATERIAL", name: "Material", valueName: "Inox" }],
+                  freeShipping: true,
+                },
+              ],
+              connector: {
+                config: {
+                  oauthNickname: "Mesa Posta",
+                },
+              },
+              paging: {
+                total: 1,
+                offset: 0,
+                nextOffset: 24,
+                poolLimit: 24,
+                hasMore: false,
+              },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.doesNotMatch(result.reply, /quero confirmar qual voce quis dizer/i);
+      assert.match(result.reply, /encontrei 1 produto/i);
+      assert.match(result.reply, /loja Mesa Posta/i);
+      assert.match(receivedSearchTerm, /inox/i);
+    },
+  },
+  {
     name: "catalogo responde produto mais caro com base nos itens recentes ja mostrados",
     run: async () => {
       const result = await executeSalesOrchestrator(
@@ -815,6 +903,91 @@ const tests: TestCase[] = [
       assert.match(state.selectedProductSalesReply ?? "", /Resumo do anuncio/i);
       assert.match(state.selectedProductSalesReply ?? "", /link direto/i);
       assert.match(state.selectedProductSalesReply ?? "", /custo-beneficio/i);
+    },
+  },
+  {
+    name: "mercado livre detalha mais o produto quando o usuario pede mais informacoes",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me fala mais desse produto" }] as never,
+        {
+          agente: {
+            id: "agent-mercado-livre-detail",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-mercado-livre-detail",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ultimaBusca: "jogo de jantar",
+            produtoAtual: {
+              id: "MLB2",
+              nome: "Jogo de Sopeira Completo",
+              preco: 250,
+              descricao: "R$ 250,00 - 2 em estoque",
+              link: "https://example.com/sopeira",
+              imagem: "https://example.com/sopeira.jpg",
+              sellerId: "seller-1",
+              sellerName: "Mesa Posta",
+              availableQuantity: 2,
+            },
+            ultimosProdutos: [
+              {
+                id: "MLB2",
+                nome: "Jogo de Sopeira Completo",
+                descricao: "R$ 250,00 - 2 em estoque",
+              },
+            ],
+          },
+        } as never,
+        {
+          resolveMercadoLivreProductById: async () => ({
+            item: {
+              id: "MLB2",
+              title: "Jogo de Sopeira Completo",
+              price: 250,
+              currencyId: "BRL",
+              availableQuantity: 2,
+              status: "active",
+              condition: "new",
+              permalink: "https://example.com/sopeira",
+              thumbnail: "https://example.com/sopeira.jpg",
+              sellerId: "seller-1",
+              sellerName: "Mesa Posta",
+              freeShipping: true,
+              warranty: "30 dias",
+              attributes: [
+                { id: "MATERIAL", name: "Material principal", valueName: "Ceramica" },
+                { id: "COLOR", name: "Cor principal", valueName: "Amarelo" },
+                { id: "STYLE", name: "Estilo", valueName: "Classico" },
+              ],
+              variations: [
+                {
+                  id: "VAR1",
+                  attributeCombinations: [{ id: "COLOR", name: "Cor principal", valueName: "Amarelo" }],
+                },
+              ],
+              descriptionPlain:
+                "Sopeira em ceramica com acabamento amarelo, conjunto de tigelas, tampa detalhada e proposta elegante para mesa posta.",
+            },
+            error: null,
+          }),
+        }
+      );
+
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(result.reply, /Jogo de Sopeira Completo parece uma escolha forte/i);
+      assert.match(result.reply, /Pontos confirmados no anuncio/i);
+      assert.match(result.reply, /Condicao do item no anuncio: new/i);
+      assert.match(result.reply, /Resumo do anuncio:/i);
+      assert.match(result.reply, /acabamento amarelo/i);
     },
   },
   {

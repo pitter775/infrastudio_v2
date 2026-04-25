@@ -48,7 +48,12 @@ export function AppProjectCard({ project }) {
           <CheckCircle2 className="h-3.5 w-3.5" />
           {statusLabels[status] || project.status || "Ativo"}
         </span>
-        {project.isDemo ? <span className="text-xs font-medium text-zinc-500">Demo</span> : null}
+        <div className="flex items-center gap-2">
+          {project.isDemo ? <span className="text-xs font-medium text-zinc-500">Demo</span> : null}
+          <span className="inline-flex h-8 items-center rounded-lg border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700">
+            Entrar
+          </span>
+        </div>
       </div>
     </Link>
   )

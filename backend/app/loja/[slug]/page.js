@@ -48,6 +48,7 @@ export default async function LojaPage({ params, searchParams }) {
 
   const widgetConfig = result.store.widget
     ? {
+        widgetId: result.store.widget.id,
         widget: result.store.widget.slug,
         projeto: result.store.widget.projectId,
         agente: result.store.widget.agentId || undefined,

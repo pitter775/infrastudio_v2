@@ -117,6 +117,7 @@ No `backend/`:
 
 - `npm run build`
 - `npm run lint`
+- `npm run prepare:mercado-livre-test-store -- --query "Reliquia"`
 - `npm run test:chat-intelligence`
 - `npm run test:chat-intelligence:full`
 

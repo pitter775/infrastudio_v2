@@ -226,6 +226,35 @@ export async function getChatWidgetBySlug(slug) {
   }
 }
 
+export async function getChatWidgetById(widgetId) {
+  const value = String(widgetId || "").trim()
+  if (!value) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("chat_widgets")
+      .select(selectFields)
+      .eq("id", value)
+      .eq("ativo", true)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[chat-widgets] failed to load widget by id", error)
+      }
+      return null
+    }
+
+    return mapChatWidget(data)
+  } catch (error) {
+    console.error("[chat-widgets] failed to load widget by id", error)
+    return null
+  }
+}
+
 export async function getChatWidgetByProjetoAgente(input) {
   if (!input?.projetoId) {
     return null

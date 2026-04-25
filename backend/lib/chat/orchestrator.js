@@ -148,6 +148,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     latestUserMessage,
     productSearchRequested: shouldUseMercadoLivre && mercadoLivreFlowState.productSearchRequested,
     genericMercadoLivreListingRequested: shouldUseMercadoLivre && mercadoLivreFlowState.genericMercadoLivreListingRequested,
+    forceNewSearch: shouldUseMercadoLivre && mercadoLivreFlowState.forceNewSearch,
     loadMoreCatalogRequested: shouldUseMercadoLivre && mercadoLivreFlowState.loadMoreCatalogRequested,
     productSearchTerm: mercadoLivreFlowState.productSearchTerm,
     lastSearchTerm: mercadoLivreFlowState.lastSearchTerm,
@@ -301,7 +302,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     }
   }
 
-  if (catalogReferenceReply) {
+  if (catalogReferenceReply && catalogFollowUpDecision?.kind !== "catalog_search_refinement") {
     return buildHeuristicReplyResult(catalogReferenceReply, {
       ...heuristicMetadata,
       heuristicStage: "catalog_reference",

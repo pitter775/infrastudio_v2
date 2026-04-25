@@ -10,7 +10,7 @@ import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { JsonCodeBlock } from '@/components/ui/json-code-block'
 import { cn } from '@/lib/utils'
 import { AgentRichEditor, plainTextToEditorHtml, richTextToPlainText } from './agent-rich-editor'
-import { buildAgentDraftConfig, buildMergedAgentSummary, buildSiteSummaryHighlights, buildVersionChangeNote, resolveEntityAvatarUrl } from './agent-config-utils'
+import { buildAgentDraftConfig, buildMergedAgentSummary, buildVersionChangeNote, resolveEntityAvatarUrl } from './agent-config-utils'
 import { PlaceholderPanel, SheetInternalTabs, SheetPanelHeader } from './project-detail-sheet'
 import { resolveAgentTab } from './project-detail-query'
 
@@ -75,7 +75,6 @@ export function ProjectPanel({
   const [savingDraft, setSavingDraft] = useState(false)
   const [creatingAgent, setCreatingAgent] = useState(false)
   const [generatingSiteSummary, setGeneratingSiteSummary] = useState(false)
-  const [siteSummaryData, setSiteSummaryData] = useState(null)
   const [agentName, setAgentName] = useState(initialAgentName)
   const [siteUrl, setSiteUrl] = useState(initialSiteUrl)
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl)
@@ -437,13 +436,11 @@ export function ProjectPanel({
       if (!promptEditedByUser) {
         setPromptAutofillPendingClear(true)
       }
-      setSiteSummaryData(data)
       if (data?.source?.logoUrl) {
         setLogoUrl(data.source.logoUrl)
       }
-      setSiteSummaryStatus({ type: 'success', message: 'Resumo, contatos e prompt sugerido somados ao editor.' })
+      setSiteSummaryStatus({ type: 'success', message: 'Conteudo do site adicionado ao editor sem remover seu texto.' })
     } catch (error) {
-      setSiteSummaryData(null)
       setSiteSummaryStatus({ type: 'error', message: error.message })
     } finally {
       setGeneratingSiteSummary(false)
@@ -551,54 +548,6 @@ export function ProjectPanel({
                   </div>
                 ) : null}
 
-                {siteSummaryData ? (
-                  <div className="mt-3 rounded-2xl border border-white/10 bg-[#0a1020] p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                          Leitura automatica
-                        </div>
-                        <div className="mt-1 text-sm text-slate-200">
-                          {siteSummaryData.source?.title || siteUrl}
-                        </div>
-                      </div>
-                      {siteSummaryData.usage?.estimatedCostUsd != null ? (
-                        <div className="text-xs text-slate-500">
-                          custo {Number(siteSummaryData.usage.estimatedCostUsd).toFixed(6)} USD
-                        </div>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-3 grid gap-3 md:grid-cols-2">
-                      {buildSiteSummaryHighlights(siteSummaryData).map((item) => (
-                        <div key={item.label} className="rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">
-                            {item.label}
-                          </div>
-                          <div className="mt-2 space-y-1 text-xs text-slate-300">
-                            {item.values.slice(0, 3).map((value) => (
-                              <div key={value} className="break-words">
-                                {value}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    {siteSummaryData.promptSuggestion ? (
-                      <div className="mt-3 rounded-xl border border-emerald-500/15 bg-emerald-500/5 p-3">
-                        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-emerald-300">
-                          Prompt sugerido
-                        </div>
-                        <div className="mt-2 text-xs leading-6 text-slate-300">
-                          {siteSummaryData.promptSuggestion.slice(0, 420)}
-                          {siteSummaryData.promptSuggestion.length > 420 ? '...' : ''}
-                        </div>
-                      </div>
-                    ) : null}
-                  </div>
-                ) : null}
               </div>
 
               <div>

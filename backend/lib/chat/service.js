@@ -55,7 +55,7 @@ import {
   requestHumanHandoff,
 } from "@/lib/chat-handoffs"
 import { createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier } from "@/lib/chats"
-import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
+import { getChatWidgetById, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
 import {
@@ -556,6 +556,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   const agenteIdentifier = adminTestAgentId ?? (typeof body?.agente === "string" ? body.agente.trim() : null)
   const getProjeto = deps.getProjetoByIdentifier ?? getProjetoByIdentifier
   const getAgente = deps.getAgenteByIdentifier ?? getAgenteByIdentifier
+  const getWidgetById = deps.getChatWidgetById ?? getChatWidgetById
   const getWidgetBySlug = deps.getChatWidgetBySlug ?? getChatWidgetBySlug
   const getWidgetByProjetoAgente = deps.getChatWidgetByProjetoAgente ?? getChatWidgetByProjetoAgente
   const getProjetoByIdResolver = deps.getProjetoById ?? getProjetoById
@@ -592,8 +593,9 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     }
   }
 
+  const widgetId = typeof body?.widgetId === "string" && body.widgetId.trim() ? body.widgetId.trim() : null
   const widgetSlug = typeof body?.widgetSlug === "string" && body.widgetSlug.trim() ? body.widgetSlug.trim() : null
-  if (!widgetSlug) {
+  if (!widgetId && !widgetSlug) {
     return {
       projeto: null,
       agente: null,
@@ -601,13 +603,14 @@ export async function resolveChatChannel(body = {}, deps = {}) {
       lockedToAgent: true,
       channel: {
         kind: channelKind,
+        widgetId: null,
         widgetSlug: null,
         identificador_externo: body?.identificadorExterno?.trim() || null,
       },
     }
   }
 
-  const widget = await getWidgetBySlug(widgetSlug)
+  const widget = widgetId ? await getWidgetById(widgetId) : await getWidgetBySlug(widgetSlug)
 
   if (!widget?.projetoId || !widget?.agenteId || widget.ativo === false) {
     return {
@@ -617,6 +620,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
       lockedToAgent: true,
       channel: {
         kind: channelKind,
+        widgetId,
         widgetSlug,
         identificador_externo: body?.identificadorExterno?.trim() || null,
       },
@@ -639,7 +643,8 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     lockedToAgent: true,
     channel: {
       kind: channelKind,
-      widgetSlug,
+      widgetId: widget.id,
+      widgetSlug: widget.slug,
       identificador_externo: body?.identificadorExterno?.trim() || null,
     },
   }

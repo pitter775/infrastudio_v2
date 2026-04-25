@@ -12,9 +12,10 @@ export function StoreProductActions({
   permalink,
   product = null,
   storeSlug = null,
+  widgetId = null,
   widgetSlug,
 }) {
-  const hasWidget = Boolean(widgetSlug)
+  const hasWidget = Boolean(widgetId || widgetSlug)
 
   return (
     <>
@@ -48,7 +49,7 @@ export function StoreProductActions({
               product,
               dedupeKey: `${storeSlug}:product_chat_click:${product?.slug || 'unknown'}`,
             })
-            openStoreChat(widgetSlug)
+            openStoreChat({ widgetId, widgetSlug })
           }}
           disabled={!hasWidget}
           className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-[#faf8f3] px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white disabled:opacity-60"

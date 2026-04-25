@@ -1,7 +1,7 @@
 import { getAgenteById, getAgenteByIdentifier } from "@/lib/agentes"
 import { recordChatConfigEvent } from "@/lib/chat/diagnostics"
 import { emptyChatOptionsResponse, jsonChatResponse } from "@/lib/chat/http"
-import { getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
+import { getChatWidgetById, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
 
 export async function OPTIONS(request) {
@@ -17,21 +17,22 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url)
     const projetoIdentifier = searchParams.get("projeto")?.trim() || ""
     const agenteIdentifier = searchParams.get("agente")?.trim() || ""
+    const widgetId = searchParams.get("widgetId")?.trim() || ""
     const widgetSlug = searchParams.get("widgetSlug")?.trim() || searchParams.get("widget")?.trim() || ""
 
-    if (!projetoIdentifier && !widgetSlug) {
+    if (!projetoIdentifier && !widgetId && !widgetSlug) {
       await recordChatConfigEvent({
         event: "validation_error",
         origin,
         host,
         status: 400,
         elapsedMs: Date.now() - startedAt,
-        error: "Parametro `projeto` ou `widgetSlug` obrigatorio.",
+        error: "Parametro `projeto`, `widgetId` ou `widgetSlug` obrigatorio.",
       })
-      return jsonChatResponse({ error: "Parametro `projeto` ou `widgetSlug` obrigatorio." }, { status: 400, origin })
+      return jsonChatResponse({ error: "Parametro `projeto`, `widgetId` ou `widgetSlug` obrigatorio." }, { status: 400, origin })
     }
 
-    const requestedWidget = widgetSlug ? await getChatWidgetBySlug(widgetSlug) : null
+    const requestedWidget = widgetId ? await getChatWidgetById(widgetId) : widgetSlug ? await getChatWidgetBySlug(widgetSlug) : null
     const projeto = projetoIdentifier
       ? await getProjetoByIdentifier(projetoIdentifier)
       : requestedWidget?.projetoId
@@ -104,6 +105,7 @@ export async function GET(request) {
       projeto: projetoIdentifier,
       agente: agenteIdentifier || null,
       widgetSlug: widgetSlug || null,
+      widgetId: widgetId || requestedWidget?.id || null,
       status: 200,
       elapsedMs: Date.now() - startedAt,
     })

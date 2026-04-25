@@ -547,6 +547,7 @@ export function AdminProjectDetailPage({ project }) {
             titleOverride={project.agent?.name || project.name}
             serviceIcons={directCardIcons}
             active={isPanelOpen}
+            primaryActionLabel="Abrir"
             interactive
             usageBarPlacement="satellite"
             draggableHeader={!isMobile}

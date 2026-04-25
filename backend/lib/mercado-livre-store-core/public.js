@@ -84,6 +84,7 @@ async function resolvePublicWidget(supabase, projectId, store) {
 
     if (widgetRow) {
       return {
+        id: widgetRow.id,
         slug: widgetRow.slug,
         projetoId: widgetRow.projeto_id,
         agentId: widgetRow.agente_id || activeAgent.id,
@@ -252,6 +253,7 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
       projectName: sanitizeText(projectRow.nome, 120),
       widget: widget
         ? {
+            id: widget.id,
             slug: widget.slug,
             projectId: widget.projetoId,
             agentId: widget.agenteId,

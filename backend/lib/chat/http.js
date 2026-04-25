@@ -39,12 +39,12 @@ export function normalizePublicChatBody(body) {
     ...body,
     message,
     chatId: chatId || undefined,
-    canal: body.canal ?? body.context?.channel?.kind ?? (body.widgetSlug ? "external_widget" : "web"),
+    canal: body.canal ?? body.context?.channel?.kind ?? (body.widgetId || body.widgetSlug ? "external_widget" : "web"),
     identificadorExterno:
       typeof body.identificadorExterno === "string" && body.identificadorExterno.trim()
         ? body.identificadorExterno.trim()
         : conversationId || undefined,
-    source: body.source ?? (body.widgetSlug || body.projeto || body.agente ? "site_widget" : "admin_attendance_v2"),
+    source: body.source ?? (body.widgetId || body.widgetSlug || body.projeto || body.agente ? "site_widget" : "admin_attendance_v2"),
   }
 }
 

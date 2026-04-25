@@ -89,16 +89,25 @@ export function getStoreProductImages(product) {
   return product?.thumbnail ? [product.thumbnail] : []
 }
 
-export function openStoreChat(widgetSlug) {
+export function openStoreChat(widget) {
   if (typeof window === 'undefined') {
     return
   }
 
+  const detail =
+    widget && typeof widget === 'object'
+      ? {
+          widgetId: widget.widgetId || widget.id || null,
+          widgetSlug: widget.widgetSlug || widget.slug || null,
+        }
+      : {
+          widgetId: null,
+          widgetSlug: widget || null,
+        }
+
   window.dispatchEvent(
     new CustomEvent('infrastudio-chat:open', {
-      detail: {
-        widgetSlug: widgetSlug || null,
-      },
+      detail,
     }),
   )
 }

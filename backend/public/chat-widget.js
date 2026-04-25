@@ -61,10 +61,12 @@
       return;
     }
 
-    var widgetSlug = script.getAttribute("data-widget");
-    if (!widgetSlug) {
+    var widgetSlug = (script.getAttribute("data-widget") || "").trim();
+    var widgetId = (script.getAttribute("data-widget-id") || "").trim();
+    if (!widgetId && !widgetSlug) {
       return;
     }
+    var instanceKey = widgetId || widgetSlug;
 
     var projeto = (script.getAttribute("data-projeto") || "").trim();
     var agente = (script.getAttribute("data-agente") || "").trim();
@@ -124,8 +126,8 @@
     var contextIdleShown = false;
     var lastInteractionAt = Date.now();
 
-    if (globalApi.instances[widgetSlug] && typeof globalApi.instances[widgetSlug].destroy === "function") {
-      globalApi.instances[widgetSlug].destroy();
+    if (globalApi.instances[instanceKey] && typeof globalApi.instances[instanceKey].destroy === "function") {
+      globalApi.instances[instanceKey].destroy();
     }
 
     function parseContext(value) {
@@ -183,7 +185,7 @@
     }
 
     var widgetContext = parseContext(rawContext);
-    storageKey = "infrastudio-chat:" + widgetSlug + ":" + (externalIdentifier || "anon");
+    storageKey = "infrastudio-chat:" + instanceKey + ":" + (externalIdentifier || "anon");
     try {
       var savedState = JSON.parse(window.localStorage.getItem(storageKey) || "null");
       if (savedState && typeof savedState === "object") {
@@ -273,7 +275,7 @@
     sortMessagesChronologically();
 
     var host = document.createElement("div");
-    host.id = "infrastudio-chat-widget-root-" + widgetSlug;
+    host.id = "infrastudio-chat-widget-root-" + instanceKey;
     document.body.appendChild(host);
 
     function addCleanup(fn) {
@@ -304,9 +306,11 @@
         host.parentNode.removeChild(host);
       }
 
-      if (globalApi.instances[widgetSlug] && globalApi.instances[widgetSlug].destroy === destroy) {
-        delete globalApi.instances[widgetSlug];
-      }
+      [instanceKey, widgetId, widgetSlug].filter(Boolean).forEach(function (key) {
+        if (globalApi.instances[key] && globalApi.instances[key].destroy === destroy) {
+          delete globalApi.instances[key];
+        }
+      });
     }
 
     var shadow = host.attachShadow({ mode: "open" });
@@ -372,7 +376,8 @@
       ".chat-launcher-teaser { position: absolute; right: 0; bottom: 74px; min-width: 196px; max-width: min(280px, calc(100vw - 40px)); padding: 10px 12px; border-radius: 16px; background: " + (theme === "light" ? "rgba(255,255,255,0.98)" : "rgba(15,23,42,0.96)") + "; color: " + (theme === "light" ? "#0f172a" : "rgba(241,245,249,0.96)") + "; border: 1px solid " + (theme === "light" ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.16)") + "; box-shadow: 0 18px 40px -28px rgba(15,23,42,0.45); opacity: 0; visibility: hidden; transform: translateY(8px) scale(.96); transform-origin: calc(100% - 28px) 100%; transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s; pointer-events: none; }",
       ".chat-launcher-teaser.is-visible { opacity: 1; visibility: visible; transform: translateY(0) scale(1); transition-delay: 0s; }",
       ".chat-launcher-teaser::after { content: ''; position: absolute; right: 22px; bottom: -7px; width: 12px; height: 12px; background: inherit; border-right: inherit; border-bottom: inherit; transform: rotate(45deg); }",
-      ".chat-launcher-teaser-label { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: " + (theme === "light" ? "rgba(71,85,105,0.9)" : "rgba(148,163,184,0.88)") + "; }",
+      ".chat-launcher-teaser-label { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: " + accent + "; }",
+      ".chat-launcher-teaser-label .chat-icon { width: 11px; height: 11px; color: " + accent + "; }",
       ".chat-launcher-teaser-text { font-size: 13px; line-height: 1.55; }",
       ".chat-wrap.open .chat-button { opacity: 1; pointer-events: auto; }",
       ".chat-wrap.open.is-detached:not(.is-expanded) .chat-button { opacity: 0; pointer-events: none; }",
@@ -1937,14 +1942,18 @@
     }
 
     async function syncWidgetUiConfig() {
-      if (!widgetSlug) {
+      if (!widgetId && !widgetSlug) {
         return;
       }
 
       try {
-        var params = new URLSearchParams({
-          widgetSlug: widgetSlug,
-        });
+        var params = new URLSearchParams();
+        if (widgetId) {
+          params.set("widgetId", widgetId);
+        }
+        if (widgetSlug) {
+          params.set("widgetSlug", widgetSlug);
+        }
 
         if (projeto) {
           params.set("projeto", projeto);
@@ -2178,9 +2187,14 @@
       try {
         var params = new URLSearchParams({
           chatId: chatId,
-          widgetSlug: widgetSlug,
           limit: "20",
         });
+        if (widgetId) {
+          params.set("widgetId", widgetId);
+        }
+        if (widgetSlug) {
+          params.set("widgetSlug", widgetSlug);
+        }
         if (projeto) {
           params.set("projeto", projeto);
         }
@@ -2284,6 +2298,7 @@
           body: JSON.stringify({
             chatId: chatId,
             message: trimmed,
+            widgetId: widgetId || undefined,
             widgetSlug: widgetSlug,
             projeto: projeto || undefined,
             agente: agente || undefined,
@@ -2349,8 +2364,12 @@
     });
 
     addListener(window, "infrastudio-chat:open", function (event) {
-      var requestedWidget = event && event.detail ? event.detail.widgetSlug : null;
-      if (requestedWidget && requestedWidget !== widgetSlug) {
+      var requestedWidgetId = event && event.detail ? event.detail.widgetId : null;
+      var requestedWidgetSlug = event && event.detail ? event.detail.widgetSlug : null;
+      if (requestedWidgetId && requestedWidgetId !== widgetId) {
+        return;
+      }
+      if (!requestedWidgetId && requestedWidgetSlug && requestedWidgetSlug !== widgetSlug) {
         return;
       }
 
@@ -2704,9 +2723,11 @@
     scheduleIdlePrompt();
     void syncWidgetUiConfig();
 
-    globalApi.instances[widgetSlug] = {
-      destroy: destroy,
-    };
+    [instanceKey, widgetId, widgetSlug].filter(Boolean).forEach(function (key) {
+      globalApi.instances[key] = {
+        destroy: destroy,
+      };
+    });
     globalApi.destroy = function (slug) {
       var key = String(slug || "").trim();
       if (!key) {

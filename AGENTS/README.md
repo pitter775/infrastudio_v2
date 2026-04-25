@@ -22,3 +22,17 @@ Arquivos:
 - [laboratorio.md](C:\Projetos\infrastudio_v2\AGENTS\laboratorio.md): baseline, comandos, logs reais e pontos de falha mapeados no admin
 - [roadmap.md](C:\Projetos\infrastudio_v2\AGENTS\roadmap.md): foco de retomada, backlog principal, bases entregues e ordem de ataque
 - [melhorias.md](C:\Projetos\infrastudio_v2\AGENTS\melhorias.md): melhorias pendentes e oportunidades de produto/operacao
+
+## Loja real para teste
+
+- existe uma base real de teste da loja Mercado Livre em `Projeto Vitoria Rocha`
+- nome publico da loja: `Reliquias de Familia`
+- o comando para preparar essa base automaticamente e devolver URLs prontas e:
+  - `cd backend && npm run prepare:mercado-livre-test-store -- --query "Reliquia"`
+- esse preparo deve:
+  - localizar projeto/loja por nome ou slug, mesmo sem acento
+  - garantir widget vinculado e ativo
+  - garantir loja ativa
+  - religar `chat_widget_id`
+  - sincronizar snapshot
+  - devolver URLs de loja, produto e widget contract

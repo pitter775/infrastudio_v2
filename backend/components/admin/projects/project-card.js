@@ -410,6 +410,7 @@ export function AdminProjectCard({
   statusControl,
   highlighted = false,
   usageBarPlacement = 'satellite',
+  primaryActionLabel = 'Entrar',
   children,
 }) {
   const icons = Array.isArray(serviceIcons) && serviceIcons.length ? serviceIcons : getProjectServiceIcons(project)
@@ -590,6 +591,23 @@ export function AdminProjectCard({
               {statusControl ? <span className="ml-1 shrink-0">{statusControl}</span> : null}
             </div>
           <div className="flex shrink-0 items-center gap-2">
+            {interactive ? (
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.preventDefault()
+                  event.stopPropagation()
+
+                  if (!loading) {
+                    onSelect?.(project)
+                  }
+                }}
+                className="inline-flex h-8 items-center rounded-lg border border-emerald-400/25 bg-emerald-500/10 px-3 text-[11px] font-semibold text-emerald-100 transition-colors hover:border-emerald-300/45 hover:bg-emerald-500/20"
+                title={primaryActionLabel}
+              >
+                {primaryActionLabel}
+              </button>
+            ) : null}
             {onTestAgent ? (
               <button
                 type="button"

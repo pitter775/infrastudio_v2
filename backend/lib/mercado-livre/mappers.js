@@ -131,15 +131,54 @@ export function scoreMercadoLivreItem(item, searchTerm) {
     return 0
   }
 
-  const haystack = normalizeMercadoLivreSearchTokens([item?.title, item?.sellerName].filter(Boolean).join(" "))
+  const titleTokens = normalizeMercadoLivreSearchTokens(item?.title)
+  const sellerTokens = normalizeMercadoLivreSearchTokens(item?.sellerName)
+  const descriptionTokens = normalizeMercadoLivreSearchTokens([item?.shortDescription, item?.descriptionPlain].filter(Boolean).join(" "))
+  const attributeTokens = Array.isArray(item?.attributes)
+    ? normalizeMercadoLivreSearchTokens(
+        item.attributes
+          .flatMap((attribute) => [attribute?.name, attribute?.valueName])
+          .filter(Boolean)
+          .join(" ")
+      )
+    : []
+  const variationTokens = Array.isArray(item?.variations)
+    ? normalizeMercadoLivreSearchTokens(
+        item.variations
+          .flatMap((variation) =>
+            Array.isArray(variation?.attributeCombinations)
+              ? variation.attributeCombinations.flatMap((attribute) => [attribute?.name, attribute?.valueName])
+              : []
+          )
+          .filter(Boolean)
+          .join(" ")
+      )
+    : []
+  const haystack = [...titleTokens, ...sellerTokens, ...descriptionTokens, ...attributeTokens, ...variationTokens]
+
   if (!haystack.length) {
     return 0
   }
 
   let score = 0
   for (const token of tokens) {
-    if (haystack.includes(token)) {
-      score += token.length >= 6 ? 3 : 2
+    if (titleTokens.includes(token)) {
+      score += token.length >= 6 ? 6 : 4
+      continue
+    }
+
+    if (attributeTokens.includes(token) || variationTokens.includes(token)) {
+      score += token.length >= 6 ? 5 : 3
+      continue
+    }
+
+    if (descriptionTokens.includes(token)) {
+      score += token.length >= 6 ? 4 : 2
+      continue
+    }
+
+    if (sellerTokens.includes(token)) {
+      score += 1
       continue
     }
 

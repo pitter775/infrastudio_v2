@@ -144,6 +144,7 @@ export function StoreProductSheet({
                     permalink={product.permalink}
                     product={product}
                     storeSlug={store.slug}
+                    widgetId={store?.widget?.id}
                     widgetSlug={store?.widget?.slug}
                   />
                 </div>

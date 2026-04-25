@@ -35,6 +35,7 @@ export default async function LojaProdutoPage({ params }) {
 
   const widgetConfig = result.store.widget
     ? {
+        widgetId: result.store.widget.id,
         widget: result.store.widget.slug,
         projeto: result.store.widget.projectId,
         agente: result.store.widget.agentId || undefined,
@@ -135,6 +136,7 @@ export default async function LojaProdutoPage({ params }) {
                 permalink={result.product.permalink}
                 product={result.product}
                 storeSlug={result.store.slug}
+                widgetId={result.store.widget?.id}
                 widgetSlug={result.store.widget?.slug}
               />
             </div>

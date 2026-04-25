@@ -3,6 +3,7 @@ import "server-only"
 export {
   getMercadoLivreStoreByProjectId,
   getMercadoLivreStoreSettingsForProject,
+  restoreMercadoLivreStoreDefaultsForProject,
   upsertMercadoLivreStoreForProject,
 } from "@/lib/mercado-livre-store-core/store-config"
 export {
