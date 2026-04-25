@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Globe, ImageIcon, LayoutTemplate, Phone, Share2, Store } from 'lucide-react'
+import { ExternalLink, Globe, ImageIcon, LayoutTemplate, Phone, Share2, Store } from 'lucide-react'
 
 import {
   StoreAppearanceSection,
@@ -10,6 +10,7 @@ import {
   StoreGeneralSection,
   StoreMenuSection,
   StoreSocialSection,
+  StoreDomainSection,
 } from '@/components/admin/projects/mercado-livre-store-panel-sections'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -21,6 +22,7 @@ const STORE_TABS = [
   { id: 'contact', label: 'Contato', icon: Phone },
   { id: 'social', label: 'Redes', icon: Share2 },
   { id: 'menu', label: 'Menu', icon: Globe },
+  { id: 'domain', label: 'Dominio', icon: ExternalLink },
 ]
 
 const DEFAULT_MENU_LINKS = [
@@ -60,6 +62,10 @@ function buildInitialDraft(project, store) {
     contactPhone: store?.contactPhone || '',
     contactWhatsApp: store?.contactWhatsApp || '',
     contactAddress: store?.contactAddress || '',
+    customDomain: store?.customDomain || '',
+    customDomainActive: store?.customDomainActive === true,
+    customDomainStatus: store?.customDomainStatus || 'pending',
+    customDomainNotes: store?.customDomainNotes || '',
     footerText: store?.footerText || '',
     socialLinks: {
       instagram: store?.socialLinks?.instagram || '',
@@ -457,6 +463,10 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       {activeSubTab === 'social' ? <StoreSocialSection draft={draft} setDraft={setDraft} /> : null}
 
       {activeSubTab === 'menu' ? <StoreMenuSection draft={draft} onUpdateMenuLink={updateMenuLink} /> : null}
+
+      {activeSubTab === 'domain' ? (
+        <StoreDomainSection draft={draft} setDraft={setDraft} publicUrl={publicUrl} />
+      ) : null}
 
       {active ? (
         <div className="flex justify-end">

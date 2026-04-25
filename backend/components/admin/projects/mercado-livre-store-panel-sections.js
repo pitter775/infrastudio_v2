@@ -1,6 +1,6 @@
 'use client'
 
-import { Copy, Database, ExternalLink, RefreshCcw, Search } from 'lucide-react'
+import { Copy, Database, ExternalLink, Globe, RefreshCcw, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -341,6 +341,65 @@ export function StoreMenuSection({ draft, onUpdateMenuLink }) {
           <StorePanelInput label={`Destino ${index + 1}`} value={item.href} onChange={(event) => onUpdateMenuLink(index, 'href', event.target.value)} placeholder="#produtos" />
         </div>
       ))}
+    </div>
+  )
+}
+
+export function StoreDomainSection({ draft, setDraft, publicUrl }) {
+  const hasCustomDomain = Boolean(String(draft.customDomain || '').trim())
+  const domainPreview = hasCustomDomain ? `https://${draft.customDomain}` : ''
+
+  return (
+    <div className="grid gap-4">
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
+        <div className="inline-flex items-center gap-2 text-sm font-semibold text-white">
+          <Globe className="h-4 w-4 text-sky-300" />
+          Dominio proprio da loja
+        </div>
+        <div className="mt-3 text-sm leading-7 text-slate-400">
+          Esta aba prepara a loja para rodar em um dominio do cliente. A resolucao publica pode ser ligada depois, mas a configuracao e o preview ja ficam salvos agora.
+        </div>
+        <div className="mt-4 grid gap-2 text-xs text-slate-400">
+          <div>Dominio padrao atual: {publicUrl}</div>
+          {domainPreview ? <div>Dominio previsto: {domainPreview}</div> : null}
+          <div>DNS sugerido: criar `CNAME` de `www` apontando para `infrastudio.pro`.</div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <StorePanelInput
+          label="Dominio personalizado"
+          value={draft.customDomain}
+          onChange={(event) => setDraft((current) => ({ ...current, customDomain: event.target.value }))}
+          placeholder="www.sualoja.com.br"
+        />
+
+        <StorePanelField label="Status do dominio">
+          <select
+            value={draft.customDomainStatus}
+            onChange={(event) => setDraft((current) => ({ ...current, customDomainStatus: event.target.value }))}
+            className="h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30"
+          >
+            <option value="pending">Pendente</option>
+            <option value="configuring">Configurando DNS</option>
+            <option value="active">Ativo</option>
+          </select>
+        </StorePanelField>
+      </div>
+
+      <StorePanelToggle
+        checked={draft.customDomainActive}
+        onChange={(event) => setDraft((current) => ({ ...current, customDomainActive: event.target.checked }))}
+      >
+        Marcar dominio proprio como ativo nesta loja
+      </StorePanelToggle>
+
+      <StorePanelTextarea
+        label="Observacoes de dominio"
+        value={draft.customDomainNotes}
+        onChange={(event) => setDraft((current) => ({ ...current, customDomainNotes: event.target.value }))}
+        className="min-h-[110px]"
+      />
     </div>
   )
 }

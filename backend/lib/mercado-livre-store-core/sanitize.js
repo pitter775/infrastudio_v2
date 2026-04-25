@@ -39,6 +39,15 @@ function sanitizePhone(value) {
   return sanitizeText(value, 32)
 }
 
+function sanitizeDomain(value) {
+  const normalized = sanitizeText(value, 160)
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+
+  return /^[a-z0-9.-]+\.[a-z]{2,}$/i.test(normalized) ? normalized : ""
+}
+
 function sanitizeMenuLinks(value) {
   const list = Array.isArray(value) ? value : []
   return list
@@ -116,6 +125,10 @@ function normalizeStore(row, project = null) {
     contactPhone: sanitizePhone(row?.telefone_contato),
     contactWhatsApp: sanitizePhone(row?.whatsapp_contato),
     contactAddress: sanitizeText(row?.endereco, 260),
+    customDomain: sanitizeDomain(row?.dominio_personalizado),
+    customDomainActive: row?.dominio_ativo === true,
+    customDomainStatus: sanitizeText(row?.dominio_status, 32) || "pending",
+    customDomainNotes: sanitizeText(row?.dominio_observacoes, 500),
     footerText:
       sanitizeText(row?.footer_texto, 240) ||
       "Loja hospedada pela InfraStudio com atendimento integrado e compra final pelo Mercado Livre.",
@@ -178,6 +191,7 @@ export {
   normalizeSnapshotProduct,
   normalizeStore,
   sanitizeColor,
+  sanitizeDomain,
   sanitizeFeaturedProducts,
   sanitizeMenuLinks,
   sanitizePhone,

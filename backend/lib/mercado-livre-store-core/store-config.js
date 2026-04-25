@@ -4,6 +4,7 @@ import { STORE_FIELDS } from "./constants"
 import {
   normalizeStore,
   sanitizeColor,
+  sanitizeDomain,
   sanitizeFeaturedProducts,
   sanitizeMenuLinks,
   sanitizePhone,
@@ -56,6 +57,10 @@ function buildStorePayload(project, input, current = null) {
     telefone_contato: sanitizePhone(input?.contactPhone),
     whatsapp_contato: sanitizePhone(input?.contactWhatsApp),
     endereco: sanitizeText(input?.contactAddress, 260),
+    dominio_personalizado: sanitizeDomain(input?.customDomain) || null,
+    dominio_ativo: input?.customDomainActive === true,
+    dominio_status: sanitizeText(input?.customDomainStatus, 32) || "pending",
+    dominio_observacoes: sanitizeText(input?.customDomainNotes, 500),
     footer_texto: sanitizeText(input?.footerText, 240),
     menu_links: sanitizeMenuLinks(input?.menuLinks),
     social_links: sanitizeSocialLinks(input?.socialLinks),
@@ -72,6 +77,10 @@ async function validateStorePayload(supabase, project, payload) {
 
   if (!payload.slug) {
     return "Informe um slug valido para a loja."
+  }
+
+  if (payload.dominio_ativo && !payload.dominio_personalizado) {
+    return "Informe um dominio valido antes de ativar o dominio proprio."
   }
 
   if (payload.chat_widget_id) {
