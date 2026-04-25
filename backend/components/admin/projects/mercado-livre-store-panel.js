@@ -31,7 +31,7 @@ const DEFAULT_MENU_LINKS = [
 
 function buildInitialDraft(project, store) {
   return {
-    active: store?.active === true,
+    active: store ? store.active === true : true,
     slug: store?.slug || `${project.slug || project.id}-ml`,
     name: store?.name || project.name || 'Loja',
     title: store?.title || '',
@@ -181,7 +181,45 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       }
 
       setDraft(buildInitialDraft(project, data.store))
-      setFeedback({ tone: 'success', text: 'Loja salva.' })
+
+      let nextFeedback = { tone: 'success', text: 'Loja salva.' }
+      const shouldBootstrapSnapshot = (data.store?.active === true) && Number(snapshot?.total || 0) === 0
+
+      if (shouldBootstrapSnapshot) {
+        setSnapshotSyncing(true)
+        try {
+          const snapshotResponse = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/snapshot`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ limit: 20, offset: 0 }),
+          })
+          const snapshotData = await snapshotResponse.json().catch(() => ({}))
+
+          if (snapshotResponse.ok) {
+            setSnapshot(snapshotData.snapshot || null)
+            nextFeedback = {
+              tone: 'success',
+              text: `Loja salva e snapshot sincronizado com ${Number(snapshotData.synced || 0)} produtos.`,
+            }
+          } else {
+            nextFeedback = {
+              tone: 'success',
+              text: 'Loja salva. Agora sincronize o snapshot para publicar os produtos na vitrine.',
+            }
+          }
+        } catch {
+          nextFeedback = {
+            tone: 'success',
+            text: 'Loja salva. Agora sincronize o snapshot para publicar os produtos na vitrine.',
+          }
+        } finally {
+          setSnapshotSyncing(false)
+        }
+      }
+
+      setFeedback(nextFeedback)
     } catch {
       setFeedback({ tone: 'error', text: 'Nao foi possivel salvar a loja.' })
     } finally {

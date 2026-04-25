@@ -7,10 +7,20 @@ import { Button } from '@/components/ui/button'
 import { StorePanelField, StorePanelInput, StorePanelTextarea, StorePanelToggle } from '@/components/admin/projects/mercado-livre-store-panel-fields'
 
 export function StoreGeneralSection({ draft, setDraft, project }) {
+  const publicUrl = `https://infrastudio.pro/loja/${draft.slug || `${project.slug || project.id}-ml`}`
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
-        Link publico: <span className="text-sky-200">{`https://infrastudio.pro/loja/${draft.slug || `${project.slug || project.id}-ml`}`}</span>
+        <div className="flex flex-wrap items-center gap-3">
+          <span>Link publico:</span>
+          <a href={publicUrl} target="_blank" rel="noreferrer" className="text-sky-200 underline-offset-4 hover:underline">
+            {publicUrl}
+          </a>
+        </div>
+        <div className="mt-2 text-xs text-slate-400">
+          A loja so abre sem `404` depois de marcar `Ativar landing publica da loja` e salvar.
+        </div>
       </div>
       <StorePanelInput
         label="Slug da loja"
