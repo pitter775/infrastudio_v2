@@ -460,6 +460,9 @@ export function prepareAiReplyPayload(input) {
       : normalizedFollowUpReplyBase
   const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(input.nextContext)
   const userAskedForWhatsApp = hasWhatsAppIntentSignal(input.userMessage || "")
+  const shouldMentionWhatsAppInText =
+    userAskedForWhatsApp ||
+    input.ai?.handoff?.requested === true
   const actions = buildChatWidgetActions({
     channelKind: input.channelKind,
     nextContext: input.nextContext,
@@ -488,7 +491,9 @@ export function prepareAiReplyPayload(input) {
   const actionAwareFollowUpReply =
     input.channelKind === "whatsapp"
       ? normalizedFollowUpReply
-      : buildActionSuggestionReply(actions, normalizedFollowUpReply)
+      : buildActionSuggestionReply(actions, normalizedFollowUpReply, {
+          forceWhatsAppSuggestion: shouldMentionWhatsAppInText,
+        })
   const whatsappEmbeddedSequence =
     input.channelKind === "whatsapp" ? buildWhatsAppMessageSequence(normalizedPrimaryReply, input.ai.assets ?? [], null) : []
 

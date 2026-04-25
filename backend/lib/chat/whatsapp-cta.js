@@ -93,7 +93,7 @@ function buildWhatsAppActionPayload(input = {}) {
 
   return {
     type: "whatsapp_link",
-    label: "WhatsApp",
+    label: "Continuar no WhatsApp",
     icon: "whatsapp",
     url: `https://wa.me/${destination}${prefilledMessage ? `?text=${encodeURIComponent(prefilledMessage)}` : ""}`,
     summary: "Leva um resumo rapido desta conversa.",
@@ -137,18 +137,21 @@ export function buildChatWidgetActions(input = {}) {
   return actions
 }
 
-export function buildActionSuggestionReply(actions, baseText = "") {
+export function buildActionSuggestionReply(actions, baseText = "", options = {}) {
   if (!Array.isArray(actions) || !actions.length) {
     return String(baseText || "").trim()
   }
 
   const hasWhatsApp = actions.some((action) => action?.type === "whatsapp_link")
   const hasAgenda = actions.some((action) => action?.type === "agenda_schedule")
+  const forceWhatsAppSuggestion = options.forceWhatsAppSuggestion === true
   let suggestion = ""
 
   if (hasWhatsApp && hasAgenda) {
-    suggestion = "Podemos continuar no WhatsApp ou marcar um horario para entrar em contato com voce."
-  } else if (hasWhatsApp) {
+    suggestion = forceWhatsAppSuggestion
+      ? "Podemos continuar no WhatsApp ou marcar um horario para entrar em contato com voce."
+      : "Se preferir, voce pode marcar um horario para contato."
+  } else if (hasWhatsApp && forceWhatsAppSuggestion) {
     suggestion = "Se preferir, podemos continuar no WhatsApp."
   } else if (hasAgenda) {
     suggestion = "Se preferir, voce pode marcar um horario para contato."
