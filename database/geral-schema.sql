@@ -425,6 +425,10 @@ CREATE TABLE public.mercadolivre_lojas (
   destaques jsonb NOT NULL DEFAULT '[]'::jsonb,
   created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
   updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  dominio_personalizado character varying,
+  dominio_ativo boolean NOT NULL DEFAULT false,
+  dominio_status character varying NOT NULL DEFAULT 'pending'::character varying,
+  dominio_observacoes text,
   CONSTRAINT mercadolivre_lojas_pkey PRIMARY KEY (id),
   CONSTRAINT mercadolivre_lojas_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
   CONSTRAINT mercadolivre_lojas_chat_widget_id_fkey FOREIGN KEY (chat_widget_id) REFERENCES public.chat_widgets(id)

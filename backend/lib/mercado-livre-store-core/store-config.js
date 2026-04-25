@@ -1,6 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
-import { STORE_FIELDS } from "./constants"
+import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } from "./constants"
 import {
   normalizeStore,
   sanitizeColor,
@@ -41,6 +41,8 @@ async function buildUniqueStoreSlug(supabase, value, currentId = null) {
 
 function buildStorePayload(project, input, current = null) {
   const normalizedName = sanitizeText(input?.name || input?.nome, 120) || sanitizeText(project?.name || project?.nome, 120) || "Loja"
+  const active = input?.active === false || input?.ativo === false ? false : true
+
   return {
     projeto_id: project.id,
     nome: normalizedName,
@@ -50,7 +52,7 @@ function buildStorePayload(project, input, current = null) {
     cor_primaria: sanitizeColor(input?.accentColor || input?.corPrimaria),
     logo_url: sanitizeText(input?.logoUrl, 500),
     tema: "light",
-    ativo: input?.active === true,
+    ativo: active,
     chat_widget_ativo: input?.chatWidgetActive !== false,
     chat_widget_id: sanitizeText(input?.chatWidgetId, 80) || null,
     email_contato: sanitizeText(input?.contactEmail, 120),
@@ -111,11 +113,22 @@ async function getMercadoLivreStoreByProjectId(projectId, options = {}) {
   }
 
   const supabase = options.supabase ?? getSupabaseAdminClient()
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("mercadolivre_lojas")
     .select(STORE_FIELDS)
     .eq("projeto_id", projectId)
     .maybeSingle()
+
+  if (error && isMissingStoreDomainColumnError(error)) {
+    const fallbackResult = await supabase
+      .from("mercadolivre_lojas")
+      .select(STORE_FIELDS_LEGACY)
+      .eq("projeto_id", projectId)
+      .maybeSingle()
+
+    data = fallbackResult.data
+    error = fallbackResult.error
+  }
 
   if (error) {
     console.error("[mercado-livre-store] failed to load store by project", error)
@@ -149,22 +162,39 @@ async function upsertMercadoLivreStoreForProject(project, input = {}, options = 
 
   payload.slug = await buildUniqueStoreSlug(supabase, payload.slug, current?.id || null)
 
-  const query = supabase
+  const basePayload = current?.id
+    ? {
+        id: current.id,
+        created_at: current.created_at,
+        ...payload,
+      }
+    : payload
+
+  let { data, error } = await supabase
     .from("mercadolivre_lojas")
-    .upsert(
-      current?.id
-        ? {
-            id: current.id,
-            created_at: current.created_at,
-            ...payload,
-          }
-        : payload,
-      { onConflict: "projeto_id" }
-    )
+    .upsert(basePayload, { onConflict: "projeto_id" })
     .select(STORE_FIELDS)
     .maybeSingle()
 
-  const { data, error } = await query
+  if (error && isMissingStoreDomainColumnError(error)) {
+    const {
+      dominio_personalizado,
+      dominio_ativo,
+      dominio_status,
+      dominio_observacoes,
+      ...legacyPayload
+    } = basePayload
+
+    const fallbackResult = await supabase
+      .from("mercadolivre_lojas")
+      .upsert(legacyPayload, { onConflict: "projeto_id" })
+      .select(STORE_FIELDS_LEGACY)
+      .maybeSingle()
+
+    data = fallbackResult.data
+    error = fallbackResult.error
+  }
+
   if (error || !data) {
     console.error("[mercado-livre-store] failed to save store", error)
     return { store: null, error: "Nao foi possivel salvar a loja do Mercado Livre." }

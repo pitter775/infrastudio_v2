@@ -35,3 +35,5 @@ export function getSupabaseAdminClient() {
 
   return adminClient
 }
+
+export { getSupabaseAdminEnv }

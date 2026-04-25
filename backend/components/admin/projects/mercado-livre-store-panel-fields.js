@@ -1,5 +1,7 @@
 'use client'
 
+import { ToggleSwitchButton } from '@/components/ui/toggle-switch-button'
+
 export function StorePanelField({ label, children }) {
   return (
     <label className="grid gap-2">
@@ -35,11 +37,11 @@ export function StorePanelTextarea({ label, value, onChange, className = 'min-h-
   )
 }
 
-export function StorePanelToggle({ checked, onChange, children }) {
+export function StorePanelToggle({ checked, onChange, labelOn, labelOff, disabled = false, children }) {
   return (
-    <label className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200">
-      <input type="checkbox" checked={checked} onChange={onChange} />
-      {children}
-    </label>
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-slate-200">
+      <span>{children}</span>
+      <ToggleSwitchButton checked={checked} onChange={onChange} labelOn={labelOn} labelOff={labelOff} disabled={disabled} />
+    </div>
   )
 }

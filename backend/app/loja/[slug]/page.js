@@ -42,6 +42,7 @@ export default async function LojaPage({ params, searchParams }) {
   })
 
   if (!result.store) {
+    console.warn("[mercado-livre-store] public storefront returned notFound", result.diagnostic || { slug })
     notFound()
   }
 

@@ -43,7 +43,7 @@ function normalizeStoreSlug(value) {
 
 function buildPublicStoreUrl(project, slug) {
   const normalizedSlug = normalizeStoreSlug(slug || `${project.slug || project.id}-ml`)
-  return `https://infrastudio.pro/loja/${normalizedSlug}`
+  return `https://www.infrastudio.pro/loja/${normalizedSlug}`
 }
 
 function buildInitialDraft(project, store) {

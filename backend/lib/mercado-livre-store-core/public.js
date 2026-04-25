@@ -1,8 +1,8 @@
 import { getAgenteAtivo } from "@/lib/agentes"
 import { getChatWidgetByProjetoAgente } from "@/lib/chat-widgets"
-import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { getSupabaseAdminClient, getSupabaseAdminEnv } from "@/lib/supabase-admin"
 
-import { STORE_FIELDS } from "./constants"
+import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } from "./constants"
 import { getSnapshotProductBySlug, listSnapshotCategoryFacetsByProjectId, listSnapshotProductsByProjectId } from "./snapshot"
 import { normalizeSnapshotProduct, normalizeStore, sanitizeText, slugifyProduct } from "./sanitize"
 
@@ -113,22 +113,81 @@ async function resolvePublicWidget(supabase, projectId, store) {
 async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
   const normalizedSlug = sanitizeText(slug, 80)
   if (!normalizedSlug) {
-    return { store: null, products: [], featuredProducts: [], paging: null, error: "Loja nao encontrada." }
+    return {
+      store: null,
+      products: [],
+      featuredProducts: [],
+      paging: null,
+      error: "Loja nao encontrada.",
+      diagnostic: { reason: "invalid_slug", slug: normalizedSlug },
+    }
   }
 
-  const supabase = options.supabase ?? getSupabaseAdminClient()
-  const { data, error } = await supabase
+  let supabase = options.supabase
+  try {
+    if (!supabase) {
+      const env = getSupabaseAdminEnv()
+      supabase = getSupabaseAdminClient()
+      if (!env.usingServiceRole) {
+        console.warn("[mercado-livre-store] public store lookup running without service role key", {
+          slug: normalizedSlug,
+        })
+      }
+    }
+  } catch (error) {
+    console.error("[mercado-livre-store] missing Supabase env for public store lookup", {
+      slug: normalizedSlug,
+      message: String(error?.message || error || ""),
+    })
+    return {
+      store: null,
+      products: [],
+      featuredProducts: [],
+      paging: null,
+      error: "Loja indisponivel.",
+      diagnostic: { reason: "missing_supabase_env", slug: normalizedSlug },
+    }
+  }
+
+  let { data, error } = await supabase
     .from("mercadolivre_lojas")
     .select(STORE_FIELDS)
     .eq("slug", normalizedSlug)
     .eq("ativo", true)
     .maybeSingle()
 
+  if (error && isMissingStoreDomainColumnError(error)) {
+    const fallbackResult = await supabase
+      .from("mercadolivre_lojas")
+      .select(STORE_FIELDS_LEGACY)
+      .eq("slug", normalizedSlug)
+      .eq("ativo", true)
+      .maybeSingle()
+
+    data = fallbackResult.data
+    error = fallbackResult.error
+  }
+
   if (error || !data) {
     if (error) {
-      console.error("[mercado-livre-store] failed to load public store", error)
+      console.error("[mercado-livre-store] failed to load public store", {
+        slug: normalizedSlug,
+        message: error.message,
+        code: error.code,
+      })
+    } else {
+      console.warn("[mercado-livre-store] public store not found or inactive", {
+        slug: normalizedSlug,
+      })
     }
-    return { store: null, products: [], featuredProducts: [], paging: null, error: "Loja nao encontrada." }
+    return {
+      store: null,
+      products: [],
+      featuredProducts: [],
+      paging: null,
+      error: "Loja nao encontrada.",
+      diagnostic: { reason: error ? "store_lookup_failed" : "store_not_found_or_inactive", slug: normalizedSlug },
+    }
   }
 
   const { data: projectRow, error: projectError } = await supabase
@@ -139,9 +198,26 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
 
   if (projectError || !projectRow) {
     if (projectError) {
-      console.error("[mercado-livre-store] failed to load project for public store", projectError)
+      console.error("[mercado-livre-store] failed to load project for public store", {
+        slug: normalizedSlug,
+        projectId: data.projeto_id,
+        message: projectError.message,
+        code: projectError.code,
+      })
+    } else {
+      console.warn("[mercado-livre-store] public store project missing", {
+        slug: normalizedSlug,
+        projectId: data.projeto_id,
+      })
     }
-    return { store: null, products: [], featuredProducts: [], paging: null, error: "Projeto da loja nao encontrado." }
+    return {
+      store: null,
+      products: [],
+      featuredProducts: [],
+      paging: null,
+      error: "Projeto da loja nao encontrado.",
+      diagnostic: { reason: projectError ? "project_lookup_failed" : "project_missing", slug: normalizedSlug, projectId: data.projeto_id },
+    }
   }
 
   const normalizedStore = normalizeStore(data, projectRow)
@@ -198,6 +274,12 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
       categories,
     },
     error: null,
+    diagnostic: {
+      reason: "ok",
+      slug: normalizedSlug,
+      projectId: projectRow.id,
+      active: data.ativo === true,
+    },
   }
 }
 

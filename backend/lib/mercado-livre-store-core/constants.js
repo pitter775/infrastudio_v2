@@ -1,4 +1,4 @@
-export const STORE_FIELDS = [
+const STORE_BASE_FIELDS = [
   "id",
   "projeto_id",
   "slug",
@@ -19,11 +19,26 @@ export const STORE_FIELDS = [
   "footer_texto",
   "menu_links",
   "social_links",
+  "created_at",
+  "updated_at",
+]
+
+const STORE_DOMAIN_FIELDS = [
   "dominio_personalizado",
   "dominio_ativo",
   "dominio_status",
   "dominio_observacoes",
+]
+
+export const STORE_FIELDS = [
+  ...STORE_BASE_FIELDS,
+  ...STORE_DOMAIN_FIELDS,
   "destaques",
-  "created_at",
-  "updated_at",
 ].join(", ")
+
+export const STORE_FIELDS_LEGACY = [...STORE_BASE_FIELDS, "destaques"].join(", ")
+
+export function isMissingStoreDomainColumnError(error) {
+  const message = String(error?.message || error || "")
+  return /dominio_personalizado|dominio_ativo|dominio_status|dominio_observacoes/i.test(message)
+}

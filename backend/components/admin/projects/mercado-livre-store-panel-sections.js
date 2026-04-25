@@ -44,7 +44,7 @@ export function StoreGeneralSection({ draft, setDraft, project, publicUrl, publi
           </button>
         </div>
         <div className="mt-2 text-xs text-slate-400">
-          A loja so abre sem `404` depois de marcar `Ativar landing publica da loja` e salvar. O link acima ja usa o slug normalizado.
+          A loja fica ativa por padrao ao salvar. Se desligar manualmente, o link publico volta a responder `404`.
         </div>
       </div>
       <StorePanelInput
@@ -67,9 +67,11 @@ export function StoreGeneralSection({ draft, setDraft, project, publicUrl, publi
       />
       <StorePanelToggle
         checked={draft.active}
-        onChange={(event) => setDraft((current) => ({ ...current, active: event.target.checked }))}
+        onChange={(value) => setDraft((current) => ({ ...current, active: value }))}
+        labelOn="Ligada"
+        labelOff="Desligada"
       >
-        Ativar landing publica da loja
+        Loja publica
       </StorePanelToggle>
       <div className="md:col-span-2">
         <StorePanelTextarea
@@ -107,9 +109,11 @@ export function StoreAppearanceSection({ draft, setDraft, widgetOptions }) {
       />
       <StorePanelToggle
         checked={draft.chatWidgetActive}
-        onChange={(event) => setDraft((current) => ({ ...current, chatWidgetActive: event.target.checked }))}
+        onChange={(value) => setDraft((current) => ({ ...current, chatWidgetActive: value }))}
+        labelOn="Ligado"
+        labelOff="Desligado"
       >
-        Exibir chat widget na loja
+        Chat widget na loja
       </StorePanelToggle>
       <StorePanelField label="Widget vinculado">
         <select
@@ -389,9 +393,11 @@ export function StoreDomainSection({ draft, setDraft, publicUrl }) {
 
       <StorePanelToggle
         checked={draft.customDomainActive}
-        onChange={(event) => setDraft((current) => ({ ...current, customDomainActive: event.target.checked }))}
+        onChange={(value) => setDraft((current) => ({ ...current, customDomainActive: value }))}
+        labelOn="Ligado"
+        labelOff="Desligado"
       >
-        Marcar dominio proprio como ativo nesta loja
+        Dominio proprio nesta loja
       </StorePanelToggle>
 
       <StorePanelTextarea
