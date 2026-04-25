@@ -29,6 +29,17 @@ export async function sendEmail(input) {
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => "")
+    const normalizedBody = String(errorBody || "").toLowerCase()
+
+    if (
+      response.status === 403 &&
+      normalizedBody.includes("you can only send testing emails to your own email address")
+    ) {
+      throw new Error(
+        "O provedor de email esta em modo de teste. Verifique um dominio no Resend e configure RESEND_FROM_EMAIL para liberar envios a outros destinatarios."
+      )
+    }
+
     throw new Error(`Falha ao enviar email via Resend: ${response.status} ${errorBody}`.trim())
   }
 }

@@ -22,23 +22,17 @@ export async function POST(request) {
 
     if (!result.ok) {
       const alreadyExists = result.reason === "email_already_exists"
-      const verificationFailed = result.reason === "verification_send_failed"
       return NextResponse.json(
         {
           error: alreadyExists
             ? "Ja existe uma conta com este email."
-            : verificationFailed
-              ? "Nao foi possivel enviar o email de confirmacao agora."
             : "Nao foi possivel concluir seu cadastro agora.",
         },
         { status: alreadyExists ? 409 : 500 },
       )
     }
 
-    return NextResponse.json(
-      { message: "Conta criada. Enviamos um email para voce confirmar o acesso." },
-      { status: 201 },
-    )
+    return NextResponse.json({ message: "Conta criada. Voce ja pode entrar." }, { status: 201 })
   } catch (error) {
     console.error("[auth] register failed", error)
     return NextResponse.json({ error: "Nao foi possivel concluir seu cadastro agora." }, { status: 500 })

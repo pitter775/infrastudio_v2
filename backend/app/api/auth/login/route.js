@@ -53,13 +53,6 @@ export async function POST(request) {
       return Response.json({ error: "Email ou senha invalidos." }, { status: 401 })
     }
 
-    if (usuario.email_verificado === false) {
-      return Response.json(
-        { error: "Confirme seu email antes de acessar a plataforma." },
-        { status: 403 }
-      )
-    }
-
     if (usuario.ativo === false) {
       return Response.json({ error: "Usuario inativo." }, { status: 403 })
     }

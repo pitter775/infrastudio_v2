@@ -68,11 +68,19 @@ function buildPublicChatLogDescription(payload) {
   return "Evento do chat publico."
 }
 
+function shouldSkipPublicChatLog(payload) {
+  return buildPublicChatLogDescription(payload) === "Chat publico sem projeto/agente valido. Revise a configuracao do widget ou do embed."
+}
+
 export async function recordPublicChatEvent(input = {}) {
   const payload = buildPublicChatRequestDiagnostics(input)
   logPublicChatEvent(input)
 
   if (!payload.error && Number(payload.status || 0) < 400) {
+    return null
+  }
+
+  if (shouldSkipPublicChatLog(payload)) {
     return null
   }
 

@@ -2,10 +2,6 @@ import "server-only"
 
 import { randomUUID } from "node:crypto"
 
-import {
-  createEmailVerificationToken,
-  sendEmailVerification,
-} from "@/lib/email-verifications"
 import { createSession } from "@/lib/session"
 import { createInitialProjectForUsuario, ensureUsuarioHasProjeto, rollbackProvisionedUsuario } from "@/lib/usuario-project-bootstrap"
 import {
@@ -60,68 +56,24 @@ export async function registerUsuarioWithProjeto(input) {
     nome: input.nome,
     email: normalizedEmail,
     senha: input.senha,
-    emailVerificado: false,
+    emailVerificado: true,
     provider: "email",
   }).then(async (provision) => {
     if (!provision.ok) {
       return provision
     }
 
-    try {
-      const { token } = await createEmailVerificationToken({
-        usuarioId: provision.usuarioId,
-        email: normalizedEmail,
-      })
-
-      await sendEmailVerification({
-        nome: input.nome,
-        email: normalizedEmail,
-        token,
-      })
-
-      return {
-        ok: true,
-        usuarioId: provision.usuarioId,
-        projetoId: provision.projetoId,
-        email: normalizedEmail,
-      }
-    } catch (error) {
-      console.error("[auth-registration] failed to send verification email", error)
-      await rollbackProvisionedUsuario(provision.usuarioId, provision.projetoId)
-      return { ok: false, reason: "verification_send_failed" }
+    return {
+      ok: true,
+      usuarioId: provision.usuarioId,
+      projetoId: provision.projetoId,
+      email: normalizedEmail,
     }
   })
 }
 
 export async function resendUsuarioVerificationEmail(email) {
-  const normalizedEmail = String(email || "").trim().toLowerCase()
-  const usuario = await findUsuarioWithPasswordByEmail(normalizedEmail)
-
-  if (!usuario) {
-    return { ok: false, reason: "user_not_found" }
-  }
-
-  if (usuario.email_verificado === true) {
-    return { ok: false, reason: "already_verified" }
-  }
-
-  try {
-    const { token } = await createEmailVerificationToken({
-      usuarioId: usuario.id,
-      email: normalizedEmail,
-    })
-
-    await sendEmailVerification({
-      nome: usuario.nome?.trim() || "Usuario",
-      email: normalizedEmail,
-      token,
-    })
-
-    return { ok: true }
-  } catch (error) {
-    console.error("[auth-registration] failed to resend verification email", error)
-    return { ok: false, reason: "resend_failed" }
-  }
+  return { ok: false, reason: "disabled" }
 }
 
 export async function loginOrCreateSocialUsuario(input) {

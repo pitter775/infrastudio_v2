@@ -78,12 +78,21 @@ async function logMercadoLivreOAuthEvent({
   description,
   payload = {},
 } = {}) {
+  const normalizedDescription = sanitizeString(description)
+  if (
+    normalizedDescription === "OAuth do Mercado Livre iniciado." ||
+    normalizedDescription === "Callback OAuth do Mercado Livre recebido." ||
+    normalizedDescription === "OAuth do Mercado Livre concluido com sucesso."
+  ) {
+    return null
+  }
+
   return createLogEntry({
     projectId,
     type: "mercado_livre_oauth",
     origin: "laboratorio",
     level,
-    description,
+    description: normalizedDescription,
     payload: {
       ...payload,
       connectorId: connectorId || null,

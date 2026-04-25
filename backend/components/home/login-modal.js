@@ -6,7 +6,6 @@ import { ArrowRight, Loader2, Lock, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import {
   registerWithProjectAuth,
-  resendVerificationEmail,
   signInWithProjectAuth,
   signInWithSocialProvider,
 } from '@/lib/auth'
@@ -140,7 +139,6 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
   const [registerLoading, setRegisterLoading] = useState(false)
 
   const [socialLoadingProvider, setSocialLoadingProvider] = useState(null)
-  const [resendingVerification, setResendingVerification] = useState(false)
   const loginEmailRef = useRef(null)
   const nameRef = useRef(null)
 
@@ -157,7 +155,6 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
       setLoginLoading(false)
       setRegisterLoading(false)
       setSocialLoadingProvider(null)
-      setResendingVerification(false)
     }, 0)
 
     return () => window.clearTimeout(timer)
@@ -290,27 +287,6 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     }
   }
 
-  async function handleResendVerification() {
-    if (!loginEmail.trim()) {
-      setLoginError('Informe seu email para reenviar a confirmacao.')
-      return
-    }
-
-    setLoginError('')
-    setNotice('')
-    setResendingVerification(true)
-
-    const result = await resendVerificationEmail(loginEmail)
-    if (!result.ok) {
-      setLoginError(result.error ?? 'Nao foi possivel reenviar a confirmacao agora.')
-      setResendingVerification(false)
-      return
-    }
-
-    setNotice(result.message ?? 'Conta liberada para login.')
-    setResendingVerification(false)
-  }
-
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
@@ -386,14 +362,6 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
                     <div className="flex items-center justify-between gap-3 text-sm">
                       <button type="button" onClick={goToRegister} className="font-medium text-cyan-700 transition hover:text-cyan-600 dark:text-cyan-200 dark:hover:text-cyan-100">
                         Criar conta
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleResendVerification}
-                        disabled={resendingVerification}
-                        className="font-medium text-slate-500 transition hover:text-slate-700 disabled:opacity-60 dark:text-slate-400 dark:hover:text-slate-200"
-                      >
-                        {resendingVerification ? 'Reenviando...' : 'Reenviar confirmacao'}
                       </button>
                     </div>
 
