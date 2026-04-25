@@ -3,22 +3,27 @@ import { notFound } from "next/navigation"
 import { MercadoLivreStorefront } from "@/components/store/mercado-livre-storefront"
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
 import { getPublicMercadoLivreStoreBySlug } from "@/lib/mercado-livre-store"
+import {
+  buildBreadcrumbStructuredData,
+  buildStoreCollectionStructuredData,
+  buildStoreMetadata,
+  buildStoreStructuredData,
+} from "@/lib/mercado-livre-store-core/seo"
 
 export const revalidate = 300
 
-export async function generateMetadata({ params }) {
+export async function generateMetadata({ params, searchParams }) {
   const { slug } = await params
-  const result = await getPublicMercadoLivreStoreBySlug(slug, { page: 1 })
-  if (!result.store) {
-    return {
-      title: "Loja | InfraStudio",
-    }
-  }
+  const resolvedSearchParams = await searchParams
+  const query = String(resolvedSearchParams?.q || "").trim()
+  const categoryId = String(resolvedSearchParams?.cat || "").trim()
+  const sort = String(resolvedSearchParams?.sort || "recent").trim() || "recent"
+  const result = await getPublicMercadoLivreStoreBySlug(slug, { page: 1, categoryId, sort })
+  const categoryLabel = Array.isArray(result.filters?.categories)
+    ? result.filters.categories.find((item) => item.id === categoryId)?.label || ""
+    : ""
 
-  return {
-    title: `${result.store.name} | Loja InfraStudio`,
-    description: result.store.headline,
-  }
+  return buildStoreMetadata(result.store, { query, categoryId, categoryLabel })
 }
 
 export default async function LojaPage({ params, searchParams }) {
@@ -52,9 +57,41 @@ export default async function LojaPage({ params, searchParams }) {
         src: '/chat-widget.js',
       }
     : null
+  const structuredData = buildStoreStructuredData(result.store)
+  const activeCategoryLabel =
+    Array.isArray(result.filters?.categories)
+      ? result.filters.categories.find((item) => item.id === (result.filters?.categoryId || categoryId))?.label || ""
+      : ""
+  const collectionStructuredData = buildStoreCollectionStructuredData(result.store, result.products, {
+    query,
+    categoryId: result.filters?.categoryId || categoryId,
+    categoryLabel: activeCategoryLabel,
+  })
+  const breadcrumbStructuredData = buildBreadcrumbStructuredData([
+    { name: "InfraStudio", url: "https://www.infrastudio.pro" },
+    { name: result.store.name, url: `https://www.infrastudio.pro/loja/${result.store.slug}` },
+  ])
 
   return (
     <>
+      {structuredData ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+      ) : null}
+      {collectionStructuredData ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionStructuredData) }}
+        />
+      ) : null}
+      {breadcrumbStructuredData ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
+        />
+      ) : null}
       <MercadoLivreStorefront
         store={result.store}
         featuredProducts={result.featuredProducts}
@@ -63,6 +100,7 @@ export default async function LojaPage({ params, searchParams }) {
         page={page}
         hasMore={Boolean(result.paging?.hasMore)}
         categoryId={result.filters?.categoryId || categoryId}
+        categoryLabel={activeCategoryLabel}
         sort={result.filters?.sort || sort}
         categories={Array.isArray(result.filters?.categories) ? result.filters.categories : []}
       />

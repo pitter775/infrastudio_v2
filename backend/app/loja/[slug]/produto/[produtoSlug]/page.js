@@ -6,23 +6,19 @@ import { StoreProductActions } from "@/components/store/store-product-actions"
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
 import { formatStoreCurrency } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
+import {
+  buildAbsoluteStoreUrl,
+  buildBreadcrumbStructuredData,
+  buildProductStructuredData,
+  buildStoreProductMetadata,
+} from "@/lib/mercado-livre-store-core/seo"
 
 export const revalidate = 300
 
 export async function generateMetadata({ params }) {
   const { slug, produtoSlug } = await params
   const result = await getPublicMercadoLivreProductPage(slug, produtoSlug)
-
-  if (!result.store || !result.product) {
-    return {
-      title: "Produto | Loja InfraStudio",
-    }
-  }
-
-  return {
-    title: `${result.product.title} | ${result.store.name}`,
-    description: `Veja preco e detalhes de ${result.product.title}. Atendimento direto pelo chat.`,
-  }
+  return buildStoreProductMetadata(result.store, result.product)
 }
 
 export default async function LojaProdutoPage({ params }) {
@@ -49,9 +45,27 @@ export default async function LojaProdutoPage({ params }) {
         src: "/chat-widget.js",
       }
     : null
+  const structuredData = buildProductStructuredData(result.store, result.product)
+  const breadcrumbStructuredData = buildBreadcrumbStructuredData([
+    { name: "InfraStudio", url: "https://www.infrastudio.pro" },
+    { name: result.store.name, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`) },
+    { name: result.product.title, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}/produto/${result.product.slug}`) },
+  ])
 
   return (
     <>
+      {structuredData ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+      ) : null}
+      {breadcrumbStructuredData ? (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
+        />
+      ) : null}
       <div className="min-h-screen bg-[#f7f3eb] text-slate-900">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <Link
@@ -119,6 +133,8 @@ export default async function LojaProdutoPage({ params }) {
                 accentColor={result.store.accentColor}
                 chatDescription="O chat da loja pode ser aberto daqui para continuar o atendimento a partir desta pagina."
                 permalink={result.product.permalink}
+                product={result.product}
+                storeSlug={result.store.slug}
                 widgetSlug={result.store.widget?.slug}
               />
             </div>

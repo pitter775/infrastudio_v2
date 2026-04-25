@@ -1,25 +1,50 @@
 'use client'
 
-import { Database, RefreshCcw, Search } from 'lucide-react'
+import { Copy, Database, ExternalLink, RefreshCcw, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
 import { StorePanelField, StorePanelInput, StorePanelTextarea, StorePanelToggle } from '@/components/admin/projects/mercado-livre-store-panel-fields'
 
-export function StoreGeneralSection({ draft, setDraft, project }) {
-  const publicUrl = `https://infrastudio.pro/loja/${draft.slug || `${project.slug || project.id}-ml`}`
-
+export function StoreGeneralSection({ draft, setDraft, project, publicUrl, publicUrlCopied, snapshotTotal = 0, onCopyPublicUrl }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className={`rounded-full border px-3 py-1 ${draft.active ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100' : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}>
+            {draft.active ? 'Loja publica ativa' : 'Loja publica desativada'}
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-slate-300">
+            {snapshotTotal > 0 ? `${snapshotTotal} produtos no snapshot` : 'Snapshot ainda vazio'}
+          </span>
+        </div>
+        <div className="mt-4 flex flex-wrap items-center gap-3">
           <span>Link publico:</span>
-          <a href={publicUrl} target="_blank" rel="noreferrer" className="text-sky-200 underline-offset-4 hover:underline">
+          <a href={publicUrl} target="_blank" rel="noreferrer" className="break-all text-sky-200 underline-offset-4 hover:underline">
             {publicUrl}
           </a>
         </div>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <a
+            href={publicUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm font-medium text-sky-100"
+          >
+            <ExternalLink className="h-4 w-4" />
+            Abrir loja
+          </a>
+          <button
+            type="button"
+            onClick={onCopyPublicUrl}
+            className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-100"
+          >
+            <Copy className="h-4 w-4" />
+            {publicUrlCopied ? 'Link copiado' : 'Copiar link'}
+          </button>
+        </div>
         <div className="mt-2 text-xs text-slate-400">
-          A loja so abre sem `404` depois de marcar `Ativar landing publica da loja` e salvar.
+          A loja so abre sem `404` depois de marcar `Ativar landing publica da loja` e salvar. O link acima ja usa o slug normalizado.
         </div>
       </div>
       <StorePanelInput
@@ -126,6 +151,9 @@ export function StoreFeaturedSection({
   onRemoveFeaturedProduct,
   onSnapshotSync,
 }) {
+  const latestProducts = Array.isArray(snapshot?.latestProducts) ? snapshot.latestProducts : []
+  const isSnapshotEmpty = !snapshotLoading && Number(snapshot?.total || 0) === 0
+
   return (
     <div className="grid gap-4">
       <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0a1020] p-4 md:grid-cols-[minmax(0,1fr)_auto]">
@@ -141,7 +169,15 @@ export function StoreFeaturedSection({
             <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
               Ultima sync: {snapshot?.lastSyncAt ? new Date(snapshot.lastSyncAt).toLocaleString('pt-BR') : 'nunca'}
             </span>
+            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+              {isSnapshotEmpty ? 'Pronto para primeira sync' : 'Snapshot ativo'}
+            </span>
           </div>
+          {isSnapshotEmpty ? (
+            <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-3 text-xs leading-6 text-amber-100">
+              A vitrine publica usa apenas o snapshot local. Sincronize agora para trazer os produtos da conta conectada.
+            </div>
+          ) : null}
         </div>
         <div className="flex items-center">
           <Button
@@ -152,10 +188,27 @@ export function StoreFeaturedSection({
             className="h-11 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 text-sm text-emerald-100"
           >
             <RefreshCcw className={`mr-2 h-4 w-4 ${snapshotSyncing ? 'animate-spin' : ''}`} />
-            {snapshotSyncing ? 'Sincronizando...' : 'Sincronizar snapshot'}
+            {snapshotSyncing ? 'Sincronizando...' : isSnapshotEmpty ? 'Fazer primeira sync' : 'Sincronizar snapshot'}
           </Button>
         </div>
       </div>
+
+      {latestProducts.length ? (
+        <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div className="text-sm font-semibold text-white">Ultimos produtos do snapshot</div>
+          <div className="grid gap-2">
+            {latestProducts.map((item) => (
+              <div key={item.ml_item_id || item.slug} className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-[#0a1020] px-3 py-3">
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-medium text-white">{item.titulo}</div>
+                  <div className="mt-1 text-xs text-slate-400">{item.slug}</div>
+                </div>
+                <div className="text-xs text-slate-500">{item.updated_at ? new Date(item.updated_at).toLocaleDateString('pt-BR') : ''}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0a1020] p-4 md:grid-cols-[minmax(0,1fr)_auto]">
         <StorePanelInput label="Buscar produto" value={catalogQuery} onChange={onCatalogQueryChange} placeholder="Digite o nome do produto" />
@@ -189,6 +242,10 @@ export function StoreFeaturedSection({
             </div>
           ))}
         </div>
+      ) : isSnapshotEmpty ? (
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+          Depois da primeira sync, a busca vai listar os produtos locais para escolher o rotativo.
+        </div>
       ) : null}
 
       <div className="grid gap-3">
@@ -212,7 +269,7 @@ export function StoreFeaturedSection({
           </div>
         ) : (
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
-            Escolha os produtos que vao aparecer no rotativo da hero.
+            Escolha os produtos que vao aparecer no rotativo da hero depois da sync do snapshot.
           </div>
         )}
       </div>

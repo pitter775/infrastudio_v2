@@ -386,6 +386,21 @@ CREATE TABLE public.mensagens (
   CONSTRAINT mensagens_pkey PRIMARY KEY (id),
   CONSTRAINT mensagens_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id)
 );
+CREATE TABLE public.mercadolivre_loja_eventos (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  projeto_id uuid NOT NULL,
+  loja_id uuid NOT NULL,
+  loja_slug character varying NOT NULL,
+  tipo character varying NOT NULL,
+  origem character varying,
+  produto_slug character varying,
+  ml_item_id character varying,
+  sessao_id character varying,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  CONSTRAINT mercadolivre_loja_eventos_pkey PRIMARY KEY (id),
+  CONSTRAINT mercadolivre_loja_eventos_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT mercadolivre_loja_eventos_loja_id_fkey FOREIGN KEY (loja_id) REFERENCES public.mercadolivre_lojas(id)
+);
 CREATE TABLE public.mercadolivre_lojas (
   id uuid NOT NULL DEFAULT gen_random_uuid(),
   projeto_id uuid NOT NULL UNIQUE,
@@ -413,6 +428,27 @@ CREATE TABLE public.mercadolivre_lojas (
   CONSTRAINT mercadolivre_lojas_pkey PRIMARY KEY (id),
   CONSTRAINT mercadolivre_lojas_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
   CONSTRAINT mercadolivre_lojas_chat_widget_id_fkey FOREIGN KEY (chat_widget_id) REFERENCES public.chat_widgets(id)
+);
+CREATE TABLE public.mercadolivre_produtos_snapshot (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  projeto_id uuid NOT NULL,
+  ml_item_id character varying NOT NULL,
+  titulo character varying NOT NULL,
+  slug character varying NOT NULL,
+  preco numeric NOT NULL DEFAULT 0,
+  preco_original numeric NOT NULL DEFAULT 0,
+  thumbnail_url text,
+  permalink text,
+  status character varying,
+  estoque integer NOT NULL DEFAULT 0,
+  categoria_id character varying,
+  atributos_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+  ultima_sincronizacao_em timestamp without time zone,
+  created_at timestamp without time zone NOT NULL DEFAULT now(),
+  updated_at timestamp without time zone NOT NULL DEFAULT now(),
+  imagens_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+  CONSTRAINT mercadolivre_produtos_snapshot_pkey PRIMARY KEY (id),
+  CONSTRAINT mercadolivre_produtos_snapshot_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
 );
 CREATE TABLE public.modelos (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

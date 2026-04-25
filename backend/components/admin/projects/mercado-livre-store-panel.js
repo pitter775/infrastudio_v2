@@ -29,6 +29,21 @@ const DEFAULT_MENU_LINKS = [
   { label: 'Contato', href: '#contato' },
 ]
 
+function normalizeStoreSlug(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80)
+}
+
+function buildPublicStoreUrl(project, slug) {
+  const normalizedSlug = normalizeStoreSlug(slug || `${project.slug || project.id}-ml`)
+  return `https://infrastudio.pro/loja/${normalizedSlug}`
+}
+
 function buildInitialDraft(project, store) {
   return {
     active: store ? store.active === true : true,
@@ -85,6 +100,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   const [snapshotLoading, setSnapshotLoading] = useState(true)
   const [snapshotSyncing, setSnapshotSyncing] = useState(false)
   const [snapshot, setSnapshot] = useState(null)
+  const [publicUrlCopied, setPublicUrlCopied] = useState(false)
 
   const widgetOptions = useMemo(
     () => (Array.isArray(project.chatWidgets) ? project.chatWidgets : []).map((widget) => ({
@@ -93,6 +109,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     })),
     [project.chatWidgets],
   )
+  const publicUrl = useMemo(() => buildPublicStoreUrl(project, draft.slug), [draft.slug, project])
 
   useEffect(() => {
     onFooterStateChange?.({
@@ -166,12 +183,23 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     setFeedback(null)
 
     try {
+      const normalizedSlug = normalizeStoreSlug(draft.slug)
+      if (!normalizedSlug) {
+        setFeedback({ tone: 'error', text: 'Informe um slug valido para publicar a loja.' })
+        return
+      }
+
+      if (!String(draft.name || '').trim()) {
+        setFeedback({ tone: 'error', text: 'Informe o nome da loja.' })
+        return
+      }
+
       const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(copyDraftForSave(draft)),
+        body: JSON.stringify(copyDraftForSave({ ...draft, slug: normalizedSlug })),
       })
       const data = await response.json().catch(() => ({}))
 
@@ -228,6 +256,12 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   }
 
   async function handleCatalogSearch() {
+    if (Number(snapshot?.total || 0) === 0) {
+      setCatalogItems([])
+      setFeedback({ tone: 'error', text: 'Sincronize o snapshot antes de buscar produtos para o rotativo.' })
+      return
+    }
+
     setCatalogLoading(true)
     setFeedback(null)
 
@@ -245,6 +279,9 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       }
 
       setCatalogItems(Array.isArray(data.items) ? data.items : [])
+      if (!Array.isArray(data.items) || data.items.length === 0) {
+        setFeedback({ tone: 'error', text: 'Nenhum produto encontrado no snapshot com esse termo.' })
+      }
     } catch {
       setCatalogItems([])
       setFeedback({ tone: 'error', text: 'Nao foi possivel buscar produtos.' })
@@ -273,7 +310,13 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       }
 
       setSnapshot(data.snapshot || null)
-      setFeedback({ tone: 'success', text: `Snapshot sincronizado com ${Number(data.synced || 0)} produtos.` })
+      setFeedback({
+        tone: 'success',
+        text:
+          Number(data.synced || 0) > 0
+            ? `Snapshot sincronizado com ${Number(data.synced || 0)} produtos.`
+            : 'Snapshot sincronizado, mas nenhum produto elegivel foi encontrado nessa conta.',
+      })
     } catch {
       setFeedback({ tone: 'error', text: 'Nao foi possivel sincronizar o snapshot.' })
     } finally {
@@ -325,6 +368,16 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     }))
   }
 
+  async function handleCopyPublicUrl() {
+    try {
+      await navigator.clipboard.writeText(publicUrl)
+      setPublicUrlCopied(true)
+      window.setTimeout(() => setPublicUrlCopied(false), 1600)
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel copiar o link publico.' })
+    }
+  }
+
   if (loading) {
     return <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">Carregando loja...</div>
   }
@@ -368,7 +421,17 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         </div>
       ) : null}
 
-      {activeSubTab === 'general' ? <StoreGeneralSection draft={draft} setDraft={setDraft} project={project} /> : null}
+      {activeSubTab === 'general' ? (
+        <StoreGeneralSection
+          draft={draft}
+          setDraft={setDraft}
+          project={project}
+          publicUrl={publicUrl}
+          publicUrlCopied={publicUrlCopied}
+          snapshotTotal={Number(snapshot?.total || 0)}
+          onCopyPublicUrl={handleCopyPublicUrl}
+        />
+      ) : null}
 
       {activeSubTab === 'appearance' ? <StoreAppearanceSection draft={draft} setDraft={setDraft} widgetOptions={widgetOptions} /> : null}
 

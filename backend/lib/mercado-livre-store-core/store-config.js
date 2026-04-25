@@ -65,6 +65,37 @@ function buildStorePayload(project, input, current = null) {
   }
 }
 
+async function validateStorePayload(supabase, project, payload) {
+  if (!payload.nome) {
+    return "Informe o nome da loja."
+  }
+
+  if (!payload.slug) {
+    return "Informe um slug valido para a loja."
+  }
+
+  if (payload.chat_widget_id) {
+    const { data, error } = await supabase
+      .from("chat_widgets")
+      .select("id")
+      .eq("id", payload.chat_widget_id)
+      .eq("projeto_id", project.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (error) {
+      console.error("[mercado-livre-store] failed to validate store widget", error)
+      return "Nao foi possivel validar o widget selecionado."
+    }
+
+    if (!data?.id) {
+      return "O widget selecionado nao pertence a este projeto."
+    }
+  }
+
+  return null
+}
+
 async function getMercadoLivreStoreByProjectId(projectId, options = {}) {
   if (!projectId) {
     return null
@@ -102,6 +133,11 @@ async function upsertMercadoLivreStoreForProject(project, input = {}, options = 
   const supabase = options.supabase ?? getSupabaseAdminClient()
   const current = await getMercadoLivreStoreByProjectId(project.id, { supabase })
   const payload = buildStorePayload(project, input, current)
+  const validationError = await validateStorePayload(supabase, project, payload)
+  if (validationError) {
+    return { store: null, error: validationError }
+  }
+
   payload.slug = await buildUniqueStoreSlug(supabase, payload.slug, current?.id || null)
 
   const query = supabase

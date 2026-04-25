@@ -21,6 +21,15 @@ function sanitizeText(value, max = 0) {
   return max > 0 ? normalized.slice(0, max) : normalized
 }
 
+function normalizeMercadoLivreImageUrl(value) {
+  const normalized = sanitizeText(value, 500)
+  if (!normalized) {
+    return ""
+  }
+
+  return normalized.replace(/-([A-Z])(\.(jpg|jpeg|png|webp)(\?.*)?)$/i, "-O$2")
+}
+
 function sanitizeColor(value) {
   const normalized = sanitizeText(value, 16)
   return /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(normalized) ? normalized : "#0ea5e9"
@@ -124,6 +133,10 @@ function normalizeSnapshotProduct(row) {
   }
 
   const title = sanitizeText(row.titulo, 180) || "Produto"
+  const images = Array.isArray(row.imagens_json)
+    ? row.imagens_json.map((item) => normalizeMercadoLivreImageUrl(item)).filter(Boolean).slice(0, 8)
+    : []
+  const thumbnail = normalizeMercadoLivreImageUrl(row.thumbnail_url) || images[0] || ""
   return {
     id: row.ml_item_id || row.id || null,
     itemId: row.ml_item_id || row.id || null,
@@ -131,7 +144,8 @@ function normalizeSnapshotProduct(row) {
     slug: sanitizeText(row.slug, 180) || slugifyProduct(title),
     price: Number(row.preco ?? 0) || 0,
     originalPrice: Number(row.preco_original ?? 0) || 0,
-    thumbnail: sanitizeText(row.thumbnail_url, 500),
+    thumbnail,
+    images,
     permalink: sanitizeText(row.permalink, 500),
     status: sanitizeText(row.status, 40),
     stock: Number(row.estoque ?? 0) || 0,

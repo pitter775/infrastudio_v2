@@ -1,9 +1,15 @@
+import { getAgenteAtivo } from "@/lib/agentes"
 import { getChatWidgetByProjetoAgente } from "@/lib/chat-widgets"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 import { STORE_FIELDS } from "./constants"
 import { getSnapshotProductBySlug, listSnapshotCategoryFacetsByProjectId, listSnapshotProductsByProjectId } from "./snapshot"
 import { normalizeSnapshotProduct, normalizeStore, sanitizeText, slugifyProduct } from "./sanitize"
+
+function isMissingImagesColumnError(error) {
+  const message = String(error?.message || error || "")
+  return /imagens_json/i.test(message) || /column .*imagens_json/i.test(message)
+}
 
 async function resolveFeaturedProducts(project, store, options = {}) {
   const featured = Array.isArray(store?.featuredProducts) ? store.featuredProducts : []
@@ -17,11 +23,22 @@ async function resolveFeaturedProducts(project, store, options = {}) {
     return featured.slice(0, 6).map((item, index) => ({ ...item, slug: item.slug || slugifyProduct(item.title), order: index }))
   }
 
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at")
+    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, updated_at")
     .eq("projeto_id", project.id)
     .in("ml_item_id", itemIds)
+
+  if (error && isMissingImagesColumnError(error)) {
+    const fallbackResult = await supabase
+      .from("mercadolivre_produtos_snapshot")
+      .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at")
+      .eq("projeto_id", project.id)
+      .in("ml_item_id", itemIds)
+
+    data = fallbackResult.data
+    error = fallbackResult.error
+  }
 
   if (error) {
     console.error("[mercado-livre-store] failed to resolve featured snapshot products", error)
@@ -52,6 +69,11 @@ async function resolvePublicWidget(supabase, projectId, store) {
     return null
   }
 
+  const activeAgent = await getAgenteAtivo(projectId)
+  if (!activeAgent?.id) {
+    return null
+  }
+
   if (store.chatWidgetId) {
     const { data: widgetRow } = await supabase
       .from("chat_widgets")
@@ -64,7 +86,7 @@ async function resolvePublicWidget(supabase, projectId, store) {
       return {
         slug: widgetRow.slug,
         projetoId: widgetRow.projeto_id,
-        agentId: widgetRow.agente_id,
+        agentId: widgetRow.agente_id || activeAgent.id,
         nome: widgetRow.nome,
         tema: widgetRow.tema,
         corPrimaria: widgetRow.cor_primaria,
@@ -73,10 +95,19 @@ async function resolvePublicWidget(supabase, projectId, store) {
     }
   }
 
-  return getChatWidgetByProjetoAgente({
+  const fallbackWidget = await getChatWidgetByProjetoAgente({
     projetoId,
-    agenteId: null,
+    agenteId: activeAgent.id,
   })
+
+  if (!fallbackWidget?.slug) {
+    return null
+  }
+
+  return {
+    ...fallbackWidget,
+    agentId: fallbackWidget.agenteId || activeAgent.id,
+  }
 }
 
 async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {

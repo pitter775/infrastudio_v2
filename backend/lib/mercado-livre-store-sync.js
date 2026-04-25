@@ -13,8 +13,15 @@ function sanitizeText(value, max = 0) {
   return max > 0 ? normalized.slice(0, max) : normalized
 }
 
+function sanitizeImageList(value) {
+  const list = Array.isArray(value) ? value : []
+  return list.map((item) => sanitizeText(item, 500)).filter(Boolean).slice(0, 8)
+}
+
 function buildSnapshotRow(projectId, item) {
   const now = new Date().toISOString()
+  const images = sanitizeImageList(item?.pictures)
+  const thumbnail = sanitizeText(images[0], 500) || sanitizeText(item?.thumbnail, 500)
   return {
     projeto_id: projectId,
     ml_item_id: sanitizeText(item?.id, 60),
@@ -22,7 +29,8 @@ function buildSnapshotRow(projectId, item) {
     slug: sanitizeText(slugifyProduct(item?.title), 180),
     preco: Number(item?.price ?? 0) || 0,
     preco_original: 0,
-    thumbnail_url: sanitizeText(item?.thumbnail, 500),
+    thumbnail_url: thumbnail,
+    imagens_json: images,
     permalink: sanitizeText(item?.permalink, 500),
     status: sanitizeText(item?.status, 40),
     estoque: Number(item?.availableQuantity ?? 0) || 0,

@@ -3,13 +3,15 @@
 import Link from 'next/link'
 import { ExternalLink, MessageCircle } from 'lucide-react'
 
-import { openStoreChat } from '@/components/store/store-utils'
+import { openStoreChat, trackStoreEvent } from '@/components/store/store-utils'
 
 export function StoreProductActions({
   accentColor,
   chatDescription = null,
   openPageHref = null,
   permalink,
+  product = null,
+  storeSlug = null,
   widgetSlug,
 }) {
   const hasWidget = Boolean(widgetSlug)
@@ -21,7 +23,16 @@ export function StoreProductActions({
           href={permalink}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] px-5 text-sm font-semibold text-white"
+          onClick={() =>
+            trackStoreEvent({
+              storeSlug,
+              type: 'product_buy_click',
+              source: openPageHref ? 'product_detail' : 'sheet',
+              product,
+              dedupeKey: `${storeSlug}:product_buy_click:${product?.slug || 'unknown'}`,
+            })
+          }
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] px-5 text-sm font-semibold text-white shadow-[0_18px_38px_-24px_rgba(37,99,235,0.45)] transition hover:-translate-y-0.5"
           style={{ backgroundColor: accentColor }}
         >
           <ExternalLink className="h-4 w-4" />
@@ -29,9 +40,18 @@ export function StoreProductActions({
         </a>
         <button
           type="button"
-          onClick={() => openStoreChat(widgetSlug)}
+          onClick={() => {
+            trackStoreEvent({
+              storeSlug,
+              type: 'product_chat_click',
+              source: openPageHref ? 'product_detail' : 'sheet',
+              product,
+              dedupeKey: `${storeSlug}:product_chat_click:${product?.slug || 'unknown'}`,
+            })
+            openStoreChat(widgetSlug)
+          }}
           disabled={!hasWidget}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-[18px] border border-black/10 bg-[#faf7f0] px-5 text-sm font-semibold text-slate-900 disabled:opacity-60"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-[#faf8f3] px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white disabled:opacity-60"
         >
           <MessageCircle className="h-4 w-4" />
           Tirar duvida sobre este produto

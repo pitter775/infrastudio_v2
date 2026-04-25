@@ -3,6 +3,15 @@ function sanitizeString(value) {
   return normalized || ""
 }
 
+function normalizeMercadoLivreImageUrl(value) {
+  const normalized = sanitizeString(value)
+  if (!normalized) {
+    return ""
+  }
+
+  return normalized.replace(/-([A-Z])(\.(jpg|jpeg|png|webp)(\?.*)?)$/i, "-O$2")
+}
+
 export function mapMercadoLivreItem(payload) {
   const attributes = Array.isArray(payload?.attributes)
     ? payload.attributes
@@ -16,7 +25,7 @@ export function mapMercadoLivreItem(payload) {
     : []
 
   const pictures = Array.isArray(payload?.pictures)
-    ? payload.pictures.map((picture) => sanitizeString(picture?.secure_url || picture?.url)).filter(Boolean)
+    ? payload.pictures.map((picture) => normalizeMercadoLivreImageUrl(picture?.secure_url || picture?.url)).filter(Boolean)
     : []
   const variations = Array.isArray(payload?.variations)
     ? payload.variations
@@ -45,7 +54,7 @@ export function mapMercadoLivreItem(payload) {
     availableQuantity: Number(payload?.available_quantity ?? 0),
     status: sanitizeString(payload?.status),
     permalink: sanitizeString(payload?.permalink),
-    thumbnail: sanitizeString(payload?.thumbnail),
+    thumbnail: normalizeMercadoLivreImageUrl(payload?.thumbnail),
     sellerId: sanitizeString(payload?.seller_id),
     sellerName: sanitizeString(payload?.seller_name),
     condition: sanitizeString(payload?.condition),

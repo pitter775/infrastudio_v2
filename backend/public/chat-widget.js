@@ -86,6 +86,7 @@
     var messages = [];
     var attachments = [];
     var leadContact = null;
+    var leadCaptureDismissed = false;
     var contactBoxOpen = false;
     var pendingAgendaSelection = null;
     var inlineActionState = null;
@@ -184,6 +185,7 @@
         chatId = typeof savedState.chatId === "string" ? savedState.chatId : null;
         messages = Array.isArray(savedState.messages) ? savedState.messages : [];
         leadContact = savedState.leadContact && typeof savedState.leadContact === "object" ? savedState.leadContact : null;
+        leadCaptureDismissed = savedState.leadCaptureDismissed === true;
         if (hasLeadIdentity(leadContact)) {
           externalIdentifier = getLeadIdentifier(leadContact);
         }
@@ -319,6 +321,28 @@
     var composerFrame = theme === "light"
       ? "color-mix(in srgb, " + accent + " 14%, rgba(255,255,255,0.9))"
       : "rgba(0,0,0,0.42)";
+    var contactTitleText = theme === "light" ? "#334155" : "rgba(226,232,240,0.9)";
+    var contactSubtitleText = theme === "light" ? "#0f172a" : "#f8fafc";
+    var contactDescriptionText = theme === "light" ? "#64748b" : "rgba(203,213,225,0.82)";
+    var contactInputBg = theme === "light" ? "rgba(255,255,255,0.96)" : "rgba(2,6,23,0.28)";
+    var contactInputBorder = theme === "light"
+      ? "rgba(148,163,184,0.28)"
+      : "rgba(148,163,184,0.18)";
+    var contactInputText = theme === "light" ? "#0f172a" : "rgba(248,250,252,0.94)";
+    var contactInputPlaceholder = theme === "light" ? "#94a3b8" : "rgba(148,163,184,0.76)";
+    var contactActionText = theme === "light" ? "#475569" : "rgba(203,213,225,0.88)";
+    var contactActionBorder = theme === "light"
+      ? "rgba(148,163,184,0.24)"
+      : "rgba(148,163,184,0.16)";
+    var contactPrimaryBg = theme === "light"
+      ? "color-mix(in srgb, " + accent + " 14%, white 86%)"
+      : "rgba(96,165,250,0.14)";
+    var contactPrimaryBorder = theme === "light"
+      ? "color-mix(in srgb, " + accent + " 26%, rgba(148,163,184,0.2))"
+      : "rgba(96,165,250,0.22)";
+    var contactPrimaryText = theme === "light"
+      ? "color-mix(in srgb, " + accent + " 82%, #0f172a 18%)"
+      : "white";
 
     style.textContent = [
       ":host { all: initial; }",
@@ -455,17 +479,19 @@
       ".chat-emoji-picker.is-open { display: grid; }",
       ".chat-emoji-button { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; border: 0; border-radius: 10px; background: " + (theme === "light" ? "rgba(248,250,252,1)" : "rgba(255,255,255,0.06)") + "; font-size: 18px; cursor: pointer; transition: transform .18s ease, background-color .18s ease; }",
       ".chat-emoji-button:hover { transform: translateY(-1px) scale(1.03); background: " + (theme === "light" ? "rgba(241,245,249,1)" : "rgba(255,255,255,0.12)") + "; }",
-      ".chat-contact-box { display: none; gap: 8px; min-height: 22px; border-radius: 12px; border: 1px solid rgba(96,165,250,0.14); background: #0b1b32; padding: 10px; }",
+      ".chat-contact-box { display: none; gap: 8px; min-height: 22px; border-radius: 12px; border: 0; background: transparent; padding: 2px 0 0; box-shadow: none; }",
       ".chat-contact-box.is-open { display: grid; }",
-      ".chat-contact-title { font-size: 11px; font-weight: 700; color: rgba(226,232,240,0.9); }",
-      ".chat-contact-subtitle { font-size: 12px; font-weight: 700; color: #f8fafc; }",
-      ".chat-contact-description { font-size: 11px; line-height: 1.45; color: rgba(203,213,225,0.82); }",
+      ".chat-contact-title { font-size: 11px; font-weight: 700; color: " + contactTitleText + "; }",
+      ".chat-contact-subtitle { font-size: 12px; font-weight: 700; color: " + contactSubtitleText + "; }",
+      ".chat-contact-description { font-size: 11px; line-height: 1.45; color: " + contactDescriptionText + "; }",
       ".chat-contact-fields { display: grid; gap: 7px; }",
-      ".chat-contact-input { width: 100%; box-sizing: border-box; border: 1px solid rgba(148,163,184,0.18); border-radius: 8px; background: rgba(2,6,23,0.28); color: rgba(248,250,252,0.94); padding: 8px 9px; font: inherit; font-size: 12px; outline: none; }",
-      ".chat-contact-input::placeholder { color: rgba(148,163,184,0.76); }",
+      ".chat-contact-input { width: 100%; box-sizing: border-box; border: 1px solid " + contactInputBorder + "; border-radius: 8px; background: " + contactInputBg + "; color: " + contactInputText + "; padding: 8px 9px; font: inherit; font-size: 12px; outline: none; }",
+      ".chat-contact-input::placeholder { color: " + contactInputPlaceholder + "; }",
+      ".chat-contact-input:focus { border-color: " + (theme === "light" ? "color-mix(in srgb, " + accent + " 28%, rgba(148,163,184,0.24))" : "rgba(96,165,250,0.28)") + "; box-shadow: " + (theme === "light" ? "0 0 0 3px color-mix(in srgb, " + accent + " 10%, white 90%)" : "none") + "; }",
       ".chat-contact-actions { display: flex; justify-content: flex-end; gap: 8px; }",
-      ".chat-contact-action { border: 1px solid rgba(148,163,184,0.16); border-radius: 8px; background: transparent; color: rgba(203,213,225,0.88); padding: 7px 10px; font: inherit; font-size: 11px; cursor: pointer; }",
-      ".chat-contact-action.primary { border-color: rgba(96,165,250,0.22); background: rgba(96,165,250,0.14); color: white; }",
+      ".chat-contact-action { border: 1px solid " + contactActionBorder + "; border-radius: 8px; background: " + (theme === "light" ? "rgba(255,255,255,0.76)" : "transparent") + "; color: " + contactActionText + "; padding: 7px 10px; font: inherit; font-size: 11px; cursor: pointer; }",
+      ".chat-contact-action:hover { border-color: " + (theme === "light" ? "color-mix(in srgb, " + accent + " 20%, rgba(148,163,184,0.24))" : "rgba(96,165,250,0.18)") + "; background: " + (theme === "light" ? "rgba(255,255,255,0.96)" : "rgba(255,255,255,0.04)") + "; }",
+      ".chat-contact-action.primary { border-color: " + contactPrimaryBorder + "; background: " + contactPrimaryBg + "; color: " + contactPrimaryText + "; }",
       ".chat-send { width: 42px; height: 42px; flex: 0 0 42px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 12px; background: transparent; color: color-mix(in srgb, " + accent + " 78%, white 22%); padding: 0; cursor: pointer; box-shadow: none; transition: transform .18s ease, box-shadow .18s ease, filter .18s ease, background-color .18s ease, color .18s ease; }",
       ".chat-send .chat-icon { width: 18px; height: 18px; }",
       ".chat-send.has-value { background: linear-gradient(180deg, color-mix(in srgb, " + accent + " 92%, white 8%), color-mix(in srgb, " + accent + " 74%, #000 26%)); color: white; box-shadow: none; }",
@@ -1434,6 +1460,7 @@
             chatId: chatId,
             messages: persistedMessages,
             leadContact: leadContact,
+            leadCaptureDismissed: leadCaptureDismissed,
             lastSyncedMessageAt: lastSyncedMessageAt,
           }),
         );
@@ -1591,7 +1618,7 @@
       var draftLead = getDraftLeadContact();
       var canIdentify = hasLeadIdentity(draftLead);
       var hasMessage = Boolean(String(input.value || "").trim()) || attachments.length > 0;
-      var hasValue = !loading && (contactBoxOpen ? canIdentify : (hasLead && hasMessage));
+      var hasValue = !loading && (contactBoxOpen ? canIdentify : hasMessage);
       sendButton.classList.toggle("has-value", hasValue);
       sendButton.disabled = loading || !hasValue;
     }
@@ -1950,7 +1977,7 @@
       if (open) {
         panel.classList.remove("closing");
         panel.classList.add("open");
-        if (!messages.length && !hasLeadIdentity(leadContact)) {
+        if (!messages.length && !hasLeadIdentity(leadContact) && !leadCaptureDismissed) {
           contactBoxOpen = true;
           syncContactBox();
         }
@@ -2117,11 +2144,6 @@
       var settings = options && typeof options === "object" ? options : {};
       var trimmed = String(text || "").trim();
       var outboundAttachments = attachments.slice();
-      if (!hasLeadIdentity(leadContact)) {
-        contactBoxOpen = true;
-        syncContactBox();
-        return;
-      }
       if ((!trimmed && !outboundAttachments.length) || loading || requestInFlight) {
         return;
       }
@@ -2295,11 +2317,9 @@
       syncContactBox();
     });
     addListener(contactCancelButton, "click", function () {
-      if (!hasLeadIdentity(leadContact) && !messages.length) {
-        contactNameInput.focus();
-        return;
-      }
+      leadCaptureDismissed = true;
       contactBoxOpen = false;
+      persist();
       syncContactBox();
       input.focus();
     });
@@ -2310,6 +2330,7 @@
         return;
       }
       leadContact = nextLead;
+      leadCaptureDismissed = false;
       externalIdentifier = getLeadIdentifier(leadContact) || externalIdentifier;
       contactBoxOpen = false;
       persist();

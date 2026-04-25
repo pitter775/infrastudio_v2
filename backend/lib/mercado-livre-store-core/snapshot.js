@@ -1,6 +1,38 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
-import { normalizeSnapshotProduct, sanitizeText, sortSnapshotProducts } from "./sanitize"
+import { normalizeSnapshotProduct, sanitizeText } from "./sanitize"
+
+const SNAPSHOT_SELECT_WITH_IMAGES =
+  "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, updated_at"
+const SNAPSHOT_SELECT_LEGACY =
+  "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at"
+
+function isMissingImagesColumnError(error) {
+  const message = String(error?.message || error || "")
+  return /imagens_json/i.test(message) || /column .*imagens_json/i.test(message)
+}
+
+function applySnapshotSort(query, sort) {
+  if (sort === "price_asc") {
+    return query
+      .order("preco", { ascending: true, nullsFirst: false })
+      .order("updated_at", { ascending: false, nullsFirst: false })
+  }
+
+  if (sort === "price_desc") {
+    return query
+      .order("preco", { ascending: false, nullsFirst: false })
+      .order("updated_at", { ascending: false, nullsFirst: false })
+  }
+
+  if (sort === "title") {
+    return query
+      .order("titulo", { ascending: true, nullsFirst: false })
+      .order("updated_at", { ascending: false, nullsFirst: false })
+  }
+
+  return query.order("updated_at", { ascending: false, nullsFirst: false })
+}
 
 async function listSnapshotProductsByProjectId(projectId, options = {}) {
   if (!projectId) {
@@ -16,14 +48,15 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
   const categoryId = sanitizeText(options.categoryId, 80)
   const sort = sanitizeText(options.sort, 32) || "recent"
 
-  let query = supabase
+  let query = applySnapshotSort(
+    supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at", {
+    .select(SNAPSHOT_SELECT_WITH_IMAGES, {
       count: "exact",
     })
-    .eq("projeto_id", projectId)
-    .order("updated_at", { ascending: false, nullsFirst: false })
-    .range(offset, offset + limit - 1)
+    .eq("projeto_id", projectId),
+    sort
+  )
 
   if (excludeSlug) {
     query = query.neq("slug", excludeSlug)
@@ -37,13 +70,46 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
     query = query.eq("categoria_id", categoryId)
   }
 
-  const { data, error, count } = await query
+  query = query.range(offset, offset + limit - 1)
+
+  let { data, error, count } = await query
+  if (error && isMissingImagesColumnError(error)) {
+    let fallbackQuery = applySnapshotSort(
+      supabase
+      .from("mercadolivre_produtos_snapshot")
+      .select(SNAPSHOT_SELECT_LEGACY, {
+        count: "exact",
+      })
+      .eq("projeto_id", projectId),
+      sort
+    )
+
+    if (excludeSlug) {
+      fallbackQuery = fallbackQuery.neq("slug", excludeSlug)
+    }
+
+    if (searchTerm) {
+      fallbackQuery = fallbackQuery.ilike("titulo", `%${searchTerm}%`)
+    }
+
+    if (categoryId) {
+      fallbackQuery = fallbackQuery.eq("categoria_id", categoryId)
+    }
+
+    fallbackQuery = fallbackQuery.range(offset, offset + limit - 1)
+
+    const fallbackResult = await fallbackQuery
+    data = fallbackResult.data
+    error = fallbackResult.error
+    count = fallbackResult.count
+  }
+
   if (error) {
     console.error("[mercado-livre-store] failed to list snapshot products", error)
     return { items: [], hasMore: false }
   }
 
-  const items = sortSnapshotProducts(Array.isArray(data) ? data.map(normalizeSnapshotProduct).filter(Boolean) : [], sort)
+  const items = Array.isArray(data) ? data.map(normalizeSnapshotProduct).filter(Boolean) : []
   return {
     items,
     hasMore: Number(count || 0) > offset + items.length,
@@ -57,12 +123,24 @@ async function getSnapshotProductBySlug(projectId, productSlug, options = {}) {
 
   const supabase = options.supabase ?? getSupabaseAdminClient()
   const normalizedSlug = sanitizeText(productSlug, 180)
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at")
+    .select(SNAPSHOT_SELECT_WITH_IMAGES)
     .eq("projeto_id", projectId)
     .eq("slug", normalizedSlug)
     .maybeSingle()
+
+  if (error && isMissingImagesColumnError(error)) {
+    const fallbackResult = await supabase
+      .from("mercadolivre_produtos_snapshot")
+      .select(SNAPSHOT_SELECT_LEGACY)
+      .eq("projeto_id", projectId)
+      .eq("slug", normalizedSlug)
+      .maybeSingle()
+
+    data = fallbackResult.data
+    error = fallbackResult.error
+  }
 
   if (error) {
     console.error("[mercado-livre-store] failed to load snapshot product by slug", error)
