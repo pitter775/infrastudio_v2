@@ -199,6 +199,29 @@ export function MercadoLivreStorefront({
 
   return (
     <>
+      <style jsx global>{`
+        html {
+          scrollbar-color: #cbd5e1 #f8fafc;
+        }
+
+        body::-webkit-scrollbar {
+          width: 12px;
+        }
+
+        body::-webkit-scrollbar-track {
+          background: #f8fafc;
+        }
+
+        body::-webkit-scrollbar-thumb {
+          background: #cbd5e1;
+          border: 3px solid #f8fafc;
+          border-radius: 999px;
+        }
+
+        body::-webkit-scrollbar-thumb:hover {
+          background: #94a3b8;
+        }
+      `}</style>
       <div
         className="min-h-screen scroll-smooth bg-[#f7f4ee] text-slate-900"
         style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}
@@ -239,7 +262,7 @@ export function MercadoLivreStorefront({
                     className={`inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-[13px] font-semibold transition ${
                       activeSection === item.href.replace('#', '') || (item.href === '#topo' && activeSection === 'topo')
                         ? 'bg-[#155eef] text-white shadow-[0_14px_28px_-18px_rgba(21,94,239,0.5)]'
-                        : 'text-slate-600 hover:bg-slate-100 hover:text-slate-950'
+                        : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white/72 hover:text-slate-950'
                     }`}
                   >
                     {(() => {
@@ -334,29 +357,6 @@ export function MercadoLivreStorefront({
                   ) : null}
                 </div>
 
-                <div className="mt-10 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-[16px] border border-slate-200/80 bg-white/92 p-4 shadow-[0_18px_42px_-36px_rgba(15,23,42,0.2)]">
-                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-white">
-                      <Store className="h-4 w-4" />
-                    </div>
-                    <div className="mt-4 text-sm font-semibold text-slate-950">Vitrine organizada</div>
-                    <div className="mt-2 text-sm leading-6 text-slate-600">Produtos destacados, busca rapida e acesso direto pela loja.</div>
-                  </div>
-                  <div className="rounded-[16px] border border-slate-200/80 bg-white/92 p-4 shadow-[0_18px_42px_-36px_rgba(15,23,42,0.2)]">
-                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl text-white" style={{ backgroundColor: store.accentColor }}>
-                      <MessageCircle className="h-4 w-4" />
-                    </div>
-                    <div className="mt-4 text-sm font-semibold text-slate-950">Atendimento direto</div>
-                    <div className="mt-2 text-sm leading-6 text-slate-600">O cliente navega na loja e tira duvidas pelo chat do projeto.</div>
-                  </div>
-                  <div className="rounded-[16px] border border-slate-200/80 bg-white/92 p-4 shadow-[0_18px_42px_-36px_rgba(15,23,42,0.2)]">
-                    <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500 text-white">
-                      <ShieldCheck className="h-4 w-4" />
-                    </div>
-                    <div className="mt-4 text-sm font-semibold text-slate-950">Compra segura</div>
-                    <div className="mt-2 text-sm leading-6 text-slate-600">A compra final continua no Mercado Livre com o fluxo oficial.</div>
-                  </div>
-                </div>
               </motion.div>
 
               <motion.div
@@ -366,7 +366,7 @@ export function MercadoLivreStorefront({
                 transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
                 className="grid gap-4"
               >
-                <div className="rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_28px_60px_-40px_rgba(15,23,42,0.18)]">
+                <div className="rounded-[24px] p-4">
                   {activeSlide ? (
                     <button
                       type="button"
@@ -382,7 +382,7 @@ export function MercadoLivreStorefront({
                       }}
                       className="relative grid w-full text-left"
                     >
-                      <div className="relative aspect-[4/3] overflow-hidden rounded-[20px] bg-[#e8edf4]">
+                      <div className="relative aspect-[4/3] overflow-hidden rounded-[24px] bg-[#e8edf4] shadow-[0_28px_60px_-40px_rgba(15,23,42,0.18)]">
                         {activeSlideImages[activeSlideImageIndex] ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -474,23 +474,6 @@ export function MercadoLivreStorefront({
                     </div>
                   )}
                 </div>
-
-                {slides.length > 1 ? (
-                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                    {slides.map((item, index) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setActiveIndex(index)}
-                        className={`rounded-2xl border p-3 text-left transition ${
-                          activeIndex === index ? 'border-slate-900 bg-slate-900 text-white shadow-[0_16px_34px_-24px_rgba(15,23,42,0.28)]' : 'border-slate-200 bg-white text-slate-900 hover:-translate-y-0.5'
-                        }`}
-                      >
-                        <div className="line-clamp-2 text-xs font-semibold">{item.title}</div>
-                      </button>
-                    ))}
-                  </div>
-                ) : null}
               </motion.div>
             </div>
           </section>
@@ -641,6 +624,15 @@ export function MercadoLivreStorefront({
             <div>
               <div className="text-lg font-semibold text-slate-950">{store.name}</div>
               <div className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{store.footerText}</div>
+              <a
+                href="https://www.infrastudio.pro"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 inline-flex items-center transition hover:opacity-100"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/infra.png" alt="InfraStudio" loading="lazy" decoding="async" className="h-7 w-auto opacity-80" />
+              </a>
             </div>
             <div className="flex flex-wrap gap-3">
               {store.menuLinks.map((item) => (

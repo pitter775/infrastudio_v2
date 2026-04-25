@@ -110,7 +110,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, onOpenSheet,
 
         <div className={compact ? 'flex min-h-[240px] flex-1 flex-col gap-4 p-5' : 'flex min-h-[260px] flex-1 flex-col gap-4 p-6'}>
           <div className="flex items-center justify-between gap-4">
-            <span className={compact ? 'text-[1.85rem] font-bold leading-none' : 'text-[2rem] font-bold leading-none'} style={{ color: accentColor }}>
+            <span className={compact ? 'text-[1.45rem] font-bold leading-none' : 'text-[1.55rem] font-bold leading-none'} style={{ color: accentColor }}>
               {formatStoreCurrency(product.price, product.currencyId)}
             </span>
             <span className="inline-flex items-center gap-1 text-xs text-slate-500">
@@ -119,7 +119,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, onOpenSheet,
             </span>
           </div>
 
-          <div className={compact ? 'line-clamp-2 text-[1.7rem] font-bold leading-tight tracking-[-0.03em] text-slate-950' : 'line-clamp-2 text-[1.8rem] font-bold leading-tight tracking-[-0.03em] text-slate-950'}>
+          <div className={compact ? 'line-clamp-2 text-[1.2rem] font-bold leading-tight tracking-[-0.025em] text-slate-950' : 'line-clamp-2 text-[1.24rem] font-bold leading-tight tracking-[-0.025em] text-slate-950'}>
             {product.title}
           </div>
 
