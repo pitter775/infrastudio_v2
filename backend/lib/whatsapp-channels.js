@@ -59,23 +59,26 @@ export function resolveSavedContactFlags(sessionData) {
 function normalizeSessionPatch(patch) {
   const safePatch = isPlainObject(patch) ? { ...patch } : {}
   const rawContact = isPlainObject(safePatch.rawContact) ? { ...safePatch.rawContact } : null
+  const resolvedConnectionStatus = resolveWorkerSnapshotStatus(safePatch)
   const nestedFlags = resolveSavedContactFlags({
     ...safePatch,
     ...(rawContact ? { rawContact } : {}),
   })
 
-  if (!nestedFlags) {
-    return safePatch
-  }
-
   const nextPatch = {
     ...safePatch,
-    savedContactFlags: {
-      ...(isPlainObject(safePatch.savedContactFlags) ? safePatch.savedContactFlags : {}),
-      ...nestedFlags,
-    },
+    ...(resolvedConnectionStatus ? { connectionStatus: resolvedConnectionStatus } : {}),
+  }
+
+  if (!nestedFlags) {
+    return nextPatch
+  }
+
+  nextPatch.savedContactFlags = {
+    ...(isPlainObject(safePatch.savedContactFlags) ? safePatch.savedContactFlags : {}),
     ...nestedFlags,
   }
+  Object.assign(nextPatch, nestedFlags)
 
   if (rawContact) {
     nextPatch.rawContact = {
@@ -125,6 +128,7 @@ function sanitizeWorkerMessage(value) {
 function mapChannel(row) {
   const session = row.session_data && typeof row.session_data === "object" ? row.session_data : {}
   const savedContactFlags = resolveSavedContactFlags(session)
+  const resolvedConnectionStatus = resolveWorkerSnapshotStatus(session) || "desconectado"
 
   return {
     id: row.id,
@@ -132,7 +136,7 @@ function mapChannel(row) {
     agenteId: row.agente_id,
     number: row.numero || "",
     status: row.status || "ativo",
-    connectionStatus: session.connectionStatus || session.status || "desconectado",
+    connectionStatus: resolvedConnectionStatus,
     qrCodeDataUrl: session.qrCodeDataUrl || null,
     qrCodeText: session.qrCodeText || null,
     notes: sanitizeWorkerMessage(session.notes || ""),
