@@ -1269,7 +1269,9 @@ export async function updateProjectBillingSettings(input, deps = {}) {
 
     const existing = await supabase
       .from("projetos_planos")
-      .select("id")
+      .select(
+        "id, plano_id, nome_plano, limite_tokens_input_mensal, limite_tokens_output_mensal, limite_tokens_total_mensal, limite_custo_mensal",
+      )
       .eq("projeto_id", input.projectId)
       .maybeSingle()
 
@@ -1291,6 +1293,80 @@ export async function updateProjectBillingSettings(input, deps = {}) {
       })
       if (error) {
         console.error("[billing] failed to create project billing config", error)
+        return null
+      }
+    }
+
+    const previous = existing.data ?? null
+    const nextPlanId = payload.plano_id ?? null
+    const planChanged = previous?.plano_id !== nextPlanId
+    const limitsChanged =
+      normalizeNullableNumber(previous?.limite_tokens_input_mensal) !==
+        normalizeNullableNumber(payload.limite_tokens_input_mensal) ||
+      normalizeNullableNumber(previous?.limite_tokens_output_mensal) !==
+        normalizeNullableNumber(payload.limite_tokens_output_mensal) ||
+      normalizeNullableNumber(previous?.limite_tokens_total_mensal) !==
+        normalizeNullableNumber(payload.limite_tokens_total_mensal) ||
+      normalizeNullableNumber(previous?.limite_custo_mensal) !==
+        normalizeNullableNumber(payload.limite_custo_mensal)
+
+    if (input.syncActiveSubscription === true && nextPlanId) {
+      const subscriptionPayload = {
+        projeto_id: input.projectId,
+        plano_id: nextPlanId,
+        status: "ativo",
+        data_inicio: now,
+        data_fim: null,
+        renovar_automatico: true,
+        updated_at: now,
+      }
+      const activeSubscription = await supabase
+        .from("projetos_assinaturas")
+        .select("id")
+        .eq("projeto_id", input.projectId)
+        .order("updated_at", { ascending: false, nullsFirst: false })
+        .limit(1)
+        .maybeSingle()
+
+      if (activeSubscription.data?.id) {
+        const { error: subscriptionError } = await supabase
+          .from("projetos_assinaturas")
+          .update(subscriptionPayload)
+          .eq("id", activeSubscription.data.id)
+
+        if (subscriptionError) {
+          console.error("[billing] failed to sync active subscription", subscriptionError)
+          return null
+        }
+      } else {
+        const { error: subscriptionError } = await supabase.from("projetos_assinaturas").insert({
+          ...subscriptionPayload,
+          created_at: now,
+        })
+
+        if (subscriptionError) {
+          console.error("[billing] failed to create active subscription", subscriptionError)
+          return null
+        }
+      }
+    }
+
+    if (input.restartCycleOnPlanChange === true && (planChanged || limitsChanged)) {
+      const cycle = await restartProjectBillingCycle(
+        input.projectId,
+        {
+          planId: nextPlanId,
+          limits: {
+            inputTokens: payload.limite_tokens_input_mensal,
+            outputTokens: payload.limite_tokens_output_mensal,
+            totalTokens: payload.limite_tokens_total_mensal,
+            monthlyCost: payload.limite_custo_mensal,
+          },
+        },
+        { supabase },
+      )
+
+      if (!cycle) {
         return null
       }
     }

@@ -53,6 +53,8 @@ export async function PATCH(request) {
       totalTokens: body.limits?.totalTokens ?? null,
       monthlyCost: body.limits?.monthlyCost ?? null,
     },
+    syncActiveSubscription: true,
+    restartCycleOnPlanChange: true,
   })
 
   if (!billing) {

@@ -6,6 +6,7 @@ import { saveWhatsAppHandoffContactForUser } from "@/lib/whatsapp-handoff-contat
 const channelFields =
   "id, projeto_id, agente_id, numero, session_data, status, created_at, updated_at"
 const TRANSIENT_CONNECTION_STATUSES = new Set(["connecting", "aguardando_qr", "reconnecting"])
+const AUTO_RECONNECT_REQUEST_INTERVAL_MS = 60_000
 
 function isPlainObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
@@ -205,6 +206,52 @@ function areJsonObjectsEqual(left, right) {
   return JSON.stringify(left ?? null) === JSON.stringify(right ?? null)
 }
 
+function hasConnectedSessionEvidence(channel) {
+  const sessionData = isPlainObject(channel?.sessionData) ? channel.sessionData : {}
+  const notes = String(sessionData.notes || channel?.notes || "").trim().toLowerCase()
+
+  if (isConnectedConnectionStatus(sessionData.connectionStatus || sessionData.status || channel?.connectionStatus)) {
+    return true
+  }
+
+  if (sessionData.lastInboundAt || sessionData.lastOutboundAt) {
+    return true
+  }
+
+  return ["connected", "conectado", "ready", "online"].some((token) => notes.includes(token))
+}
+
+function shouldAttemptAutoReconnect(channel, snapshot) {
+  if (!channel?.id || !channel?.number || channel?.status !== "ativo") {
+    return false
+  }
+
+  if (channel.manualDisconnect === true || channel.terminalDisconnect === true) {
+    return false
+  }
+
+  if (!hasConnectedSessionEvidence(channel)) {
+    return false
+  }
+
+  const runtimeStatus = resolveWorkerSnapshotStatus(snapshot)
+  if (isConnectedConnectionStatus(runtimeStatus || channel.connectionStatus)) {
+    return false
+  }
+
+  if (snapshot?.qrCodeDataUrl || snapshot?.qrCodeText) {
+    return false
+  }
+
+  const lastReconnectRequestAt = Date.parse(String(channel.sessionData?.lastReconnectRequestAt || ""))
+  if (Number.isFinite(lastReconnectRequestAt) && Date.now() - lastReconnectRequestAt < AUTO_RECONNECT_REQUEST_INTERVAL_MS) {
+    return false
+  }
+
+  const normalizedRuntimeStatus = String(runtimeStatus || "").trim().toLowerCase()
+  return ["", "connecting", "reconnecting", "offline", "desconectado"].includes(normalizedRuntimeStatus)
+}
+
 function mergeRuntimeSnapshotIntoChannel(channel, snapshot) {
   if (!channel || !isPlainObject(snapshot)) {
     return channel
@@ -272,6 +319,50 @@ function buildPersistableSnapshotPatch(snapshot) {
 }
 
 async function reconcileChannelWithWorkerSnapshot(channel, snapshot) {
+  if (shouldAttemptAutoReconnect(channel, snapshot)) {
+    const reconnectAttempt = Number(channel.reconnectAttempt || channel.sessionData?.reconnectAttempt || 0) + 1
+    const requestedAt = new Date().toISOString()
+
+    await updateWhatsAppChannelSession(channel.id, {
+      autoReconnectScheduled: true,
+      reconnectAttempt,
+      lastReconnectRequestAt: requestedAt,
+      notes: "Reconexao automatica solicitada ao worker.",
+    })
+
+    try {
+      const reconnectSnapshot = await callWhatsAppWorker("/connect", {
+        method: "POST",
+        body: JSON.stringify({
+          channelId: channel.id,
+          projetoId: channel.projetoId ?? null,
+          agenteId: channel.agenteId ?? null,
+          numero: channel.number ?? null,
+          onlyReplyToUnsavedContacts: channel.onlyReplyToUnsavedContacts === true,
+        }),
+      })
+      const reconnectPatch = {
+        ...(buildPersistableSnapshotPatch(reconnectSnapshot) ?? {}),
+        autoReconnectScheduled: !isConnectedConnectionStatus(resolveWorkerSnapshotStatus(reconnectSnapshot)),
+        reconnectAttempt,
+        lastReconnectRequestAt: requestedAt,
+      }
+      const reconnectedChannel = await updateWhatsAppChannelSession(channel.id, reconnectPatch)
+      return mergeRuntimeSnapshotIntoChannel(reconnectedChannel ?? channel, reconnectSnapshot)
+    } catch (error) {
+      const failedChannel = await updateWhatsAppChannelSession(channel.id, {
+        autoReconnectScheduled: false,
+        reconnectAttempt,
+        lastReconnectRequestAt: requestedAt,
+        lastError: error?.message || "Nao foi possivel solicitar a reconexao automatica do WhatsApp.",
+      })
+      return mergeRuntimeSnapshotIntoChannel(failedChannel ?? channel, {
+        status: snapshot?.status || channel.connectionStatus,
+        lastError: error?.message || "Nao foi possivel solicitar a reconexao automatica do WhatsApp.",
+      })
+    }
+  }
+
   const mergedChannel = mergeRuntimeSnapshotIntoChannel(channel, snapshot)
   const patch = buildPersistableSnapshotPatch(snapshot)
 

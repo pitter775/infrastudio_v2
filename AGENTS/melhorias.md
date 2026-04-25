@@ -1,5 +1,17 @@
 # Melhorias
 
+- WhatsApp-service: corrigir persistencia e reconexao automatica da sessao no worker da Railway.
+  Diagnostico atual:
+  1. canal pode seguir com evidencia de sessao conectada no banco enquanto o worker fica preso em `connecting`
+  2. quando o worker cai ou reinicia, a sessao nao esta sendo restaurada de forma confiavel
+  3. a reconexao automatica no servico externo precisa ser endurecida para nao depender do painel
+  Entrega ponta a ponta:
+  1. revisar como o worker salva e restaura auth/session do WhatsApp
+  2. garantir reconexao automatica real apos queda, restart ou perda temporaria de conexao
+  3. registrar motivo tecnico quando falhar reconectar
+  4. validar em ambiente real na Railway com restart do processo e queda controlada
+  5. manter o fallback do backend apenas como contingencia, nao como solucao principal
+
 ## Como tocar de ponta a ponta
 
 Ordem recomendada para cada melhoria:
