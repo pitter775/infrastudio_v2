@@ -386,6 +386,34 @@ CREATE TABLE public.mensagens (
   CONSTRAINT mensagens_pkey PRIMARY KEY (id),
   CONSTRAINT mensagens_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id)
 );
+CREATE TABLE public.mercadolivre_lojas (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  projeto_id uuid NOT NULL UNIQUE,
+  slug text NOT NULL UNIQUE,
+  nome text NOT NULL,
+  titulo text,
+  texto_principal text,
+  sobre_nos text,
+  cor_primaria text NOT NULL DEFAULT '#0ea5e9'::text,
+  logo_url text,
+  tema text NOT NULL DEFAULT 'light'::text CHECK (tema = 'light'::text),
+  ativo boolean NOT NULL DEFAULT false,
+  chat_widget_ativo boolean NOT NULL DEFAULT true,
+  chat_widget_id uuid,
+  email_contato text,
+  telefone_contato text,
+  whatsapp_contato text,
+  endereco text,
+  footer_texto text,
+  menu_links jsonb NOT NULL DEFAULT '[]'::jsonb,
+  social_links jsonb NOT NULL DEFAULT '{}'::jsonb,
+  destaques jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT mercadolivre_lojas_pkey PRIMARY KEY (id),
+  CONSTRAINT mercadolivre_lojas_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT mercadolivre_lojas_chat_widget_id_fkey FOREIGN KEY (chat_widget_id) REFERENCES public.chat_widgets(id)
+);
 CREATE TABLE public.modelos (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   nome character varying NOT NULL,
@@ -609,7 +637,3 @@ CREATE TABLE public.whatsapp_handoff_contatos (
   CONSTRAINT whatsapp_handoff_contatos_canal_whatsapp_id_fkey FOREIGN KEY (canal_whatsapp_id) REFERENCES public.canais_whatsapp(id),
   CONSTRAINT whatsapp_handoff_contatos_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id)
 );
-
-
-
-

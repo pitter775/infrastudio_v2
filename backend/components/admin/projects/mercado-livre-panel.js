@@ -5,6 +5,7 @@ import { Check, Copy, Files, MessageCircle, MessageSquare, PackageSearch, Store 
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { MercadoLivreStorePanel } from './mercado-livre-store-panel'
 
 export function MercadoLivrePanel({
   project,
@@ -55,6 +56,7 @@ export function MercadoLivrePanel({
   )
   const tabs = [
     { id: 'connection', label: 'Conexao', icon: Store },
+    { id: 'store', label: 'Loja', icon: Store },
     { id: 'test', label: 'Teste', icon: PackageSearch },
     { id: 'orders', label: 'Pedidos', icon: Files },
     { id: 'questions', label: 'Perguntas', icon: MessageSquare },
@@ -134,6 +136,10 @@ export function MercadoLivrePanel({
   }, [projectIdentifier])
 
   useEffect(() => {
+    if (currentTab === 'store') {
+      return
+    }
+
     onFooterStateChange?.({
       step,
       activeTab: currentTab,
@@ -543,6 +549,10 @@ export function MercadoLivrePanel({
         >
           {feedback.text}
         </div>
+      ) : null}
+
+      {currentTab === 'store' ? (
+        <MercadoLivreStorePanel project={project} onFooterStateChange={onFooterStateChange} />
       ) : null}
 
       {currentTab === 'connection' ? (

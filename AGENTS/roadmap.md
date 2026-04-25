@@ -57,6 +57,13 @@ O foco principal agora e fechar a paridade e o refinamento do cerebro de atendim
 - checkout de upgrade/creditos e retorno de pagamento ja conectados ao projeto
 - transferencia admin -> usuario comum aplicando `free` quando o projeto vinha ilimitado
 - tela admin de projetos com destaque e ordenacao dos projetos do owner `admin`
+- base funcional da loja publica do Mercado Livre:
+  - aba `Mercado Livre > Loja`
+  - landing `/loja/{slug}`
+  - pagina de produto `/loja/{slug}/produto/{produtoSlug}`
+  - `sheet` na navegacao interna
+  - snapshot local como fonte da vitrine
+  - sync manual de snapshot preparado no backend
 
 ## Ordem recomendada quando voltar
 

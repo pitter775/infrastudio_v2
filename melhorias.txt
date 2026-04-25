@@ -1,0 +1,9 @@
+AO inciar um conversa no chat inciar o box de identificacao que ja existe no chatwidget se o usurio informar nome ou celular ja habilita o botao de enviar e usa como identificacao da conversa
+
+se o usuario quiser marcar uma agenda ai obriga a cadastrar o que falta 
+
+colcoar no agente que a experiencia da infrastudio mostra a qualidade do atendimento
+e desenvolvimento de sisetmas 
+
+terminar o logo do sistema
+fazer a loja mercado livre 

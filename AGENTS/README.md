@@ -13,6 +13,7 @@ Ordem recomendada de leitura:
 3. `laboratorio.md` se a tarefa exigir validacao/regressao
 4. `roadmap.md` se a tarefa exigir continuidade
 5. `melhorias.md` para ideias, backlog e operacao
+6. `../PLANO-LOJA-MERCADO-LIVRE.md` se a tarefa envolver loja publica do Mercado Livre
 
 Arquivos:
 

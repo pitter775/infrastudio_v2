@@ -144,6 +144,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       if (panel.id === 'mercado-livre') {
         return [
           { id: 'connection', label: 'Conexao', icon: Store },
+          { id: 'store', label: 'Loja', icon: Wand2 },
           { id: 'test', label: 'Teste', icon: PackageSearch },
           { id: 'orders', label: 'Pedidos', icon: Files },
           { id: 'questions', label: 'Perguntas', icon: MessageSquare },
@@ -342,10 +343,10 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
           </div>
         </div>
       ) : null}
-      {panel.id === 'mercado-livre' && activeTab === 'connection' ? (
+      {panel.id === 'mercado-livre' && (activeTab === 'connection' || activeTab === 'store') ? (
         <div className="border-t border-white/5 px-6 py-4">
           <div className="flex justify-end">
-            {mercadoFooter.step === 1 ? (
+            {activeTab === 'connection' && mercadoFooter.step === 1 ? (
               <Button
                 type="submit"
                 form="mercado-livre-resolve-form"
@@ -357,7 +358,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
                 {mercadoFooter.saving ? 'Localizando...' : 'Avancar'}
               </Button>
             ) : null}
-            {mercadoFooter.step === 2 ? (
+            {activeTab === 'connection' && mercadoFooter.step === 2 ? (
               <Button
                 type="submit"
                 form="mercado-livre-save-form"
@@ -367,6 +368,18 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
               >
                 {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {mercadoFooter.saving ? 'Salvando...' : 'Salvar conexao'}
+              </Button>
+            ) : null}
+            {activeTab === 'store' ? (
+              <Button
+                type="submit"
+                form="mercado-livre-store-form"
+                disabled={mercadoFooter.saving}
+                variant="ghost"
+                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {mercadoFooter.saving ? 'Salvando...' : 'Salvar loja'}
               </Button>
             ) : null}
           </div>

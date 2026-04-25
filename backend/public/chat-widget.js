@@ -135,6 +135,47 @@
       }
     }
 
+    function getLeadIdentifier(contact) {
+      if (!contact || typeof contact !== "object") {
+        return "";
+      }
+
+      if (typeof contact.phone === "string" && contact.phone.trim()) {
+        return contact.phone.replace(/\D/g, "").slice(0, 11);
+      }
+
+      if (typeof contact.name === "string" && contact.name.trim()) {
+        return contact.name.trim();
+      }
+
+      if (typeof contact.email === "string" && contact.email.trim()) {
+        return contact.email.trim().toLowerCase();
+      }
+
+      return "";
+    }
+
+    function hasLeadIdentity(contact) {
+      return Boolean(getLeadIdentifier(contact));
+    }
+
+    function applyPhoneMask(value) {
+      var digits = String(value || "").replace(/\D/g, "").slice(0, 11);
+      if (!digits) {
+        return "";
+      }
+      if (digits.length <= 2) {
+        return "(" + digits;
+      }
+      if (digits.length <= 6) {
+        return "(" + digits.slice(0, 2) + ") " + digits.slice(2);
+      }
+      if (digits.length <= 10) {
+        return "(" + digits.slice(0, 2) + ") " + digits.slice(2, 6) + "-" + digits.slice(6);
+      }
+      return "(" + digits.slice(0, 2) + ") " + digits.slice(2, 7) + "-" + digits.slice(7);
+    }
+
     var widgetContext = parseContext(rawContext);
     storageKey = "infrastudio-chat:" + widgetSlug + ":" + (externalIdentifier || "anon");
     try {
@@ -143,8 +184,8 @@
         chatId = typeof savedState.chatId === "string" ? savedState.chatId : null;
         messages = Array.isArray(savedState.messages) ? savedState.messages : [];
         leadContact = savedState.leadContact && typeof savedState.leadContact === "object" ? savedState.leadContact : null;
-        if (leadContact && typeof leadContact.email === "string" && leadContact.email.trim()) {
-          externalIdentifier = leadContact.email.trim();
+        if (hasLeadIdentity(leadContact)) {
+          externalIdentifier = getLeadIdentifier(leadContact);
         }
         lastSyncedMessageAt = typeof savedState.lastSyncedMessageAt === "string" ? savedState.lastSyncedMessageAt : null;
       }
@@ -417,6 +458,8 @@
       ".chat-contact-box { display: none; gap: 8px; min-height: 22px; border-radius: 12px; border: 1px solid rgba(96,165,250,0.14); background: #0b1b32; padding: 10px; }",
       ".chat-contact-box.is-open { display: grid; }",
       ".chat-contact-title { font-size: 11px; font-weight: 700; color: rgba(226,232,240,0.9); }",
+      ".chat-contact-subtitle { font-size: 12px; font-weight: 700; color: #f8fafc; }",
+      ".chat-contact-description { font-size: 11px; line-height: 1.45; color: rgba(203,213,225,0.82); }",
       ".chat-contact-fields { display: grid; gap: 7px; }",
       ".chat-contact-input { width: 100%; box-sizing: border-box; border: 1px solid rgba(148,163,184,0.18); border-radius: 8px; background: rgba(2,6,23,0.28); color: rgba(248,250,252,0.94); padding: 8px 9px; font: inherit; font-size: 12px; outline: none; }",
       ".chat-contact-input::placeholder { color: rgba(148,163,184,0.76); }",
@@ -427,7 +470,7 @@
       ".chat-send .chat-icon { width: 18px; height: 18px; }",
       ".chat-send.has-value { background: linear-gradient(180deg, color-mix(in srgb, " + accent + " 92%, white 8%), color-mix(in srgb, " + accent + " 74%, #000 26%)); color: white; box-shadow: none; }",
       ".chat-send.has-value:hover { transform: translate(-1px, -1px); box-shadow: 12px 12px 24px -12px color-mix(in srgb, " + accent + " 54%, rgba(15,23,42,0.44)), 4px 4px 10px -10px rgba(96,165,250,0.3); filter: brightness(1.03); }",
-      ".chat-send[disabled] { opacity: .6; cursor: wait; }",
+      ".chat-send[disabled] { opacity: .45; cursor: not-allowed; }",
       ".chat-credit { display: flex; justify-content: center; padding: 0 16px 12px; border-top: 0; background: " + surfaceBg + "; }",
       ".chat-credit-link { display: inline-flex; align-items: center; gap: 7px; color: rgba(148,163,184,0.84); text-decoration: none; font-size: 10px; line-height: 1; letter-spacing: .01em; transition: color .18s ease, opacity .18s ease, filter .18s ease; }",
       ".chat-credit-link:hover { color: transparent; background-image: linear-gradient(135deg, #60a5fa, #2563eb); -webkit-background-clip: text; background-clip: text; filter: brightness(1.06); }",
@@ -549,10 +592,13 @@
     var contactBox = document.createElement("div");
     contactBox.className = "chat-contact-box";
     contactBox.innerHTML = [
-      '<div class="chat-contact-title">Seu contato</div>',
+      '<div class="chat-contact-title">Iniciar conversa</div>',
+      '<div class="chat-contact-subtitle">Qual o seu nome?</div>',
+      '<div class="chat-contact-description">Informe seu nome ou celular para liberar a conversa.</div>',
       '<div class="chat-contact-fields">',
-      '<input class="chat-contact-input chat-contact-email" type="email" autocomplete="email" placeholder="email@exemplo.com" />',
-      '<input class="chat-contact-input chat-contact-phone" type="tel" autocomplete="tel" placeholder="Celular, se preferir" />',
+      '<input class="chat-contact-input chat-contact-name" type="text" autocomplete="name" placeholder="Seu nome" />',
+      '<input class="chat-contact-input chat-contact-phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="Seu celular" />',
+      '<input class="chat-contact-input chat-contact-email" type="email" autocomplete="email" placeholder="Email (opcional)" />',
       "</div>",
       '<div class="chat-contact-actions">',
       '<button type="button" class="chat-contact-action chat-contact-cancel">Cancelar</button>',
@@ -561,9 +607,12 @@
     ].join("");
     composer.appendChild(contactBox);
 
+    var contactNameInput = contactBox.querySelector(".chat-contact-name");
     var contactEmailInput = contactBox.querySelector(".chat-contact-email");
     var contactPhoneInput = contactBox.querySelector(".chat-contact-phone");
     var contactTitle = contactBox.querySelector(".chat-contact-title");
+    var contactSubtitle = contactBox.querySelector(".chat-contact-subtitle");
+    var contactDescription = contactBox.querySelector(".chat-contact-description");
     var contactCancelButton = contactBox.querySelector(".chat-contact-cancel");
     var contactSaveButton = contactBox.querySelector(".chat-contact-save");
 
@@ -1529,29 +1578,60 @@
       return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M9 5H5v4M19 9V5h-4M15 19h4v-4M5 15v4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
     }
 
+    function getDraftLeadContact() {
+      return {
+        name: String(contactNameInput?.value || "").trim(),
+        phone: applyPhoneMask(contactPhoneInput?.value || ""),
+        email: String(contactEmailInput?.value || "").trim().toLowerCase(),
+      };
+    }
+
     function updateComposerState() {
-      var hasValue = (Boolean(String(input.value || "").trim()) || attachments.length > 0) && !loading;
+      var hasLead = hasLeadIdentity(leadContact);
+      var draftLead = getDraftLeadContact();
+      var canIdentify = hasLeadIdentity(draftLead);
+      var hasMessage = Boolean(String(input.value || "").trim()) || attachments.length > 0;
+      var hasValue = !loading && (contactBoxOpen ? canIdentify : (hasLead && hasMessage));
       sendButton.classList.toggle("has-value", hasValue);
+      sendButton.disabled = loading || !hasValue;
     }
 
     function syncContactBox() {
       contactBox.classList.toggle("is-open", contactBoxOpen);
       composer.classList.toggle("is-identifying", contactBoxOpen);
-      contactTool.classList.toggle("is-active", Boolean(leadContact && (leadContact.email || leadContact.phone)));
+      contactTool.classList.toggle("is-active", hasLeadIdentity(leadContact));
       contactTool.setAttribute(
         "title",
-        leadContact && (leadContact.email || leadContact.phone) ? "Contato identificado" : "Adicionar email ou celular",
+        hasLeadIdentity(leadContact) ? "Contato identificado" : "Adicionar nome ou celular",
       );
       if (contactTitle) {
-        contactTitle.textContent = pendingAgendaSelection ? "Seu contato para agendar" : "Seu contato";
+        contactTitle.textContent = pendingAgendaSelection ? "Agenda" : "Iniciar conversa";
+      }
+      if (contactSubtitle) {
+        contactSubtitle.textContent = pendingAgendaSelection ? "Confirme seu contato para agendar" : "Qual o seu nome?";
+      }
+      if (contactDescription) {
+        contactDescription.textContent = pendingAgendaSelection
+          ? "Informe seu nome ou celular para continuar com o agendamento."
+          : "Informe seu nome ou celular para liberar a conversa.";
       }
       if (contactBoxOpen) {
+        contactNameInput.value = leadContact?.name || "";
         contactEmailInput.value = leadContact?.email || "";
-        contactPhoneInput.value = leadContact?.phone || "";
+        contactPhoneInput.value = applyPhoneMask(leadContact?.phone || "");
         window.requestAnimationFrame(function () {
-          contactEmailInput.focus();
+          if (!contactNameInput.value && !contactPhoneInput.value) {
+            contactNameInput.focus();
+            return;
+          }
+          if (!contactPhoneInput.value) {
+            contactPhoneInput.focus();
+            return;
+          }
+          input.focus();
         });
       }
+      updateComposerState();
     }
 
     function buildEffectiveContext(extraContext) {
@@ -1562,7 +1642,7 @@
           ...extraContext,
         };
       }
-      if (!leadContact || (!leadContact.email && !leadContact.phone)) {
+      if (!hasLeadIdentity(leadContact)) {
         return baseContext;
       }
 
@@ -1570,6 +1650,7 @@
         ...baseContext,
         lead: {
           ...(baseContext.lead && typeof baseContext.lead === "object" ? baseContext.lead : {}),
+          nome: leadContact.name || undefined,
           email: leadContact.email || undefined,
           telefone: leadContact.phone || undefined,
           identificacaoOrigem: "chat_widget",
@@ -1774,7 +1855,7 @@
       if (!messages.length) {
         var welcome = document.createElement("div");
         welcome.className = "chat-bubble ai";
-        welcome.textContent = "Oi! Como posso te ajudar agora?";
+        welcome.textContent = "Oi! Seja bem-vindo. Para comecar, me diga seu nome ou informe seu celular abaixo.";
         stack.appendChild(welcome);
       } else {
         var previousDayKey = null;
@@ -1869,8 +1950,14 @@
       if (open) {
         panel.classList.remove("closing");
         panel.classList.add("open");
+        if (!messages.length && !hasLeadIdentity(leadContact)) {
+          contactBoxOpen = true;
+          syncContactBox();
+        }
         autoResizeInput();
-        input.focus();
+        if (!contactBoxOpen) {
+          input.focus();
+        }
         void syncServerMessages();
       } else {
         dragState.offsetX = 0;
@@ -2030,6 +2117,11 @@
       var settings = options && typeof options === "object" ? options : {};
       var trimmed = String(text || "").trim();
       var outboundAttachments = attachments.slice();
+      if (!hasLeadIdentity(leadContact)) {
+        contactBoxOpen = true;
+        syncContactBox();
+        return;
+      }
       if ((!trimmed && !outboundAttachments.length) || loading || requestInFlight) {
         return;
       }
@@ -2070,7 +2162,7 @@
             widgetSlug: widgetSlug,
             projeto: projeto || undefined,
             agente: agente || undefined,
-            identificadorExterno: leadContact?.email || leadContact?.phone || externalIdentifier || undefined,
+            identificadorExterno: getLeadIdentifier(leadContact) || externalIdentifier || undefined,
             context: buildEffectiveContext(settings.extraContext),
             attachments: outboundAttachments,
           }),
@@ -2167,6 +2259,17 @@
       autoResizeInput();
       updateComposerState();
     });
+    addListener(contactNameInput, "input", function () {
+      updateComposerState();
+    });
+    addListener(contactPhoneInput, "input", function () {
+      var masked = applyPhoneMask(contactPhoneInput.value || "");
+      contactPhoneInput.value = masked;
+      updateComposerState();
+    });
+    addListener(contactEmailInput, "input", function () {
+      updateComposerState();
+    });
     addListener(input, "keyup", function () {
       autoResizeInput();
     });
@@ -2192,24 +2295,22 @@
       syncContactBox();
     });
     addListener(contactCancelButton, "click", function () {
+      if (!hasLeadIdentity(leadContact) && !messages.length) {
+        contactNameInput.focus();
+        return;
+      }
       contactBoxOpen = false;
       syncContactBox();
       input.focus();
     });
     addListener(contactSaveButton, "click", function () {
-      var email = String(contactEmailInput.value || "").trim().toLowerCase();
-      var phone = String(contactPhoneInput.value || "").trim();
-      if (!email && !phone) {
-        contactEmailInput.focus();
+      var nextLead = getDraftLeadContact();
+      if (!hasLeadIdentity(nextLead)) {
+        contactNameInput.focus();
         return;
       }
-      leadContact = {
-        email: email || "",
-        phone: phone || "",
-      };
-      if (email) {
-        externalIdentifier = email;
-      }
+      leadContact = nextLead;
+      externalIdentifier = getLeadIdentifier(leadContact) || externalIdentifier;
       contactBoxOpen = false;
       persist();
       syncContactBox();
@@ -2227,6 +2328,10 @@
             },
           },
         });
+        return;
+      }
+      if (String(input.value || "").trim() || attachments.length) {
+        void sendMessage(input.value);
         return;
       }
       input.focus();

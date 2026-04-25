@@ -1,5 +1,14 @@
 # Melhorias
 
+
+chatwidget
+comportamento inteligente:
+scrollou → chat aparece
+ficou parado → chat sugere ajuda
+clicou produto → chat contextualiza
+
+
+
 - WhatsApp-service: corrigir persistencia e reconexao automatica da sessao no worker da Railway.
   Diagnostico atual:
   1. canal pode seguir com evidencia de sessao conectada no banco enquanto o worker fica preso em `connecting`

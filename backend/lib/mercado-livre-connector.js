@@ -1134,6 +1134,64 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
   }
 }
 
+export async function listMercadoLivreItemsForProject(project, options = {}, deps = {}) {
+  if (!project?.id) {
+    return { items: [], connector: null, paging: null, error: "Projeto nao encontrado." }
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+    if (!connector?.id) {
+      return { items: [], connector: null, paging: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
+    }
+
+    const limit = Math.min(Math.max(Number(options.limit ?? 20) || 20, 1), 20)
+    const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
+
+    return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
+      const config = getConnectorConfig(resolvedConnector)
+      const userId = sanitizeString(config.oauthUserId)
+      if (!userId) {
+        return { items: [], connector: resolvedConnector, paging: null, error: "Conta do Mercado Livre ainda nao autorizada." }
+      }
+
+      const { itemIds, paging, error: searchError } = await listMercadoLivreUserItemIds(
+        userId,
+        accessToken,
+        { limit, offset },
+        deps
+      )
+
+      if (searchError) {
+        return { items: [], connector: resolvedConnector, paging: null, error: searchError }
+      }
+
+      const items = await loadMercadoLivreItems(itemIds.slice(0, limit), accessToken, deps)
+
+      return {
+        items,
+        connector: resolvedConnector,
+        paging: {
+          total: Number(paging?.total ?? 0) || 0,
+          limit,
+          offset,
+          hasMore: Number(paging?.total ?? 0) > offset + limit,
+        },
+        error: null,
+      }
+    })
+  } catch (error) {
+    console.error("[mercado-livre] failed to list items for snapshot sync", error)
+    return {
+      items: [],
+      connector: null,
+      paging: null,
+      error: error instanceof Error ? error.message : "Nao foi possivel listar itens do Mercado Livre para sincronizacao.",
+    }
+  }
+}
+
 export async function getMercadoLivreProductByIdForProject(project, itemId, deps = {}) {
   if (!project?.id) {
     return { item: null, connector: null, error: "Projeto nao encontrado." }
