@@ -6,7 +6,7 @@ import { saveWhatsAppHandoffContactForUser } from "@/lib/whatsapp-handoff-contat
 const channelFields =
   "id, projeto_id, agente_id, numero, session_data, status, created_at, updated_at"
 const TRANSIENT_CONNECTION_STATUSES = new Set(["connecting", "aguardando_qr", "reconnecting"])
-const AUTO_RECONNECT_REQUEST_INTERVAL_MS = 60_000
+const AUTO_RECONNECT_REQUEST_INTERVAL_MS = 180_000
 
 function isPlainObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
@@ -269,6 +269,26 @@ function mergeRuntimeSnapshotIntoChannel(channel, snapshot) {
   }
 }
 
+function shouldPersistWorkerNotes(snapshot, connectionStatus) {
+  const notes = String(snapshot?.notes || "").trim()
+  if (!notes) {
+    return false
+  }
+
+  if (isConnectedConnectionStatus(connectionStatus) || isDisconnectedConnectionStatus(connectionStatus)) {
+    return true
+  }
+
+  const normalized = notes.toLowerCase()
+  return (
+    normalized.includes("auth") ||
+    normalized.includes("falha") ||
+    normalized.includes("erro") ||
+    normalized.includes("disconnect") ||
+    normalized.includes("desconect")
+  )
+}
+
 async function loadWorkerSnapshot(channelId) {
   if (!channelId) {
     return null
@@ -307,7 +327,7 @@ function buildPersistableSnapshotPatch(snapshot) {
     patch.connectionStatus = connectionStatus
   }
 
-  if (typeof snapshot.notes === "string" && snapshot.notes.trim()) {
+  if (shouldPersistWorkerNotes(snapshot, connectionStatus)) {
     patch.notes = snapshot.notes
   }
 
@@ -322,13 +342,6 @@ async function reconcileChannelWithWorkerSnapshot(channel, snapshot) {
   if (shouldAttemptAutoReconnect(channel, snapshot)) {
     const reconnectAttempt = Number(channel.reconnectAttempt || channel.sessionData?.reconnectAttempt || 0) + 1
     const requestedAt = new Date().toISOString()
-
-    await updateWhatsAppChannelSession(channel.id, {
-      autoReconnectScheduled: true,
-      reconnectAttempt,
-      lastReconnectRequestAt: requestedAt,
-      notes: "Reconexao automatica solicitada ao worker.",
-    })
 
     try {
       const reconnectSnapshot = await callWhatsAppWorker("/connect", {
@@ -346,6 +359,10 @@ async function reconcileChannelWithWorkerSnapshot(channel, snapshot) {
         autoReconnectScheduled: !isConnectedConnectionStatus(resolveWorkerSnapshotStatus(reconnectSnapshot)),
         reconnectAttempt,
         lastReconnectRequestAt: requestedAt,
+        ...((shouldPersistWorkerNotes(reconnectSnapshot, resolveWorkerSnapshotStatus(reconnectSnapshot)) ||
+          !isConnectedConnectionStatus(resolveWorkerSnapshotStatus(reconnectSnapshot)))
+          ? { notes: "Reconexao automatica solicitada ao worker." }
+          : {}),
       }
       const reconnectedChannel = await updateWhatsAppChannelSession(channel.id, reconnectPatch)
       return mergeRuntimeSnapshotIntoChannel(reconnectedChannel ?? channel, reconnectSnapshot)
