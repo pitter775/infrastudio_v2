@@ -118,6 +118,11 @@
       offsetY: 0,
     };
     var scrollAnimationFrame = null;
+    var contextTeaserTimer = null;
+    var contextIdleTimer = null;
+    var contextScrollShown = false;
+    var contextIdleShown = false;
+    var lastInteractionAt = Date.now();
 
     if (globalApi.instances[widgetSlug] && typeof globalApi.instances[widgetSlug].destroy === "function") {
       globalApi.instances[widgetSlug].destroy();
@@ -282,6 +287,11 @@
       });
     }
 
+    addCleanup(function () {
+      clearLauncherTeaserTimer();
+      clearIdlePromptTimer();
+    });
+
     function destroy() {
       cleanup.slice().reverse().forEach(function (dispose) {
         try {
@@ -359,6 +369,11 @@
       ".chat-button:hover { transform: translateY(-1px) scale(1.02); }",
       ".chat-button .chat-icon { width: 24px; height: 24px; animation: chatLauncherSwap .22s ease both; }",
       ".chat-button.is-open { filter: brightness(.92); }",
+      ".chat-launcher-teaser { position: absolute; right: 0; bottom: 74px; min-width: 196px; max-width: min(280px, calc(100vw - 40px)); padding: 10px 12px; border-radius: 16px; background: " + (theme === "light" ? "rgba(255,255,255,0.98)" : "rgba(15,23,42,0.96)") + "; color: " + (theme === "light" ? "#0f172a" : "rgba(241,245,249,0.96)") + "; border: 1px solid " + (theme === "light" ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.16)") + "; box-shadow: 0 18px 40px -28px rgba(15,23,42,0.45); opacity: 0; visibility: hidden; transform: translateY(8px) scale(.96); transform-origin: calc(100% - 28px) 100%; transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s; pointer-events: none; }",
+      ".chat-launcher-teaser.is-visible { opacity: 1; visibility: visible; transform: translateY(0) scale(1); transition-delay: 0s; }",
+      ".chat-launcher-teaser::after { content: ''; position: absolute; right: 22px; bottom: -7px; width: 12px; height: 12px; background: inherit; border-right: inherit; border-bottom: inherit; transform: rotate(45deg); }",
+      ".chat-launcher-teaser-label { display: inline-flex; align-items: center; gap: 6px; margin-bottom: 6px; font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: " + (theme === "light" ? "rgba(71,85,105,0.9)" : "rgba(148,163,184,0.88)") + "; }",
+      ".chat-launcher-teaser-text { font-size: 13px; line-height: 1.55; }",
       ".chat-wrap.open .chat-button { opacity: 1; pointer-events: auto; }",
       ".chat-wrap.open.is-detached:not(.is-expanded) .chat-button { opacity: 0; pointer-events: none; }",
       ".chat-wrap.is-dragging { transition: none; }",
@@ -506,7 +521,7 @@
       ".chat-credit-logo.color { opacity: 0; transform: scale(.96); }",
       ".chat-credit-link:hover .chat-credit-logo.default { opacity: 0; transform: scale(1.04); }",
       ".chat-credit-link:hover .chat-credit-logo.color { opacity: 1; transform: scale(1); }",
-      "@media (max-width: 640px) { .chat-wrap { right: 8px; left: auto; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 4px); width: 60px; height: 60px; } .chat-wrap.open { top: 0; right: 0; bottom: 0; left: 0; width: 100vw; height: 100dvh; transform: none !important; } .chat-wrap.is-expanded .chat-panel { width: 100%; height: 100%; bottom: 0; } .chat-panel { width: 100%; max-width: 100%; height: calc(100% - 56px); right: 0; bottom: 52px; border-radius: 14px; transform-origin: calc(100% - 30px) calc(100% + 34px); } .chat-wrap.open .chat-panel, .chat-wrap.open.is-expanded .chat-panel, .chat-panel.open { width: 100%; max-width: none; height: 100%; right: 0; bottom: 0; border-radius: 0; } .chat-button { right: 0; bottom: 0; } .chat-wrap.open .chat-button { opacity: 0; pointer-events: none; } .chat-maximize { display: none !important; } .chat-close { display: inline-flex !important; } .chat-header { padding: 10px 12px; cursor: default; } .chat-messages { padding-bottom: 12px; } .chat-input { padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 4px); } .chat-credit { padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 4px); } .chat-scroll-bottom { bottom: 92px; } .chat-composer { border-radius: 14px; padding: 10px 10px 8px; } }",
+      "@media (max-width: 640px) { .chat-wrap { right: 8px; left: auto; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 4px); width: 60px; height: 60px; } .chat-wrap.open { top: 0; right: 0; bottom: 0; left: 0; width: 100vw; height: 100dvh; transform: none !important; } .chat-wrap.is-expanded .chat-panel { width: 100%; height: 100%; bottom: 0; } .chat-panel { width: 100%; max-width: 100%; height: calc(100% - 56px); right: 0; bottom: 52px; border-radius: 14px; transform-origin: calc(100% - 30px) calc(100% + 34px); } .chat-wrap.open .chat-panel, .chat-wrap.open.is-expanded .chat-panel, .chat-panel.open { width: 100%; max-width: none; height: 100%; right: 0; bottom: 0; border-radius: 0; } .chat-button { right: 0; bottom: 0; } .chat-launcher-teaser { right: 0; bottom: 70px; max-width: min(250px, calc(100vw - 24px)); } .chat-wrap.open .chat-button { opacity: 0; pointer-events: none; } .chat-maximize { display: none !important; } .chat-close { display: inline-flex !important; } .chat-header { padding: 10px 12px; cursor: default; } .chat-messages { padding-bottom: 12px; } .chat-input { padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 4px); } .chat-credit { padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 4px); } .chat-scroll-bottom { bottom: 92px; } .chat-composer { border-radius: 14px; padding: 10px 10px 8px; } }",
     ].join("");
     shadow.appendChild(style);
 
@@ -736,6 +751,17 @@
     creditBrand.className = "chat-credit-brand";
     creditBrand.textContent = "InfraStudio";
     creditLink.appendChild(creditBrand);
+
+    var launcherTeaser = document.createElement("div");
+    launcherTeaser.className = "chat-launcher-teaser";
+    launcherTeaser.setAttribute("aria-hidden", "true");
+    launcherTeaser.innerHTML = [
+      '<div class="chat-launcher-teaser-label">' + createClockIcon() + "<span>Atendimento</span></div>",
+      '<div class="chat-launcher-teaser-text"></div>',
+    ].join("");
+    wrap.appendChild(launcherTeaser);
+
+    var launcherTeaserText = launcherTeaser.querySelector(".chat-launcher-teaser-text");
 
     var triggerButton = document.createElement("button");
     triggerButton.className = "chat-button";
@@ -1580,6 +1606,83 @@
       triggerButton.classList.toggle("is-open", open);
       triggerButton.setAttribute("aria-label", open ? "Fechar chat" : "Abrir chat");
       triggerButton.innerHTML = open ? createCloseIcon() : createChatBubbleIcon();
+      if (open) {
+        hideLauncherTeaser();
+      }
+    }
+
+    function clearLauncherTeaserTimer() {
+      if (contextTeaserTimer) {
+        window.clearTimeout(contextTeaserTimer);
+        contextTeaserTimer = null;
+      }
+    }
+
+    function hideLauncherTeaser() {
+      clearLauncherTeaserTimer();
+      launcherTeaser.classList.remove("is-visible");
+    }
+
+    function showLauncherTeaser(message) {
+      if (!hasAgent || open) {
+        return;
+      }
+
+      var normalizedMessage = String(message || "").trim();
+      if (!normalizedMessage || !launcherTeaserText) {
+        return;
+      }
+
+      launcherTeaserText.textContent = normalizedMessage;
+      launcherTeaser.classList.add("is-visible");
+      clearLauncherTeaserTimer();
+      contextTeaserTimer = window.setTimeout(function () {
+        launcherTeaser.classList.remove("is-visible");
+        contextTeaserTimer = null;
+      }, 5200);
+    }
+
+    function clearIdlePromptTimer() {
+      if (contextIdleTimer) {
+        window.clearTimeout(contextIdleTimer);
+        contextIdleTimer = null;
+      }
+    }
+
+    function scheduleIdlePrompt() {
+      clearIdlePromptTimer();
+      if (open || !hasAgent || contextIdleShown) {
+        return;
+      }
+
+      contextIdleTimer = window.setTimeout(function () {
+        if (open || document.visibilityState === "hidden" || contextIdleShown) {
+          return;
+        }
+        contextIdleShown = true;
+        showLauncherTeaser("Ficou com alguma duvida? Posso te ajudar por aqui.");
+      }, 18000);
+    }
+
+    function registerContextInteraction() {
+      lastInteractionAt = Date.now();
+      if (!open) {
+        hideLauncherTeaser();
+      }
+      scheduleIdlePrompt();
+    }
+
+    function handleContextScrollPrompt() {
+      if (open || !hasAgent || contextScrollShown) {
+        return;
+      }
+      var scrollTop = window.scrollY || window.pageYOffset || 0;
+      if (scrollTop < 240) {
+        return;
+      }
+      contextScrollShown = true;
+      showLauncherTeaser("Oi. Se quiser, eu posso te ajudar sem abrir outra pagina.");
+      scheduleIdlePrompt();
     }
 
     function updateExpandState() {
@@ -2231,7 +2334,18 @@
     }
 
     addListener(triggerButton, "click", function () {
+      registerContextInteraction();
       setOpen(!open);
+    });
+
+    addListener(window, "scroll", function () {
+      handleContextScrollPrompt();
+    }, { passive: true });
+
+    ["click", "keydown", "touchstart"].forEach(function (eventName) {
+      addListener(window, eventName, function () {
+        registerContextInteraction();
+      }, { passive: eventName !== "keydown" });
     });
 
     addListener(window, "infrastudio-chat:open", function (event) {
@@ -2562,6 +2676,12 @@
     scheduleSyncLoop();
     addListener(document, "visibilitychange", function () {
       scheduleSyncLoop();
+      if (document.visibilityState === "hidden") {
+        hideLauncherTeaser();
+        clearIdlePromptTimer();
+        return;
+      }
+      scheduleIdlePrompt();
       if (open && document.visibilityState === "visible") {
         void syncServerMessages();
       }
@@ -2581,6 +2701,7 @@
     updateHumanHandoffState(null);
     renderMessages();
     updateExpandState();
+    scheduleIdlePrompt();
     void syncWidgetUiConfig();
 
     globalApi.instances[widgetSlug] = {

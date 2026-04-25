@@ -1,29 +1,14 @@
 # Melhorias
 
+Backlog revisado com base no estado real do codigo.
 
-chatwidget
-comportamento inteligente:
-scrollou → chat aparece
-ficou parado → chat sugere ajuda
-clicou produto → chat contextualiza
+Regra:
 
-
-
-- WhatsApp-service: corrigir persistencia e reconexao automatica da sessao no worker da Railway.
-  Diagnostico atual:
-  1. canal pode seguir com evidencia de sessao conectada no banco enquanto o worker fica preso em `connecting`
-  2. quando o worker cai ou reinicia, a sessao nao esta sendo restaurada de forma confiavel
-  3. a reconexao automatica no servico externo precisa ser endurecida para nao depender do painel
-  Entrega ponta a ponta:
-  1. revisar como o worker salva e restaura auth/session do WhatsApp
-  2. garantir reconexao automatica real apos queda, restart ou perda temporaria de conexao
-  3. registrar motivo tecnico quando falhar reconectar
-  4. validar em ambiente real na Railway com restart do processo e queda controlada
-  5. manter o fallback do backend apenas como contingencia, nao como solucao principal
+- nao listar aqui feature ja implementada como se estivesse do zero
+- separar o que falta construir do que falta apenas validar ou refinar
+- remover deste arquivo o que for concluido
 
 ## Como tocar de ponta a ponta
-
-Ordem recomendada para cada melhoria:
 
 1. entender contrato atual e reaproveitar componentes/utilitarios existentes
 2. ajustar banco apenas em `database/seeder/` quando precisar schema/dados
@@ -34,167 +19,151 @@ Ordem recomendada para cada melhoria:
 7. rodar `npm run lint`, testes especificos e `npm run build` quando o impacto justificar
 8. remover deste arquivo o que ficar concluido
 
-## Trilha 1 - Atendimento, handoff e WhatsApp
+## Critico
 
-### Critico
-
-- Atendimento humano no admin.
-  Feito:
-  1. ao enviar mensagem no atendimento, a tela indica que o humano assumiu o comando
-  2. mensagem enviada pelo atendente aparece no chat do atendimento sem reload
-  3. widget publico sincroniza mensagens manuais por `GET /api/chat`
-  4. estado de handoff/humano fica visivel para o atendente
-  Pendente:
-  1. validar em canal real se mensagem manual chega no WhatsApp
-  2. adicionar validacao no Laboratorio ou teste focado quando possivel
-
-- WhatsApp/handoff.
-  Entrega ponta a ponta:
-  1. validar em canal real o disparo para atendente cadastrado usando o proprio canal do projeto
-  2. validar link direto para `/admin/atendimento?conversa=...`
-  3. registrar falhas de envio de forma consultavel
-  4. garantir que CTA de WhatsApp so aparece com canal ativo/conectado no agente
-  5. destacar no card de detalhes do `/admin/atendimento` quando a conversa estiver `pausado_loop`, exibindo tambem o motivo tecnico salvo em `handoff.metadata.autoPause.reason`
-
-- WhatsApp-service: reestruturar frequencia de leitura/sync para escalar por canal sem martelar Supabase.
-  Diagnostico atual:
-  1. `C:\Projetos\whatsapp-service\server.js` chama `syncBackendSession()` em eventos demais
-  2. fluxo atual sincroniza estado em `qr`, `authenticated`, `ready`, `change_state`, `disconnected`, reconnect, bootstrap e tambem durante processamento de mensagem
-  3. isso aumenta pressao em `canais_whatsapp` mesmo com pouco volume de dados
-  Entrega ponta a ponta:
-  1. criar fila/scheduler central de sync por canal dentro do worker
-  2. coalescer eventos rapidos do mesmo canal e enviar so o ultimo estado util
-  3. diferenciar sync critico de canal (`ready`, `offline`, `auth_failure`, QR novo, disconnect manual) vs. sync transitorio (`change_state`, reconnect agendado, bootstrap)
-  4. remover `syncBackendSession()` do fluxo de mensagem recebida/enviada, bloqueio por contato salvo e notas operacionais de atendimento
-  5. enviar ao backend apenas mudancas materiais de estado do canal, evitando persistir `notes` a cada evento
-  6. aplicar debounce/throttle por canal e janela minima para payload repetido
-  7. reduzir escrita no startup/bootstrap para mandar apenas estado final relevante do canal
-  8. validar com mais de um canal/projeto ligado ao mesmo tempo e medir queda das chamadas a `/api/whatsapp/session`
-
-## Trilha 2 - Identificacao do usuario e memoria
-
-### Alto
-
-- Identificacao simples no chat/widget por email ou contato.
-  Feito:
-  1. input do widget tem icone discreto de email/contato
-  2. clique abre box simples no lugar da caixa de texto para informar email e celular
-  3. contato fica persistido no `localStorage`
-  4. contato entra no contexto `lead` e no `identificadorExterno`
-  5. runtime importa mensagens recentes de conversas anteriores pelo `identificadorExterno`
-  6. agente recebe resumo do historico importado em `memoria.historicoIdentificado`
-  Pendente:
-  1. validar nova conversa, conversa existente e usuario sem identificacao
-  2. endurecer confirmacao de posse do email/celular se virar dado sensivel
-
-- Login/identificacao pelo Google direto no chat: estudar antes de implementar.
-  Estudo necessario:
-  1. decidir se Google sera login real ou identificacao de lead
-  2. reaproveitar auth atual quando possivel
-  3. manter fallback por email/celular
-  4. definir impacto em LGPD/privacidade antes de importar historico
-  5. validar fluxo em mobile e desktop
-
-## Trilha 3 - Agenda, reservas e API do agente
-
-### Alto
-
-- Agenda de horarios disponiveis.
-  Feito:
-  1. criar seeder/schema para horarios disponiveis e reservas
-  2. criar APIs de cadastro, leitura, update e cancelamento/desativacao
-  3. admin cria, edita, lista e desativa dias/horarios disponiveis
-  4. API publica `GET /api/agenda` lista disponibilidade
-  5. API publica `POST /api/agenda` cria reserva
-  6. reserva grava resumo da conversa, contato, horario reservado, origem/canal, status, criado em e atualizado em
-  7. dispara email de aviso quando configurado
-  8. dispara WhatsApp quando houver canal ativo e contatos de handoff
-  9. registra falhas de notificacao em logs
-  10. runtime do chat carrega horarios disponiveis no contexto do agente
-  11. prompt instrui o agente a coletar contato antes de confirmar reserva
-  12. skill/intencao local de agenda detecta pedido de reserva, cobra contato quando faltar e cria reserva via modulo `POST`
-  13. agenda foi refatorada para gerar slots reais por periodo, hora inicial/final e duracao
-  14. UI compacta exibe slots por data com status visual disponivel, reservado e bloqueado
-  15. admin seleciona slots e reserva, bloqueia ou libera em lote
-  16. cron diario remove slots vencidos sem reserva vinculada
-  17. cadastro de APIs do agente aceita metodos GET, POST, PUT, PATCH e DELETE
-  18. gerar/replicar agenda cadastra automaticamente as APIs publicas de agenda na tabela `apis`, com URL/config dinamica por projeto e agente
-  Pendente:
-  1. validar reserva via chat em fluxo completo com as APIs de agenda cadastradas automaticamente no projeto
-  2. quando o fluxo atual de agenda estiver maduro, extrair para uma estrutura padronizada por capacidade:
-     - nucleo comum de agendamento no runtime
-     - configuracao por projeto/agente em `runtimeConfig`
-     - extensoes especificas por cliente sem duplicar o fluxo base
-     - manter evolucao rapida no formato atual ate estabilizar comportamento real
-
-## Trilha 4 - Chat widget e mobile
-
-### Pendente
-
-- Validar visualmente widget e fullscreen mobile em navegador real apos subir dev server.
-
-## Trilha 5 - Laboratorio e qualidade do runtime
-
-### Medio
-
-- Agente de teste/laboratorio: importar inteligencia do chat widget sem icone.
-  Entrega ponta a ponta:
-  1. agente de teste reaproveita inteligencia/comportamento do chat widget
-  2. nao exibe icone usado no widget publico
-  3. mantem isolamento de contexto
-  4. simulador efemero continua sem gravar `chats`/`mensagens`
-  5. validar no admin/laboratorio
-
-## Trilha 6 - Home, billing e produto
-
-### Critico
-
-- Mercado Livre.
-  Entrega ponta a ponta:
-  1. evoluir painel v2 inicial para fluxo completo com OAuth
-  2. sincronizar catalogo
-  3. listar pedidos
-  4. listar e responder perguntas
-  5. validar fluxo em conta real/sandbox conforme disponibilidade
-
-### Alto
-
-- Billing por projeto / Mercado Pago: recarga avulsa 100% automatica.
-  Pendencia real:
-  1. aguardar ajuste/configuracao no painel e na conta do Mercado Pago
-  Entrega ponta a ponta depois da pendencia:
-  1. trocar recarga avulsa restante para `preference` criada por API
-  2. usar `external_reference` para reconciliar pagamento sem ambiguidade
-  3. validar `x-signature` no webhook
-  4. remover dependencia de link `mpago.la` do painel
-  5. compra avulsa credita tokens automaticamente por webhook
-  6. fluxo fica consistente com upgrade de plano
-
-- Home publica: tema dual dark/light.
+- WhatsApp-service: endurecer persistencia e reconexao automatica da sessao no worker da Railway.
   Estado atual:
-  1. infraestrutura de tema por `html.dark` ja existe
-  2. heranca de `prefers-color-scheme` ja existe
-  3. landing, modal e chat-demo ja aceitam claro/escuro
-  4. blur/backdrop pesado foi removido da home
-  Entrega ponta a ponta:
-  1. refinar hero e pricing para ficar mais proximo da referencia clara
-  2. manter light branco, limpo e comercial
-  3. evitar glassmorphism, blur, glow exagerado e excesso de sombra
-  4. preferir fundos chapados, bordas suaves e contraste por tipografia/espacamento
-  5. expandir so depois para `/app` e `/admin`
+  1. backend ja tenta reconciliar snapshot e reconnect como contingencia
+  2. problema estrutural ainda parece morar no worker externo
+  Pendente:
+  1. revisar como o worker salva e restaura auth/session do WhatsApp
+  2. garantir reconexao automatica real apos queda, restart ou perda temporaria de conexao
+  3. registrar motivo tecnico quando falhar reconectar
+  4. validar em ambiente real na Railway com restart do processo e queda controlada
+  5. manter o fallback do backend apenas como contingencia, nao como solucao principal
 
-### Medio
+- WhatsApp/handoff: fechar validacao ponta a ponta em canal real.
+  Estado atual:
+  1. CTA de humano existe
+  2. link direto para `/admin/atendimento?conversa=...` existe
+  3. pausa por loop existe
+  4. alerta de handoff por WhatsApp ja esta conectado no runtime
+  Pendente:
+  1. validar envio manual do atendimento para WhatsApp real
+  2. validar disparo para atendente cadastrado usando o proprio canal do projeto
+  3. registrar falhas de envio de forma consultavel
+  4. exibir no admin o motivo tecnico salvo em `handoff.metadata.autoPause.reason`
+
+## Alto
+
+- WhatsApp-service: reduzir volume de sync com backend e Supabase.
+  Estado atual:
+  1. existe tratamento de snapshot e estados transitorios no backend
+  2. ainda falta endurecer a estrategia de sync no worker
+  Pendente:
+  1. criar fila ou scheduler central de sync por canal dentro do worker
+  2. coalescer eventos rapidos do mesmo canal e enviar so o ultimo estado util
+  3. diferenciar sync critico de sync transitorio
+  4. remover sync redundante do fluxo de mensagem e notas operacionais
+  5. aplicar debounce/throttle por canal e janela minima para payload repetido
+  6. validar com mais de um canal/projeto ligado ao mesmo tempo e medir queda das chamadas a `/api/whatsapp/session`
+
+- Mercado Livre: fechar validacao operacional real.
+  Estado atual:
+  1. OAuth existe
+  2. pedidos existem
+  3. perguntas e resposta existem
+  4. loja publica e snapshot existem
+  Pendente:
+  1. validar fluxo em conta real ou sandbox
+  2. revisar consistencia de sync de catalogo/snapshot
+  3. confirmar operacao real sem falhas de ambiente, permissao ou schema
+
+- Billing por projeto / Mercado Pago: fechar operacao e limpeza final do fluxo de recarga.
+  Estado atual:
+  1. `preference` ja existe por API
+  2. `external_reference` ja existe
+  3. webhook com `x-signature` ja existe
+  4. confirmacao de recarga por webhook ja existe
+  Pendente:
+  1. validar operacao final no ambiente real
+  2. remover dependencias remanescentes de link manual/teste onde ainda houver
+  3. alinhar painel e conta do Mercado Pago para operacao 100% sem ajuste manual
+
+- Agenda: fechar validacao via chat em fluxo real.
+  Estado atual:
+  1. admin de agenda existe
+  2. API publica existe
+  3. reserva existe
+  4. skill de agenda no chat existe
+  5. auto-cadastro das APIs no agente existe
+  Pendente:
+  1. validar reserva via chat em fluxo completo
+  2. revisar comportamento real de coleta de contato antes da confirmacao
+  3. quando estabilizar, extrair para estrutura padronizada por capacidade em `runtimeConfig`
+
+## Medio
+
+- Identificacao simples no chat/widget: fechar validacao e endurecimento.
+  Estado atual:
+  1. widget ja coleta nome, email e telefone
+  2. persiste no `localStorage`
+  3. envia `identificadorExterno`
+  4. importa historico por identificador
+  Pendente:
+  1. validar conversa nova, conversa existente e usuario sem identificacao
+  2. endurecer confirmacao de posse se email/celular passarem a ser dado sensivel no fluxo
+
+- Laboratorio: melhorar operacao sobre a base que ja existe.
+  Estado atual:
+  1. baseline anterior existe
+  2. score humano existe
+  3. simulador real efemero existe
+  Pendente:
+  1. criar ciclo de limpeza de logs com TTL por categoria
+  2. adicionar acao para salvar conversa boa do simulador como cenario fixo
+  3. continuar transformando casos reais em cenarios fixos do laboratorio
+
+- Chat widget: validar visualmente widget e fullscreen mobile em navegador real.
+
+- Home publica: refinamento visual do tema dual dark/light.
+  Estado atual:
+  1. suporte dark/light ja existe
+  2. landing, modal e chat demo ja trabalham com os dois temas
+  Pendente:
+  1. refinar hero e pricing
+  2. manter light mais limpo e comercial
+  3. reduzir residuos visuais exagerados onde ainda houver
+
+- Agente de teste/laboratorio: avaliar se ainda vale aproximar mais do widget publico sem icone.
+  Estado atual:
+  1. simulador real efemero ja existe
+  2. teste nao grava `chats` nem `mensagens` reais
+  Pendente:
+  1. decidir se ainda existe gap relevante entre simulador atual e widget real
+  2. se existir, reaproveitar mais comportamento do widget sem adicionar icone
+
+## Baixo
 
 - Excluir conta.
-  Entrega ponta a ponta:
+  Pendente:
   1. permitir exclusao de conta com tudo que o usuario teria acesso
   2. preservar dados administrativos necessarios
   3. registrar auditoria minima da operacao
   4. validar impacto em projetos, billing e chats
 
 - Chat widget: remover resquicio legado de `whatsapp_celular`.
-  Entrega ponta a ponta:
+  Estado atual:
+  1. regra de oferta de WhatsApp ja depende do canal ativo/conectado
+  2. campo legado ainda existe no schema e em partes do runtime
+  Pendente:
   1. remover do cadastro quando compatibilidade permitir
   2. remover mapeamentos internos e banco relacionados
-  3. manter WhatsApp controlado somente por canal ativo/conectado do agente
-  4. validar que oferta de WhatsApp nao depende mais desse campo
+  3. validar que oferta de WhatsApp nao depende mais desse campo em nenhum fluxo
+
+- Login ou identificacao pelo Google no chat: estudar antes de implementar.
+  Estado atual:
+  1. OAuth social existe no sistema
+  2. isso ainda nao esta integrado ao chat/widget como backlog especifico
+  Pendente:
+  1. decidir se Google sera login real ou identificacao de lead
+  2. reaproveitar auth atual quando fizer sentido
+  3. manter fallback por email/celular
+  4. definir impacto em LGPD/privacidade antes de importar historico
+  5. validar fluxo em mobile e desktop
+
+- Chatwidget: comportamento inteligente orientado a contexto.
+  Pendente:
+  1. scrollou -> chat aparece
+  2. ficou parado -> chat sugere ajuda
+  3. clicou produto -> chat contextualiza
