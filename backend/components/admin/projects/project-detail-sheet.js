@@ -120,9 +120,9 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
               type="button"
               onClick={() => onChange(tab.id)}
               className={cn(
-                'infra-tab-motion inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold',
+                'infra-tab-motion inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-[background-color,border-color,box-shadow,color]',
                 active
-                  ? 'border-sky-400/30 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.18)]'
+                  ? 'border-sky-400/40 bg-sky-500/16 text-sky-100 shadow-[0_8px_0_rgba(2,6,23,0.58),0_0_22px_rgba(56,189,248,0.16)]'
                   : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-slate-100',
               )}
             >

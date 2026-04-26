@@ -6,6 +6,45 @@ import StarterKit from '@tiptap/starter-kit'
 
 import { cn } from '@/lib/utils'
 
+function normalizeEditorSourceValue(value) {
+  if (value == null) {
+    return ''
+  }
+
+  if (typeof value === 'string') {
+    return value
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeEditorSourceValue(item)).filter(Boolean).join('\n')
+  }
+
+  if (typeof value === 'object') {
+    const preferredKeys = ['prompt', 'promptBase', 'description', 'text', 'content', 'value', 'html']
+
+    for (const key of preferredKeys) {
+      const normalizedPreferred = normalizeEditorSourceValue(value[key])
+      if (normalizedPreferred) {
+        return normalizedPreferred
+      }
+    }
+
+    return Object.entries(value)
+      .map(([key, item]) => {
+        const normalizedItem = normalizeEditorSourceValue(item)
+        return normalizedItem ? `${key}: ${normalizedItem}` : ''
+      })
+      .filter(Boolean)
+      .join('\n')
+  }
+
+  return ''
+}
+
 export function escapeHtml(value) {
   return value
     .replaceAll('&', '&amp;')
@@ -25,7 +64,7 @@ export function formatInlineMarkdown(value) {
 }
 
 export function plainTextToEditorHtml(value) {
-  const normalizedValue = (value || '').replace(/\r\n/g, '\n').trim()
+  const normalizedValue = normalizeEditorSourceValue(value).replace(/\r\n/g, '\n').trim()
 
   if (!normalizedValue) {
     return ''
@@ -61,7 +100,7 @@ export function richTextToPlainText(value) {
   }
 
   const container = document.createElement('div')
-  container.innerHTML = value
+  container.innerHTML = normalizeEditorSourceValue(value)
 
   container.querySelectorAll('br').forEach((lineBreak) => {
     lineBreak.replaceWith('\n')

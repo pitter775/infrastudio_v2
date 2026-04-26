@@ -842,7 +842,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
                 </span>
               </Link>
               <p className="text-sm leading-relaxed text-slate-500">
-                Tecnologia sob medida para acelerar negócios brasileiros com inteligência e automação.
+                Tecnologia sob medida para acelerar negócios com inteligência e automação.
               </p>
             </div>
 

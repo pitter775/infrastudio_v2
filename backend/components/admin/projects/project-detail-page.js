@@ -83,7 +83,7 @@ import { cn } from '@/lib/utils'
 export function AdminProjectDetailPage({ project }) {
   const router = useRouter()
   const projectIdentifier = project.routeKey || project.slug || project.id
-  const [isPanelOpen, setIsPanelOpen] = useState(Boolean(project.agent?.id))
+  const [isPanelOpen, setIsPanelOpen] = useState(false)
   const [activePanel, setActivePanel] = useState(DEFAULT_PANEL)
   const [agentTabFromUrl, setAgentTabFromUrl] = useState('edit')
   const [deepLink, setDeepLink] = useState({})
@@ -313,22 +313,13 @@ export function AdminProjectDetailPage({ project }) {
       const params = new URLSearchParams(window.location.search)
       const nextTab = resolveAgentTab(params.get('tab'))
       const panel = params.get('panel')
-      const allowAutoOpenSheet = !isMobile
 
       if (nextTab) {
         setAgentTabFromUrl(nextTab)
-        if (allowAutoOpenSheet) {
-          setActivePanel(DEFAULT_PANEL)
-          setIsPanelOpen(true)
-        }
         return
       }
 
       if (panel && [DEFAULT_PANEL, ...integrationPanels.map((item) => item.id)].includes(panel)) {
-        if (!allowAutoOpenSheet) {
-          return
-        }
-
         setDeepLink({
           api: params.get('api') || null,
           channel: params.get('channel') || null,
@@ -336,8 +327,7 @@ export function AdminProjectDetailPage({ project }) {
           tab: params.get('tab') || null,
           notice: params.get('ml_notice') || null,
         })
-        setActivePanel(panel)
-        setIsPanelOpen(true)
+        setActivePanel(panel === DEFAULT_PANEL ? DEFAULT_PANEL : panel)
       }
     }
 
@@ -499,6 +489,22 @@ export function AdminProjectDetailPage({ project }) {
               const active = activePanel === item.id && isPanelOpen
               const loading = pendingPanelId === item.id
               const toneClasses = getToneClasses(item.colorClassName)
+              const glowClassName =
+                item.colorClassName === 'emerald'
+                  ? 'shadow-[0_0_20px_rgba(52,211,153,0.18)]'
+                  : item.colorClassName === 'amber'
+                    ? 'shadow-[0_0_20px_rgba(251,191,36,0.18)]'
+                    : item.colorClassName === 'violet'
+                      ? 'shadow-[0_0_20px_rgba(217,70,239,0.18)]'
+                      : 'shadow-[0_0_20px_rgba(56,189,248,0.18)]'
+              const hoverGlowClassName =
+                item.colorClassName === 'emerald'
+                  ? 'hover:shadow-[0_0_20px_rgba(52,211,153,0.18)]'
+                  : item.colorClassName === 'amber'
+                    ? 'hover:shadow-[0_0_20px_rgba(251,191,36,0.18)]'
+                    : item.colorClassName === 'violet'
+                      ? 'hover:shadow-[0_0_20px_rgba(217,70,239,0.18)]'
+                      : 'hover:shadow-[0_0_20px_rgba(56,189,248,0.18)]'
 
               return (
                 <button
@@ -507,10 +513,10 @@ export function AdminProjectDetailPage({ project }) {
                   type="button"
                   onClick={() => handleOpenPanel(item.id)}
                   className={cn(
-                    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold transition-colors',
+                    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold transition-[background-color,border-color,box-shadow,color]',
                     active
-                      ? toneClasses.pillActive
-                      : cn(toneClasses.pill, toneClasses.text, toneClasses.hover),
+                      ? cn(toneClasses.pillActive, glowClassName)
+                      : cn(toneClasses.pill, toneClasses.text, toneClasses.hover, hoverGlowClassName),
                   )}
                 >
                   {loading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : Icon ? <Icon className="h-3.5 w-3.5" /> : null}
@@ -574,6 +580,28 @@ export function AdminProjectDetailPage({ project }) {
               ) : null
             }
           >
+            {!isPanelOpen && !pendingPanelId ? (
+              <motion.div
+                initial={{ opacity: 0, y: 10, scale: 0.96 }}
+                animate={{
+                  opacity: [0, 0, 1, 1, 1, 0, 0],
+                  y: [10, 10, 0, -4, 0, 0, 0],
+                  scale: [0.96, 0.96, 1, 1, 1, 1, 1],
+                }}
+                transition={{
+                  duration: 7.2,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                  times: [0, 0.16, 0.26, 0.4, 0.55, 0.7, 1],
+                }}
+                className="pointer-events-none absolute left-1/2 top-[-58px] z-30 -translate-x-1/2"
+              >
+                <div className="relative rounded-full border border-cyan-300/30 bg-cyan-500/14 px-4 py-2 text-center text-[11px] font-semibold tracking-[0.04em] text-cyan-100 shadow-[0_10px_30px_rgba(34,211,238,0.18)] backdrop-blur">
+                  Clique no card para abrir a edição do agente
+                  <span className="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-cyan-300/30 bg-cyan-500/14" />
+                </div>
+              </motion.div>
+            ) : null}
             {activeIntegrationPanels
               .filter((panel) => panel.directToAgent)
               .map((panel, index) => {
@@ -617,7 +645,7 @@ export function AdminProjectDetailPage({ project }) {
                     >
                       <div
                         className={cn(
-                          'flex h-full w-full items-center gap-2 rounded-[22px] border border-white/10 bg-[#0c1426] px-3 py-2 transition-[box-shadow,transform,background-color,border-color,color] duration-200',
+                          'relative flex h-full w-full items-center gap-2 rounded-[22px] border border-white/10 bg-[#0c1426] px-3 py-2 transition-[box-shadow,transform,background-color,border-color,color] duration-200',
                           isCardDragging
                             ? 'shadow-[0_14px_0_rgba(2,6,23,0.78)]'
                             : 'shadow-[0_8px_0_rgba(2,6,23,0.64)]',
@@ -633,6 +661,9 @@ export function AdminProjectDetailPage({ project }) {
                               ),
                         )}
                       >
+                        {activePanel === panel.id && isPanelOpen ? (
+                          <span className="pointer-events-none absolute inset-0 rounded-[22px] bg-[#0d1830]/88" />
+                        ) : null}
                         <button
                           type="button"
                           onClick={(event) => {
@@ -640,7 +671,7 @@ export function AdminProjectDetailPage({ project }) {
                             event.stopPropagation()
                             handleOpenPanel(panel.id)
                           }}
-                          className="flex min-w-0 flex-1 flex-col items-center justify-center gap-1"
+                          className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-1"
                         >
                           <Icon
                             className={cn(
@@ -658,7 +689,7 @@ export function AdminProjectDetailPage({ project }) {
                             event.stopPropagation()
                             setPanelEnabledMap((current) => ({ ...current, [panel.id]: !enabled }))
                           }}
-                          className="shrink-0 self-center"
+                          className="relative z-10 shrink-0 self-center"
                         >
                           <SheetPowerToggle enabled={enabled} compact />
                         </span>

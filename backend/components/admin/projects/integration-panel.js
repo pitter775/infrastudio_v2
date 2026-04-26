@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
+import { ArrowRight, BookOpen, Check, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
 
 import { ApiSheetManager } from '@/components/app/apis/api-sheet-manager'
 import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
@@ -144,11 +144,11 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       if (panel.id === 'mercado-livre') {
         return [
           { id: 'connection', label: 'Conexao', icon: Store },
+          { id: 'tutorial', label: 'Tutorial', icon: BookOpen },
           { id: 'store', label: 'Loja', icon: Wand2 },
           { id: 'test', label: 'Teste', icon: PackageSearch },
           { id: 'orders', label: 'Pedidos', icon: Files },
           { id: 'questions', label: 'Perguntas', icon: MessageSquare },
-          { id: 'tutorial', label: 'Tutorial', icon: Files },
         ]
       }
 
@@ -379,6 +379,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
                 className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {!mercadoFooter.saving ? <ArrowRight className="mr-2 h-4 w-4" /> : null}
                 {mercadoFooter.saving ? 'Localizando...' : 'Avancar'}
               </Button>
             ) : null}
@@ -391,6 +392,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
                 className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {!mercadoFooter.saving ? <Check className="mr-2 h-4 w-4" /> : null}
                 {mercadoFooter.saving ? 'Salvando...' : 'Salvar conexao'}
               </Button>
             ) : null}
@@ -403,6 +405,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
                 className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                {!mercadoFooter.saving ? <Store className="mr-2 h-4 w-4" /> : null}
                 {mercadoFooter.saving ? 'Salvando...' : 'Salvar loja'}
               </Button>
             ) : null}

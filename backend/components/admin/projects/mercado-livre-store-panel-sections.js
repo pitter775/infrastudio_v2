@@ -1,10 +1,12 @@
 'use client'
 
-import { Copy, Database, ExternalLink, Globe, RefreshCcw, Search } from 'lucide-react'
+import { Copy, Database, ExternalLink, Globe, Phone, RefreshCcw, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
 import { StorePanelField, StorePanelInput, StorePanelTextarea, StorePanelToggle } from '@/components/admin/projects/mercado-livre-store-panel-fields'
+
+const STORE_COLOR_PRESETS = ['#0ea5e9', '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
 
 export function StoreGeneralSection({
   draft,
@@ -70,8 +72,10 @@ export function StoreGeneralSection({
       <StorePanelInput
         label="Slug da loja"
         value={draft.slug}
-        onChange={(event) => setDraft((current) => ({ ...current, slug: event.target.value }))}
+        onChange={() => {}}
         placeholder="minha-loja-ml"
+        readOnly
+        className="cursor-not-allowed opacity-80"
       />
       <StorePanelInput
         label="Nome da loja"
@@ -108,19 +112,49 @@ export function StoreGeneralSection({
           className="min-h-[160px]"
         />
       </div>
+      <div className="md:col-span-2 rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+        <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
+          <Phone className="h-4 w-4 text-sky-300" />
+          Contato da loja
+        </div>
+        <StoreContactSection draft={draft} setDraft={setDraft} />
+      </div>
     </div>
   )
 }
 
-export function StoreAppearanceSection({ draft, setDraft, widgetOptions }) {
+export function StoreAppearanceSection({ draft, setDraft }) {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <StorePanelInput
-        label="Cor predominante"
-        value={draft.accentColor}
-        onChange={(event) => setDraft((current) => ({ ...current, accentColor: event.target.value }))}
-        placeholder="#0ea5e9"
-      />
+      <StorePanelField label="Cor predominante">
+        <div className="grid gap-3">
+          <div className="flex flex-wrap gap-2">
+            {STORE_COLOR_PRESETS.map((color) => {
+              const active = draft.accentColor === color
+
+              return (
+                <button
+                  key={color}
+                  type="button"
+                  onClick={() => setDraft((current) => ({ ...current, accentColor: color }))}
+                  className={`h-10 w-10 rounded-full border transition ${active ? 'border-white shadow-[0_0_0_3px_rgba(255,255,255,0.08)]' : 'border-white/10'}`}
+                  style={{ backgroundColor: color }}
+                  title={color}
+                />
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2">
+            <input
+              type="color"
+              value={draft.accentColor}
+              onChange={(event) => setDraft((current) => ({ ...current, accentColor: event.target.value }))}
+              className="h-8 w-10 cursor-pointer rounded border-0 bg-transparent p-0"
+            />
+            <span className="text-sm text-slate-300">{draft.accentColor}</span>
+          </div>
+        </div>
+      </StorePanelField>
       <StorePanelInput
         label="Logo URL"
         value={draft.logoUrl}
@@ -135,20 +169,6 @@ export function StoreAppearanceSection({ draft, setDraft, widgetOptions }) {
       >
         Chat widget na loja
       </StorePanelToggle>
-      <StorePanelField label="Widget vinculado">
-        <select
-          value={draft.chatWidgetId}
-          onChange={(event) => setDraft((current) => ({ ...current, chatWidgetId: event.target.value }))}
-          className="h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30"
-        >
-          <option value="">Widget padrao do projeto</option>
-          {widgetOptions.map((widget) => (
-            <option key={widget.id} value={widget.id}>
-              {widget.label}
-            </option>
-          ))}
-        </select>
-      </StorePanelField>
       <div className="md:col-span-2">
         <StorePanelTextarea
           label="Texto do footer"

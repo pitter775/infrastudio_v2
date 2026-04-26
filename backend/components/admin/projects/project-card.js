@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { animate, motion, useDragControls, useMotionValue } from 'framer-motion'
-import { LoaderCircle, MessageSquare, MessageSquareText, PackageSearch, Pencil, PlugZap, Store } from 'lucide-react'
+import { LoaderCircle, MessageCircle, MessageSquareText, PackageSearch, Pencil, PlugZap, Store } from 'lucide-react'
 import { formatCredits } from '@/lib/public-planos'
 import { cn } from '@/lib/utils'
 
@@ -13,7 +13,7 @@ const integrationIconMap = {
     label: 'APIs',
   },
   whatsapp: {
-    icon: MessageSquare,
+    icon: MessageCircle,
     className: 'text-emerald-300',
     label: 'WhatsApp',
   },
@@ -32,10 +32,13 @@ const integrationIconMap = {
 function ProjectServiceIcon({ type }) {
   const config = integrationIconMap[type] || integrationIconMap.apis
   const Icon = config.icon
+  const isWhatsApp = type === 'whatsapp'
 
   return (
     <div className="flex min-w-[54px] flex-col items-center gap-1 text-center">
-      <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/5 bg-slate-900">
+      <div
+        className={cn('flex h-10 w-10 items-center justify-center border border-white/5 bg-slate-900', isWhatsApp ? 'rounded-full' : 'rounded-lg')}
+      >
         <Icon className={cn('h-5 w-5', config.className)} />
       </div>
       <span className="max-w-[60px] text-[9px] font-medium leading-3 text-slate-500">
@@ -586,8 +589,6 @@ export function AdminProjectCard({
               )}
             />
               <span className="truncate">{getStatusLabel(project.status)}</span>
-              <ProjectPlanPill summary={usageSummary} />
-              <ProjectExtraCreditsPill summary={usageSummary} />
               {statusControl ? <span className="ml-1 shrink-0">{statusControl}</span> : null}
             </div>
           <div className="flex shrink-0 items-center gap-2">

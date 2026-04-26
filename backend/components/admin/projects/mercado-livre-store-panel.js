@@ -1,11 +1,10 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { ExternalLink, Globe, ImageIcon, LayoutTemplate, Phone, Share2, Store } from 'lucide-react'
+import { Check, ExternalLink, Globe, ImageIcon, LayoutTemplate, Save, Share2, Store } from 'lucide-react'
 
 import {
   StoreAppearanceSection,
-  StoreContactSection,
   StoreFeaturedSection,
   StoreGeneralSection,
   StoreMenuSection,
@@ -19,7 +18,6 @@ const STORE_TABS = [
   { id: 'general', label: 'Geral', icon: Store },
   { id: 'appearance', label: 'Visual', icon: ImageIcon },
   { id: 'featured', label: 'Destaques', icon: LayoutTemplate },
-  { id: 'contact', label: 'Contato', icon: Phone },
   { id: 'social', label: 'Redes', icon: Share2 },
   { id: 'menu', label: 'Menu', icon: Globe },
   { id: 'domain', label: 'Dominio', icon: ExternalLink },
@@ -109,13 +107,6 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   const [publicUrlCopied, setPublicUrlCopied] = useState(false)
   const [restoringDefaults, setRestoringDefaults] = useState(false)
 
-  const widgetOptions = useMemo(
-    () => (Array.isArray(project.chatWidgets) ? project.chatWidgets : []).map((widget) => ({
-      id: widget.id,
-      label: widget.nome || widget.slug || widget.id,
-    })),
-    [project.chatWidgets],
-  )
   const publicUrl = useMemo(() => buildPublicStoreUrl(project, draft.slug), [draft.slug, project])
 
   useEffect(() => {
@@ -403,7 +394,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       setDraft(buildInitialDraft(project, data.store))
       setFeedback({
         tone: 'success',
-        text: 'Padroes restaurados. Loja, widget vinculado e slug principal foram reativados.',
+        text: 'Padroes restaurados. Loja e slug principal foram reativados.',
       })
     } catch {
       setFeedback({ tone: 'error', text: 'Nao foi possivel restaurar os padroes da loja.' })
@@ -469,7 +460,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         />
       ) : null}
 
-      {activeSubTab === 'appearance' ? <StoreAppearanceSection draft={draft} setDraft={setDraft} widgetOptions={widgetOptions} /> : null}
+      {activeSubTab === 'appearance' ? <StoreAppearanceSection draft={draft} setDraft={setDraft} /> : null}
 
       {activeSubTab === 'featured' ? (
         <StoreFeaturedSection
@@ -488,8 +479,6 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         />
       ) : null}
 
-      {activeSubTab === 'contact' ? <StoreContactSection draft={draft} setDraft={setDraft} /> : null}
-
       {activeSubTab === 'social' ? <StoreSocialSection draft={draft} setDraft={setDraft} /> : null}
 
       {activeSubTab === 'menu' ? <StoreMenuSection draft={draft} onUpdateMenuLink={updateMenuLink} /> : null}
@@ -501,6 +490,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       {active ? (
         <div className="flex justify-end">
           <Button type="submit" disabled={saving} variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
+            {saving ? <Save className="mr-2 h-4 w-4" /> : <Check className="mr-2 h-4 w-4" />}
             {saving ? 'Salvando...' : 'Salvar loja'}
           </Button>
         </div>

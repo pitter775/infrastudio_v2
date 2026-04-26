@@ -10,6 +10,7 @@ import {
   scoreMercadoLivreItem,
 } from "@/lib/mercado-livre/mappers"
 import { resolveMercadoLivreProductInternal } from "@/lib/mercado-livre/resolve-product"
+import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl, resolvePublicAppUrl } from "@/lib/mercado-livre-webhook"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { createLogEntry } from "@/lib/logs"
 
@@ -31,13 +32,7 @@ function getAppAuthSecret() {
 }
 
 function getAppUrl(origin) {
-  return (
-    process.env.APP_URL?.trim() ||
-    process.env.NEXT_PUBLIC_APP_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    origin?.trim() ||
-    "http://localhost:3000"
-  )
+  return resolvePublicAppUrl(origin)
 }
 
 function userCanAccessProject(user, projectId) {
@@ -298,6 +293,8 @@ export async function upsertMercadoLivreConnectorForUser(project, input, user, d
       appId,
       clientSecret,
       seedId,
+      webhookUrl: buildMercadoLivreWebhookUrl(project.id),
+      webhookProjectId: project.id,
     }
 
     const payload = {
@@ -364,8 +361,8 @@ export async function buildMercadoLivreAuthorizationUrl(project, user, origin, d
     codeVerifier,
   })
 
-  const resolvedAppUrl = getAppUrl(origin).replace(/\/$/, "")
-  const redirectUri = `${resolvedAppUrl}/api/admin/conectores/mercado-livre/callback`
+  const resolvedAppUrl = getAppUrl(origin)
+  const redirectUri = buildMercadoLivreRedirectUri(origin)
   const url = new URL(`${MERCADO_LIVRE_AUTH_BASE}/authorization`)
   url.searchParams.set("response_type", "code")
   url.searchParams.set("client_id", appId)
@@ -404,7 +401,7 @@ function buildMercadoLivreOAuthRedirectPath(projectId, status) {
 
 async function exchangeMercadoLivreCode(code, codeVerifier, connector, origin, fetchImpl = fetch) {
   const config = getConnectorConfig(connector)
-  const redirectUri = `${getAppUrl(origin).replace(/\/$/, "")}/api/admin/conectores/mercado-livre/callback`
+  const redirectUri = buildMercadoLivreRedirectUri(origin)
   const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/oauth/token`, {
     method: "POST",
     headers: {

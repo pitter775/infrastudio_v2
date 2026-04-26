@@ -11,7 +11,7 @@ export function StorePanelField({ label, children }) {
   )
 }
 
-export function StorePanelInput({ label, value, onChange, placeholder, type = 'text' }) {
+export function StorePanelInput({ label, value, onChange, placeholder, type = 'text', className = '', ...props }) {
   return (
     <StorePanelField label={label}>
       <input
@@ -19,7 +19,8 @@ export function StorePanelInput({ label, value, onChange, placeholder, type = 't
         value={value}
         onChange={onChange}
         placeholder={placeholder}
-        className="h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30"
+        className={`h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30 disabled:cursor-not-allowed disabled:opacity-70 ${className}`}
+        {...props}
       />
     </StorePanelField>
   )

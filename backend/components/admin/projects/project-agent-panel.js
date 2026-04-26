@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ChevronRight, Files, History, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2 } from 'lucide-react'
+import { Check, ChevronRight, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -11,6 +11,7 @@ import { JsonCodeBlock } from '@/components/ui/json-code-block'
 import { cn } from '@/lib/utils'
 import { AgentRichEditor, plainTextToEditorHtml, richTextToPlainText } from './agent-rich-editor'
 import { buildAgentDraftConfig, buildMergedAgentSummary, buildVersionChangeNote, resolveEntityAvatarUrl } from './agent-config-utils'
+import { getPanelAccentClasses, getToneClasses } from './project-detail-layout'
 import { PlaceholderPanel, SheetInternalTabs, SheetPanelHeader } from './project-detail-sheet'
 import { resolveAgentTab } from './project-detail-query'
 
@@ -176,6 +177,7 @@ export function ProjectPanel({
       title: api.name,
       description: api.url || `${api.method || 'GET'} cadastrado`,
       icon: PlugZap,
+      colorClassName: 'sky',
       panel: 'apis',
       params: { api: api.id },
     })),
@@ -184,7 +186,8 @@ export function ProjectPanel({
       type: 'channel',
       title: channel.number || 'Canal WhatsApp',
       description: channel.connectionStatus || channel.status || 'Canal cadastrado',
-      icon: MessageSquare,
+      icon: MessageCircle,
+      colorClassName: 'emerald',
       panel: 'whatsapp',
       params: { channel: channel.id },
     })),
@@ -194,6 +197,7 @@ export function ProjectPanel({
       title: widget.name || widget.nome || 'Chat widget',
       description: widget.slug || 'Widget cadastrado',
       icon: PackageSearch,
+      colorClassName: 'violet',
       panel: 'chat-widget',
       params: { widget: widget.id },
     })),
@@ -205,6 +209,7 @@ export function ProjectPanel({
             title: 'Mercado Livre',
             description: `${project.directConnections.mercadoLivre} conector ativo`,
             icon: Store,
+            colorClassName: 'amber',
             panel: 'mercado-livre',
             params: {},
           },
@@ -451,7 +456,7 @@ export function ProjectPanel({
     <>
       <SheetPanelHeader
         eyebrow="Agente"
-        description="Defina o agente e selecione quais APIs deste projeto ele pode usar."
+        description="Edite seu agente com suas politicas e regras."
         statusTone="sky"
         onCancel={onCloseSheet}
       />
@@ -526,12 +531,12 @@ export function ProjectPanel({
                 </div>
 
                   <p className="mt-2 text-xs text-slate-500">
-                    O sistema busca informacoes do site e soma esse contexto ao texto que voce ja escreveu no editor.
+                    O sistema busca informacoes do site e soma esse contexto.
                   </p>
                   {logoUrl ? (
                     <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
                       <TinyEntityAvatar src={resolveEntityAvatarUrl(logoUrl, siteUrl)} label={agentName || 'Agente'} />
-                      <span>Logo capturado do site e pronto para salvar no agente.</span>
+                      <span>Logo capturado do site.</span>
                     </div>
                   ) : null}
 
@@ -553,7 +558,7 @@ export function ProjectPanel({
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Adiciona seus dados para o agente atender.
+                    Escreva suas politicas e regras do seu negocio.
                   </label>
                   <Button
                     type="button"
@@ -562,7 +567,7 @@ export function ProjectPanel({
                     onClick={handleResetAgentDraft}
                   >
                     <Wand2 className="mr-1.5 h-3.5 w-3.5" />
-                    Voltar ao ultimo carregado
+                    Voltar
                   </Button>
                 </div>
 
@@ -600,22 +605,33 @@ export function ProjectPanel({
             {connectionItems.length ? (
               connectionItems.map((item) => {
                 const Icon = item.icon
+                const accent = getPanelAccentClasses(item.colorClassName)
+                const toneClasses = getToneClasses(item.colorClassName)
+                const isWhatsApp = item.panel === 'whatsapp'
 
                 return (
                   <button
                     key={`${item.type}-${item.id}`}
                     type="button"
                     onClick={() => onOpenConnection?.(item.panel, item.params)}
-                    className="group flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0a1020] p-4 text-left transition-colors hover:border-sky-400/40 hover:bg-sky-500/10"
+                    className={cn(
+                      'group flex items-center gap-3 rounded-[22px] border bg-[#0c1426] p-4 text-left shadow-[0_8px_0_rgba(2,6,23,0.64)] transition-[background-color,border-color,box-shadow]',
+                      accent.button,
+                    )}
                   >
-                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-sky-300">
+                    <span
+                      className={cn(
+                        'flex h-10 w-10 shrink-0 items-center justify-center border border-white/10 bg-white/[0.06]',
+                        isWhatsApp ? 'rounded-full' : 'rounded-xl',
+                      )}
+                    >
                       <Icon className="h-5 w-5" />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-medium text-white">{item.title}</span>
-                      <span className="mt-1 block truncate text-xs text-slate-500">{item.description}</span>
+                      <span className={cn('mt-1 block truncate text-xs', toneClasses.text)}>{item.description}</span>
                     </span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-slate-600 transition-colors group-hover:text-sky-300" />
+                    <ChevronRight className={cn('h-4 w-4 shrink-0', accent.icon)} />
                   </button>
                 )
               })
@@ -750,6 +766,7 @@ export function ProjectPanel({
             onClick={handleSaveAgent}
             className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
           >
+            <Check className="mr-2 h-4 w-4" />
             {savingDraft ? 'Salvando...' : 'Salvar'}
           </Button>
           <Button
@@ -758,6 +775,7 @@ export function ProjectPanel({
             onClick={onCloseSheet}
             className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
           >
+            <X className="mr-2 h-4 w-4" />
             Cancelar
           </Button>
         </div>

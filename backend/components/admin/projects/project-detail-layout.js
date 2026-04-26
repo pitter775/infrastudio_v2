@@ -18,6 +18,7 @@ const CARD_ESTIMATED_HEIGHT = 228
 const MOBILE_CARD_SCALE = 0.82
 const SATELLITE_BUTTON_WIDTH = 152
 const SATELLITE_BUTTON_HEIGHT = 64
+const DOCKED_CARD_TOP_SHIFT = 156
 
 export function buildIntegrationPanels(project) {
   return [
@@ -29,8 +30,8 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'emerald',
       serviceIconType: 'whatsapp',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 338 },
-      desktopPosition: { x: 96, y: 338 },
+      mobilePosition: { x: 94, y: 324 },
+      desktopPosition: { x: 96, y: 332 },
       cardAnchor: { x: 168, y: CARD_ESTIMATED_HEIGHT },
       routeY: 314,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
@@ -49,13 +50,13 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'amber',
       serviceIconType: 'mercadoLivre',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 548 },
-      desktopPosition: { x: 96, y: 556 },
+      mobilePosition: { x: 94, y: 614 },
+      desktopPosition: { x: 96, y: 622 },
       cardAnchor: { x: 194, y: CARD_ESTIMATED_HEIGHT },
       routeY: 526,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'Mercado Livre',
-      description: 'Painel reservado para catalogo, pedidos e operacao de marketplace.',
+      description: 'Conecte sua conta do Mercado Livre e comece a usar',
       statusLabel: 'Integracao preparada',
       isAvailable: Number(project.directConnections?.mercadoLivre || 0) > 0,
       items: ['Catalogo', 'Pedidos', 'Reputacao', 'Perguntas'],
@@ -68,8 +69,8 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'sky',
       serviceIconType: 'apis',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 392 },
-      desktopPosition: { x: 96, y: 400 },
+      mobilePosition: { x: 94, y: 432 },
+      desktopPosition: { x: 96, y: 440 },
       cardAnchor: { x: 112, y: CARD_ESTIMATED_HEIGHT },
       routeY: 370,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
@@ -90,8 +91,8 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'violet',
       serviceIconType: 'chatWidget',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 470 },
-      desktopPosition: { x: 96, y: 478 },
+      mobilePosition: { x: 94, y: 526 },
+      desktopPosition: { x: 96, y: 534 },
       cardAnchor: { x: 138, y: CARD_ESTIMATED_HEIGHT },
       routeY: 448,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
@@ -280,10 +281,12 @@ export function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
   const contentLeft = isMobile ? CONTENT_SIDE_PADDING / 2 : COLLAPSED_SIDEBAR_WIDTH + CONTENT_SIDE_PADDING
   const contentRight = viewportWidth - CONTENT_SIDE_PADDING
   const usableWidth = Math.max(cardWidth, contentRight - contentLeft)
+  const centeredTop = Math.max((viewportHeight - CARD_ESTIMATED_HEIGHT) / 2, SHEET_TOP_OFFSET + 24)
+  const adjustedTop = Math.max(SHEET_TOP_OFFSET + 8, centeredTop - Math.round(DOCKED_CARD_TOP_SHIFT * 0.84))
 
   return {
     left: contentLeft + Math.max((usableWidth - cardWidth) / 2, 0),
-    top: Math.max((viewportHeight - CARD_ESTIMATED_HEIGHT) / 2, SHEET_TOP_OFFSET + 24),
+    top: adjustedTop,
     scale: 1,
   }
 }
@@ -291,7 +294,7 @@ export function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
 export function getMobileCardLayout(viewportWidth, cardWidth) {
   return {
     left: Math.max((viewportWidth - cardWidth) / 2, 0),
-    top: 136,
+    top: 104,
     scale: MOBILE_CARD_SCALE,
   }
 }
@@ -307,7 +310,8 @@ export function getDockedCardLayout({ viewportWidth, viewportHeight }) {
   const availableTravel = Math.max(usableWidth - scaledCardWidth, 0)
   const anchorFactor = viewportWidth >= 1400 ? 0.12 : 0.5
   const left = dockLeft + availableTravel * anchorFactor
-  const top = Math.max((viewportHeight - CARD_ESTIMATED_HEIGHT) / 2, SHEET_TOP_OFFSET + 24)
+  const centeredTop = Math.max((viewportHeight - CARD_ESTIMATED_HEIGHT) / 2, SHEET_TOP_OFFSET + 24)
+  const top = Math.max(SHEET_TOP_OFFSET + 8, centeredTop - DOCKED_CARD_TOP_SHIFT)
 
   return { left, top, scale, cardWidth, sheetWidth }
 }

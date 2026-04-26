@@ -1,10 +1,11 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useState } from 'react'
-import { Check, Copy, Files, MessageCircle, MessageSquare, PackageSearch, Store } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { BookOpen, Check, Copy, Files, MessageCircle, MessageSquare, PackageSearch, Store } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl } from '@/lib/mercado-livre-webhook'
 import { MercadoLivreStorePanel } from './mercado-livre-store-panel'
 
 export function MercadoLivrePanel({
@@ -56,12 +57,14 @@ export function MercadoLivrePanel({
   )
   const tabs = [
     { id: 'connection', label: 'Conexao', icon: Store },
+    { id: 'tutorial', label: 'Tutorial', icon: BookOpen },
     { id: 'store', label: 'Loja', icon: Store },
     { id: 'test', label: 'Teste', icon: PackageSearch },
     { id: 'orders', label: 'Pedidos', icon: Files },
     { id: 'questions', label: 'Perguntas', icon: MessageSquare },
-    { id: 'tutorial', label: 'Tutorial', icon: Files },
   ]
+  const redirectUri = useMemo(() => buildMercadoLivreRedirectUri(), [])
+  const webhookUrl = useMemo(() => buildMercadoLivreWebhookUrl(project.id), [project.id])
 
   function applyConnector(connector) {
     if (!connector || typeof connector !== 'object') {
@@ -80,6 +83,29 @@ export function MercadoLivrePanel({
       oauthUserId: String(config.oauthUserId || config.user_id || config.sellerUserId || ''),
     })
     setStep(2)
+  }
+
+  function getOrderDisplayName(order) {
+    const fullName = [order?.buyerFirstName, order?.buyerLastName].filter(Boolean).join(' ').trim()
+    if (fullName) {
+      return fullName
+    }
+
+    const nickname = String(order?.buyerNickname || '').trim()
+    if (nickname && !/^\d+$/.test(nickname)) {
+      return nickname
+    }
+
+    return 'Comprador'
+  }
+
+  function getQuestionDisplayName(question) {
+    const nickname = String(question?.fromNickname || '').trim()
+    if (nickname && !/^\d+$/.test(nickname)) {
+      return nickname
+    }
+
+    return 'Cliente'
   }
 
   async function copyTutorialValue(field, value) {
@@ -591,6 +617,35 @@ export function MercadoLivrePanel({
 
           {step === 2 ? (
             <>
+              <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
+                <p className="font-semibold">Pegue os dados direto no Mercado Livre</p>
+                <p className="mt-1 text-amber-50/80">
+                  Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-3">
+                  <a
+                    href="https://developers.mercadolivre.com.br/devcenter"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
+                  >
+                    Abrir painel do Mercado Livre
+                  </a>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={savingConnector || startingOAuth || !connectorMeta.id || connectorMeta.oauthConnected}
+                    onClick={handleStartOAuth}
+                    className={`h-9 rounded-xl px-3 text-xs font-semibold uppercase tracking-[0.16em] disabled:opacity-50 ${
+                      connectorMeta.oauthConnected
+                        ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
+                        : 'border border-sky-500/20 bg-sky-500/10 text-sky-100'
+                    }`}
+                  >
+                    {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Conta conectada' : 'Conectar conta'}
+                  </Button>
+                </div>
+              </div>
               <form id="mercado-livre-save-form" className="grid gap-4" onSubmit={handleSaveConnection}>
                 <div className="flex justify-start">
                   <Button
@@ -631,31 +686,6 @@ export function MercadoLivrePanel({
                   </label>
                 </div>
               </form>
-              <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-sm text-amber-100">
-                <p className="font-semibold">Pegue os dados direto no Mercado Livre</p>
-                <p className="mt-1 text-amber-50/80">
-                  Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
-                </p>
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <a
-                    href="https://developers.mercadolivre.com.br/devcenter"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
-                  >
-                    Abrir painel do Mercado Livre
-                  </a>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={savingConnector || startingOAuth || !connectorMeta.id}
-                    onClick={handleStartOAuth}
-                    className="h-9 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-sky-100 disabled:opacity-50"
-                  >
-                    {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Reconectar conta' : 'Conectar conta'}
-                  </Button>
-                </div>
-              </div>
             </>
           ) : null}
         </div>
@@ -841,7 +871,7 @@ export function MercadoLivrePanel({
                       >
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
-                            <div className="text-sm font-semibold text-white">Pedido {order.id}</div>
+                            <div className="text-sm font-semibold text-white">{getOrderDisplayName(order)}</div>
                             <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">
                               {order.status || 'sem status'}
                             </span>
@@ -851,9 +881,7 @@ export function MercadoLivrePanel({
                               </span>
                             ) : null}
                           </div>
-                          <div className="mt-1 text-sm text-slate-400">
-                            {order.buyerNickname || [order.buyerFirstName, order.buyerLastName].filter(Boolean).join(' ') || 'Comprador nao identificado'}
-                          </div>
+                          <div className="mt-1 text-sm text-slate-400">Pedido {order.id}</div>
                           <div className="mt-3 text-sm text-slate-300">
                             {order.firstItemTitle || 'Pedido sem item principal identificado'}
                           </div>
@@ -956,7 +984,7 @@ export function MercadoLivrePanel({
                     {questions.map((question) => (
                       <div key={question.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
                         <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-sm font-semibold text-white">Pergunta {question.id}</div>
+                          <div className="text-sm font-semibold text-white">{getQuestionDisplayName(question)}</div>
                           <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">
                             {question.status || 'sem status'}
                           </span>
@@ -968,6 +996,9 @@ export function MercadoLivrePanel({
                         </div>
                         <div className="mt-2 text-sm leading-6 text-slate-200">{question.text || 'Pergunta sem texto.'}</div>
                         <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
+                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                            pergunta {question.id}
+                          </span>
                           {question.fromNickname ? (
                             <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
                               {question.fromNickname}
@@ -1041,33 +1072,27 @@ export function MercadoLivrePanel({
         <div className="grid gap-7 bg-transparent p-0 text-sm text-slate-300">
           <div className="grid gap-2">
             <p className="text-base font-semibold text-white">Tutorial rapido</p>
-            <p className="text-slate-400">Como conectar o Mercado Livre</p>
-            <p className="leading-6 text-slate-400">
-              Aqui funciona em 3 etapas: primeiro voce salva a loja com os dados do app, depois conecta a conta do Mercado Livre via OAuth e por fim valida tudo na aba de teste listando os primeiros itens da loja.
-            </p>
+            <p className="text-slate-400">Como conectar o Mercado Livre sem complicacao</p>
           </div>
 
           <div className="grid gap-4 bg-transparent p-0">
-            <p className="text-sm font-semibold text-white">Painel de apps do Mercado Livre</p>
+            <p className="text-sm font-semibold text-white">O que e cada coisa</p>
             <div className="grid gap-3">
               {[
                 {
                   step: '01',
-                  title: 'Cadastrar a loja',
-                  description:
-                    'Crie um aplicativo do tipo Web, ative as opcoes pedidas pelo Mercado Livre e copie o APP ID e o CLIENT SECRET para este cadastro.',
+                  title: 'APP ID',
+                  description: 'E o numero do seu aplicativo no Mercado Livre.',
                 },
                 {
                   step: '02',
-                  title: 'Conectar a conta',
-                  description:
-                    'Depois de salvar, clique em conectar para autorizar a conta do Mercado Livre e finalizar a integracao OAuth.',
+                  title: 'CLIENT SECRET',
+                  description: 'E a senha do aplicativo. Copie e cole sem alterar nada.',
                 },
                 {
                   step: '03',
-                  title: 'Testar a listagem',
-                  description:
-                    'Abra a aba Teste para buscar os primeiros itens da loja usando a conta autorizada.',
+                  title: 'OAuth',
+                  description: 'E a tela onde voce permite que seu sistema acesse sua loja.',
                 },
               ].map((item) => (
                 <div key={item.step} className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
@@ -1077,39 +1102,52 @@ export function MercadoLivrePanel({
                     </div>
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-white">{item.title}</p>
-                      <p className="mt-2 text-sm leading-6 text-slate-400">
-                        {item.description.split('APP ID').map((segment, index, array) => (
-                          <span key={`${item.step}-app-${index}`}>
-                            {segment.split('CLIENT SECRET').map((innerSegment, innerIndex, innerArray) => (
-                              <span key={`${item.step}-secret-${index}-${innerIndex}`}>
-                                {innerSegment.split('Web').map((webSegment, webIndex, webArray) => (
-                                  <span key={`${item.step}-web-${index}-${innerIndex}-${webIndex}`}>
-                                    {webSegment.split('Teste').map((testSegment, testIndex, testArray) => (
-                                      <span key={`${item.step}-test-${index}-${innerIndex}-${webIndex}-${testIndex}`}>
-                                        {testSegment}
-                                        {testIndex < testArray.length - 1 ? (
-                                          <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Teste</code>
-                                        ) : null}
-                                      </span>
-                                    ))}
-                                    {webIndex < webArray.length - 1 ? (
-                                      <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">Web</code>
-                                    ) : null}
-                                  </span>
-                                ))}
-                                {innerIndex < innerArray.length - 1 ? (
-                                  <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">CLIENT SECRET</code>
-                                ) : null}
-                              </span>
-                            ))}
-                            {index < array.length - 1 ? (
-                              <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">APP ID</code>
-                            ) : null}
-                          </span>
-                        ))}
-                      </p>
+                      <p className="mt-2 text-sm leading-6 text-slate-400">{item.description}</p>
                     </div>
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <p className="text-sm font-semibold text-white">Passo a passo</p>
+            <div className="grid gap-3">
+              {[
+                '1. Clique em Abrir painel do Mercado Livre.',
+                '2. Entre na sua conta.',
+                '3. Clique em Meus aplicativos.',
+                '4. Clique em Criar aplicativo.',
+                '5. Escolha o tipo Web.',
+                '6. No Redirect URI, cole o Link de retorno abaixo.',
+                '7. No Webhook, cole o Link de notificacoes abaixo.',
+                '8. Salve o aplicativo.',
+                '9. Copie o APP ID e cole no campo APP ID aqui no sistema.',
+                '10. Copie o CLIENT SECRET e cole no campo CLIENT SECRET aqui no sistema.',
+                '11. Clique em Salvar conexao.',
+                '12. Clique em Conectar conta.',
+                '13. Quando o Mercado Livre abrir, clique em Permitir.',
+                '14. Volte na aba Teste e clique em Atualizar listagem.',
+              ].map((item) => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-[#0a1020] px-4 py-3 text-sm leading-6 text-slate-300">
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            <p className="text-sm font-semibold text-white">Erros comuns</p>
+            <div className="grid gap-3">
+              {[
+                'Colar o Redirect URI errado. Tem que ser exatamente igual.',
+                'Colar um Webhook sem o parametro do projeto no final.',
+                'Trocar APP ID com CLIENT SECRET.',
+                'Salvar a conexao e esquecer de clicar em Conectar conta.',
+                'Tentar testar antes de permitir o acesso no OAuth.',
+              ].map((item) => (
+                <div key={item} className="rounded-2xl border border-white/10 bg-[#0a1020] px-4 py-3 text-sm leading-6 text-slate-300">
+                  {item}
                 </div>
               ))}
             </div>
@@ -1124,25 +1162,18 @@ export function MercadoLivrePanel({
           </div>
 
           <div className="grid gap-4">
-            <p className="text-sm font-semibold text-white">Links para configurar no Mercado Livre</p>
-            <p className="text-sm leading-6 text-slate-400">
-              Copie exatamente estes enderecos para o app do Mercado Livre.
-            </p>
-          </div>
-
-          <div className="grid gap-4">
             {[
               {
                 id: 'redirect',
                 label: 'Link de retorno',
-                value: 'https://infrastudio.pro/api/admin/conectores/mercado-livre/callback',
+                value: redirectUri,
                 helper: 'Use este link no campo de redirect URI do aplicativo.',
               },
               {
                 id: 'webhook',
                 label: 'Link de notificacoes',
-                value: 'https://infrastudio.pro/api/mercado-livre/webhook?canal=ml',
-                helper: 'Em alguns casos, o Mercado Livre pode nao aceitar esse endereco direto nesse campo.',
+                value: webhookUrl,
+                helper: 'Use este link no campo de webhook. Ele ja vai com a identificacao deste projeto.',
               },
             ].map((item) => (
               <div key={item.id} className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
