@@ -608,6 +608,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
 
   useEffect(() => {
     function handleOpenFreePlan() {
+      window.dispatchEvent(new CustomEvent('infrastudio-chat:close'))
       setLoginOpen(true)
     }
 

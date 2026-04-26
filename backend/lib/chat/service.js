@@ -1531,7 +1531,7 @@ export async function processChatRequest(body, options = {}) {
       source: runtimeState.prelude.effectiveBody.source,
       widgetSlug: runtimeState.resolved?.widget?.slug ?? null,
       channelKind: runtimeState.prelude.channelKind,
-      homeCta: currentContext?.ui?.homeCta ?? runtimeState.prelude.effectiveBody?.context?.ui?.homeCta ?? null,
+      homeCta: runtimeState.prelude.effectiveBody?.context?.ui?.homeCta ?? currentContext?.ui?.homeCta ?? null,
       runtimeConfig: runtimeState.resolved?.agente?.runtimeConfig ?? null,
     })
 

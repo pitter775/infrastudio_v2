@@ -402,7 +402,8 @@
       ".chat-messages::-webkit-scrollbar { width: 4px; }",
       ".chat-messages::-webkit-scrollbar-track { background: transparent; }",
       ".chat-messages::-webkit-scrollbar-thumb { border-radius: 999px; background: " + (theme === "light" ? "#d5dbe5" : "#0f2745") + "; }",
-      ".chat-stack { display: flex; flex-direction: column; gap: 12px; }",
+      ".chat-stack { display: flex; flex-direction: column; gap: 12px; transition: opacity .16s ease, transform .16s ease; }",
+      ".chat-stack.is-resetting { opacity: 0; transform: translateY(6px); }",
       ".chat-bubble { max-width: 88%; border-radius: 14px; border: 0; padding: 12px 14px; font-size: 14px; line-height: 1.65; animation: chatBubbleIn .22s ease both; }",
       ".chat-bubble.ai { padding: 10px 12px; background: " + aiBubbleBg + "; color: " + aiBubbleText + "; border-bottom-left-radius: 4px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.01), 0 2px 4px rgba(0,0,0,0.08); }",
       ".chat-bubble.user { max-width: 80%; margin-left: auto; background: " + userBubbleBg + "; color: #ffffff; border-radius: 9px; border-bottom-right-radius: 4px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 2px 4px rgba(0,0,0,0.28); backdrop-filter: none; padding: 10px 12px; }",
@@ -462,7 +463,7 @@
       ".chat-asset-title { font-size: 12px; font-weight: 700; color: inherit; }",
       ".chat-asset-subtitle { margin-top: 4px; font-size: 11px; color: #94a3b8; }",
       ".chat-asset-open { font-size: 11px; font-weight: 700; color: " + accent + "; white-space: nowrap; }",
-      ".chat-typing { display: inline-flex; width: fit-content; max-width: 88%; align-items: center; gap: 10px; border-radius: 14px; border: 1px solid " + headerBorder + "; background: " + aiBubbleBg + "; color: rgba(148,163,184,0.88); padding: 12px 14px; animation: chatBubbleIn .22s ease both; }",
+      ".chat-typing { display: inline-flex; width: fit-content; max-width: 88%; align-items: center; gap: 10px; color: rgba(148,163,184,0.88); padding: 4px 2px; animation: chatBubbleIn .22s ease both; }",
       ".chat-typing-dots { display: inline-flex; gap: 4px; }",
       ".chat-typing-dots span { width: 7px; height: 7px; border-radius: 999px; background: currentColor; animation: chatDotsPulse 1.2s infinite ease-in-out; }",
       ".chat-typing-dots span:nth-child(2) { animation-delay: .16s; }",
@@ -1861,6 +1862,56 @@
       };
     }
 
+    var resetTransitionTimer = null;
+
+    function resetConversationState(options) {
+      var settings = options && typeof options === "object" ? options : {};
+      var animated = settings.animated === true;
+      var onComplete = typeof settings.onComplete === "function" ? settings.onComplete : null;
+
+      if (resetTransitionTimer) {
+        window.clearTimeout(resetTransitionTimer);
+        resetTransitionTimer = null;
+      }
+
+      function finalizeReset() {
+        chatId = "";
+        lastSyncedMessageAt = null;
+        pendingAgendaSelection = null;
+        inlineActionState = null;
+        messages = [];
+        updateHumanHandoffState(null);
+        persist();
+        renderMessages({ forceScroll: true });
+        stack.classList.remove("is-resetting");
+        if (onComplete) {
+          onComplete();
+        }
+      }
+
+      if (animated && messages.length) {
+        stack.classList.add("is-resetting");
+        resetTransitionTimer = window.setTimeout(function () {
+          resetTransitionTimer = null;
+          finalizeReset();
+        }, 140);
+        return;
+      }
+
+      chatId = "";
+      lastSyncedMessageAt = null;
+      pendingAgendaSelection = null;
+      inlineActionState = null;
+      messages = [];
+      updateHumanHandoffState(null);
+      persist();
+      renderMessages({ forceScroll: true });
+      stack.classList.remove("is-resetting");
+      if (onComplete) {
+        onComplete();
+      }
+    }
+
     function updateHumanHandoffState(handoff) {
       var state = resolveHumanHandoffState(handoff);
       humanHandoffActive = state.active === true && state.loopPaused !== true;
@@ -2405,6 +2456,19 @@
       setOpen(true);
     });
 
+    addListener(window, "infrastudio-chat:close", function (event) {
+      var requestedWidgetId = event && event.detail ? event.detail.widgetId : null;
+      var requestedWidgetSlug = event && event.detail ? event.detail.widgetSlug : null;
+      if (requestedWidgetId && requestedWidgetId !== widgetId) {
+        return;
+      }
+      if (!requestedWidgetId && requestedWidgetSlug && requestedWidgetSlug !== widgetSlug) {
+        return;
+      }
+
+      setOpen(false);
+    });
+
     addListener(window, "infrastudio-chat:home-cta", function (event) {
       var detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
       var requestedWidgetId = detail.widgetId || null;
@@ -2421,15 +2485,20 @@
         return;
       }
 
-      setOpen(true);
-      void sendMessage(promptMessage, {
-        skipUserBubble: true,
-        source: "public_home_cta",
-        extraContext: {
-          ui: {
-            homeCta: ctaKey,
-            homeCtaOrigin: "landing_hero",
-          },
+      resetConversationState({
+        animated: true,
+        onComplete: function () {
+          setOpen(true);
+          void sendMessage(promptMessage, {
+            skipUserBubble: true,
+            source: "public_home_cta",
+            extraContext: {
+              ui: {
+                homeCta: ctaKey,
+                homeCtaOrigin: "landing_hero",
+              },
+            },
+          });
         },
       });
     });
