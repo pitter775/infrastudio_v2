@@ -262,7 +262,8 @@ export function AdminProjectDetailPage({ project }) {
   const viewportWidth = viewport.width || DESKTOP_BREAKPOINT
   const viewportHeight = viewport.height || 900
   const isMobile = viewportWidth < MOBILE_BREAKPOINT
-  const cardWidth = getCardWidth(viewportWidth)
+  const baseCardWidth = getCardWidth(viewportWidth)
+  const cardWidth = !isMobile && !isPanelOpen ? baseCardWidth + 28 : baseCardWidth
   const closedLayout = useMemo(
     () => getClosedCardLayout(viewportWidth, viewportHeight, cardWidth),
     [cardWidth, viewportHeight, viewportWidth],
