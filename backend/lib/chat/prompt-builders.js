@@ -93,6 +93,33 @@ function buildRuntimeConfigInstructions(context = {}) {
   return lines.join("\n")
 }
 
+function buildHomeCtaInstructions(context = {}) {
+  const homeCta = context?.ui?.homeCta
+  const homeCtaTopic = context?.ui?.homeCtaTopic
+  const homeCtaSummary = context?.ui?.homeCtaSummary
+
+  if (!homeCta && !homeCtaSummary) {
+    return ""
+  }
+
+  const lines = ["Contexto de entrada da home:"]
+
+  if (homeCtaTopic) {
+    lines.push(`- Tema inicial de interesse: ${homeCtaTopic}`)
+  } else if (homeCta) {
+    lines.push(`- Tema inicial de interesse: ${homeCta}`)
+  }
+
+  if (homeCtaSummary) {
+    lines.push(`- Resumo do interesse inicial: ${homeCtaSummary}`)
+  }
+
+  lines.push("- Continue a conversa priorizando esse tema ate o cliente mudar claramente de assunto.")
+  lines.push("- Se o cliente aprofundar a conversa, responda ja assumindo esse contexto inicial, sem recomecar do zero.")
+
+  return lines.join("\n")
+}
+
 function buildResponseGuardrailInstructions() {
   return [
     "Regras de resposta:",
@@ -103,6 +130,8 @@ function buildResponseGuardrailInstructions() {
     "- Nunca despeje campo cru, JSON, rotulo tecnico ou lista de atributos sem interpretar.",
     "- Quando a pergunta for factual, responda com o fato mais relevante primeiro e complemente so com contexto util.",
     "- Quando houver mais de um dado importante, organize em blocos curtos ou lista curta.",
+    "- Nao repita a mesma informacao com palavras diferentes na mesma resposta.",
+    "- Quando houver produto em foco, use so os dados necessarios para responder a pergunta atual.",
     "- Se a informacao pedida nao estiver disponivel, diga isso claramente em vez de improvisar.",
     "- Nao invente valor, prazo, disponibilidade, status, documento ou detalhe tecnico.",
   ].join("\n")
@@ -237,6 +266,7 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
     buildResponseGuardrailInstructions(),
     buildMercadoLivreSalesTechniqueInstructions(runtimeContext),
     buildRuntimeConfigInstructions(runtimeContext),
+    buildHomeCtaInstructions(runtimeContext),
     apiContext,
     agendaContext,
     structured ? "Responda em formato estruturado quando fizer sentido." : "",
@@ -262,6 +292,7 @@ export function buildRuntimePrompt(agent, context, options = {}) {
   return [
     buildRuntimeConfigInstructions(runtimeContext),
     buildMercadoLivreSalesTechniqueInstructions(runtimeContext),
+    buildHomeCtaInstructions(runtimeContext),
     "Se a pergunta pedir valor, prazo, status, descricao, risco, disponibilidade ou documento, responda isso primeiro.",
     "Se houver dados factuais no contexto, transforme esses dados em resposta util para o cliente.",
     Boolean(options.structuredResponse) ? "Prefira resposta curta, comercial e organizada." : "",

@@ -14,9 +14,13 @@ import {
   LogOut,
   MapPin,
   Menu,
+  MessageCircle,
   MessageSquare,
+  PackageSearch,
   Phone,
+  PlugZap,
   Sparkles,
+  Store,
 } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { PremiumHomeChatDemo } from '@/components/home/chat-demo'
@@ -29,7 +33,6 @@ import {
   DEMO_FEATURES,
   FOOTER_COMPANY_LINKS,
   FOOTER_SOLUTION_LINKS,
-  NICHE_ITEMS,
   SERVICE_ITEMS,
   TECH_STACK,
   WHATSAPP_NUMBER,
@@ -38,6 +41,45 @@ import { signOutProjectAuth } from '@/lib/auth'
 import { buildBillingIntentPayload, startBillingCheckout } from '@/lib/public-billing-client'
 import { formatCredits, formatPlanPrice } from '@/lib/public-planos'
 import { cn } from '@/lib/utils'
+
+const HERO_CHANNEL_BUTTONS = [
+  {
+    key: 'whatsapp',
+    label: 'WhatsApp',
+    promptMessage: 'Quero entender melhor como funciona o WhatsApp.',
+    icon: MessageCircle,
+    className:
+      'border-emerald-400/55 bg-emerald-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(52,211,153,0.24),0_0_44px_rgba(5,150,105,0.16)]',
+    iconClassName: 'text-emerald-300',
+  },
+  {
+    key: 'mercado_livre',
+    label: 'Mercado Livre',
+    promptMessage: 'Quero entender melhor como funciona o Mercado Livre.',
+    icon: Store,
+    className:
+      'border-amber-400/55 bg-amber-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(251,191,36,0.24),0_0_44px_rgba(217,119,6,0.16)]',
+    iconClassName: 'text-amber-300',
+  },
+  {
+    key: 'apis',
+    label: 'APIs',
+    promptMessage: 'Quero entender melhor como funcionam as APIs.',
+    icon: PlugZap,
+    className:
+      'border-sky-400/55 bg-sky-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(56,189,248,0.24),0_0_44px_rgba(2,132,199,0.16)]',
+    iconClassName: 'text-sky-300',
+  },
+  {
+    key: 'chat_widget',
+    label: 'Chat widget',
+    promptMessage: 'Quero entender melhor como funciona o chat widget.',
+    icon: PackageSearch,
+    className:
+      'border-fuchsia-400/55 bg-fuchsia-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(217,70,239,0.24),0_0_44px_rgba(162,28,175,0.16)]',
+    iconClassName: 'text-fuchsia-300',
+  },
+]
 
 function HomeNavbar({ currentUser, onLoginClick }) {
   const projectsHref = currentUser?.role === 'admin' ? '/admin/projetos' : '/app/projetos'
@@ -448,19 +490,6 @@ function PricingSection({ plans = [], onPlanSelect }) {
           )})}
         </div>
 
-        <div className="mt-12 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
-          {NICHE_ITEMS.map((item) => (
-            <div
-              key={item.label}
-              className="group cursor-default rounded-2xl border border-slate-200 bg-white p-8 text-center shadow-[0_16px_32px_-28px_rgba(71,104,145,0.18)] transition-all hover:border-blue-500/25 hover:bg-blue-500/10 dark:border-white/5 dark:bg-white/[0.02]"
-            >
-              <div className="mb-4 flex justify-center text-slate-500 transition-colors group-hover:text-blue-500 dark:text-slate-400 dark:group-hover:text-blue-400">
-                <item.icon size={32} strokeWidth={1.5} />
-              </div>
-              <h4 className="text-sm font-medium text-slate-800 dark:text-slate-100/88">{item.label}</h4>
-            </div>
-          ))}
-        </div>
       </div>
     </section>
   )
@@ -577,6 +606,33 @@ export function LandingPage({ currentUser = null, plans = [] }) {
     }
   }, [])
 
+  useEffect(() => {
+    function handleOpenFreePlan() {
+      setLoginOpen(true)
+    }
+
+    window.addEventListener('infrastudio-home:open-free-plan', handleOpenFreePlan)
+    return () => {
+      window.removeEventListener('infrastudio-home:open-free-plan', handleOpenFreePlan)
+    }
+  }, [])
+
+  function handleHeroChannelClick(item) {
+    if (typeof window === 'undefined') {
+      setLoginOpen(true)
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent('infrastudio-chat:home-cta', {
+        detail: {
+          ctaKey: item.key,
+          promptMessage: item.promptMessage,
+        },
+      }),
+    )
+  }
+
   async function openCheckout(plan) {
     if (typeof window === 'undefined') {
       return
@@ -628,14 +684,31 @@ export function LandingPage({ currentUser = null, plans = [] }) {
             <span className="text-gradient">onde quiser</span>
           </motion.h1>
 
-          <motion.p
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="mx-auto mb-12 max-w-3xl text-lg leading-relaxed text-slate-600 dark:text-slate-400 md:text-xl"
+            className="mb-12 flex flex-wrap items-center justify-center gap-3"
           >
-            Agentes no WhatsApp, Instagram, site e conectados aos seus sistemas via API.
-          </motion.p>
+            {HERO_CHANNEL_BUTTONS.map((item) => {
+              const Icon = item.icon
+
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => handleHeroChannelClick(item)}
+                  className={cn(
+                    'inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold transition-all duration-300 hover:-translate-y-1 hover:brightness-110',
+                    item.className,
+                  )}
+                >
+                  <Icon size={16} className={item.iconClassName} />
+                  {item.label}
+                </button>
+              )
+            })}
+          </motion.div>
 
           <motion.div
             initial={{ opacity: 0, scale: 0.92, y: 12 }}

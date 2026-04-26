@@ -894,23 +894,24 @@ const tests: TestCase[] = [
         },
       });
 
-      assert.match(state.selectedProductSalesReply ?? "", /escolha forte para seguir agora/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Preco atual/i);
+      assert.doesNotMatch(state.selectedProductSalesReply ?? "", /escolha forte para seguir agora/i);
       assert.match(state.selectedProductSalesReply ?? "", /Preco atual/i);
       assert.match(state.selectedProductSalesReply ?? "", /Ceramica/i);
       assert.match(state.selectedProductSalesReply ?? "", /Amarelo/i);
       assert.match(state.selectedProductSalesReply ?? "", /frete gratis/i);
       assert.match(state.selectedProductSalesReply ?? "", /30 dias/i);
-      assert.match(state.selectedProductSalesReply ?? "", /Variacoes visiveis no anuncio/i);
-      assert.match(state.selectedProductSalesReply ?? "", /Resumo do anuncio/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Variacoes visiveis/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Resumo:/i);
       assert.match(state.selectedProductSalesReply ?? "", /link direto/i);
-      assert.match(state.selectedProductSalesReply ?? "", /custo-beneficio/i);
+      assert.doesNotMatch(state.selectedProductSalesReply ?? "", /custo-beneficio/i);
     },
   },
   {
-    name: "mercado livre detalha mais o produto quando o usuario pede mais informacoes",
+    name: "mercado livre usa o modelo para detalhe de produto e preserva o asset do anuncio",
     run: async () => {
       const result = await executeSalesOrchestrator(
-        [{ role: "user", content: "me fala mais desse produto" }] as never,
+        [{ role: "user", content: "vcs entregam?" }] as never,
         {
           agente: {
             id: "agent-mercado-livre-detail",
@@ -979,16 +980,24 @@ const tests: TestCase[] = [
             },
             error: null,
           }),
+          generateSalesReply: async () => ({
+            reply: "Sim. A entrega e feita pelo Mercado Livre e o frete aparece no checkout pelo seu CEP.",
+            assets: [],
+            usage: {
+              inputTokens: 0,
+              outputTokens: 0,
+            },
+            metadata: {
+              provider: "test_openai",
+              model: "fake",
+            },
+          }),
         }
       );
 
-      assert.equal(result.metadata.provider, "mercado_livre_runtime");
-      assert.equal(result.metadata.domainStage, "catalog");
-      assert.match(result.reply, /Jogo de Sopeira Completo parece uma escolha forte/i);
-      assert.match(result.reply, /Pontos confirmados no anuncio/i);
-      assert.match(result.reply, /Condicao do item no anuncio: new/i);
-      assert.match(result.reply, /Resumo do anuncio:/i);
-      assert.match(result.reply, /acabamento amarelo/i);
+      assert.equal(result.metadata.provider, "test_openai");
+      assert.match(result.reply, /entrega e feita pelo Mercado Livre/i);
+      assert.doesNotMatch(result.reply, /escolha forte|pontos confirmados no anuncio|custo-beneficio/i);
     },
   },
   {
@@ -1157,11 +1166,19 @@ const tests: TestCase[] = [
             promptBase: "Venda de forma consultiva.",
           },
           catalogo: catalogContext.catalogo,
-        } as never
+        } as never,
+        {
+          generateSalesReply: async () => ({
+            reply: "A sopeira e uma boa opcao se voce quer algo mais classico e completo para servir.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: { provider: "test_openai", model: "fake" },
+          }),
+        }
       );
 
-      assert.equal(result.metadata.provider, "local_heuristic");
-      assert.match(result.reply, /escolha forte para seguir agora/i);
+      assert.equal(result.metadata.provider, "test_openai");
+      assert.doesNotMatch(result.reply, /escolha forte para seguir agora/i);
       assert.match(result.reply, /Sopeira/i);
     },
   },
@@ -1233,16 +1250,20 @@ const tests: TestCase[] = [
             },
             error: null,
           }),
+          generateSalesReply: async () => ({
+            reply: "Entre os que voce viu, a sopeira se destaca pelo material em ceramica, acabamento amarelo e frete gratis.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: { provider: "test_openai", model: "fake" },
+          }),
         }
       )
 
-      assert.equal(result.metadata.provider, "local_heuristic")
-      assert.match(result.reply, /escolha forte para seguir agora/i)
+      assert.equal(result.metadata.provider, "test_openai")
+      assert.doesNotMatch(result.reply, /escolha forte para seguir agora/i)
       assert.match(result.reply, /Ceramica/i)
       assert.match(result.reply, /Amarelo/i)
       assert.match(result.reply, /frete gratis/i)
-      assert.match(result.reply, /30 dias/i)
-      assert.match(result.reply, /Resumo do anuncio/i)
     },
   },
   {

@@ -161,6 +161,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     resolveMercadoLivreSearch: options.resolveMercadoLivreSearch,
     resolveMercadoLivreProductById: options.resolveMercadoLivreProductById,
   })
+  const selectedMercadoLivreProductReply = mercadoLivreState?.selectedProductSalesReply ?? null
   const mercadoLivreReply = resolveMercadoLivreHeuristicReply(mercadoLivreState)
   const apiCatalogSearchState = shouldUseApiRuntime ? buildApiCatalogSearchState(runtimeApis) : null
   const apiCatalogProduct =
@@ -320,7 +321,11 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
-  if (mercadoLivreReply && /\b(gostei|esse|essa|detalhe|detalhes|link|garantia|frete|estoque|serve|combina)\b/i.test(latestUserMessage)) {
+  if (
+    mercadoLivreReply &&
+    !selectedMercadoLivreProductReply &&
+    /\b(gostei|esse|essa|detalhe|detalhes|link|garantia|frete|estoque|serve|combina)\b/i.test(latestUserMessage)
+  ) {
     return {
       ...buildHeuristicReplyResult(mercadoLivreReply, {
         ...heuristicMetadata,
@@ -341,7 +346,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     }
   }
 
-  if (mercadoLivreReply && mercadoLivreAssets.length > 0) {
+  if (mercadoLivreReply && !selectedMercadoLivreProductReply && mercadoLivreAssets.length > 0) {
     return {
       ...buildHeuristicReplyResult(mercadoLivreReply, {
         ...heuristicMetadata,
@@ -362,7 +367,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     }
   }
 
-  if (mercadoLivreReply) {
+  if (mercadoLivreReply && !selectedMercadoLivreProductReply) {
     return buildHeuristicReplyResult(mercadoLivreReply, {
       ...heuristicMetadata,
       provider: "mercado_livre_runtime",
@@ -391,6 +396,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     structuredResponse,
     focusedApiContext,
     currentCatalogProduct: shouldUseMercadoLivre ? currentCatalogProduct : null,
+    salesAssets: selectedMercadoLivreProductReply ? mercadoLivreAssets : [],
     history,
     simpleCommercialQuestion,
     metadata: {

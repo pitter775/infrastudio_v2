@@ -7,11 +7,11 @@ import * as THREE from "three"
 
 const FACE_COLORS = {
   front: "#2563eb",
-  back: "#244611",
+  back: "#7bcb4e",
   right: "#06b6d4",
   left: "#7234df",
-  top: "#9c7b2a",
-  bottom: "#aa9f25",
+  top: "#f4ca64",
+  bottom: "#76e4db",
 }
 
 const FACE_DEFINITIONS = [

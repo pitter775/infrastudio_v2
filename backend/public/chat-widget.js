@@ -640,7 +640,6 @@
     contactBox.innerHTML = [
       '<div class="chat-contact-title">Iniciar conversa</div>',
       '<div class="chat-contact-subtitle">Qual o seu nome?</div>',
-      '<div class="chat-contact-description">Informe seu nome ou celular para liberar a conversa.</div>',
       '<div class="chat-contact-fields">',
       '<input class="chat-contact-input chat-contact-name" type="text" autocomplete="name" placeholder="Seu nome" />',
       '<input class="chat-contact-input chat-contact-phone" type="tel" autocomplete="tel" inputmode="numeric" placeholder="Seu celular" />',
@@ -1035,6 +1034,10 @@
         return createCalendarIcon();
       }
 
+      if (action && action.icon === "sparkles") {
+        return '<span class="chat-icon" aria-hidden="true">+</span>';
+      }
+
       if (action && action.icon === "whatsapp") {
         return createWhatsAppIcon();
       }
@@ -1201,6 +1204,20 @@
           link.rel = "noreferrer noopener";
           link.innerHTML = getActionIconMarkup(action) + "<span>" + escapeHtml(action.label || "WhatsApp") + "</span>";
           row.appendChild(link);
+          return;
+        }
+
+        if (action.type === "event" && action.eventName) {
+          var eventButton = document.createElement("button");
+          eventButton.type = "button";
+          eventButton.className = "chat-inline-action";
+          eventButton.innerHTML = getActionIconMarkup(action) + "<span>" + escapeHtml(action.label || "Continuar") + "</span>";
+          eventButton.addEventListener("click", function () {
+            window.dispatchEvent(new CustomEvent(action.eventName, {
+              detail: action.eventDetail && typeof action.eventDetail === "object" ? action.eventDetail : {},
+            }));
+          });
+          row.appendChild(eventButton);
           return;
         }
 
@@ -1731,6 +1748,21 @@
       sendButton.disabled = loading || !hasValue;
     }
 
+    function shouldPromptLeadCapture() {
+      return !loading && !contactBoxOpen && !hasLeadIdentity(leadContact) && !leadCaptureDismissed;
+    }
+
+    function requestLeadCapture() {
+      if (!shouldPromptLeadCapture()) {
+        return false;
+      }
+
+      contactBoxOpen = true;
+      syncContactBox();
+      persist();
+      return true;
+    }
+
     function syncContactBox() {
       contactBox.classList.toggle("is-open", contactBoxOpen);
       composer.classList.toggle("is-identifying", contactBoxOpen);
@@ -2089,10 +2121,6 @@
       if (open) {
         panel.classList.remove("closing");
         panel.classList.add("open");
-        if (!messages.length && !hasLeadIdentity(leadContact) && !leadCaptureDismissed) {
-          contactBoxOpen = true;
-          syncContactBox();
-        }
         autoResizeInput();
         if (!contactBoxOpen) {
           input.focus();
@@ -2302,6 +2330,7 @@
             widgetSlug: widgetSlug,
             projeto: projeto || undefined,
             agente: agente || undefined,
+            source: settings.source || undefined,
             identificadorExterno: getLeadIdentifier(leadContact) || externalIdentifier || undefined,
             context: buildEffectiveContext(settings.extraContext),
             attachments: outboundAttachments,
@@ -2376,6 +2405,35 @@
       setOpen(true);
     });
 
+    addListener(window, "infrastudio-chat:home-cta", function (event) {
+      var detail = event && event.detail && typeof event.detail === "object" ? event.detail : {};
+      var requestedWidgetId = detail.widgetId || null;
+      var requestedWidgetSlug = detail.widgetSlug || null;
+      var ctaKey = detail.ctaKey || null;
+      var promptMessage = detail.promptMessage || "__home_cta__";
+      if (requestedWidgetId && requestedWidgetId !== widgetId) {
+        return;
+      }
+      if (!requestedWidgetId && requestedWidgetSlug && requestedWidgetSlug !== widgetSlug) {
+        return;
+      }
+      if (!ctaKey) {
+        return;
+      }
+
+      setOpen(true);
+      void sendMessage(promptMessage, {
+        skipUserBubble: true,
+        source: "public_home_cta",
+        extraContext: {
+          ui: {
+            homeCta: ctaKey,
+            homeCtaOrigin: "landing_hero",
+          },
+        },
+      });
+    });
+
     addListener(closeButton, "click", function () {
       setOpen(false);
     });
@@ -2428,7 +2486,23 @@
     addListener(input, "keyup", function () {
       autoResizeInput();
     });
+    addListener(input, "beforeinput", function (event) {
+      if (!shouldPromptLeadCapture()) {
+        return;
+      }
+
+      var inputType = event && event.inputType ? String(event.inputType) : "";
+      if (!inputType || inputType.indexOf("insert") !== 0) {
+        return;
+      }
+
+      event.preventDefault();
+      requestLeadCapture();
+    });
     addListener(input, "paste", function () {
+      if (requestLeadCapture()) {
+        return;
+      }
       window.requestAnimationFrame(autoResizeInput);
     });
     addListener(attachTool, "click", function () {
@@ -2509,6 +2583,9 @@
           contactSaveButton.click();
           return;
         }
+        if (requestLeadCapture()) {
+          return;
+        }
         void sendMessage(input.value);
       }
 
@@ -2522,6 +2599,9 @@
       event.preventDefault();
       if (contactBoxOpen) {
         contactSaveButton.click();
+        return;
+      }
+      if (requestLeadCapture()) {
         return;
       }
       void sendMessage(input.value);

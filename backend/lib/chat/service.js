@@ -67,6 +67,7 @@ import {
   sanitizeReplyForWhatsAppCta,
   sanitizeReplyWithoutWhatsAppCta,
 } from "@/lib/chat/whatsapp-cta"
+import { resolveHomeCtaPayload } from "@/lib/chat/home-cta"
 import {
   buildLoopGuardAiResult,
   detectWhatsAppLoopGuard,
@@ -1448,6 +1449,69 @@ export async function executeV2RuntimePrelude(body, options = {}) {
   }
 }
 
+async function finalizeScriptedAssistantTurn(runtimeState, scriptedPayload, options = {}) {
+  const persistAssistantTurnStep = options.persistAssistantTurn ?? persistAssistantTurn
+  const persistAssistantStateStep = options.persistAssistantState ?? persistAssistantState
+  const currentContext = runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {}
+  const nextContext = mergeContext(currentContext, {
+    ui: {
+      ...(isPlainObject(currentContext?.ui) ? currentContext.ui : {}),
+      lastHomeCta: scriptedPayload.key ?? null,
+      homeCta: scriptedPayload.key ?? null,
+      homeCtaTopic: scriptedPayload.topicLabel ?? null,
+      homeCtaSummary: scriptedPayload.contextSummary ?? null,
+    },
+  })
+  const content = [scriptedPayload.reply, scriptedPayload.followUpReply].filter(Boolean).join("\n\n")
+  const assistantMessage = await persistAssistantTurnStep(
+    {
+      chatId: runtimeState.session.chat.id,
+      content,
+      channelKind: runtimeState.prelude.channelKind,
+      normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
+      tokensInput: 0,
+      tokensOutput: 0,
+      custo: 0,
+      aiMetadata: {
+        provider: "scripted_home_cta",
+        routeStage: "home_cta",
+      },
+      assets: [],
+      whatsapp: null,
+      actions: Array.isArray(scriptedPayload.actions) ? scriptedPayload.actions : [],
+      followUpReply: false,
+    },
+    options
+  )
+
+  await persistAssistantStateStep(
+    {
+      chatId: runtimeState.session.chat.id,
+      nextContext,
+      totalTokensToAdd: 0,
+      totalCustoToAdd: 0,
+      titulo: runtimeState.session.chat.titulo,
+      normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
+      contactSnapshot: runtimeState.contactSnapshot,
+    },
+    options
+  )
+
+  return buildFinalChatResult({
+    chatId: runtimeState.session.chat.id,
+    messageId: assistantMessage.id,
+    createdAt: assistantMessage.createdAt ?? null,
+    channelKind: runtimeState.prelude.channelKind,
+    reply: scriptedPayload.reply,
+    followUpReply: scriptedPayload.followUpReply,
+    messageSequence: [],
+    assets: [],
+    whatsapp: null,
+    actions: scriptedPayload.actions,
+    handoff: null,
+  })
+}
+
 export async function processChatRequest(body, options = {}) {
   const runtimeState = await executeV2RuntimePrelude(body, options)
   if (runtimeState.result) {
@@ -1462,6 +1526,37 @@ export async function processChatRequest(body, options = {}) {
   }
 
   try {
+    const currentContext = runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {}
+    const scriptedHomeCta = resolveHomeCtaPayload({
+      source: runtimeState.prelude.effectiveBody.source,
+      widgetSlug: runtimeState.resolved?.widget?.slug ?? null,
+      channelKind: runtimeState.prelude.channelKind,
+      homeCta: currentContext?.ui?.homeCta ?? runtimeState.prelude.effectiveBody?.context?.ui?.homeCta ?? null,
+      runtimeConfig: runtimeState.resolved?.agente?.runtimeConfig ?? null,
+    })
+
+    if (scriptedHomeCta) {
+      await recordChatRuntimeEvent(runtimeState, {
+        type: "chat_runtime_event",
+        origin: "chat_runtime",
+        level: "info",
+        description: "CTA guiado da home respondido sem acionar IA.",
+        payload: {
+          scriptedFlow: "home_cta",
+          homeCta: scriptedHomeCta.key,
+        },
+      })
+
+      const scriptedResult = await finalizeScriptedAssistantTurn(runtimeState, scriptedHomeCta, options)
+      return attachRuntimeDiagnostics(scriptedResult, runtimeState, {
+        handoffDecision: {
+          decision: "scripted_home_cta",
+          reason: `CTA guiado da home: ${scriptedHomeCta.key}.`,
+        },
+        handoffRequested: false,
+      })
+    }
+
     const loopGuardState = await applyWhatsAppLoopGuard(runtimeState, options)
     if (loopGuardState.action === "pause") {
       runtimeState.stage = "whatsapp_loop_paused"
@@ -1532,7 +1627,6 @@ export async function processChatRequest(body, options = {}) {
       })
     }
 
-    const currentContext = runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {}
     const identifiedContactKey = getIdentifiedContactKey(
       currentContext,
       runtimeState.prelude.normalizedExternalIdentifier,

@@ -146,32 +146,79 @@ function buildMercadoLivreSearchReply(products, searchTerm, connector, paging) {
     : `Encontrei ${countLabel}${storeSuffix}. Me diga qual voce quer ver com mais detalhes.`
 }
 
-function buildSelectedProductReply(product) {
+function normalizeMessage(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+function isMercadoLivreDeliveryIntent(message) {
+  const normalized = normalizeMessage(message)
+  return /\b(entrega|entregam|enviam|envio|frete|retirada|retirar|prazo)\b/.test(normalized)
+}
+
+function pushUniqueSentence(target, sentence) {
+  const normalizedSentence = sanitizeString(sentence)
+  if (!normalizedSentence) {
+    return
+  }
+
+  const sentenceKey = normalizeMessage(normalizedSentence)
+  const alreadyIncluded = target.some((item) => normalizeMessage(item) === sentenceKey)
+  if (!alreadyIncluded) {
+    target.push(normalizedSentence)
+  }
+}
+
+function buildSelectedProductReply(product, userMessage = "") {
   if (!product?.nome) {
     return null
   }
 
-  const pieces = [`${product.nome} parece uma escolha forte para seguir agora.`]
+  const pieces = []
+  const isDeliveryQuestion = isMercadoLivreDeliveryIntent(userMessage)
+
+  if (isDeliveryQuestion) {
+    pushUniqueSentence(pieces, "Sim. A entrega e feita pelo Mercado Livre.")
+    if (product.freeShipping) {
+      pushUniqueSentence(pieces, "Neste item o anuncio indica frete gratis.")
+    } else {
+      pushUniqueSentence(pieces, "O valor e o prazo do frete aparecem no checkout do proprio Mercado Livre, conforme o seu CEP.")
+    }
+    if (sanitizeNumber(product.availableQuantity, 0) > 0) {
+      pushUniqueSentence(
+        pieces,
+        `No momento eu vejo ${sanitizeNumber(product.availableQuantity, 0)} unidade${sanitizeNumber(product.availableQuantity, 0) > 1 ? "s" : ""} disponivel${sanitizeNumber(product.availableQuantity, 0) > 1 ? "is" : ""}.`
+      )
+    }
+    if (product.link) {
+      pushUniqueSentence(pieces, "Se quiser, eu mando o link do anuncio para voce conferir o envio direto por la.")
+    }
+    return pieces.join(" ")
+  }
+
+  pushUniqueSentence(pieces, `${product.nome}.`)
   if (product.preco != null) {
-    pieces.push(`Preco atual: ${formatCurrency(product.preco)}.`)
+    pushUniqueSentence(pieces, `Preco atual: ${formatCurrency(product.preco)}.`)
   }
   if (product.material) {
-    pieces.push(`Material/linha em destaque: ${product.material}.`)
+    pushUniqueSentence(pieces, `Material: ${product.material}.`)
   }
   if (product.cor) {
-    pieces.push(`Visual que mais chama atencao nesse item: ${product.cor}.`)
+    pushUniqueSentence(pieces, `Cor ou acabamento: ${product.cor}.`)
   }
   if (sanitizeNumber(product.availableQuantity, 0) > 0) {
-    pieces.push(`Tenho ${sanitizeNumber(product.availableQuantity, 0)} unidade${sanitizeNumber(product.availableQuantity, 0) > 1 ? "s" : ""} em estoque agora.`)
+    pushUniqueSentence(pieces, `Estoque atual: ${sanitizeNumber(product.availableQuantity, 0)} unidade${sanitizeNumber(product.availableQuantity, 0) > 1 ? "s" : ""}.`)
   }
   if (product.freeShipping) {
-    pieces.push("Esse item esta com frete gratis no Mercado Livre.")
+    pushUniqueSentence(pieces, "O anuncio indica frete gratis no Mercado Livre.")
   }
-  if (product.warranty) {
-    pieces.push(`Garantia informada no anuncio: ${product.warranty}.`)
+  if (product.warranty && !/^sem garantia$/i.test(product.warranty)) {
+    pushUniqueSentence(pieces, `Garantia informada no anuncio: ${product.warranty}.`)
   }
-  if (product.condition) {
-    pieces.push(`Condicao do item no anuncio: ${product.condition}.`)
+  if (product.condition && !/^new$/i.test(product.condition)) {
+    pushUniqueSentence(pieces, `Condicao do item no anuncio: ${product.condition}.`)
   }
   if (Array.isArray(product.atributos) && product.atributos.length) {
     const highlightedAttributes = product.atributos
@@ -179,22 +226,22 @@ function buildSelectedProductReply(product) {
       .slice(0, 4)
       .map((attribute) => `${attribute.nome}: ${attribute.valor}`)
     if (highlightedAttributes.length) {
-      pieces.push(`Pontos confirmados no anuncio: ${highlightedAttributes.join(", ")}.`)
+      pushUniqueSentence(pieces, `Detalhes do anuncio: ${highlightedAttributes.join(", ")}.`)
     }
   }
   if (Array.isArray(product.variacoesResumo) && product.variacoesResumo.length) {
-    pieces.push(`Variacoes visiveis no anuncio: ${product.variacoesResumo.join(", ")}.`)
+    pushUniqueSentence(pieces, `Variacoes visiveis: ${product.variacoesResumo.join(", ")}.`)
   }
   if (product.descricaoLonga) {
-    pieces.push(`Resumo do anuncio: ${product.descricaoLonga.slice(0, 320)}${product.descricaoLonga.length > 320 ? "..." : ""}`)
+    pushUniqueSentence(pieces, `Resumo: ${product.descricaoLonga.slice(0, 220)}${product.descricaoLonga.length > 220 ? "..." : ""}`)
   }
   if (product.status && product.status !== "active") {
-    pieces.push(`Status atual no Mercado Livre: ${product.status}.`)
+    pushUniqueSentence(pieces, `Status atual no Mercado Livre: ${product.status}.`)
   }
   if (product.link) {
-    pieces.push("Se quiser, eu ja te mando o link direto para voce olhar com calma ou seguir na compra.")
+    pushUniqueSentence(pieces, "Se quiser, eu mando o link direto do anuncio.")
   }
-  pieces.push("Se preferir, eu tambem comparo com outra opcao da lista e te digo qual entrega melhor custo-beneficio.")
+  pushUniqueSentence(pieces, "Se quiser, eu tambem comparo com outra opcao da lista.")
 
   return pieces.join(" ")
 }
@@ -476,7 +523,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       : []
 
     return {
-      selectedProductSalesReply: buildSelectedProductReply(currentProduct),
+      selectedProductSalesReply: buildSelectedProductReply(currentProduct, input.latestUserMessage),
       mercadoLivreHeuristicReply: null,
       mercadoLivreProducts: [],
       mercadoLivreAssets: productAsset,
@@ -487,7 +534,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
 
   if (!input.project?.id) {
     return {
-      selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct) : null,
+      selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct, input.latestUserMessage) : null,
       mercadoLivreHeuristicReply: null,
       mercadoLivreProducts: input.mercadoLivreProducts ?? [],
       mercadoLivreAssets: [],
@@ -498,7 +545,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
 
   if (!projectHasMercadoLivre) {
     return {
-      selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct) : null,
+      selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct, input.latestUserMessage) : null,
       mercadoLivreHeuristicReply: null,
       mercadoLivreProducts: input.mercadoLivreProducts ?? [],
       mercadoLivreAssets: [],
@@ -515,7 +562,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
 
   if (!shouldSearch) {
     return {
-      selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct) : null,
+      selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct, input.latestUserMessage) : null,
       mercadoLivreHeuristicReply: null,
       mercadoLivreProducts: input.mercadoLivreProducts ?? [],
       mercadoLivreAssets: [],

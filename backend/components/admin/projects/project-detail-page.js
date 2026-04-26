@@ -579,6 +579,7 @@ export function AdminProjectDetailPage({ project }) {
                 const Icon = panel.icon
                 const satelliteLayout = getSatelliteLayout(panel, isMobile)
                 const accent = getPanelAccentClasses(panel.colorClassName)
+                const toneClasses = getToneClasses(panel.colorClassName)
                 const isActiveConnector = activePanel === panel.id && isPanelOpen
                 const connectorClassName = isActiveConnector ? accent.connector : 'border-slate-500/55'
                 const enabled = panelEnabledMap[panel.id] !== false
@@ -615,11 +616,20 @@ export function AdminProjectDetailPage({ project }) {
                     >
                       <div
                         className={cn(
-                          'flex h-full w-full items-center gap-2 rounded-[22px] border border-white/10 bg-[#0c1426] px-3 py-2 text-slate-200 transition-[box-shadow,transform,background-color,border-color] duration-200',
+                          'flex h-full w-full items-center gap-2 rounded-[22px] border border-white/10 bg-[#0c1426] px-3 py-2 transition-[box-shadow,transform,background-color,border-color,color] duration-200',
                           isCardDragging
                             ? 'shadow-[0_14px_0_rgba(2,6,23,0.78)]'
                             : 'shadow-[0_8px_0_rgba(2,6,23,0.64)]',
-                          activePanel === panel.id && isPanelOpen ? accent.button : 'hover:border-sky-400/30 hover:bg-[#12203a] hover:text-white',
+                          activePanel === panel.id && isPanelOpen
+                            ? accent.button
+                            : cn(
+                                toneClasses.text,
+                                'hover:bg-[#12203a]',
+                                panel.colorClassName === 'emerald' && 'hover:border-emerald-400/30',
+                                panel.colorClassName === 'amber' && 'hover:border-amber-400/30',
+                                panel.colorClassName === 'sky' && 'hover:border-sky-400/30',
+                                panel.colorClassName === 'violet' && 'hover:border-fuchsia-400/30',
+                              ),
                         )}
                       >
                         <button
@@ -633,11 +643,13 @@ export function AdminProjectDetailPage({ project }) {
                         >
                           <Icon
                             className={cn(
-                              'h-4 w-4 shrink-0 text-slate-300',
-                              activePanel === panel.id && isPanelOpen ? accent.icon : null,
+                              'h-4 w-4 shrink-0',
+                              activePanel === panel.id && isPanelOpen ? accent.icon : toneClasses.text,
                             )}
                           />
-                          <span className="truncate text-center text-[11px] font-medium tracking-[0.08em]">{panel.label}</span>
+                          <span className={cn('truncate text-center text-[11px] font-medium tracking-[0.08em]', activePanel === panel.id && isPanelOpen ? null : toneClasses.text)}>
+                            {panel.label}
+                          </span>
                         </button>
                         <span
                           onClick={(event) => {

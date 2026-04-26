@@ -19,7 +19,7 @@ const integrationIconMap = {
   },
   chatWidget: {
     icon: PackageSearch,
-    className: 'text-sky-300',
+    className: 'text-fuchsia-300',
     label: 'Chat widget',
   },
   mercadoLivre: {

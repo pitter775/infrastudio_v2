@@ -83,6 +83,7 @@ export async function generateOpenAiSalesReply(input = {}) {
     structuredResponse,
     focusedApiContext,
     currentCatalogProduct,
+    salesAssets,
     history,
     simpleCommercialQuestion,
     metadata,
@@ -155,7 +156,7 @@ export async function generateOpenAiSalesReply(input = {}) {
 
   return {
     reply,
-    assets: [],
+    assets: Array.isArray(salesAssets) ? salesAssets : [],
     usage: {
       inputTokens: payload.usage?.input_tokens ?? 0,
       outputTokens: payload.usage?.output_tokens ?? 0,

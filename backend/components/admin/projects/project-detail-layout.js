@@ -15,7 +15,7 @@ export const DEFAULT_PANEL = 'project'
 const SHEET_MIN_WIDTH = 460
 const SHEET_MAX_WIDTH = 1120
 const CARD_ESTIMATED_HEIGHT = 228
-const MOBILE_CARD_SCALE = 0.72
+const MOBILE_CARD_SCALE = 0.82
 const SATELLITE_BUTTON_WIDTH = 152
 const SATELLITE_BUTTON_HEIGHT = 64
 
@@ -29,10 +29,10 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'emerald',
       serviceIconType: 'whatsapp',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 314 },
-      desktopPosition: { x: 96, y: 322 },
+      mobilePosition: { x: 94, y: 338 },
+      desktopPosition: { x: 96, y: 338 },
       cardAnchor: { x: 168, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 292,
+      routeY: 314,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'WhatsApp',
       description: 'Canal do Whatsapp, adicione atendentedes a esse canal.',
@@ -253,7 +253,7 @@ export function getSheetWidth(viewportWidth) {
 
 export function getCardWidth(viewportWidth) {
   if (viewportWidth < MOBILE_BREAKPOINT) {
-    return Math.min(viewportWidth - 48, 320)
+    return Math.min(viewportWidth - 28, 340)
   }
 
   if (viewportWidth < DESKTOP_BREAKPOINT) {
@@ -291,7 +291,7 @@ export function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
 export function getMobileCardLayout(viewportWidth, cardWidth) {
   return {
     left: Math.max((viewportWidth - cardWidth) / 2, 0),
-    top: 164,
+    top: 152,
     scale: MOBILE_CARD_SCALE,
   }
 }
