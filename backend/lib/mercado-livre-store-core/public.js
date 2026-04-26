@@ -4,11 +4,11 @@ import { getSupabaseAdminClient, getSupabaseAdminEnv } from "@/lib/supabase-admi
 
 import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } from "./constants"
 import { getSnapshotProductBySlug, listSnapshotCategoryFacetsByProjectId, listSnapshotProductsByProjectId } from "./snapshot"
-import { normalizeSnapshotProduct, normalizeStore, sanitizeText, slugifyProduct } from "./sanitize"
+import { isStoreProductAvailable, normalizeSnapshotProduct, normalizeStore, sanitizeText, slugifyProduct } from "./sanitize"
 
-function isMissingImagesColumnError(error) {
+function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
-  return /imagens_json/i.test(message) || /column .*imagens_json/i.test(message)
+  return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message)
 }
 
 async function resolveFeaturedProducts(project, store, options = {}) {
@@ -25,16 +25,20 @@ async function resolveFeaturedProducts(project, store, options = {}) {
 
   let { data, error } = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, updated_at")
+    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, updated_at")
     .eq("projeto_id", project.id)
     .in("ml_item_id", itemIds)
+    .eq("status", "active")
+    .gt("estoque", 0)
 
-  if (error && isMissingImagesColumnError(error)) {
+  if (error && isMissingSnapshotFieldError(error)) {
     const fallbackResult = await supabase
       .from("mercadolivre_produtos_snapshot")
       .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at")
       .eq("projeto_id", project.id)
       .in("ml_item_id", itemIds)
+      .eq("status", "active")
+      .gt("estoque", 0)
 
     data = fallbackResult.data
     error = fallbackResult.error
@@ -45,22 +49,30 @@ async function resolveFeaturedProducts(project, store, options = {}) {
     return featured.slice(0, 6).map((item, index) => ({ ...item, slug: item.slug || slugifyProduct(item.title), order: index }))
   }
 
-  const snapshotMap = new Map((Array.isArray(data) ? data : []).map((row) => [sanitizeText(row.ml_item_id, 80), normalizeSnapshotProduct(row)]))
-  return featured.slice(0, 6).map((item, index) => {
+  const snapshotMap = new Map(
+    (Array.isArray(data) ? data : [])
+      .map((row) => normalizeSnapshotProduct(row))
+      .filter(isStoreProductAvailable)
+      .map((item) => [sanitizeText(item.itemId, 80), item])
+  )
+
+  return featured.slice(0, 6).flatMap((item, index) => {
     const snapshot = snapshotMap.get(sanitizeText(item.id, 80))
     if (snapshot) {
-      return {
+      return [{
         ...snapshot,
         currencyId: item.currencyId || "BRL",
         order: index,
-      }
+      }]
     }
 
-    return {
-      ...item,
-      slug: item.slug || slugifyProduct(item.title),
-      order: index,
-    }
+    return itemIds.length
+      ? []
+      : [{
+          ...item,
+          slug: item.slug || slugifyProduct(item.title),
+          order: index,
+        }]
   })
 }
 

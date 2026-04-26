@@ -784,6 +784,29 @@ async function loadMercadoLivreItemById(itemId, accessToken, deps = {}) {
   })
 }
 
+async function fetchMercadoLivreCategoryName(categoryId, accessToken, deps = {}) {
+  const normalizedCategoryId = sanitizeString(categoryId)
+  if (!normalizedCategoryId) {
+    return ""
+  }
+
+  const fetchImpl = deps.fetchImpl ?? fetch
+  const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/categories/${encodeURIComponent(normalizedCategoryId)}`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    },
+    cache: "no-store",
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    return ""
+  }
+
+  return sanitizeString(payload?.name)
+}
+
 async function listMercadoLivreOrders(userId, accessToken, options = {}, deps = {}) {
   const fetchImpl = deps.fetchImpl ?? fetch
   const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 20)
@@ -1176,10 +1199,40 @@ export async function listMercadoLivreItemsForProject(project, options = {}, dep
         return { items: [], connector: resolvedConnector, paging: null, error: searchError }
       }
 
-      const items = await loadMercadoLivreItems(itemIds.slice(0, limit), accessToken, deps)
+      const shouldIncludeDetails = options.includeDetails === true
+      const baseItemIds = itemIds.slice(0, limit)
+      const items = shouldIncludeDetails
+        ? (
+            await Promise.all(
+              baseItemIds.map(async (itemId) => {
+                const detailedItem = await loadMercadoLivreItemById(itemId, accessToken, deps)
+                return detailedItem
+              })
+            )
+          ).filter(Boolean)
+        : await loadMercadoLivreItems(baseItemIds, accessToken, deps)
+
+      const categoryIds = [...new Set(items.map((item) => sanitizeString(item?.categoryId)).filter(Boolean))]
+      const categoryNameMap = new Map()
+
+      if (shouldIncludeDetails && categoryIds.length) {
+        await Promise.all(
+          categoryIds.map(async (categoryId) => {
+            const categoryName = await fetchMercadoLivreCategoryName(categoryId, accessToken, deps)
+            if (categoryName) {
+              categoryNameMap.set(categoryId, categoryName)
+            }
+          })
+        )
+      }
+
+      const normalizedItems = items.map((item) => ({
+        ...item,
+        categoryName: item.categoryName || categoryNameMap.get(sanitizeString(item.categoryId)) || "",
+      }))
 
       return {
-        items,
+        items: normalizedItems,
         connector: resolvedConnector,
         paging: {
           total: Number(paging?.total ?? 0) || 0,

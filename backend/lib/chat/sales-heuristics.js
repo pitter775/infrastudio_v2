@@ -2,6 +2,19 @@ import { buildSearchTokens, normalizeText } from "@/lib/chat/text-utils"
 import { hasConfiguredWhatsAppDestination } from "@/lib/chat/whatsapp-availability"
 
 const PRODUCT_SEARCH_STOPWORDS = new Set([
+  "vc",
+  "voce",
+  "oq",
+  "oque",
+  "que",
+  "qual",
+  "quais",
+  "como",
+  "tem",
+  "tenho",
+  "teria",
+  "mostrar",
+  "mostre",
   "esse",
   "essa",
   "esses",

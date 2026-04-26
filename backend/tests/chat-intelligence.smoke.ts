@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 loadEnvConfig(process.cwd());
 
 import { normalizeAgentRuntimeConfig } from "@/lib/agent-runtime-config";
+import { scoreMercadoLivreItem } from "@/lib/mercado-livre/mappers";
 import {
   appendOptionalHumanOffer,
   applyAdminTestContextOverrides,
@@ -2842,6 +2843,35 @@ const tests: TestCase[] = [
 
       assert.equal(isAck, true);
       assert.ok(candidates.some((item: string) => /sopeira/i.test(item)));
+    },
+  },
+  {
+    name: "busca de catalogo remove termos genericos e nao deixa inox casar com item de madeira",
+    run: () => {
+      const candidates = buildProductSearchCandidates("o que vc tem de inox", {
+        normalizeText: normalizeFixtureText,
+        isGreetingOrAckMessage: (message: string) => isGreetingOrAckMessage(message, { normalizeText: normalizeFixtureText }),
+      });
+      const woodItem = {
+        title: "Bau de madeira vintage",
+        sellerName: "Reliquias de Familia",
+        shortDescription: "Item decorativo antigo",
+        descriptionPlain: "Item de madeira com detalhes em metal",
+        attributes: [{ name: "Material", valueName: "Madeira" }],
+        variations: [],
+      };
+      const inoxItem = {
+        title: "Conjunto Cha Cafe Inox Fracalanza Bandeja Vintage Prateado",
+        sellerName: "Reliquias de Familia",
+        shortDescription: "Conjunto em inox",
+        descriptionPlain: "Servico completo em inox vintage",
+        attributes: [{ name: "Material", valueName: "Inox" }],
+        variations: [],
+      };
+
+      assert.deepEqual(candidates, ["inox"]);
+      assert.equal(scoreMercadoLivreItem(woodItem, "tem inox"), 0);
+      assert.ok(scoreMercadoLivreItem(inoxItem, "tem inox") > 0);
     },
   },
 ];

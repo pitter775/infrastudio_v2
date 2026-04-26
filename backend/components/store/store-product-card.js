@@ -7,19 +7,26 @@ import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 
 import { formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
 
-export function StoreProductCard({ storeSlug, product, accentColor, onOpenSheet, compact = false, analyticsSource = 'grid_card' }) {
+function shouldHideCategoryCode(label) {
+  return /^MLB\d+$/i.test(String(label || '').trim())
+}
+
+export function StoreProductCard({ storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card' }) {
   const href = `/loja/${storeSlug}/produto/${product.slug}`
   const images = getStoreProductImages(product)
   const [imageIndex, setImageIndex] = useState(0)
   const image = images[imageIndex] || images[0] || ''
   const hasGallery = images.length > 1
   const statusLabel = String(product.status || '').trim()
-  const categoryLabel = String(product.categoryId || '').trim()
+  const categoryLabel = String(product.categoryLabel || product.categoryId || '').trim()
+  const visibleCategoryLabel = shouldHideCategoryCode(categoryLabel) ? '' : categoryLabel
   const stockValue = typeof product.stock === 'number' && product.stock > 0 ? String(product.stock) : '-'
-  const locationLabel = categoryLabel || 'Mercado Livre'
-  const description = categoryLabel
-    ? `Produto publicado na categoria ${categoryLabel.toLowerCase()} com checkout final no Mercado Livre.`
-    : 'Produto publicado com checkout final no Mercado Livre e atendimento direto pela loja.'
+  const locationLabel = visibleCategoryLabel || 'Mercado Livre'
+  const description =
+    String(product.shortDescription || product.descriptionLong || '').trim() ||
+    (visibleCategoryLabel
+      ? `Produto publicado na categoria ${visibleCategoryLabel.toLowerCase()} com checkout final no Mercado Livre.`
+      : 'Produto publicado com checkout final no Mercado Livre e atendimento direto pela loja.')
 
   function showPreviousImage(event) {
     event.preventDefault()
@@ -42,8 +49,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, onOpenSheet,
     >
       <Link
         href={href}
-        onClick={(event) => {
-          event.preventDefault()
+        onClick={() => {
           trackStoreEvent({
             storeSlug,
             type: 'product_open',
@@ -51,7 +57,6 @@ export function StoreProductCard({ storeSlug, product, accentColor, onOpenSheet,
             product,
             dedupeKey: `${storeSlug}:product_open:${analyticsSource}:${product.slug}`,
           })
-          onOpenSheet(product.slug)
         }}
         className={
           compact
@@ -71,9 +76,9 @@ export function StoreProductCard({ storeSlug, product, accentColor, onOpenSheet,
                 {statusLabel}
               </span>
             ) : null}
-            {categoryLabel ? (
+            {visibleCategoryLabel ? (
               <span className="inline-flex rounded-[10px] bg-[#3b82f6] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
-                {categoryLabel}
+                {visibleCategoryLabel}
               </span>
             ) : null}
           </div>

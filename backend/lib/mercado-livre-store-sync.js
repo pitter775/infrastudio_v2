@@ -35,6 +35,9 @@ function buildSnapshotRow(projectId, item) {
     status: sanitizeText(item?.status, 40),
     estoque: Number(item?.availableQuantity ?? 0) || 0,
     categoria_id: sanitizeText(item?.categoryId, 80),
+    categoria_nome: sanitizeText(item?.categoryName, 160),
+    descricao_curta: sanitizeText(item?.shortDescription, 2000),
+    descricao_longa: sanitizeText(item?.descriptionPlain, 12000),
     atributos_json: Array.isArray(item?.attributes) ? item.attributes : [],
     ultima_sincronizacao_em: now,
     updated_at: now,
@@ -77,7 +80,7 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
   const supabase = deps.supabase ?? getSupabaseAdminClient()
   const limit = Math.min(Math.max(Number(options.limit ?? 20) || 20, 1), 20)
   const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
-  const result = await listMercadoLivreItemsForProject(project, { limit, offset }, { supabase })
+  const result = await listMercadoLivreItemsForProject(project, { limit, offset, includeDetails: true }, { supabase })
 
   if (result.error) {
     return { synced: 0, paging: result.paging || null, error: result.error }

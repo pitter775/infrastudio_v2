@@ -60,6 +60,7 @@ export function mapMercadoLivreItem(payload) {
     condition: sanitizeString(payload?.condition),
     warranty: sanitizeString(payload?.warranty),
     categoryId: sanitizeString(payload?.category_id),
+    categoryName: sanitizeString(payload?.categoryName || payload?.category_name),
     domainId: sanitizeString(payload?.domain_id),
     officialStoreId: sanitizeString(payload?.official_store_id),
     catalogProductId: sanitizeString(payload?.catalog_product_id),
@@ -182,7 +183,7 @@ export function scoreMercadoLivreItem(item, searchTerm) {
       continue
     }
 
-    if (haystack.some((hay) => hay.includes(token) || token.includes(hay))) {
+    if (token.length >= 5 && haystack.some((hay) => hay.length >= 5 && (hay.includes(token) || token.includes(hay)))) {
       score += 1
     }
   }

@@ -163,8 +163,23 @@ function normalizeSnapshotProduct(row) {
     status: sanitizeText(row.status, 40),
     stock: Number(row.estoque ?? 0) || 0,
     categoryId: sanitizeText(row.categoria_id, 80),
+    categoryLabel: sanitizeText(row.categoria_nome, 160),
+    shortDescription: sanitizeText(row.descricao_curta, 2000),
+    descriptionLong: sanitizeText(row.descricao_longa, 12000),
+    attributes: Array.isArray(row.atributos_json) ? row.atributos_json : [],
     updatedAt: row.updated_at || null,
   }
+}
+
+function isStoreProductAvailable(product) {
+  const status = sanitizeText(product?.status, 40).toLowerCase()
+  const stock = Number(product?.stock ?? product?.estoque ?? 0) || 0
+
+  if (status && status !== "active") {
+    return false
+  }
+
+  return stock > 0
 }
 
 function sortSnapshotProducts(items, sort) {
@@ -190,6 +205,7 @@ export {
   buildDefaultMenu,
   normalizeSnapshotProduct,
   normalizeStore,
+  isStoreProductAvailable,
   sanitizeColor,
   sanitizeDomain,
   sanitizeFeaturedProducts,

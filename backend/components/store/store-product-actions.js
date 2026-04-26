@@ -1,6 +1,5 @@
 'use client'
 
-import Link from 'next/link'
 import { ExternalLink, MessageCircle } from 'lucide-react'
 
 import { openStoreChat, trackStoreEvent } from '@/components/store/store-utils'
@@ -8,7 +7,6 @@ import { openStoreChat, trackStoreEvent } from '@/components/store/store-utils'
 export function StoreProductActions({
   accentColor,
   chatDescription = null,
-  openPageHref = null,
   permalink,
   product = null,
   storeSlug = null,
@@ -28,7 +26,7 @@ export function StoreProductActions({
             trackStoreEvent({
               storeSlug,
               type: 'product_buy_click',
-              source: openPageHref ? 'product_detail' : 'sheet',
+              source: 'product_detail',
               product,
               dedupeKey: `${storeSlug}:product_buy_click:${product?.slug || 'unknown'}`,
             })
@@ -45,7 +43,7 @@ export function StoreProductActions({
             trackStoreEvent({
               storeSlug,
               type: 'product_chat_click',
-              source: openPageHref ? 'product_detail' : 'sheet',
+              source: 'product_detail',
               product,
               dedupeKey: `${storeSlug}:product_chat_click:${product?.slug || 'unknown'}`,
             })
@@ -58,11 +56,6 @@ export function StoreProductActions({
           Tirar duvida sobre este produto
         </button>
       </div>
-      {openPageHref ? (
-        <Link href={openPageHref} className="mt-4 inline-flex text-sm font-medium text-slate-600 underline-offset-4 hover:underline">
-          Abrir pagina do produto
-        </Link>
-      ) : null}
       <div className="mt-4 text-sm leading-7 text-slate-600">
         {chatDescription ||
           (hasWidget

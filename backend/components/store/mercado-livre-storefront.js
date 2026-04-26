@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AtSign, Camera, ChevronRight, Globe, LayoutGrid, MapPin, MessageCircle, Phone, Play, Search, ShieldCheck, Sparkles, Store, Users } from 'lucide-react'
 
+import { StoreHeader } from '@/components/store/store-header'
 import { StoreProductCard } from '@/components/store/store-product-card'
-import { StoreProductSheet } from '@/components/store/store-product-sheet'
 import { buildStoreUrl, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
 
 export function MercadoLivreStorefront({
@@ -23,9 +23,6 @@ export function MercadoLivreStorefront({
 }) {
   const [activeIndex, setActiveIndex] = useState(0)
   const [activeSlideImageState, setActiveSlideImageState] = useState({ slideId: null, index: 0 })
-  const [sheetOpen, setSheetOpen] = useState(false)
-  const [sheetLoading, setSheetLoading] = useState(false)
-  const [sheetData, setSheetData] = useState(null)
   const [headerSolid, setHeaderSolid] = useState(false)
   const [activeSection, setActiveSection] = useState('topo')
   const slides = featuredProducts.length ? featuredProducts : products.slice(0, 4)
@@ -115,53 +112,6 @@ export function MercadoLivreStorefront({
     }
   }, [])
 
-  useEffect(() => {
-    function handlePopState() {
-      const pathname = window.location.pathname
-      if (pathname === storeUrl.split('?')[0] || pathname === `/loja/${store.slug}`) {
-        setSheetOpen(false)
-        setSheetData(null)
-      }
-    }
-
-    window.addEventListener('popstate', handlePopState)
-    return () => window.removeEventListener('popstate', handlePopState)
-  }, [store.slug, storeUrl])
-
-  async function handleOpenSheet(productSlug) {
-    setSheetLoading(true)
-    setSheetOpen(true)
-
-    try {
-      const response = await fetch(`/api/loja/${store.slug}/produto/${productSlug}`, {
-        cache: 'no-store',
-      })
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        setSheetData(null)
-        setSheetOpen(false)
-        window.location.href = `/loja/${store.slug}/produto/${productSlug}`
-        return
-      }
-
-      setSheetData(data)
-      window.history.pushState({ lojaSheet: true }, '', `/loja/${store.slug}/produto/${productSlug}`)
-    } catch {
-      setSheetData(null)
-      setSheetOpen(false)
-      window.location.href = `/loja/${store.slug}/produto/${productSlug}`
-    } finally {
-      setSheetLoading(false)
-    }
-  }
-
-  function handleCloseSheet() {
-    setSheetOpen(false)
-    setSheetData(null)
-    window.history.replaceState(window.history.state, '', storeUrl)
-  }
-
   function handleAnchorNavigation(event, href) {
     if (!href || !href.startsWith('#')) {
       return
@@ -226,78 +176,7 @@ export function MercadoLivreStorefront({
         className="min-h-screen scroll-smooth bg-[#f7f4ee] text-slate-900"
         style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}
       >
-        <header
-          className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
-            headerSolid
-              ? 'bg-[rgba(247,244,238,0.86)] shadow-[0_16px_34px_-28px_rgba(15,23,42,0.16)] backdrop-blur-xl'
-              : 'bg-transparent shadow-none'
-          }`}
-        >
-          <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-            <div className="flex items-center justify-between gap-6 px-1 sm:px-0">
-              <Link href={`/loja/${store.slug}`} className="flex items-center gap-3">
-                <div
-                  className="flex h-12 w-12 items-center justify-center rounded-[14px] text-sm font-semibold text-white shadow-[0_16px_30px_-20px_rgba(15,23,42,0.24)]"
-                  style={{ backgroundColor: store.accentColor }}
-                >
-                  {store.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-full w-full rounded-[14px] object-cover" />
-                  ) : (
-                    store.name.slice(0, 2).toUpperCase()
-                  )}
-                </div>
-                <div>
-                  <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Loja Mercado Livre</div>
-                  <div className="text-[1.02rem] font-semibold tracking-[-0.02em]">{store.name}</div>
-                </div>
-              </Link>
-
-              <nav className="hidden items-center gap-2 md:flex">
-                {store.menuLinks.map((item) => (
-                  <a
-                    key={`${item.label}-${item.href}`}
-                    href={item.href}
-                    onClick={(event) => handleAnchorNavigation(event, item.href)}
-                    className={`inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-[13px] font-semibold transition ${
-                      activeSection === item.href.replace('#', '') || (item.href === '#topo' && activeSection === 'topo')
-                        ? 'bg-[#155eef] text-white shadow-[0_14px_28px_-18px_rgba(21,94,239,0.5)]'
-                        : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white/72 hover:text-slate-950'
-                    }`}
-                  >
-                    {(() => {
-                      const Icon = menuIconMap[item.href.replace('#', '')] || Globe
-                      return <Icon className="h-4 w-4" />
-                    })()}
-                    {item.label}
-                  </a>
-                ))}
-              </nav>
-            </div>
-          </div>
-          {store.menuLinks.length ? (
-            <div className="mx-auto max-w-7xl px-4 pb-3 sm:px-6 md:hidden lg:px-8">
-              <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
-                {store.menuLinks.map((item) => (
-                  <a
-                    key={`${item.label}-${item.href}-mobile`}
-                    href={item.href}
-                    onClick={(event) => handleAnchorNavigation(event, item.href)}
-                    className={`shrink-0 rounded-[14px] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-all ${
-                      activeSection === item.href.replace('#', '') || (item.href === '#topo' && activeSection === 'topo')
-                        ? 'bg-[#155eef] text-white shadow-[0_14px_28px_-18px_rgba(21,94,239,0.5)]'
-                        : headerSolid
-                          ? 'bg-white/72 text-slate-700 shadow-[0_14px_28px_-24px_rgba(15,23,42,0.12)] backdrop-blur-xl'
-                          : 'bg-transparent text-slate-700 shadow-none'
-                    }`}
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </div>
-            </div>
-          ) : null}
-        </header>
+        <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
 
         <main className="pt-[112px] md:pt-[108px]">
           <section id="topo" className="relative overflow-hidden">
@@ -368,8 +247,8 @@ export function MercadoLivreStorefront({
               >
                 <div className="rounded-[24px] p-4">
                   {activeSlide ? (
-                    <button
-                      type="button"
+                    <Link
+                      href={`/loja/${store.slug}/produto/${activeSlide.slug}`}
                       onClick={() => {
                         trackStoreEvent({
                           storeSlug: store.slug,
@@ -378,7 +257,6 @@ export function MercadoLivreStorefront({
                           product: activeSlide,
                           dedupeKey: `${store.slug}:product_open:featured:${activeSlide.slug}`,
                         })
-                        handleOpenSheet(activeSlide.slug)
                       }}
                       className="relative grid w-full text-left"
                     >
@@ -467,7 +345,7 @@ export function MercadoLivreStorefront({
                           </div>
                         </div>
                       </div>
-                    </button>
+                    </Link>
                   ) : (
                     <div className="rounded-[18px] border border-dashed border-slate-200 px-6 py-12 text-center text-sm text-slate-500">
                       Escolha produtos em destaque na aba Loja do Mercado Livre.
@@ -550,7 +428,6 @@ export function MercadoLivreStorefront({
                     storeSlug={store.slug}
                     product={product}
                     accentColor={store.accentColor}
-                    onOpenSheet={handleOpenSheet}
                     analyticsSource="catalog_grid"
                   />
                 ))}
@@ -650,14 +527,6 @@ export function MercadoLivreStorefront({
         </footer>
       </div>
 
-      <StoreProductSheet
-        store={store}
-        open={sheetOpen}
-        loading={sheetLoading}
-        data={sheetData}
-        onClose={handleCloseSheet}
-        onOpenProduct={handleOpenSheet}
-      />
     </>
   )
 }

@@ -2,6 +2,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ChevronLeft, Package, ShieldCheck, Tag } from "lucide-react"
 
+import { StoreHeader } from "@/components/store/store-header"
 import { StoreProductActions } from "@/components/store/store-product-actions"
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
 import { formatStoreCurrency } from "@/components/store/store-utils"
@@ -32,6 +33,14 @@ export default async function LojaProdutoPage({ params }) {
   if (!result.product) {
     notFound()
   }
+
+  const visibleCategoryLabel =
+    result.product.categoryLabel && !/^MLB\d+$/i.test(String(result.product.categoryLabel))
+      ? result.product.categoryLabel
+      : ""
+  const productDescription =
+    String(result.product.descriptionLong || result.product.shortDescription || "").trim() ||
+    "Este produto esta publicado na vitrine da loja com compra final no Mercado Livre."
 
   const widgetConfig = result.store.widget
     ? {
@@ -68,6 +77,8 @@ export default async function LojaProdutoPage({ params }) {
         />
       ) : null}
       <div className="min-h-screen bg-[#f7f3eb] text-slate-900">
+        <StoreHeader store={result.store} activeSection="produtos" headerSolid />
+        <main className="pt-[112px] md:pt-[108px]">
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
           <Link
             href={`/loja/${result.store.slug}`}
@@ -94,10 +105,10 @@ export default async function LojaProdutoPage({ params }) {
                   <Package className="h-3.5 w-3.5" />
                   Produto da loja
                 </span>
-                {result.product.categoryId ? (
+                {visibleCategoryLabel ? (
                   <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600">
                     <Tag className="h-3.5 w-3.5" />
-                    {result.product.categoryId}
+                    {visibleCategoryLabel}
                   </span>
                 ) : null}
                 {result.product.status ? (
@@ -122,6 +133,12 @@ export default async function LojaProdutoPage({ params }) {
                   <span>Compra final</span>
                   <span className="font-medium text-slate-950">Mercado Livre</span>
                 </div>
+                {visibleCategoryLabel ? (
+                  <div className="flex items-center justify-between gap-4">
+                    <span>Categoria</span>
+                    <span className="font-medium text-slate-950">{visibleCategoryLabel}</span>
+                  </div>
+                ) : null}
                 {typeof result.product.stock === "number" && result.product.stock > 0 ? (
                   <div className="flex items-center justify-between gap-4">
                     <span>Estoque informado</span>
@@ -129,6 +146,28 @@ export default async function LojaProdutoPage({ params }) {
                   </div>
                 ) : null}
               </div>
+
+              <div className="mt-6 rounded-[24px] border border-black/5 bg-[#faf7f0] px-5 py-5 text-sm leading-7 text-slate-700 sm:px-6">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Descricao completa</div>
+                <div className="mt-3 whitespace-pre-line">{productDescription}</div>
+              </div>
+
+              {Array.isArray(result.product.attributes) && result.product.attributes.length ? (
+                <div className="mt-6 rounded-[24px] border border-black/5 bg-white px-5 py-5 sm:px-6">
+                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Detalhes do produto</div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {result.product.attributes
+                      .filter((attribute) => attribute?.name && attribute?.valueName)
+                      .slice(0, 12)
+                      .map((attribute) => (
+                        <div key={`${attribute.id || attribute.name}-${attribute.valueName}`} className="rounded-[16px] border border-slate-200 bg-[#faf7f0] px-4 py-3">
+                          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{attribute.name}</div>
+                          <div className="mt-1 text-sm font-medium text-slate-900">{attribute.valueName}</div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              ) : null}
 
               <StoreProductActions
                 accentColor={result.store.accentColor}
@@ -172,6 +211,7 @@ export default async function LojaProdutoPage({ params }) {
             </div>
           </section>
         </div>
+        </main>
       </div>
       <StoreChatWidgetLoader config={widgetConfig} />
     </>
