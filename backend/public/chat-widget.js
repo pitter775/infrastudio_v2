@@ -1613,6 +1613,30 @@
       return Math.abs(candidateTime - currentTime) <= 10 * 60 * 1000;
     }
 
+    function isSameUserMessage(candidate, current) {
+      if (!candidate || !current || candidate.isAi || current.isAi) {
+        return false;
+      }
+
+      if (candidate.serverId && current.serverId && candidate.serverId === current.serverId) {
+        return true;
+      }
+
+      var candidateSignature = normalizeMessageSignature(candidate.text);
+      var currentSignature = normalizeMessageSignature(current.text);
+      if (!candidateSignature || !currentSignature || candidateSignature !== currentSignature) {
+        return false;
+      }
+
+      var candidateTime = getMessageTimestamp(candidate);
+      var currentTime = getMessageTimestamp(current);
+      if (!candidateTime || !currentTime) {
+        return true;
+      }
+
+      return Math.abs(candidateTime - currentTime) <= 10 * 60 * 1000;
+    }
+
     function cancelScrollAnimation() {
       if (scrollAnimationFrame) {
         window.cancelAnimationFrame(scrollAnimationFrame);
@@ -2329,32 +2353,37 @@
     }
 
     function mapSyncedMessage(message) {
+      var isUser = message.role === "user";
       return assignMessageOrder({
         id: "server-" + message.id,
         serverId: message.id,
         text: message.text || "",
-        isAi: true,
+        isAi: !isUser,
         assets: Array.isArray(message.assets) ? message.assets : [],
         attachments: Array.isArray(message.attachments) ? message.attachments : [],
-        cta: message.whatsapp && message.whatsapp.url ? message.whatsapp : null,
-        actions: Array.isArray(message.actions) ? message.actions : [],
+        cta: !isUser && message.whatsapp && message.whatsapp.url ? message.whatsapp : null,
+        actions: !isUser && Array.isArray(message.actions) ? message.actions : [],
         createdAt: message.createdAt || new Date().toISOString(),
-        manual: message.manual === true,
+        manual: !isUser && message.manual === true,
       });
     }
 
-    function findStoredAssistantMessageIndex(candidate) {
+    function findStoredMessageIndex(candidate) {
       if (!candidate) {
         return -1;
       }
 
       for (var index = messages.length - 1; index >= 0; index -= 1) {
         var current = messages[index];
-        if (!current || !current.isAi) {
+        if (!current || current.isAi !== candidate.isAi) {
           continue;
         }
 
-        if (isSameAssistantMessage(candidate, current)) {
+        if (candidate.isAi && isSameAssistantMessage(candidate, current)) {
+          return index;
+        }
+
+        if (!candidate.isAi && isSameUserMessage(candidate, current)) {
           return index;
         }
       }
@@ -2362,8 +2391,8 @@
       return -1;
     }
 
-    function upsertAssistantMessage(candidate) {
-      var existingIndex = findStoredAssistantMessageIndex(candidate);
+    function upsertMessage(candidate) {
+      var existingIndex = findStoredMessageIndex(candidate);
       if (existingIndex === -1) {
         messages.push(assignMessageOrder(candidate));
         sortMessagesChronologically();
@@ -2377,6 +2406,10 @@
         order: messages[existingIndex].order,
       };
       sortMessagesChronologically();
+    }
+
+    function upsertAssistantMessage(candidate) {
+      upsertMessage(candidate);
     }
 
     async function syncServerMessages() {
@@ -2422,7 +2455,7 @@
             return;
           }
 
-          upsertAssistantMessage(mapSyncedMessage(message));
+          upsertMessage(mapSyncedMessage(message));
           changed = true;
 
           if (message.createdAt && (!lastSyncedMessageAt || new Date(message.createdAt).getTime() > new Date(lastSyncedMessageAt).getTime())) {

@@ -563,7 +563,7 @@ export async function GET(request) {
   const after = String(url.searchParams.get("after") || "").trim()
   const afterTime = after ? new Date(after).getTime() : null
   let messages = (await listChatMessages(chatId, { ascending: false, limit: afterTime ? 50 : limit }))
-    .filter((message) => message.role === "assistant")
+    .filter((message) => message.role === "assistant" || message.role === "user")
     .filter((message) => !afterTime || new Date(message.createdAt).getTime() > afterTime)
     .map(mapPublicChatMessage)
 
