@@ -190,6 +190,7 @@ function resolveBasicTestPlan(plans) {
 export function ProjectBillingModal({ open, onOpenChange, summary }) {
   const [plans, setPlans] = useState([])
   const [topUpOffers, setTopUpOffers] = useState([])
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(false)
   const [actionKey, setActionKey] = useState('')
   const [feedback, setFeedback] = useState('')
@@ -214,6 +215,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
       if (response?.ok) {
         setPlans(payload?.plans || [])
         setTopUpOffers(payload?.topUpOffers || (payload?.topUpOffer ? [payload.topUpOffer] : []))
+        setIsAdmin(payload?.isAdmin === true)
       } else {
         setFeedback('Nao foi possivel carregar os planos.')
       }
@@ -232,7 +234,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     () => [...plans].sort((first, second) => Number(first?.monthlyPrice || 0) - Number(second?.monthlyPrice || 0)),
     [plans],
   )
-  const basicTestPlan = useMemo(() => resolveBasicTestPlan(plans), [plans])
+  const basicTestPlan = useMemo(() => (isAdmin ? resolveBasicTestPlan(plans) : null), [isAdmin, plans])
   const freePlan = useMemo(
     () => plans.find((plan) => plan?.isFree) || null,
     [plans],
@@ -281,7 +283,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     }
 
     return '--'
-  }, [freePlan?.totalTokens, summary])
+  }, [freePlan, summary])
   const pendingCheckout = summary?.pendingCheckout || null
   const canResumePendingCheckout = Boolean(pendingCheckout?.checkoutUrl)
 

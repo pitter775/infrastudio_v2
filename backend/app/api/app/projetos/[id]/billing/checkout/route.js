@@ -26,6 +26,7 @@ export async function POST(request, { params }) {
   const body = await request.json().catch(() => ({}))
   const type = body?.type === "topup" ? "topup" : "plan"
   const normalizedTestMode = String(body?.testMode || "").trim().toLowerCase()
+  const isAdmin = user?.role === "admin"
   const supabase = getSupabaseAdminClient()
 
   await expireStalePendingBillingRecords(project.id, { supabase }).catch(() => null)
@@ -91,11 +92,17 @@ export async function POST(request, { params }) {
   const planKey = normalizePlanKey(body?.planKey || body?.planName || "")
   const plans = await listPublicPlans()
   const selectedPlan = plans.find((plan) => plan.key === planKey)
+  const isBasicSheetTest = normalizedTestMode === "basic_sheet_test" && planKey === "basic"
+
+  if (isBasicSheetTest && !isAdmin) {
+    return NextResponse.json({ error: "Modo de teste restrito ao admin." }, { status: 403 })
+  }
+
   const checkoutUrl =
-    normalizedTestMode === "basic_sheet_test" && planKey === "basic"
+    isBasicSheetTest
       ? TEST_BASIC_PLAN_CHECKOUT_URL
       : getServerPlanCheckoutUrl(selectedPlan?.key)
-  const planPrice = normalizedTestMode === "basic_sheet_test" && planKey === "basic"
+  const planPrice = isBasicSheetTest
     ? Number(body?.price || 1)
     : selectedPlan?.monthlyPrice
 
