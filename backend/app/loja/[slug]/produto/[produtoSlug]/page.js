@@ -219,6 +219,83 @@ function formatInstallmentText(product) {
   return `${quantity}x ${formatStoreCurrency(amount, product?.currencyId)}`
 }
 
+function buildChatProductContext(product, store, categoryLabel = "") {
+  if (!product) {
+    return null
+  }
+
+  const compactLongDescription = String(product.descriptionLong || product.shortDescription || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 600)
+
+  const normalizedAttributes = Array.isArray(product.attributes)
+    ? product.attributes
+        .map((attribute) => ({
+          id: String(attribute?.id || "").trim(),
+          nome: String(attribute?.name || attribute?.label || "").trim(),
+          valor: normalizeAttributeValue(attribute),
+        }))
+        .filter((attribute) => attribute.nome && attribute.valor)
+        .slice(0, 10)
+    : []
+
+  const material =
+    normalizedAttributes.find((attribute) => /material|linha/i.test(attribute.nome))?.valor || ""
+  const cor =
+    normalizedAttributes.find((attribute) => /cor|color|estampa|acabamento/i.test(attribute.nome))?.valor || ""
+  const variationSummary = Array.isArray(product.variations)
+    ? product.variations
+        .slice(0, 4)
+        .map((variation) =>
+          Array.isArray(variation?.attributeCombinations)
+            ? variation.attributeCombinations
+                .map((attribute) => String(attribute?.valueName || "").trim())
+                .filter(Boolean)
+                .join(" / ")
+            : ""
+        )
+        .filter(Boolean)
+    : []
+
+  return {
+    id: product.id || null,
+    itemId: product.itemId || product.id || null,
+    slug: product.slug || null,
+    nome: product.title || "",
+    titulo: product.title || "",
+    descricao:
+      [
+        product.price ? formatStoreCurrency(product.price, product.currencyId) : "",
+        typeof product.stock === "number" && product.stock > 0 ? `${product.stock} em estoque` : "",
+        categoryLabel || "",
+      ].filter(Boolean).join(" - "),
+    preco: Number(product.price ?? 0) || 0,
+    link: product.permalink || "",
+    imagem: product.thumbnail || "",
+    imagens: Array.isArray(product.images) ? product.images.filter(Boolean).slice(0, 3) : [],
+    availableQuantity: Number(product.stock ?? 0) || 0,
+    stock: Number(product.stock ?? 0) || 0,
+    status: product.status || "",
+    condition: product.condition || "",
+    warranty: product.warranty || "",
+    freeShipping: product.freeShipping === true,
+    material,
+    cor,
+    atributos: normalizedAttributes,
+    variacoesResumo: variationSummary,
+    descricaoLonga: compactLongDescription,
+    categoriaId: product.categoryId || "",
+    categoriaLabel: categoryLabel || product.categoryLabel || "",
+    lojaNome: store?.name || "",
+    currencyId: product.currencyId || "BRL",
+    installmentQuantity: Number(product.installmentQuantity ?? 0) || 0,
+    installmentAmount: Number(product.installmentAmount ?? 0) || 0,
+    installmentRate: Number(product.installmentRate ?? 0) || 0,
+    unitPrice: Number(product.unitPrice ?? 0) || 0,
+  }
+}
+
 function ProductPurchasePanel({
   result,
   palette,
@@ -369,6 +446,7 @@ export default async function LojaProdutoPage({ params }) {
   const attributeGroups = groupProductAttributes(result.product.attributes)
   const palette = buildStoreAccentPalette(result.store.accentColor)
   const installmentText = formatInstallmentText(result.product)
+  const chatProductContext = buildChatProductContext(result.product, result.store, visibleCategoryLabel)
   const widgetConfig = result.store.widget
     ? {
         widgetId: result.store.widget.id,
@@ -376,6 +454,34 @@ export default async function LojaProdutoPage({ params }) {
         projeto: result.store.widget.projectId,
         agente: result.store.widget.agentId || undefined,
         title: result.store.widget.title,
+        storeSlug: result.store.slug,
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "product_detail",
+            storeSlug: result.store.slug,
+            productSlug: result.product.slug,
+          },
+          ui: {
+            catalogPreferred: true,
+            productDetailPreferred: true,
+          },
+          focus: chatProductContext
+            ? {
+                domain: "catalog",
+                source: "mercado_livre",
+                subject: chatProductContext.nome,
+                confidence: 0.96,
+              }
+            : null,
+          catalogo: chatProductContext
+            ? {
+                ultimaBusca: chatProductContext.nome,
+                produtoAtual: chatProductContext,
+                ultimosProdutos: [chatProductContext],
+              }
+            : null,
+        },
         theme: "light",
         accent: result.store.widget.accent || result.store.accentColor,
         transparent: false,

@@ -139,6 +139,59 @@ async function main() {
   assert.equal(storefrontCatalogRoute.source, "mercado_livre")
   assert.equal(storefrontCatalogRoute.shouldUseTool, true)
 
+  const productDetailRoute = resolveChatDomainRoute({
+    latestUserMessage: "esse tem garantia?",
+    context: {
+      ...catalogContext,
+      ui: {
+        catalogPreferred: true,
+        productDetailPreferred: true,
+      },
+      storefront: {
+        kind: "mercado_livre",
+        pageKind: "product_detail",
+        storeSlug: "vitoria-rocha-moepftn8-chat",
+        productSlug: "saleiro-de-porcelana",
+      },
+      catalogo: {
+        ...catalogContext.catalogo,
+        produtoAtual: {
+          id: "MLB9",
+          nome: "Saleiro de Porcelana",
+          descricao: "Saleiro vintage",
+          preco: 180,
+          link: "https://example.com/saleiro",
+          imagem: "https://example.com/saleiro.jpg",
+        },
+        ultimosProdutos: [
+          {
+            id: "MLB9",
+            nome: "Saleiro de Porcelana",
+            descricao: "Saleiro vintage",
+            preco: 180,
+            link: "https://example.com/saleiro",
+            imagem: "https://example.com/saleiro.jpg",
+          },
+        ],
+      },
+      projeto: {
+        directConnections: {
+          mercadoLivre: 1,
+        },
+      },
+    },
+    project: {
+      directConnections: {
+        mercadoLivre: 1,
+      },
+    },
+    history: [],
+    runtimeApis: [],
+    focusedApiContext: { fields: [] },
+  })
+  assert.equal(productDetailRoute.domain, "catalog")
+  assert.equal(productDetailRoute.reason, "catalog_product_detail_focus")
+
   const prompt = buildSystemPrompt(
     {
       id: "agent-1",

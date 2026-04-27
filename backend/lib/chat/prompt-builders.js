@@ -162,6 +162,9 @@ function buildMercadoLivreSalesTechniqueInstructions(context = {}) {
     "- Quando o cliente sinalizar preferencia por um item, avance a venda com seguranca.",
     "- Destaque o produto escolhido, preco, disponibilidade e proximo passo de compra quando isso estiver no contexto.",
     "- Use no maximo 1 ou 2 argumentos concretos por resposta. Nao despeje ficha tecnica sem necessidade.",
+    "- Mantenha os detalhes completos do produto em memoria para responder qualquer pergunta especifica sobre ele.",
+    "- So revele atributo, medida, material, garantia, frete, estoque, descricao ou variacao quando a pergunta do cliente pedir isso direta ou indiretamente.",
+    "- Se o cliente fizer pergunta curta como 'tem garantia?', 'qual material?', 'serve?', responda objetivamente com base no produto em foco.",
     "- Evite repetir so o titulo do produto. Sempre acrescente valor comercial.",
     "- Feche com CTA curto: link, comparacao rapida ou confirmacao do interesse.",
   ].join("\n")

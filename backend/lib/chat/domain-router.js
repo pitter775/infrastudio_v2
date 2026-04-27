@@ -59,7 +59,15 @@ function hasStorefrontCatalogContext(context) {
   return (
     context?.ui?.catalogPreferred === true ||
     context?.storefront?.kind === "mercado_livre" ||
-    context?.storefront?.pageKind === "storefront"
+    context?.storefront?.pageKind === "storefront" ||
+    context?.storefront?.pageKind === "product_detail"
+  )
+}
+
+function hasProductDetailCatalogContext(context) {
+  return Boolean(
+    (context?.ui?.productDetailPreferred === true || context?.storefront?.pageKind === "product_detail") &&
+      context?.catalogo?.produtoAtual?.nome
   )
 }
 
@@ -227,6 +235,24 @@ export function resolveChatDomainRoute(input = {}) {
         subject: message,
         confidence: 0.86,
         expiresAt: buildExpiresAt(12),
+      },
+    }
+  }
+
+  if (capabilities.mercadoLivre && hasProductDetailCatalogContext(context)) {
+    return {
+      domain: "catalog",
+      source: "mercado_livre",
+      confidence: 0.94,
+      reason: "catalog_product_detail_focus",
+      shouldUseTool: true,
+      capabilities,
+      focus: {
+        domain: "catalog",
+        source: "mercado_livre",
+        subject: context?.catalogo?.produtoAtual?.nome || message,
+        confidence: 0.94,
+        expiresAt: buildExpiresAt(15),
       },
     }
   }
