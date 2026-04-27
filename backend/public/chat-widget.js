@@ -80,6 +80,7 @@
       ? requestedTheme
       : (window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
     var accent = script.getAttribute("data-accent") || "#64748b";
+    var storeSlug = (script.getAttribute("data-store-slug") || "").trim();
     var transparent = script.getAttribute("data-transparent") !== "false";
     var hasAgent = Boolean(agente || script.getAttribute("data-agent-status") === "online");
     var cleanup = [];
@@ -445,8 +446,8 @@
       ".chat-agenda-chip:hover { transform: translateY(-1px); border-color: rgba(148,163,184,0.32); }",
       ".chat-agenda-chip.is-selected { color: white; border-color: color-mix(in srgb, " + accent + " 35%, transparent); background: linear-gradient(135deg, " + accent + ", color-mix(in srgb, " + accent + " 70%, #000)); }",
       ".chat-day-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; color: rgba(148,163,184,0.72); }",
-      ".chat-day-divider::before, .chat-day-divider::after { content: ''; height: 1px; flex: 1; background: rgba(148,163,184,0.12); }",
-      ".chat-day-divider-label { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(148,163,184,0.12); background: rgba(15,23,42,0.24); border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }",
+      ".chat-day-divider::before, .chat-day-divider::after { content: ''; height: 1px; flex: 1; background: " + (theme === "light" ? "rgba(148,163,184,0.1)" : "rgba(148,163,184,0.12)") + "; }",
+      ".chat-day-divider-label { display: inline-flex; align-items: center; justify-content: center; border: " + (theme === "light" ? "0" : "1px solid rgba(148,163,184,0.12)") + "; background: " + (theme === "light" ? "transparent" : "rgba(15,23,42,0.24)") + "; border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }",
       ".chat-assets { margin-top: 10px; display: grid; gap: 10px; }",
       ".chat-asset { display: block; overflow: hidden; border-radius: 16px; border: 1px solid " + headerBorder + "; background: color-mix(in srgb, " + panelBackground + " 88%, transparent); color: inherit; text-decoration: none; }",
       ".chat-asset.image, .chat-asset.video, .chat-asset.preview { padding: 0; }",
@@ -460,6 +461,10 @@
       ".chat-asset-action { display: inline-flex; align-items: center; justify-content: center; min-width: 78px; padding: 8px 12px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: rgba(255,255,255,0.05); color: inherit; font-size: 11px; font-weight: 700; text-decoration: none; transition: transform .18s ease, background-color .18s ease; }",
       ".chat-asset-action:hover { transform: translateY(-1px); background: rgba(255,255,255,0.09); }",
       ".chat-asset-action.primary { border-color: color-mix(in srgb, " + accent + " 40%, transparent); background: color-mix(in srgb, " + accent + " 18%, transparent); color: white; }",
+      ".chat-asset-action.mercado-livre { border-color: rgba(250,204,21,0.48); background: linear-gradient(180deg, rgba(250,204,21,0.96), rgba(234,179,8,0.96)); color: #1f2937; box-shadow: 0 8px 16px -14px rgba(234,179,8,0.9); }",
+      ".chat-asset-action.mercado-livre:hover { background: linear-gradient(180deg, rgba(253,224,71,0.98), rgba(250,204,21,0.98)); }",
+      ".chat-asset-action.detail { border-color: color-mix(in srgb, " + accent + " 28%, rgba(148,163,184,0.2)); background: " + (theme === "light" ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0.06)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.92)") + "; }",
+      ".chat-asset-action.detail:hover { background: " + (theme === "light" ? "rgba(248,250,252,1)" : "rgba(255,255,255,0.1)") + "; }",
       ".chat-asset-title { font-size: 12px; font-weight: 700; color: inherit; }",
       ".chat-asset-subtitle { margin-top: 4px; font-size: 11px; color: #94a3b8; }",
       ".chat-asset-open { font-size: 11px; font-weight: 700; color: " + accent + "; white-space: nowrap; }",
@@ -468,7 +473,7 @@
       ".chat-typing-dots span { width: 7px; height: 7px; border-radius: 999px; background: currentColor; animation: chatDotsPulse 1.2s infinite ease-in-out; }",
       ".chat-typing-dots span:nth-child(2) { animation-delay: .16s; }",
       ".chat-typing-dots span:nth-child(3) { animation-delay: .32s; }",
-      ".chat-input { position: sticky; bottom: 0; z-index: 1; flex-shrink: 0; padding: 14px 16px 10px; border-top: 0; background: " + surfaceBg + "; }",
+      ".chat-input { position: sticky; bottom: 0; z-index: 1; flex-shrink: 0; padding: 14px 16px 10px; border-top: 0; background: " + (theme === "light" ? "transparent" : surfaceBg) + "; }",
       ".chat-scroll-bottom { position: absolute; left: 50%; bottom: 118px; z-index: 3; width: 26px; height: 26px; display: none; align-items: center; justify-content: center; border-radius: 999px; border: 1px solid " + (theme === "light" ? "rgba(28,41,59,0.12)" : "rgba(96,165,250,0.14)") + "; background: " + (theme === "light" ? "rgba(255,255,255,0.72)" : "rgba(11,27,50,0.72)") + "; color: " + (theme === "light" ? "rgba(28,41,59,0.76)" : "rgba(226,232,240,0.74)") + "; transform: translateX(-50%); cursor: pointer; box-shadow: 0 6px 14px rgba(2,6,23,0.18); backdrop-filter: blur(6px); }",
       ".chat-scroll-bottom.is-visible { display: inline-flex; }",
       ".chat-scroll-bottom .chat-icon { width: 12px; height: 12px; }",
@@ -494,7 +499,7 @@
       ".chat-composer-tools { display: inline-flex; align-items: center; gap: 6px; }",
       ".chat-tool { width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 10px; background: transparent; color: color-mix(in srgb, " + accent + " 58%, " + panelText + " 42%); opacity: .92; transition: background-color .18s ease, box-shadow .18s ease, transform .18s ease; }",
       ".chat-tool:hover { background: " + (theme === "light" ? "rgba(255,255,255,0.52)" : "rgba(255,255,255,0.09)") + "; box-shadow: 12px 12px 22px -12px rgba(15,23,42,0.5), 4px 4px 10px -10px rgba(96,165,250,0.34); transform: translate(-1px, -1px); }",
-      ".chat-tool.is-active { background: rgba(96,165,250,0.14); color: rgba(226,232,240,0.96); }",
+      ".chat-tool.is-active { background: " + (theme === "light" ? "color-mix(in srgb, " + accent + " 14%, white 86%)" : "rgba(96,165,250,0.14)") + "; color: " + (theme === "light" ? "color-mix(in srgb, " + accent + " 82%, #0f172a 18%)" : "rgba(226,232,240,0.96)") + "; }",
       ".chat-tool .chat-icon { width: 16px; height: 16px; }",
       ".chat-emoji-picker { display: none; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; margin-top: 8px; padding: 8px; border-radius: 12px; border: 1px solid rgba(96,165,250,0.14); background: " + (theme === "light" ? "rgba(255,255,255,0.92)" : "#0b1b32") + "; }",
       ".chat-emoji-picker.is-open { display: grid; }",
@@ -518,7 +523,7 @@
       ".chat-send.has-value { background: linear-gradient(180deg, color-mix(in srgb, " + accent + " 92%, white 8%), color-mix(in srgb, " + accent + " 74%, #000 26%)); color: white; box-shadow: none; }",
       ".chat-send.has-value:hover { transform: translate(-1px, -1px); box-shadow: 12px 12px 24px -12px color-mix(in srgb, " + accent + " 54%, rgba(15,23,42,0.44)), 4px 4px 10px -10px rgba(96,165,250,0.3); filter: brightness(1.03); }",
       ".chat-send[disabled] { opacity: .45; cursor: not-allowed; }",
-      ".chat-credit { display: flex; justify-content: center; padding: 0 16px 12px; border-top: 0; background: " + surfaceBg + "; }",
+      ".chat-credit { display: flex; justify-content: center; padding: 0 16px 12px; border-top: 0; background: " + (theme === "light" ? "transparent" : surfaceBg) + "; }",
       ".chat-credit-link { display: inline-flex; align-items: center; gap: 7px; color: rgba(148,163,184,0.84); text-decoration: none; font-size: 10px; line-height: 1; letter-spacing: .01em; transition: color .18s ease, opacity .18s ease, filter .18s ease; }",
       ".chat-credit-link:hover { color: transparent; background-image: linear-gradient(135deg, #60a5fa, #2563eb); -webkit-background-clip: text; background-clip: text; filter: brightness(1.06); }",
       ".chat-credit-brand { font-weight: 600; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.88)") + "; }",
@@ -1395,6 +1400,10 @@
       var actions = document.createElement("div");
       actions.className = "chat-asset-actions";
       actions.appendChild(createProductAssetAction(asset));
+      var detailAction = createProductDetailAction(asset);
+      if (detailAction) {
+        actions.appendChild(detailAction);
+      }
       body.appendChild(actions);
 
       card.appendChild(body);
@@ -1475,11 +1484,65 @@
 
     function createProductAssetAction(asset) {
       var action = document.createElement("a");
-      action.className = "chat-asset-action primary";
+      action.className = "chat-asset-action mercado-livre";
       action.href = asset.targetUrl || asset.publicUrl || "#";
       action.target = "_blank";
       action.rel = "noreferrer noopener";
-      action.textContent = "Ver no Mercado Livre";
+      action.textContent = "Ir no Mercado Livre";
+      return action;
+    }
+
+    function slugifyProduct(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+        .slice(0, 180);
+    }
+
+    function resolveProductDetailUrl(asset) {
+      if (!asset || !storeSlug) {
+        return "";
+      }
+
+      var explicitDetailUrl =
+        (typeof asset.detailUrl === "string" ? asset.detailUrl.trim() : "") ||
+        (asset.metadata && typeof asset.metadata.detailUrl === "string" ? asset.metadata.detailUrl.trim() : "");
+      if (explicitDetailUrl) {
+        return explicitDetailUrl;
+      }
+
+      var productSlug =
+        (typeof asset.slug === "string" ? asset.slug.trim() : "") ||
+        (asset.metadata && typeof asset.metadata.productSlug === "string" ? asset.metadata.productSlug.trim() : "") ||
+        slugifyProduct(asset.nome || "");
+      if (!productSlug) {
+        return "";
+      }
+
+      var baseOrigin = apiBase;
+      try {
+        baseOrigin = new URL(apiBase).origin;
+      } catch (error) {
+      }
+
+      return baseOrigin + "/loja/" + encodeURIComponent(storeSlug) + "/produto/" + encodeURIComponent(productSlug);
+    }
+
+    function createProductDetailAction(asset) {
+      var detailUrl = resolveProductDetailUrl(asset);
+      if (!detailUrl) {
+        return null;
+      }
+
+      var action = document.createElement("a");
+      action.className = "chat-asset-action detail";
+      action.href = detailUrl;
+      action.target = "_blank";
+      action.rel = "noreferrer noopener";
+      action.textContent = "Detalhe";
       return action;
     }
 
@@ -2061,6 +2124,9 @@
 
         if (payload && payload.ui && payload.ui.title) {
           updateWidgetTitle(payload.ui.title);
+        }
+        if (payload && payload.loja && payload.loja.slug) {
+          storeSlug = String(payload.loja.slug || "").trim();
         }
       } catch (error) {
       }

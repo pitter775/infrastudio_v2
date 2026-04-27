@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowRight, AtSign, Camera, ChevronLeft, ChevronRight, Globe, LayoutGrid, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
+import { ArrowRight, AtSign, Camera, ChevronLeft, ChevronRight, Globe, LayoutGrid, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
 
 import { StoreHeader } from '@/components/store/store-header'
 import { StoreProductCard } from '@/components/store/store-product-card'
@@ -34,6 +34,7 @@ export function MercadoLivreStorefront({
   const [activeSection, setActiveSection] = useState('topo')
   const [searchTerm, setSearchTerm] = useState(query)
   const [sortValue, setSortValue] = useState(sort)
+  const [isSearching, setIsSearching] = useState(false)
   const slides = featuredProducts.length ? featuredProducts : products.slice(0, 4)
   const activeSlide = slides[activeIndex] || null
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
@@ -75,16 +76,10 @@ export function MercadoLivreStorefront({
   const activeSlideImageIndex = activeSlideImageState.slideId === activeSlide?.id ? activeSlideImageState.index : 0
   const hasCategoryContext = Boolean(categoryId && categoryLabel)
   const hasSearchContext = Boolean(query)
-  const heroTitle = hasCategoryContext
-    ? `${categoryLabel} com atendimento direto e compra segura`
-    : hasSearchContext
-      ? `Resultados para ${query}`
-      : store.title
+  const heroTitle = hasCategoryContext ? `${categoryLabel} com atendimento direto e compra segura` : store.title
   const heroDescription = hasCategoryContext
     ? `Explore a selecao de ${categoryLabel} da ${store.name} com suporte direto da loja e compra final no Mercado Livre.`
-    : hasSearchContext
-      ? `Veja os produtos encontrados para ${query} na ${store.name} e continue o atendimento pelo chat quando precisar.`
-      : store.headline
+    : store.headline
   const productsHeading = hasCategoryContext ? `${categoryLabel} da loja` : hasSearchContext ? 'Resultados da busca' : 'Produtos da loja'
   const productsEyebrow = hasCategoryContext ? 'Categoria' : hasSearchContext ? 'Busca' : 'Catalogo'
 
@@ -95,6 +90,10 @@ export function MercadoLivreStorefront({
   useEffect(() => {
     setSortValue(sort)
   }, [sort])
+
+  useEffect(() => {
+    setIsSearching(false)
+  }, [query, categoryId, sort, page])
 
   useEffect(() => {
     if (slides.length <= 1) {
@@ -167,7 +166,15 @@ export function MercadoLivreStorefront({
 
   function handleSearchSubmit(event) {
     event.preventDefault()
+    setIsSearching(true)
     navigateStore(searchTerm, categoryId, sortValue, 1)
+  }
+
+  function handleResetCatalog() {
+    setSearchTerm('')
+    setSortValue('recent')
+    setIsSearching(false)
+    navigateStore('', '', 'recent', 1)
   }
 
   function goToPreviousFeaturedImage() {
@@ -257,7 +264,7 @@ export function MercadoLivreStorefront({
                   className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
                   style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}
                 >
-                  {hasCategoryContext ? `Categoria ${categoryLabel}` : hasSearchContext ? 'Busca ativa' : 'Vitrine conectada'}
+                  {hasCategoryContext ? `Categoria ${categoryLabel}` : 'Vitrine conectada'}
                   <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: palette.accent }} />
                 </div>
                 <h1 className="mt-5 max-w-xl text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-slate-950 sm:text-6xl">
@@ -416,7 +423,7 @@ export function MercadoLivreStorefront({
                             <div className="text-[11px] font-semibold uppercase tracking-[0.24em]" style={{ color: palette.accentDark }}>
                               Em destaque
                             </div>
-                            <div className="mt-2 line-clamp-2 text-xl font-semibold leading-tight text-slate-950">
+                            <div className="mt-2 line-clamp-2 text-lg leading-tight text-slate-950">
                               {activeSlide.title}
                             </div>
                           </div>
@@ -465,6 +472,17 @@ export function MercadoLivreStorefront({
                 <div>
                   <div className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accentDark }}>{productsEyebrow}</div>
                   <h2 className="mt-2 text-3xl font-semibold text-slate-950">{productsHeading}</h2>
+                  {hasSearchContext || hasCategoryContext ? (
+                    <button
+                      type="button"
+                      onClick={handleResetCatalog}
+                      className="mt-3 inline-flex items-center gap-2 text-sm font-medium transition hover:opacity-80"
+                      style={{ color: palette.accentDark }}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Ver todos os produtos
+                    </button>
+                  ) : null}
                 </div>
 
                 <form onSubmit={handleSearchSubmit} className="flex w-full max-w-3xl flex-col gap-3 rounded-2xl p-2 shadow-[0_18px_36px_-32px_rgba(15,23,42,0.12)] md:flex-row md:items-center">
@@ -482,7 +500,10 @@ export function MercadoLivreStorefront({
                       <AppSelect
                         options={categoryOptions}
                         value={categoryId}
-                        onChangeValue={(value) => navigateStore(searchTerm, value || '', sortValue, 1)}
+                        onChangeValue={(value) => {
+                          setIsSearching(true)
+                          navigateStore(searchTerm, value || '', sortValue, 1)
+                        }}
                         placeholder="Categoria"
                         minHeight={44}
                         tone="light"
@@ -497,6 +518,7 @@ export function MercadoLivreStorefront({
                       onChangeValue={(value) => {
                         const nextValue = value || 'recent'
                         setSortValue(nextValue)
+                        setIsSearching(true)
                         navigateStore(searchTerm, categoryId, nextValue, 1)
                       }}
                       placeholder="Ordenar"
@@ -507,11 +529,12 @@ export function MercadoLivreStorefront({
                   </div>
                   <button
                     type="submit"
+                    disabled={isSearching}
                     className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(15,23,42,0.24)]"
-                    style={{ backgroundColor: palette.accentDark }}
+                    style={{ backgroundColor: palette.accentDark, opacity: isSearching ? 0.82 : 1 }}
                   >
-                    <Search className="mr-2 h-4 w-4" />
-                    Buscar
+                    {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                    {isSearching ? 'Buscando...' : 'Buscar'}
                   </button>
                 </form>
               </div>
@@ -551,7 +574,10 @@ export function MercadoLivreStorefront({
                 {page > 1 ? (
                   <button
                     type="button"
-                    onClick={() => navigateStore(searchTerm, categoryId, sortValue, page - 1)}
+                    onClick={() => {
+                      setIsSearching(true)
+                      navigateStore(searchTerm, categoryId, sortValue, page - 1)
+                    }}
                     className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-slate-900 shadow-[0_14px_30px_-28px_rgba(15,23,42,0.18)] sm:flex-none"
                   >
                     <ChevronLeft className="mr-2 h-4 w-4" />
@@ -561,7 +587,10 @@ export function MercadoLivreStorefront({
                 {hasMore ? (
                   <button
                     type="button"
-                    onClick={() => navigateStore(searchTerm, categoryId, sortValue, page + 1)}
+                    onClick={() => {
+                      setIsSearching(true)
+                      navigateStore(searchTerm, categoryId, sortValue, page + 1)
+                    }}
                     className="inline-flex h-11 flex-1 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(15,23,42,0.24)] sm:flex-none"
                     style={{ backgroundColor: palette.accentDark }}
                   >

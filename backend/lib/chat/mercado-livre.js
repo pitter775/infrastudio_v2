@@ -12,6 +12,16 @@ function sanitizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function slugifyProduct(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 180)
+}
+
 function hasMercadoLivreConnection(project, context) {
   const directConnections = project?.directConnections ?? context?.projeto?.directConnections
   return Number(directConnections?.mercadoLivre ?? 0) > 0
@@ -37,6 +47,7 @@ function buildMercadoLivreAsset(item, index = 0) {
   const priceLabel = formatCurrency(item?.price, item?.currencyId || "BRL")
   const stockQuantity = sanitizeNumber(item?.availableQuantity, 0)
   const stockLabel = stockQuantity > 0 ? `${stockQuantity} em estoque` : ""
+  const productSlug = sanitizeString(item?.slug) || slugifyProduct(item?.title)
 
   return {
     id: sanitizeString(item?.id || `mercado-livre-${index + 1}`),
@@ -44,6 +55,7 @@ function buildMercadoLivreAsset(item, index = 0) {
     provider: "mercado_livre",
     categoria: "image",
     nome: sanitizeString(item?.title || "Produto"),
+    slug: productSlug,
     descricao: [priceLabel, stockLabel].filter(Boolean).join(" - "),
     priceLabel,
     targetUrl: sanitizeString(item?.permalink),
@@ -58,6 +70,7 @@ function buildMercadoLivreAsset(item, index = 0) {
       condition: sanitizeString(item?.condition),
       warranty: sanitizeString(item?.warranty),
       freeShipping: item?.freeShipping === true,
+      productSlug,
       attributes: Array.isArray(item?.attributes) ? item.attributes : [],
     },
   }
@@ -109,6 +122,7 @@ function buildCatalogProductFromItem(item) {
 
   return {
     id: sanitizeString(item.id),
+    slug: sanitizeString(item.slug) || slugifyProduct(item.title),
     nome: sanitizeString(item.title),
     descricao: primaryHighlights.join(" - "),
     preco: sanitizeNumber(item.price, null),

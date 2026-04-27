@@ -89,7 +89,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
               )}
             </div>
             <div>
-              <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Loja Mercado Livre</div>
+              <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Loja</div>
               <div className="text-[1.02rem] font-semibold tracking-[-0.02em]">{store.name}</div>
             </div>
           </Link>

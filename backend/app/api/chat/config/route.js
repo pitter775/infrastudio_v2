@@ -2,6 +2,7 @@ import { getAgenteById, getAgenteByIdentifier } from "@/lib/agentes"
 import { recordChatConfigEvent } from "@/lib/chat/diagnostics"
 import { emptyChatOptionsResponse, jsonChatResponse } from "@/lib/chat/http"
 import { getChatWidgetById, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
+import { getMercadoLivreStoreByProjectId } from "@/lib/mercado-livre-store-core/store-config"
 import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
 
 export async function OPTIONS(request) {
@@ -95,6 +96,7 @@ export async function GET(request) {
             projetoId: projeto.id,
             agenteId: agente.id,
           })
+    const lojaMercadoLivre = await getMercadoLivreStoreByProjectId(projeto.id)
 
     await recordChatConfigEvent({
       event: "completed",
@@ -127,6 +129,11 @@ export async function GET(request) {
               id: widget.id,
               slug: widget.slug,
               nome: widget.nome,
+            }
+          : null,
+        loja: lojaMercadoLivre
+          ? {
+              slug: lojaMercadoLivre.slug || null,
             }
           : null,
         ui: {

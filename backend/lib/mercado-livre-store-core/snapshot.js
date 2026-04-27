@@ -39,6 +39,86 @@ function applySnapshotAvailabilityFilters(query) {
   return query.eq("status", "active").gt("estoque", 0)
 }
 
+function normalizeSearchTokens(value) {
+  return sanitizeText(value, 240)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean)
+    .slice(0, 8)
+}
+
+function getRelevantSearchTokens(value) {
+  return normalizeSearchTokens(value).filter((token) => token.length >= 3)
+}
+
+function buildSnapshotSearchOrFilter(searchTerm) {
+  const tokens = getRelevantSearchTokens(searchTerm)
+  if (!tokens.length) {
+    return ""
+  }
+
+  const fields = ["titulo", "descricao_curta", "descricao_longa", "categoria_nome"]
+  return tokens
+    .flatMap((token) => fields.map((field) => `${field}.ilike.%${token}%`))
+    .join(",")
+}
+
+function extractAttributeSearchText(attributes) {
+  if (!Array.isArray(attributes)) {
+    return ""
+  }
+
+  return attributes
+    .flatMap((attribute) => {
+      if (!attribute || typeof attribute !== "object") {
+        return []
+      }
+
+      const values = []
+      const label = sanitizeText(attribute.name || attribute.label, 160)
+      const value = sanitizeText(attribute.valueName || attribute.value_name || attribute.valueLabel || attribute.value, 240)
+
+      if (label) values.push(label)
+      if (value) values.push(value)
+
+      if (Array.isArray(attribute.values)) {
+        values.push(
+          ...attribute.values
+            .map((entry) => sanitizeText(entry?.name || entry?.label || entry?.value_name || entry?.valueName || entry?.value, 160))
+            .filter(Boolean)
+        )
+      }
+
+      return values
+    })
+    .join(" ")
+}
+
+function matchesSnapshotSearch(product, searchTerm) {
+  const tokens = getRelevantSearchTokens(searchTerm)
+  if (!tokens.length) {
+    return true
+  }
+
+  const haystack = [
+    sanitizeText(product?.title, 240),
+    sanitizeText(product?.shortDescription, 2000),
+    sanitizeText(product?.fullDescription, 6000),
+    sanitizeText(product?.categoryName, 160),
+    extractAttributeSearchText(product?.attributes),
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
+  return tokens.every((token) => haystack.includes(token))
+}
+
 async function resolveMercadoLivreCategoryNames(items = []) {
   const categoryIds = Array.from(
     new Set(
@@ -89,6 +169,10 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
   const excludeSlug = sanitizeText(options.excludeSlug, 180)
   const categoryId = sanitizeText(options.categoryId, 80)
   const sort = sanitizeText(options.sort, 32) || "recent"
+  const requiresClientSearch = Boolean(searchTerm)
+  const searchOrFilter = buildSnapshotSearchOrFilter(searchTerm)
+  const fetchLimit = requiresClientSearch ? Math.min(Math.max(limit * 10, 60), 180) : limit
+  const fetchOffset = requiresClientSearch ? 0 : offset
 
   let query = applySnapshotSort(
     applySnapshotAvailabilityFilters(
@@ -106,15 +190,15 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
     query = query.neq("slug", excludeSlug)
   }
 
-  if (searchTerm) {
-    query = query.ilike("titulo", `%${searchTerm}%`)
+  if (searchOrFilter) {
+    query = query.or(searchOrFilter)
   }
 
   if (categoryId) {
     query = query.eq("categoria_id", categoryId)
   }
 
-  query = query.range(offset, offset + limit - 1)
+  query = query.range(fetchOffset, fetchOffset + fetchLimit - 1)
 
   let { data, error, count } = await query
   if (error && isMissingSnapshotFieldError(error)) {
@@ -134,15 +218,15 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
       fallbackQuery = fallbackQuery.neq("slug", excludeSlug)
     }
 
-    if (searchTerm) {
-      fallbackQuery = fallbackQuery.ilike("titulo", `%${searchTerm}%`)
+    if (searchOrFilter) {
+      fallbackQuery = fallbackQuery.or(searchOrFilter.replace(/descricao_curta\.ilike\.[^,]+,?|descricao_longa\.ilike\.[^,]+,?|categoria_nome\.ilike\.[^,]+,?/g, "").replace(/,+/g, ",").replace(/^,|,$/g, ""))
     }
 
     if (categoryId) {
       fallbackQuery = fallbackQuery.eq("categoria_id", categoryId)
     }
 
-    fallbackQuery = fallbackQuery.range(offset, offset + limit - 1)
+    fallbackQuery = fallbackQuery.range(fetchOffset, fetchOffset + fetchLimit - 1)
 
     const fallbackResult = await fallbackQuery
     data = fallbackResult.data
@@ -155,10 +239,14 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
     return { items: [], hasMore: false }
   }
 
-  const items = Array.isArray(data) ? data.map(normalizeSnapshotProduct).filter(isStoreProductAvailable) : []
+  const normalizedItems = Array.isArray(data) ? data.map(normalizeSnapshotProduct).filter(isStoreProductAvailable) : []
+  const filteredItems = requiresClientSearch ? normalizedItems.filter((item) => matchesSnapshotSearch(item, searchTerm)) : normalizedItems
+  const paginatedItems = requiresClientSearch ? filteredItems.slice(offset, offset + limit) : filteredItems
+  const totalCount = requiresClientSearch ? filteredItems.length : Number(count || 0)
+
   return {
-    items,
-    hasMore: Number(count || 0) > offset + items.length,
+    items: paginatedItems,
+    hasMore: totalCount > offset + paginatedItems.length,
   }
 }
 
