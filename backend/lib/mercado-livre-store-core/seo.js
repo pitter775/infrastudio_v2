@@ -1,12 +1,21 @@
 const STORE_BASE_URL = "https://www.infrastudio.pro"
 
-function buildAbsoluteStoreUrl(pathname) {
-  const normalizedPath = String(pathname || "").trim()
-  if (!normalizedPath) {
-    return STORE_BASE_URL
+function buildStoreBaseUrl(store) {
+  if (store?.customDomainActive === true && store?.customDomain) {
+    return `https://${store.customDomain}`
   }
 
-  return `${STORE_BASE_URL}${normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`}`
+  return STORE_BASE_URL
+}
+
+function buildAbsoluteStoreUrl(pathname, store = null) {
+  const baseUrl = buildStoreBaseUrl(store)
+  const normalizedPath = String(pathname || "").trim()
+  if (!normalizedPath) {
+    return baseUrl
+  }
+
+  return `${baseUrl}${normalizedPath.startsWith("/") ? normalizedPath : `/${normalizedPath}`}`
 }
 
 function buildStoreMetadata(store, options = {}) {
@@ -24,8 +33,8 @@ function buildStoreMetadata(store, options = {}) {
   const canonicalPath = categoryLabel
     ? `/loja/${store.slug}?cat=${encodeURIComponent(String(options.categoryId || "").trim())}`
     : `/loja/${store.slug}`
-  const canonical = buildAbsoluteStoreUrl(canonicalPath)
-  const ogImage = buildAbsoluteStoreUrl(`/loja/${store.slug}/opengraph-image`)
+  const canonical = buildAbsoluteStoreUrl(canonicalPath, store)
+  const ogImage = buildAbsoluteStoreUrl(`/loja/${store.slug}/opengraph-image`, store)
   const baseDescription =
     String(store.headline || "").trim() ||
     `Conheca ${store.name} e veja os produtos com atendimento direto pelo chat.`
@@ -76,7 +85,7 @@ function buildStoreProductMetadata(store, product) {
     }
   }
 
-  const canonical = buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`)
+  const canonical = buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`, store)
   const description = `Veja preco e detalhes de ${product.title}. Atendimento direto pelo chat.`
   const ogImage = product.thumbnail || store.logoUrl || null
 
@@ -115,7 +124,7 @@ function buildStoreStructuredData(store) {
     "@type": "Store",
     name: store.name,
     description: store.headline || store.about || "",
-    url: buildAbsoluteStoreUrl(`/loja/${store.slug}`),
+    url: buildAbsoluteStoreUrl(`/loja/${store.slug}`, store),
     image: store.logoUrl || undefined,
     telephone: store.contactPhone || store.contactWhatsApp || undefined,
     email: store.contactEmail || undefined,
@@ -145,17 +154,17 @@ function buildStoreCollectionStructuredData(store, products = [], options = {}) 
       : query
         ? `Resultados de busca por ${query} na loja ${store.name}.`
         : store.headline || store.about || "",
-    url: buildAbsoluteStoreUrl(canonicalPath),
+    url: buildAbsoluteStoreUrl(canonicalPath, store),
     isPartOf: {
       "@type": "WebSite",
       name: store.name,
-      url: buildAbsoluteStoreUrl(`/loja/${store.slug}`),
+      url: buildAbsoluteStoreUrl(`/loja/${store.slug}`, store),
     },
     about: categoryLabel || undefined,
     mainEntity: products.slice(0, 12).map((product) => ({
       "@type": "Product",
       name: product.title,
-      url: buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`),
+      url: buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`, store),
       image: product.thumbnail || undefined,
       offers: {
         "@type": "Offer",
@@ -198,7 +207,7 @@ function buildProductStructuredData(store, product) {
     name: product.title,
     image: product.thumbnail ? [product.thumbnail] : [],
     category: product.categoryId || undefined,
-    url: buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`),
+    url: buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`, store),
     offers: {
       "@type": "Offer",
       priceCurrency: product.currencyId || "BRL",
@@ -207,7 +216,7 @@ function buildProductStructuredData(store, product) {
         typeof product.stock === "number" && product.stock > 0
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
-      url: product.permalink || buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`),
+      url: product.permalink || buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`, store),
     },
     brand: {
       "@type": "Brand",

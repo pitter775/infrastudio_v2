@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock3,
+  Globe,
   LayoutGrid,
   Loader2,
   LogOut,
@@ -78,6 +79,45 @@ const HERO_CHANNEL_BUTTONS = [
     className:
       'border-fuchsia-400/55 bg-fuchsia-500/14 text-white shadow-[0_8px_0_rgba(2,6,23,0.64),0_0_22px_rgba(217,70,239,0.24),0_0_44px_rgba(162,28,175,0.16)]',
     iconClassName: 'text-fuchsia-300',
+  },
+]
+
+const HOME_CHANNEL_SHOWCASE_ITEMS = [
+  {
+    key: 'whatsapp',
+    title: 'WhatsApp',
+    description: 'Atenda seus clientes diretamente no WhatsApp.',
+    icon: MessageCircle,
+    accentClassName: 'border-emerald-400/40 text-emerald-300',
+    iconWrapClassName:
+      'border-emerald-400/35 bg-emerald-500/10 text-emerald-300 shadow-[0_0_24px_rgba(16,185,129,0.18)]',
+  },
+  {
+    key: 'mercado_livre',
+    title: 'Mercado Livre',
+    description: 'Respostas e vendas no Mercado Livre.',
+    icon: Store,
+    accentClassName: 'border-amber-400/40 text-amber-300',
+    iconWrapClassName:
+      'border-amber-400/35 bg-amber-500/10 text-amber-300 shadow-[0_0_24px_rgba(250,204,21,0.18)]',
+  },
+  {
+    key: 'site',
+    title: 'Site',
+    description: 'Adicione o atendente ao site e nunca perca um lead.',
+    icon: Globe,
+    accentClassName: 'border-sky-400/40 text-sky-300',
+    iconWrapClassName:
+      'border-sky-400/35 bg-sky-500/10 text-sky-300 shadow-[0_0_24px_rgba(56,189,248,0.18)]',
+  },
+  {
+    key: 'apis',
+    title: 'APIs',
+    description: 'Integre sistemas, plataformas e ferramentas favoritas.',
+    icon: PlugZap,
+    accentClassName: 'border-fuchsia-400/40 text-fuchsia-300',
+    iconWrapClassName:
+      'border-fuchsia-400/35 bg-fuchsia-500/10 text-fuchsia-300 shadow-[0_0_24px_rgba(217,70,239,0.18)]',
   },
 ]
 
@@ -367,6 +407,96 @@ function ServiceCard({ icon: Icon, title, description, delay }) {
         <p className="text-base leading-relaxed text-slate-600 dark:text-slate-400">{description}</p>
       </div>
     </motion.div>
+  )
+}
+
+function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
+  return (
+    <section className="relative overflow-hidden py-8 md:py-10">
+      <div className="absolute inset-0 bg-black" />
+
+      <div
+        className="absolute inset-x-0 bottom-0 top-0 opacity-95"
+        style={{
+          backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 24%, rgba(0,0,0,0.18) 100%), url('/bginfra.png')",
+          backgroundPosition: 'center calc(100% + 18px)',
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: '96% auto',
+        }}
+      />
+
+      <div className="relative mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-10">
+        <div className="relative min-h-[360px] py-8 md:min-h-[430px] md:py-10">
+          <div className="mb-6 flex justify-end">
+            <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/8 px-3 py-2 text-[8px] font-semibold uppercase tracking-[0.22em] text-white/90 shadow-[0_0_20px_rgba(168,85,247,0.12)] md:px-4 md:text-[9px]">
+              <Sparkles className="h-4 w-4 text-fuchsia-300" />
+              <span>Tecnologia de ponta</span>
+              <span className="text-sky-300">Automação inteligente</span>
+            </div>
+          </div>
+
+          <div className="grid min-h-[290px] items-end gap-6 md:grid-cols-[1fr_1fr]">
+            <div className="max-w-[25rem] pt-2 md:max-w-[30rem] md:pt-8">
+              <h2 className="text-[1.7rem] font-semibold leading-[0.96] tracking-[-0.045em] text-white md:text-[2.55rem]">
+                Tecnologia de ponta
+                <br />
+                para transformar
+                <br />
+                <span className="text-[#2B6BEE]">seu atendimento</span>
+              </h2>
+
+              <div className="mt-4 h-px w-full max-w-[19rem] bg-gradient-to-r from-cyan-400 via-[#2B6BEE] to-transparent" />
+
+              <div className="mt-5 flex flex-wrap gap-2.5 md:mt-6">
+                {HOME_CHANNEL_SHOWCASE_ITEMS.map((item) => {
+                  const Icon = item.icon
+
+                  return (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() => onChannelClick(item)}
+                      className={cn('group flex min-h-[70px] w-[calc(50%-0.3125rem)] min-w-[140px] items-start gap-2 rounded-[0.9rem] border bg-[#07101f]/84 px-3 py-3 text-left shadow-[0_0_0_1px_rgba(255,255,255,0.02)] backdrop-blur-[1px] transition-all duration-300 hover:-translate-y-1 md:w-[140px]', item.accentClassName)}
+                    >
+                      <div
+                        className={cn(
+                          'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border',
+                          item.iconWrapClassName,
+                        )}
+                      >
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <div className="text-[0.72rem] font-semibold leading-none md:text-[0.76rem]">{item.title}</div>
+                        <p className="mt-1.5 text-[0.58rem] leading-[1.35] text-slate-300 md:text-[0.62rem]">
+                          {item.description}
+                        </p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            <div className="relative flex min-h-[260px] items-center justify-center md:min-h-[340px]">
+              <button
+                type="button"
+                onClick={onLoginClick}
+                className="absolute right-[10%] top-[2%] inline-flex items-center gap-3 rounded-[1rem] border border-emerald-400/45 bg-[#07101f]/88 px-4 py-3 text-left shadow-[0_0_0_1px_rgba(16,185,129,0.16),0_0_42px_rgba(16,185,129,0.08)] transition-all duration-300 hover:-translate-y-1 md:right-[12%] md:top-[0%]"
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#2B6BEE]/40 bg-[#2B6BEE]/10 text-[#2B6BEE]">
+                  <Sparkles className="h-4 w-4" />
+                </div>
+                <div>
+                  <div className="text-[1rem] font-semibold leading-none text-white md:text-[1.05rem]">Teste grátis</div>
+                  <div className="mt-1 text-[0.72rem] font-medium leading-none text-emerald-300">infrastudio.pro</div>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -757,6 +887,11 @@ export function LandingPage({ currentUser = null, plans = [] }) {
           </motion.div>
         </div>
       </section>
+
+      <HomeChannelsShowcaseSection
+        onChannelClick={handleHeroChannelClick}
+        onLoginClick={() => setLoginOpen(true)}
+      />
 
       <section id="como-funciona" className="relative overflow-hidden py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">

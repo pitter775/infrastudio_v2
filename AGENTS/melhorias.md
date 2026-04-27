@@ -116,6 +116,17 @@ Regra:
 
 - Chat widget: validar visualmente widget e fullscreen mobile em navegador real.
 
+- Landing pages publicas de aquisicao: estruturar trilha WhatsApp + Mercado Livre.
+  Estado atual:
+  1. home publica ja comunica automacao com IA e WhatsApp
+  2. existem assets base como `bg_whatsapp.png`
+  3. a base publica da loja Mercado Livre ja existe com URLs indexaveis
+  Pendente:
+  1. criar landing dedicada de WhatsApp
+  2. criar landing dedicada de Mercado Livre
+  3. decidir se a home vira pagina combinada ou se entra rota dedicada para `WhatsApp + Mercado Livre`
+  4. anexar novas rotas publicas no sitemap somente quando estiverem prontas para indexacao
+
 - Home publica: refinamento visual do tema dual dark/light.
   Estado atual:
   1. suporte dark/light ja existe

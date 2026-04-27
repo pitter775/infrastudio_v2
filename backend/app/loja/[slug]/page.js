@@ -4,6 +4,7 @@ import { MercadoLivreStorefront } from "@/components/store/mercado-livre-storefr
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
 import { getPublicMercadoLivreStoreBySlug } from "@/lib/mercado-livre-store"
 import {
+  buildAbsoluteStoreUrl,
   buildBreadcrumbStructuredData,
   buildStoreCollectionStructuredData,
   buildStoreMetadata,
@@ -89,8 +90,8 @@ export default async function LojaPage({ params, searchParams }) {
     categoryLabel: activeCategoryLabel,
   })
   const breadcrumbStructuredData = buildBreadcrumbStructuredData([
-    { name: "Loja", url: `https://www.infrastudio.pro/loja/${result.store.slug}` },
-    { name: result.store.name, url: `https://www.infrastudio.pro/loja/${result.store.slug}` },
+    { name: "Loja", url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`, result.store) },
+    { name: result.store.name, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`, result.store) },
   ])
 
   return (
