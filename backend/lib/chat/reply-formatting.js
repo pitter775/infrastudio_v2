@@ -405,6 +405,8 @@ export function isCatalogLoadMoreMessage(message) {
     /\boutros modelos\b/,
     /\bmais modelos\b/,
     /\bmais opcoes\b/,
+    /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/,
+    /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/,
   ].some((pattern) => pattern.test(normalized))
 }
 

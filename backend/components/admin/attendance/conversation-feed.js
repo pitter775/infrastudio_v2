@@ -1,8 +1,22 @@
-import { cn } from "@/lib/utils"
+"use client"
+
+import { useEffect, useRef } from "react"
 
 import ConversationComposer from "@/components/admin/attendance/conversation-composer"
+import { cn } from "@/lib/utils"
 
 export default function ConversationFeed({ conversation }) {
+  const feedRef = useRef(null)
+
+  useEffect(() => {
+    const container = feedRef.current
+    if (!container) {
+      return
+    }
+
+    container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
+  }, [conversation.mensagens.length])
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-zinc-50">
       <header className="border-b bg-white px-6 py-4">
@@ -12,7 +26,7 @@ export default function ConversationFeed({ conversation }) {
         <p className="mt-1 text-sm text-zinc-500">Conversa em atendimento</p>
       </header>
 
-      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
+      <div ref={feedRef} className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
         {conversation.mensagens.map((message) => {
           const isAgent = message.autor === "atendente"
 

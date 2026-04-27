@@ -14,8 +14,8 @@ export const DEFAULT_PANEL = 'project'
 
 const SHEET_MIN_WIDTH = 460
 const SHEET_MAX_WIDTH = 1120
-const CARD_ESTIMATED_HEIGHT = 228
-const MOBILE_CARD_SCALE = 0.82
+const CARD_ESTIMATED_HEIGHT = 212
+const MOBILE_CARD_SCALE = 0.78
 const SATELLITE_BUTTON_WIDTH = 152
 const SATELLITE_BUTTON_HEIGHT = 64
 const DOCKED_CARD_TOP_SHIFT = 156
@@ -30,10 +30,10 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'emerald',
       serviceIconType: 'whatsapp',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 324 },
+      mobilePosition: { x: 94, y: 298 },
       desktopPosition: { x: 96, y: 332 },
       cardAnchor: { x: 168, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 314,
+      routeY: 286,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'WhatsApp',
       description: 'Canal do Whatsapp, adicione atendentedes a esse canal.',
@@ -50,10 +50,10 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'amber',
       serviceIconType: 'mercadoLivre',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 614 },
+      mobilePosition: { x: 94, y: 548 },
       desktopPosition: { x: 96, y: 622 },
       cardAnchor: { x: 194, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 526,
+      routeY: 474,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'Mercado Livre',
       description: 'Conecte sua conta do Mercado Livre e comece a usar',
@@ -69,10 +69,10 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'sky',
       serviceIconType: 'apis',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 432 },
+      mobilePosition: { x: 94, y: 390 },
       desktopPosition: { x: 96, y: 440 },
       cardAnchor: { x: 112, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 370,
+      routeY: 348,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'APIs',
       description: '',
@@ -91,10 +91,10 @@ export function buildIntegrationPanels(project) {
       colorClassName: 'violet',
       serviceIconType: 'chatWidget',
       directToAgent: true,
-      mobilePosition: { x: 94, y: 526 },
+      mobilePosition: { x: 94, y: 468 },
       desktopPosition: { x: 96, y: 534 },
       cardAnchor: { x: 138, y: CARD_ESTIMATED_HEIGHT },
-      routeY: 448,
+      routeY: 412,
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'Chat widget',
       description: 'Widgets web conectados ao atendimento.',
@@ -294,7 +294,7 @@ export function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
 export function getMobileCardLayout(viewportWidth, cardWidth) {
   return {
     left: Math.max((viewportWidth - cardWidth) / 2, 0),
-    top: 104,
+    top: 88,
     scale: MOBILE_CARD_SCALE,
   }
 }

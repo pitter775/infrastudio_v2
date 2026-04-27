@@ -331,6 +331,37 @@ export function buildNextContext(input) {
   return nextContext
 }
 
+function extractPromisedCatalogSearchTerm(reply) {
+  const text = String(reply || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!text) {
+    return ""
+  }
+
+  const patterns = [
+    /\b(?:vou|irei)\s+buscar\s+(?:as\s+)?opcoes\s+de\s+(.+?)(?:\s+disponiveis|\s+e\s+te\s+trago|\.|$)/i,
+    /\b(?:vou|irei)\s+procurar\s+(?:as\s+)?opcoes\s+de\s+(.+?)(?:\s+disponiveis|\s+e\s+te\s+trago|\.|$)/i,
+    /\bbuscar\s+(?:as\s+)?opcoes\s+de\s+(.+?)(?:\s+disponiveis|\s+e\s+te\s+trago|\.|$)/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern)
+    const term = String(match?.[1] || "")
+      .replace(/\b(?:para voce|pra voce|por favor|em seguida)\b/gi, "")
+      .replace(/[.!?]+$/g, "")
+      .trim()
+    if (term.length >= 3) {
+      return term
+    }
+  }
+
+  return ""
+}
+
 export function updateContextFromAiResult(input) {
   const nextContext = {
     ...input.nextContext,
@@ -353,6 +384,31 @@ export function updateContextFromAiResult(input) {
   }
 
   const recentMercadoLivreProducts = extractRecentMercadoLivreProductsFromAssets(input.ai.assets)
+  const promisedCatalogSearchTerm = !recentMercadoLivreProducts.length
+    ? extractPromisedCatalogSearchTerm(input.ai.reply)
+    : ""
+
+  if (promisedCatalogSearchTerm) {
+    nextContext.catalogo = {
+      ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
+      ultimaBusca: promisedCatalogSearchTerm,
+      produtoAtual: null,
+      paginationOffset: 0,
+      paginationNextOffset: 0,
+      paginationPoolLimit: 24,
+      paginationHasMore: false,
+      paginationTotal: 0,
+    }
+    nextContext.focus = {
+      domain: "catalog",
+      source: "mercado_livre",
+      subject: promisedCatalogSearchTerm,
+      confidence: 0.72,
+      expiresAt: new Date(Date.now() + 12 * 60_000).toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+  }
+
   if (recentMercadoLivreProducts.length) {
     const snapshotCreatedAt = new Date().toISOString()
     const snapshotTurnId = Number(input.historyLengthSource ?? 0)

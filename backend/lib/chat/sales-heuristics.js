@@ -172,7 +172,10 @@ export function shouldContinueProductSearch(history, latestUserMessage, context,
   }
 
   const hasCatalogSearch = Boolean(context?.catalogo?.ultimaBusca)
-  const wantsMore = /\b(mais|outras|outros|modelos|opcoes)\b/.test(normalized)
+  const wantsMore =
+    /\b(mais|outras|outros|modelos|opcoes)\b/.test(normalized) ||
+    /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/.test(normalized) ||
+    /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/.test(normalized)
   return Boolean(hasCatalogSearch && wantsMore)
 }
 
@@ -202,9 +205,10 @@ export function shouldUseMercadoLivreConnectorFallback(history, latestUserMessag
 }
 
 export function isMercadoLivreListingIntent(message, deps = {}) {
-  return /\b(lista|listar|opcoes|modelos|produtos|mais|preciso|quero|procuro|busco|procurando)\b/.test(
-    (deps.normalizeText ?? normalizeText)(message)
-  )
+  const normalized = (deps.normalizeText ?? normalizeText)(message)
+  return /\b(lista|listar|opcoes|modelos|produtos|mais|preciso|quero|procuro|busco|procurando|manda|mande|envia|envie|mostra|mostre|traz|traga)\b/.test(
+    normalized
+  ) || /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/.test(normalized)
 }
 
 export function detectCatalogItems(history = [], deps = {}) {

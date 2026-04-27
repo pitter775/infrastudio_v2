@@ -412,6 +412,7 @@ export function AdminProjectCard({
   onDragStateChange,
   statusControl,
   highlighted = false,
+  compact = false,
   usageBarPlacement = 'satellite',
   primaryActionLabel = 'Entrar',
   children,
@@ -527,7 +528,7 @@ export function AdminProjectCard({
             />
           </div>
         ) : null}
-        <div className="border-b border-white/5 p-5">
+        <div className={cn('border-b border-white/5', compact ? 'p-4' : 'p-5')}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <TinyAvatar src={projectAvatarUrl} fallback={cardTitle} />
@@ -550,7 +551,10 @@ export function AdminProjectCard({
         </div>
 
         <div
-          className="relative flex h-32 items-center justify-center gap-4 pt-8"
+          className={cn(
+            'relative flex items-center justify-center gap-4 pt-8',
+            compact ? 'h-28' : 'h-32',
+          )}
           style={{
             backgroundImage: 'radial-gradient(#1e293b 1px, transparent 1px)',
             backgroundSize: '16px 16px',
@@ -580,7 +584,7 @@ export function AdminProjectCard({
           )}
         </div>
 
-        <div className="flex items-center justify-between gap-3 border-t border-white/5 p-4 text-[11px] font-medium text-slate-500">
+        <div className={cn('flex items-center justify-between gap-3 border-t border-white/5 text-[11px] font-medium text-slate-500', compact ? 'p-3' : 'p-4')}>
           <div className="flex min-w-0 items-center gap-1.5">
             <span
               className={cn(

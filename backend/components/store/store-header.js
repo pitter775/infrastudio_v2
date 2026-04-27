@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { Camera, Globe, LayoutGrid, Phone, Play, Sparkles, Store, Users, AtSign } from 'lucide-react'
+import { AtSign, Camera, Globe, LayoutGrid, Menu, Phone, Play, Sparkles, Store, Users, X } from 'lucide-react'
 
 import { buildStoreAccentPalette } from '@/components/store/store-utils'
 
@@ -36,6 +36,7 @@ function resolveMenuHref(storeSlug, href, samePageNavigation) {
 export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavigation = false, store }) {
   const palette = buildStoreAccentPalette(store.accentColor)
   const [scrollSolid, setScrollSolid] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const resolvedHeaderSolid = typeof headerSolid === 'boolean' ? headerSolid : scrollSolid
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
     } else if (href === '#topo') {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
+    setMobileMenuOpen(false)
   }
 
   return (
@@ -121,20 +123,33 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
               )
             })}
           </nav>
+
+          {store.menuLinks.length ? (
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((current) => !current)}
+              className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] bg-white/88 text-slate-900 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.24)] md:hidden"
+              aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
+              aria-expanded={mobileMenuOpen}
+            >
+              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            </button>
+          ) : null}
         </div>
       </div>
-      {store.menuLinks.length ? (
-        <div className="mx-auto max-w-7xl px-4 pb-3 sm:px-6 md:hidden lg:px-8">
-          <div className="flex gap-2 overflow-x-auto [&::-webkit-scrollbar]:hidden">
+      {store.menuLinks.length && mobileMenuOpen ? (
+        <div className="mx-auto max-w-7xl px-5 pb-4 sm:px-6 md:hidden lg:px-8">
+          <div className="grid gap-2 rounded-[18px] border border-black/5 bg-white/94 p-2 shadow-[0_18px_42px_-28px_rgba(15,23,42,0.24)] backdrop-blur-xl">
             {store.menuLinks.map((item) => {
               const sectionId = item.href.replace('#', '')
               const isActive = activeSection === sectionId || (item.href === '#topo' && activeSection === 'topo')
+              const Icon = menuIconMap[sectionId] || Globe
               return (
                 <a
                   key={`${item.label}-${item.href}-mobile`}
                   href={resolveMenuHref(store.slug, item.href, samePageNavigation)}
                   onClick={(event) => handleAnchorNavigation(event, item.href)}
-                  className={`shrink-0 rounded-[14px] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-all ${
+                  className={`inline-flex items-center gap-2 rounded-[14px] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.14em] transition-all ${
                     isActive
                       ? 'text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]'
                       : resolvedHeaderSolid
@@ -149,6 +164,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
                         : { backgroundColor: 'transparent', '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
                   }
                 >
+                  <Icon className="h-4 w-4" />
                   {item.label}
                 </a>
               )

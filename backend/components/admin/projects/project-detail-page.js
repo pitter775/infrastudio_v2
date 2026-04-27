@@ -592,6 +592,7 @@ export function AdminProjectDetailPage({ project }) {
             active={isPanelOpen}
             primaryActionLabel="Abrir"
             interactive
+            compact={isMobile}
             usageBarPlacement="satellite"
             draggableHeader={!isMobile}
             resetDragSignal={dragResetSignal}

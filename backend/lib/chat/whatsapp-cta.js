@@ -148,11 +148,9 @@ export function buildActionSuggestionReply(actions, baseText = "", options = {})
   let suggestion = ""
 
   if (hasWhatsApp && hasAgenda) {
-    suggestion = forceWhatsAppSuggestion
-      ? "Podemos continuar no WhatsApp ou marcar um horario para entrar em contato com voce."
-      : "Se preferir, podemos continuar no WhatsApp ou marcar um horario para contato."
+    suggestion = "Se preferir, voce pode marcar um horario para contato."
   } else if (hasWhatsApp && forceWhatsAppSuggestion) {
-    suggestion = "Se preferir, podemos continuar no WhatsApp."
+    suggestion = ""
   } else if (hasAgenda) {
     suggestion = "Se preferir, voce pode marcar um horario para contato."
   }
@@ -179,7 +177,10 @@ export function sanitizeReplyForWhatsAppCta(reply, label = "Continuar no WhatsAp
     .replace(/\+?\d[\d\s().-]{7,}\d/g, "")
     .replace(/(?:meu|nosso)\s+(?:numero|telefone)\s+(?:e|\u00e9)\s*[:\-]?\s*/gi, "")
     .replace(/(?:me chama|pode me chamar|pode falar comigo)\s+no\s+whatsapp[^.!?\n]*[.!?]?/gi, "")
+    .replace(/(?:se quiser|se preferir),?\s*(?:clique|clica|toque|toca)\s+em\s+["']?continuar no whatsapp["']?[^.!?\n]*[.!?]?/gi, "")
+    .replace(/(?:se quiser|se preferir),?\s*(?:podemos|pode|voce pode)?\s*(?:continuar|seguir|falar|chamar)[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
     .replace(/(?:se quiser|se preferir)\s+mais\s+detalhes[^.!?\n]*whatsapp[^.!?\n]*[.!?]?/gi, "")
+    .replace(new RegExp(`(?:se quiser|se preferir),?\\s*clique em ["']?${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}["']?[^.!?\\n]*[.!?]?`, "gi"), "")
     .replace(/\s+\./g, ".")
     .replace(/\s+,/g, ",")
     .replace(/[ \t]{2,}/g, " ")
@@ -187,7 +188,7 @@ export function sanitizeReplyForWhatsAppCta(reply, label = "Continuar no WhatsAp
     .trim()
 
   if (!sanitized) {
-    return `Se preferir, clique em "${label}".`
+    return ""
   }
 
   return sanitized

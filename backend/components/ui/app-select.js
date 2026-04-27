@@ -87,6 +87,7 @@ export function AppSelect({
   minHeight = 48,
   tone = "dark",
   accentColor = "#0ea5e9",
+  isSearchable = false,
 }) {
   const selectedOption = options.find((option) => option.value === value) ?? null
 
@@ -99,6 +100,7 @@ export function AppSelect({
       onChange={(option) => onChangeValue?.(option?.value ?? "")}
       placeholder={placeholder}
       isClearable={isClearable}
+      isSearchable={isSearchable}
       menuPlacement={menuPlacement}
       styles={buildStyles({ minHeight, tone, accentColor })}
       noOptionsMessage={() => "Nenhuma opcao"}

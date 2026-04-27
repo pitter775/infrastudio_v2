@@ -252,7 +252,7 @@ export function MercadoLivreStorefront({
                 background: `radial-gradient(circle at top left, ${palette.accentMuted}, transparent 30%), linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,244,238,0.42))`,
               }}
             />
-            <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-20">
+            <div className="relative mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:py-20">
               <motion.div
                 initial={{ opacity: 0, y: 22 }}
                 whileInView={{ opacity: 1, y: 0 }}
@@ -466,7 +466,7 @@ export function MercadoLivreStorefront({
             </div>
           </section>
 
-          <section id="produtos" className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+          <section id="produtos" className="mx-auto max-w-7xl px-5 py-16 sm:px-7 lg:px-10">
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
                 <div>
@@ -485,7 +485,7 @@ export function MercadoLivreStorefront({
                   ) : null}
                 </div>
 
-                <form onSubmit={handleSearchSubmit} className="flex w-full max-w-3xl flex-col gap-3 rounded-2xl p-2 shadow-[0_18px_36px_-32px_rgba(15,23,42,0.12)] md:flex-row md:items-center">
+                <form onSubmit={handleSearchSubmit} className="grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-2xl p-2 shadow-[0_18px_36px_-32px_rgba(15,23,42,0.12)] md:flex md:items-center md:gap-3">
                   <div className="flex min-w-0 flex-1 items-center gap-3 px-3">
                     <Search className="h-4 w-4 text-slate-400" />
                     <input
@@ -495,47 +495,49 @@ export function MercadoLivreStorefront({
                       className="h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                     />
                   </div>
-                  {categoryOptions.length > 1 ? (
-                    <div className="min-w-[220px]">
-                      <AppSelect
-                        options={categoryOptions}
-                        value={categoryId}
-                        onChangeValue={(value) => {
-                          setIsSearching(true)
-                          navigateStore(searchTerm, value || '', sortValue, 1)
-                        }}
-                        placeholder="Categoria"
-                        minHeight={44}
-                        tone="light"
-                        accentColor={palette.accent}
-                      />
-                    </div>
-                  ) : null}
-                  <div className="min-w-[220px]">
-                    <AppSelect
-                      options={sortOptions}
-                      value={sortValue}
-                      onChangeValue={(value) => {
-                        const nextValue = value || 'recent'
-                        setSortValue(nextValue)
-                        setIsSearching(true)
-                        navigateStore(searchTerm, categoryId, nextValue, 1)
-                      }}
-                      placeholder="Ordenar"
-                      minHeight={44}
-                      tone="light"
-                      accentColor={palette.accent}
-                    />
-                  </div>
                   <button
                     type="submit"
                     disabled={isSearching}
-                    className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(15,23,42,0.24)]"
+                    className="inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(15,23,42,0.24)] md:order-4 md:px-5"
                     style={{ backgroundColor: palette.accentDark, opacity: isSearching ? 0.82 : 1 }}
                   >
                     {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                     {isSearching ? 'Buscando...' : 'Buscar'}
                   </button>
+                  <div className="col-span-2 grid grid-cols-2 gap-2 md:contents">
+                    {categoryOptions.length > 1 ? (
+                      <div className="min-w-0 md:min-w-[220px]">
+                        <AppSelect
+                          options={categoryOptions}
+                          value={categoryId}
+                          onChangeValue={(value) => {
+                            setIsSearching(true)
+                            navigateStore(searchTerm, value || '', sortValue, 1)
+                          }}
+                          placeholder="Categoria"
+                          minHeight={40}
+                          tone="light"
+                          accentColor={palette.accent}
+                        />
+                      </div>
+                    ) : null}
+                    <div className="min-w-0 md:min-w-[220px]">
+                      <AppSelect
+                        options={sortOptions}
+                        value={sortValue}
+                        onChangeValue={(value) => {
+                          const nextValue = value || 'recent'
+                          setSortValue(nextValue)
+                          setIsSearching(true)
+                          navigateStore(searchTerm, categoryId, nextValue, 1)
+                        }}
+                        placeholder="Ordenar"
+                        minHeight={40}
+                        tone="light"
+                        accentColor={palette.accent}
+                      />
+                    </div>
+                  </div>
                 </form>
               </div>
 
@@ -602,7 +604,7 @@ export function MercadoLivreStorefront({
             </div>
           </section>
 
-          <section id="sobre" className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+          <section id="sobre" className="mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10">
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
               <div className="rounded-[24px] bg-white p-8 shadow-[0_20px_46px_-38px_rgba(15,23,42,0.16)]">
                 <div className="text-xs uppercase tracking-[0.22em] text-slate-500">Sobre nos</div>
@@ -634,7 +636,7 @@ export function MercadoLivreStorefront({
         </main>
 
         <footer className="mt-16" style={{ backgroundColor: palette.accentSoft }}>
-          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:px-7 lg:grid-cols-[1fr_auto] lg:px-10">
             <div>
               <div className="text-lg font-semibold text-slate-950">{store.name}</div>
               <div className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{store.footerText}</div>
@@ -672,4 +674,3 @@ export function MercadoLivreStorefront({
     </>
   )
 }
-

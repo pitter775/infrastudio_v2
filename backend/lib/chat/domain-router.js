@@ -49,13 +49,13 @@ function hasCatalogSignal(message) {
     return false
   }
 
-  return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|tem|vende|estoque|modelo|opcoes|opcao|mostra|mostrar|procuro|quero ver|link|preciso|quero|busco|procurando)\b/.test(
+  return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|tem|vende|estoque|modelo|opcoes|opcao|mostra|mostrar|mostre|manda|mande|envia|envie|traz|traga|procuro|quero ver|link|preciso|quero|busco|procurando|tiver|qualquer)\b/.test(
     normalized
   )
 }
 
 function hasCatalogFollowUpSignal(message) {
-  return /\b(mais|outras|outros|opcoes|opcao|modelos|esse|essa|desse|dessa|link|detalhe|detalhes|gostei|quero)\b/i.test(
+  return /\b(mais|outras|outros|opcoes|opcao|modelos|esse|essa|desse|dessa|link|detalhe|detalhes|gostei|quero|manda|mande|envia|envie|mostra|mostre|traz|traga|tiver|qualquer)\b/i.test(
     String(message || "")
   )
 }

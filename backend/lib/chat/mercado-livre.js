@@ -427,7 +427,9 @@ export function resolveMercadoLivreFlowState(input = {}) {
   const loadMoreCatalogRequested =
     !forceNewSearch &&
     !catalogComparisonIntent &&
-    /\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || ""))
+    (/\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || "")) ||
+      /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/i.test(String(input.latestUserMessage || "")) ||
+      /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/i.test(String(input.latestUserMessage || "")))
 
   return {
     productSearchRequested: forceNewSearch || Boolean(input.detectProductSearch?.(input.latestUserMessage)),

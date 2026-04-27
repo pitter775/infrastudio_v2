@@ -808,8 +808,18 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const timelineItems = useMemo(() => {
     const items = []
     let previousDayKey = null
+    const sortedMessages = [...conversation.mensagens].sort((left, right) => {
+      const leftTime = new Date(left.createdAt ?? left.data ?? 0).getTime()
+      const rightTime = new Date(right.createdAt ?? right.data ?? 0).getTime()
 
-    conversation.mensagens.forEach((message) => {
+      if (Number.isFinite(leftTime) && Number.isFinite(rightTime) && leftTime !== rightTime) {
+        return leftTime - rightTime
+      }
+
+      return 0
+    })
+
+    sortedMessages.forEach((message) => {
       const currentDayKey = getMessageDayKey(message)
 
       if (currentDayKey && currentDayKey !== previousDayKey) {
@@ -893,12 +903,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
     }
 
     const frameId = window.requestAnimationFrame(() => {
-      const distanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight
-      if (distanceToBottom <= 120) {
-        container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
-      } else {
-        setShowScrollButton(true)
-      }
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" })
+      setShowScrollButton(false)
     })
 
     return () => window.cancelAnimationFrame(frameId)

@@ -795,7 +795,15 @@ export function AdminShell({ user, children }) {
                 style={contentBackgroundStyle}
               >
                 <div className={cn('min-w-0 overflow-x-hidden lg:flex-1', attendanceRoute ? 'lg:overflow-hidden' : 'lg:overflow-y-auto')}>
-                  <div className={cn(attendanceRoute ? 'h-full px-2 py-2' : 'min-w-0 px-4 py-6')}>
+                  <div
+                    className={cn(
+                      attendanceRoute
+                        ? 'h-full px-2 py-2'
+                        : projectDetailRoute
+                          ? 'min-w-0 px-0 py-2 lg:px-4 lg:py-6'
+                          : 'min-w-0 px-4 py-6',
+                    )}
+                  >
                     {children}
                   </div>
                 </div>

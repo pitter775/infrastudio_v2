@@ -158,7 +158,10 @@ export function isRecentCatalogReferenceAttempt(message) {
 }
 
 export function isCatalogLoadMoreIntent(message) {
-  return /\b(mais|outras|outros|modelos|opcoes)\b/i.test(String(message || ""))
+  const normalized = normalizeCatalogMessage(message)
+  return /\b(mais|outras|outros|modelos|opcoes)\b/.test(normalized) ||
+    /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/.test(normalized) ||
+    /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/.test(normalized)
 }
 
 export function detectCatalogSearchRefinement(message, context, deps = {}) {
@@ -204,6 +207,19 @@ export function decideCatalogFollowUpHeuristically(message, context, deps = {}) 
     return refinementDecision
   }
 
+  const candidates = (deps.buildProductSearchCandidates ?? buildProductSearchCandidates)(message)
+  const search = (deps.shouldSearchProducts ?? shouldSearchProducts)(message)
+  if (isCatalogLoadMoreIntent(message)) {
+    return {
+      kind: "catalog_search",
+      confidence: 0.7,
+      reason: "Mensagem pede nova busca ou mais opcoes de catalogo.",
+      matchedProducts: [],
+      usedLlm: false,
+      shouldBlockNewSearch: false,
+    }
+  }
+
   const matchedProducts = resolveRecentCatalogProductReference(message, context)
   if (!isRecentCatalogReferenceAttempt(message) && matchedProducts.length === 0) {
     return null
@@ -232,9 +248,18 @@ export function decideCatalogFollowUpHeuristically(message, context, deps = {}) 
     }
   }
 
-  const candidates = (deps.buildProductSearchCandidates ?? buildProductSearchCandidates)(message)
-  const search = (deps.shouldSearchProducts ?? shouldSearchProducts)(message)
   if (products.length > 1) {
+    if (search && candidates.length) {
+      return {
+        kind: "catalog_search",
+        confidence: 0.65,
+        reason: "Mensagem parece nova busca de catalogo.",
+        matchedProducts: [],
+        usedLlm: false,
+        shouldBlockNewSearch: false,
+      }
+    }
+
     return {
       kind: "recent_product_reference_unresolved",
       confidence: 0.61,

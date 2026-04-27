@@ -1327,6 +1327,74 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador sai do loop quando usuario pede o que tiver",
+    run: async () => {
+      let capturedSearchTerm = "";
+      const result = await executeSalesOrchestrator(
+        [
+          { role: "user", content: "tem jogo de jantar?" },
+          { role: "assistant", content: "Vou buscar as opcoes de jogos de jantar disponiveis e te trago em seguida." },
+          { role: "user", content: "manda o q tiver" },
+        ] as never,
+        {
+          agente: {
+            id: "agent-mercado-livre",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-mercado-livre",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ultimaBusca: "jogos de jantar",
+            paginationNextOffset: 0,
+            paginationPoolLimit: 24,
+          },
+          focus: {
+            domain: "catalog",
+            source: "mercado_livre",
+            subject: "jogos de jantar",
+            expiresAt: new Date(Date.now() + 600000).toISOString(),
+          },
+        } as never,
+        {
+          resolveMercadoLivreSearch: async (_project: any, options: any) => {
+            capturedSearchTerm = options.searchTerm;
+            return {
+              items: [
+                {
+                  id: "MLB777",
+                  title: "Jogo De Jantar Floral",
+                  price: 420,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://produto.mercadolivre.com.br/MLB777",
+                  thumbnail: "https://example.com/item-777.jpg",
+                  sellerId: "6918112",
+                  sellerName: "PITTER774",
+                  status: "active",
+                },
+              ],
+              connector: { config: { oauthNickname: "PITTER774" } },
+              paging: { total: 1, offset: 0, nextOffset: 0, poolLimit: 24, hasMore: false },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.equal(capturedSearchTerm, "jogos de jantar");
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.equal(result.assets.length, 1);
+      assert.match(result.assets[0]?.nome ?? "", /Jogo De Jantar Floral/i);
+    },
+  },
+  {
     name: "orquestrador nao captura lead cedo quando pergunta sobre servico",
     run: async () => {
       const result = await executeSalesOrchestrator(
@@ -1611,6 +1679,8 @@ const tests: TestCase[] = [
     run: () => {
       const searchDetected = isCatalogSearchMessage("tem jogo de jantar floral?")
       const loadMoreDetected = isCatalogLoadMoreMessage("quero mais")
+      const broadLoadMoreDetected = isCatalogLoadMoreMessage("manda o q tiver")
+      const broadCatalogDecision = decideCatalogFollowUpHeuristically("manda o q tiver", catalogContext as never, deps as never)
       const splitReply = splitCatalogReplyForWhatsApp(
         "Encontrei algumas opcoes para voce. Me diga se gostou de algum ou se quer que eu traga mais opcoes nesse estilo.",
         true
@@ -1618,6 +1688,8 @@ const tests: TestCase[] = [
 
       assert.equal(searchDetected, true)
       assert.equal(loadMoreDetected, true)
+      assert.equal(broadLoadMoreDetected, true)
+      assert.equal(broadCatalogDecision?.shouldBlockNewSearch, false)
       assert.match(splitReply.mainReply, /Encontrei algumas opcoes/i)
       assert.match(splitReply.followUpReply, /me diga se gostou de algum/i)
     },
@@ -2383,7 +2455,8 @@ const tests: TestCase[] = [
         decodeURIComponent(String(payload.whatsappCta?.url || "").split("?text=")[1] || ""),
         /Resumo rapido:\n- Meu interesse: Quero entender valores e prazo do projeto/i
       )
-      assert.match(payload.followUpReply, /continuar no WhatsApp ou marcar um horario/i)
+      assert.match(payload.followUpReply, /marcar um horario/i)
+      assert.doesNotMatch(payload.followUpReply, /continuar no WhatsApp/i)
     },
   },
   {

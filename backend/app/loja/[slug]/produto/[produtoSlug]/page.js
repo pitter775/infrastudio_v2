@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ChevronLeft, FileText, Globe, Images, LayoutGrid, Package, Phone, Ruler, ShieldCheck, ShoppingBag, Sparkles, Store, Tag } from "lucide-react"
+import { ChevronDown, ChevronLeft, FileText, Globe, Images, LayoutGrid, Package, Phone, Ruler, ShieldCheck, ShoppingBag, Sparkles, Store, Tag } from "lucide-react"
 
 import { StoreHeader } from "@/components/store/store-header"
 import { StoreProductActions } from "@/components/store/store-product-actions"
@@ -219,6 +219,137 @@ function formatInstallmentText(product) {
   return `${quantity}x ${formatStoreCurrency(amount, product?.currencyId)}`
 }
 
+function ProductPurchasePanel({
+  result,
+  palette,
+  visibleCategoryLabel,
+  attributeGroups,
+  descriptionBlocks,
+  installmentText,
+  className = "",
+}) {
+  return (
+    <section className={`rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6 ${className}`}>
+      <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{result.store.name}</div>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <span className="inline-flex items-center gap-2 rounded-full bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
+          <Package className="h-3.5 w-3.5" />
+          Produto da loja
+        </span>
+        {visibleCategoryLabel ? (
+          <span className="inline-flex items-center gap-2 rounded-full bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
+            <Tag className="h-3.5 w-3.5" />
+            {visibleCategoryLabel}
+          </span>
+        ) : null}
+        {result.product.status ? (
+          <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em] shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]" style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}>
+            <ShieldCheck className="h-3.5 w-3.5" />
+            {result.product.status}
+          </span>
+        ) : null}
+      </div>
+
+      <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-950 sm:text-[3rem]">
+        {result.product.title}
+      </h1>
+
+      <div className="mt-6 text-3xl font-semibold sm:text-4xl" style={{ color: palette.accentDark }}>
+        {formatStoreCurrency(result.product.price, result.product.currencyId)}
+      </div>
+      {installmentText ? (
+        <div className="mt-2 text-lg font-medium text-slate-700">{installmentText}</div>
+      ) : null}
+      {Number(result.product.unitPrice ?? 0) > 0 ? (
+        <div className="mt-1 text-sm text-slate-500">
+          Preco por unidade: {formatStoreCurrency(result.product.unitPrice, result.product.currencyId)}
+        </div>
+      ) : null}
+      {result.product.originalPrice > result.product.price ? (
+        <div className="mt-2 text-sm text-slate-500 line-through">
+          {formatStoreCurrency(result.product.originalPrice, result.product.currencyId)}
+        </div>
+      ) : null}
+
+      <div className="mt-6 grid gap-3">
+        <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
+          <a
+            href={result.product.permalink}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-5 text-sm font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
+            style={{ color: "#3483fa" }}
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Comprar agora
+          </a>
+        </div>
+        <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
+          <div className="grid gap-3 text-sm text-slate-700">
+            {visibleCategoryLabel ? (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" style={{ color: palette.accentDark }} />
+                  Categoria
+                </div>
+                <span className="font-medium text-slate-950">{visibleCategoryLabel}</span>
+              </div>
+            ) : null}
+            {typeof result.product.stock === "number" && result.product.stock > 0 ? (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4" style={{ color: palette.accentDark }} />
+                  Estoque informado
+                </div>
+                <span className="font-medium text-slate-950">{result.product.stock}</span>
+              </div>
+            ) : null}
+            {attributeGroups.length ? (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-2">
+                  <Ruler className="h-4 w-4" style={{ color: palette.accentDark }} />
+                  Caracteristicas
+                </div>
+                <span className="font-medium text-slate-950">
+                  {attributeGroups.reduce((total, group) => total + group.items.length, 0)}
+                </span>
+              </div>
+            ) : null}
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-2">
+                <Images className="h-4 w-4" style={{ color: palette.accentDark }} />
+                Galeria
+              </div>
+              <span className="font-medium text-slate-950">{(result.product.images || []).length || 1} imagens</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-6 px-1 py-1">
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo da descricao</div>
+        <div className="mt-3 grid gap-3 text-sm leading-7 text-slate-700">
+          {(descriptionBlocks.length ? descriptionBlocks : ["Este produto esta publicado na vitrine da loja com compra final no Mercado Livre."])
+            .slice(0, 3)
+            .map((block, index) => (
+              <p key={`${index}-${block.slice(0, 20)}`}>{block}</p>
+            ))}
+        </div>
+      </div>
+
+      <StoreProductActions
+        accentColor={palette.accentDark}
+        chatDescription="O chat da loja pode ser aberto daqui para continuar o atendimento a partir desta pagina com mais contexto do produto."
+        permalink={result.product.permalink}
+        product={result.product}
+        storeSlug={result.store.slug}
+        widgetId={result.store.widget?.id}
+        widgetSlug={result.store.widget?.slug}
+      />
+    </section>
+  )
+}
+
 export async function generateMetadata({ params }) {
   const { slug, produtoSlug } = await params
   const result = await getPublicMercadoLivreProductPage(slug, produtoSlug)
@@ -275,7 +406,7 @@ export default async function LojaProdutoPage({ params }) {
       <div className="min-h-screen bg-[#f7f3eb] text-slate-900">
         <StoreHeader store={result.store} activeSection="produtos" />
         <main className="pt-[112px] md:pt-[108px]">
-          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
               className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
@@ -288,25 +419,39 @@ export default async function LojaProdutoPage({ params }) {
               <div className="grid gap-5">
                 <StoreProductHeroGallery key={result.product.id || result.product.slug} product={result.product} title={result.product.title} />
 
+                <ProductPurchasePanel
+                  result={result}
+                  palette={palette}
+                  visibleCategoryLabel={visibleCategoryLabel}
+                  attributeGroups={attributeGroups}
+                  descriptionBlocks={descriptionBlocks}
+                  installmentText={installmentText}
+                  className="lg:hidden"
+                />
+
                 {attributeGroups.length ? (
                   <section className="rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       <LayoutGrid className="h-4 w-4" />
                       Caracteristicas do produto
                     </div>
-                    <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                    <div className="mt-5 grid gap-3">
                       {attributeGroups.map((group) => (
-                        <div
+                        <details
                           key={group.title}
-                          className={`rounded-[14px] bg-[#fbf8f2] p-4 shadow-[0_10px_18px_-18px_rgba(15,23,42,0.14)] ${
-                            group.title === "Detalhes do produto" ? "lg:col-span-2" : ""
-                          }`}
+                          className="group rounded-[14px] bg-[#fbf8f2] shadow-[0_10px_18px_-18px_rgba(15,23,42,0.14)]"
                         >
-                          <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
-                            <Sparkles className="h-4 w-4" style={{ color: palette.accentDark }} />
-                            {group.title}
-                          </div>
-                          <div className={`mt-4 grid gap-2 ${group.title === "Detalhes do produto" ? "md:grid-cols-2" : ""}`}>
+                          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-sm font-semibold text-slate-950 [&::-webkit-details-marker]:hidden">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <Sparkles className="h-4 w-4 shrink-0" style={{ color: palette.accentDark }} />
+                              <span className="truncate">{group.title}</span>
+                            </span>
+                            <span className="flex items-center gap-2 text-xs font-medium text-slate-500">
+                              {group.items.length}
+                              <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+                            </span>
+                          </summary>
+                          <div className="grid gap-2 px-4 pb-4 md:grid-cols-2">
                             {group.items.map((item) => (
                               <div key={`${group.title}-${item.id}-${item.value}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 rounded-[12px] bg-white px-3 py-3 text-sm shadow-[0_8px_16px_-16px_rgba(15,23,42,0.18)]">
                                 <div className="text-slate-500">{item.name}</div>
@@ -314,7 +459,7 @@ export default async function LojaProdutoPage({ params }) {
                               </div>
                             ))}
                           </div>
-                        </div>
+                        </details>
                       ))}
                     </div>
                   </section>
@@ -322,127 +467,15 @@ export default async function LojaProdutoPage({ params }) {
 
               </div>
 
-              <div className="grid gap-5 self-start lg:sticky lg:top-[112px]">
-                <section className="rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
-                  <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{result.store.name}</div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center gap-2 rounded-full bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
-                      <Package className="h-3.5 w-3.5" />
-                      Produto da loja
-                    </span>
-                    {visibleCategoryLabel ? (
-                      <span className="inline-flex items-center gap-2 rounded-full bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
-                        <Tag className="h-3.5 w-3.5" />
-                        {visibleCategoryLabel}
-                      </span>
-                    ) : null}
-                    {result.product.status ? (
-                      <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em] shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]" style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}>
-                        <ShieldCheck className="h-3.5 w-3.5" />
-                        {result.product.status}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-950 sm:text-[3rem]">
-                    {result.product.title}
-                  </h1>
-
-                  <div className="mt-6 text-3xl font-semibold sm:text-4xl" style={{ color: palette.accentDark }}>
-                    {formatStoreCurrency(result.product.price, result.product.currencyId)}
-                  </div>
-                  {installmentText ? (
-                    <div className="mt-2 text-lg font-medium text-slate-700">
-                      {installmentText}
-                    </div>
-                  ) : null}
-                  {Number(result.product.unitPrice ?? 0) > 0 ? (
-                    <div className="mt-1 text-sm text-slate-500">
-                      Preco por unidade: {formatStoreCurrency(result.product.unitPrice, result.product.currencyId)}
-                    </div>
-                  ) : null}
-                  {result.product.originalPrice > result.product.price ? (
-                    <div className="mt-2 text-sm text-slate-500 line-through">
-                      {formatStoreCurrency(result.product.originalPrice, result.product.currencyId)}
-                    </div>
-                  ) : null}
-
-                  <div className="mt-6 grid gap-3">
-                    <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
-                      <a
-                        href={result.product.permalink}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-5 text-sm font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
-                        style={{ color: "#3483fa" }}
-                      >
-                        <ShoppingBag className="h-4 w-4" />
-                        Comprar agora
-                      </a>
-                    </div>
-                    <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
-                      <div className="grid gap-3 text-sm text-slate-700">
-                        {visibleCategoryLabel ? (
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <Tag className="h-4 w-4" style={{ color: palette.accentDark }} />
-                              Categoria
-                            </div>
-                            <span className="font-medium text-slate-950">{visibleCategoryLabel}</span>
-                          </div>
-                        ) : null}
-                        {typeof result.product.stock === "number" && result.product.stock > 0 ? (
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <Package className="h-4 w-4" style={{ color: palette.accentDark }} />
-                              Estoque informado
-                            </div>
-                            <span className="font-medium text-slate-950">{result.product.stock}</span>
-                          </div>
-                        ) : null}
-                        {attributeGroups.length ? (
-                          <div className="flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-2">
-                              <Ruler className="h-4 w-4" style={{ color: palette.accentDark }} />
-                              Caracteristicas
-                            </div>
-                            <span className="font-medium text-slate-950">
-                              {attributeGroups.reduce((total, group) => total + group.items.length, 0)}
-                            </span>
-                          </div>
-                        ) : null}
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-2">
-                            <Images className="h-4 w-4" style={{ color: palette.accentDark }} />
-                            Galeria
-                          </div>
-                          <span className="font-medium text-slate-950">{(result.product.images || []).length || 1} imagens</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-6 px-1 py-1">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo da descricao</div>
-                    <div className="mt-3 grid gap-3 text-sm leading-7 text-slate-700">
-                      {(descriptionBlocks.length ? descriptionBlocks : ["Este produto esta publicado na vitrine da loja com compra final no Mercado Livre."])
-                        .slice(0, 3)
-                        .map((block, index) => (
-                          <p key={`${index}-${block.slice(0, 20)}`}>{block}</p>
-                        ))}
-                    </div>
-                  </div>
-
-                  <StoreProductActions
-                    accentColor={palette.accentDark}
-                    chatDescription="O chat da loja pode ser aberto daqui para continuar o atendimento a partir desta pagina com mais contexto do produto."
-                    permalink={result.product.permalink}
-                    product={result.product}
-                    storeSlug={result.store.slug}
-                    widgetId={result.store.widget?.id}
-                    widgetSlug={result.store.widget?.slug}
-                  />
-                </section>
+              <div className="hidden gap-5 self-start lg:sticky lg:top-[112px] lg:grid">
+                <ProductPurchasePanel
+                  result={result}
+                  palette={palette}
+                  visibleCategoryLabel={visibleCategoryLabel}
+                  attributeGroups={attributeGroups}
+                  descriptionBlocks={descriptionBlocks}
+                  installmentText={installmentText}
+                />
               </div>
             </div>
 
@@ -487,7 +520,7 @@ export default async function LojaProdutoPage({ params }) {
           </div>
         </main>
         <footer className="mt-16" style={{ backgroundColor: palette.accentSoft }}>
-          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
+          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:px-7 lg:grid-cols-[1fr_auto] lg:px-10">
             <div>
               <div className="text-lg font-semibold text-slate-950">{result.store.name}</div>
               <div className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{result.store.footerText}</div>

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide-react'
 
 import { buildStoreAccentPalette, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
 
@@ -15,6 +15,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
   const href = `/loja/${storeSlug}/produto/${product.slug}`
   const images = getStoreProductImages(product)
   const [imageIndex, setImageIndex] = useState(0)
+  const [isOpening, setIsOpening] = useState(false)
   const palette = buildStoreAccentPalette(accentColor)
   const image = images[imageIndex] || images[0] || ''
   const hasGallery = images.length > 1
@@ -51,6 +52,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
       <Link
         href={href}
         onClick={() => {
+          setIsOpening(true)
           trackStoreEvent({
             storeSlug,
             type: 'product_open',
@@ -59,12 +61,21 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
             dedupeKey: `${storeSlug}:product_open:${analyticsSource}:${product.slug}`,
           })
         }}
+        aria-busy={isOpening}
         className={
           compact
-            ? 'group flex h-full flex-col overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_16px_30px_-28px_rgba(15,23,42,0.16)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_20px_-14px_rgba(0,0,0,0.22)]'
-            : 'group flex h-full flex-col overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_16px_30px_-28px_rgba(15,23,42,0.16)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_20px_-14px_rgba(0,0,0,0.22)]'
+            ? 'group relative flex h-full flex-col overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_16px_30px_-28px_rgba(15,23,42,0.16)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_20px_-14px_rgba(0,0,0,0.22)]'
+            : 'group relative flex h-full flex-col overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_16px_30px_-28px_rgba(15,23,42,0.16)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_20px_-14px_rgba(0,0,0,0.22)]'
         }
       >
+        {isOpening ? (
+          <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/72 backdrop-blur-[2px]">
+            <div className="inline-flex items-center gap-2 rounded-[14px] bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-[0_18px_36px_-22px_rgba(15,23,42,0.26)]">
+              <Loader2 className="h-4 w-4 animate-spin" style={{ color: palette.accentDark }} />
+              Abrindo
+            </div>
+          </div>
+        ) : null}
         <div className={compact ? 'relative aspect-[1.12/1] overflow-hidden bg-[#eef2f7]' : 'relative aspect-[1.1/1] overflow-hidden bg-[#eef2f7]'}>
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element

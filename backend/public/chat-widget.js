@@ -238,13 +238,6 @@
 
     function sortMessagesChronologically() {
       messages.sort(function (left, right) {
-        var leftOrder = left && typeof left.order === "number" ? left.order : null;
-        var rightOrder = right && typeof right.order === "number" ? right.order : null;
-
-        if (leftOrder !== null && rightOrder !== null && leftOrder !== rightOrder) {
-          return leftOrder - rightOrder;
-        }
-
         var leftTime = getMessageTimestamp(left);
         var rightTime = getMessageTimestamp(right);
 
@@ -258,6 +251,13 @@
 
         if (leftTime === null && rightTime !== null) {
           return 1;
+        }
+
+        var leftOrder = left && typeof left.order === "number" ? left.order : null;
+        var rightOrder = right && typeof right.order === "number" ? right.order : null;
+
+        if (leftOrder !== null && rightOrder !== null && leftOrder !== rightOrder) {
+          return leftOrder - rightOrder;
         }
 
         if (leftOrder !== null && rightOrder === null) {
@@ -2316,7 +2316,8 @@
       panel.classList.remove("closing");
     });
 
-    function setLoading(nextLoading) {
+    function setLoading(nextLoading, options) {
+      var settings = options && typeof options === "object" ? options : {};
       loading = nextLoading;
       input.readOnly = nextLoading;
       input.classList.toggle("is-waiting", nextLoading);
@@ -2324,7 +2325,7 @@
       sendButton.disabled = nextLoading;
       sendButton.innerHTML = nextLoading ? '<span class="chat-icon" aria-hidden="true">...</span>' : createPlaneIcon();
       updateComposerState();
-      renderMessages({ preservePosition: true });
+      renderMessages({ forceScroll: settings.forceScroll === true, smooth: settings.smooth === true });
     }
 
     function mapSyncedMessage(message) {
@@ -2431,7 +2432,7 @@
 
         if (changed) {
           persist();
-          renderMessages({ smooth: isNearBottom() });
+          renderMessages({ forceScroll: true, smooth: true });
         } else if (incoming.length) {
           persist();
         }
@@ -2487,7 +2488,7 @@
       attachments = [];
       renderAttachmentsPreview();
       autoResizeInput();
-      setLoading(true);
+      setLoading(true, { forceScroll: true, smooth: true });
 
       try {
         var response = await fetch(apiBase + "/api/chat", {
@@ -2545,7 +2546,7 @@
       } finally {
         requestInFlight = false;
         persist();
-        setLoading(false);
+        setLoading(false, { forceScroll: true, smooth: true });
       }
     }
 
