@@ -438,7 +438,7 @@ function PricingSection({ plans = [], onPlanSelect }) {
           {visiblePlans.map((plan) => {
             const presentation = getPlanPresentation(plan)
             const features = buildPlanFeatures(plan)
-            const ctaLabel = plan.isFree ? 'Ver regras do free' : 'Assinar'
+            const ctaLabel = plan.isFree ? 'Iniciar agora' : 'Assinar'
 
             return (
             <div key={plan.id || plan.name} className="relative h-full">
