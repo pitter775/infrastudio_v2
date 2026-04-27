@@ -294,7 +294,7 @@ export function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
 export function getMobileCardLayout(viewportWidth, cardWidth) {
   return {
     left: Math.max((viewportWidth - cardWidth) / 2, 0),
-    top: 88,
+    top: 104,
     scale: MOBILE_CARD_SCALE,
   }
 }

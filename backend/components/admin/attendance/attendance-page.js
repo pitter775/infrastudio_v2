@@ -28,9 +28,9 @@ import { cn } from "@/lib/utils"
 
 const attendanceNav = [
   { label: "Atendimento", icon: MessageSquareText, active: true },
-  { label: "Dashboard", icon: LayoutGrid, active: false },
-  { label: "Leads", icon: ListTodo, active: false },
-  { label: "CRM Kanban", icon: KanbanSquare, active: false },
+  { label: "Dashboard", icon: LayoutGrid, active: false, featureKey: "dashboard" },
+  { label: "Leads", icon: ListTodo, active: false, featureKey: "leads" },
+  { label: "CRM Kanban", icon: KanbanSquare, active: false, featureKey: "crm_kanban" },
 ]
 
 const conversationFilters = [
@@ -63,6 +63,22 @@ function getAttachmentKey(attachment, index) {
 
 function formatUsd(value) {
   return `US$ ${Number(value ?? 0).toFixed(6)}`
+}
+
+function buildAccessRequestMessage(label, projectName) {
+  const lines = [
+    `Solicito liberacao de acesso ao modulo ${label}.`,
+    "",
+    "Entendo que essa habilitacao precisa ser solicitada diretamente para a InfraStudio.",
+  ]
+
+  if (projectName) {
+    lines.push("", `Projeto de referencia: ${projectName}.`)
+  }
+
+  lines.push("", "Vou acompanhar a devolutiva na central de Feedback.")
+
+  return lines.join("\n")
 }
 
 function parseMessageDate(value) {
@@ -1319,6 +1335,16 @@ export default function AttendancePage() {
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
+  const [accessSheetOpen, setAccessSheetOpen] = useState(false)
+  const [accessRequest, setAccessRequest] = useState({
+    featureKey: "",
+    label: "",
+    projetoId: "",
+    assunto: "",
+    mensagemInicial: "",
+  })
+  const [accessSaving, setAccessSaving] = useState(false)
+  const [accessError, setAccessError] = useState(null)
 
   async function fetchConversationList() {
     const response = await fetch("/api/admin/conversations", { cache: "no-store" })
@@ -1630,6 +1656,50 @@ export default function AttendancePage() {
     setConversationQuery(null)
   }
 
+  function handleInactiveNavClick(item) {
+    const projectId = activeConversation?.projeto?.id || projectFilter || ""
+    const projectName = activeConversation?.projeto?.nome || activeConversation?.projeto?.slug || ""
+
+    setAccessError(null)
+    setAccessRequest({
+      featureKey: item.featureKey || "",
+      label: item.label,
+      projetoId: projectId,
+      assunto: `Solicitacao de acesso: ${item.label}`,
+      mensagemInicial: buildAccessRequestMessage(item.label, projectName),
+    })
+    setAccessSheetOpen(true)
+  }
+
+  async function handleAccessRequestSubmit(event) {
+    event.preventDefault()
+    setAccessSaving(true)
+    setAccessError(null)
+
+    const response = await fetch("/api/admin/feedbacks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        projetoId: accessRequest.projetoId,
+        categoria: "duvida",
+        assunto: accessRequest.assunto,
+        mensagemInicial: accessRequest.mensagemInicial,
+      }),
+    })
+    const data = await response.json().catch(() => null)
+
+    if (!response.ok || !data?.feedback?.id) {
+      setAccessError(data?.error ?? "Nao foi possivel abrir a solicitacao.")
+      setAccessSaving(false)
+      return
+    }
+
+    setAccessSheetOpen(false)
+    window.location.href = `/admin/feedback/${data.feedback.id}`
+  }
+
   function updateConversationStatus(conversationId, status, handoff = undefined) {
     setConversations((currentConversations) =>
       currentConversations.map((conversation) =>
@@ -1704,6 +1774,7 @@ export default function AttendancePage() {
                     <button
                       key={item.label}
                       type="button"
+                      onClick={item.active ? undefined : () => handleInactiveNavClick(item)}
                       className={cn(
                         "flex h-11 w-full items-center justify-center rounded-[14px] transition-all duration-200",
                         item.active
@@ -1730,6 +1801,7 @@ export default function AttendancePage() {
                     <button
                       key={item.label}
                       type="button"
+                      onClick={item.active ? undefined : () => handleInactiveNavClick(item)}
                       className={cn(
                         "flex w-full flex-col items-center gap-2 rounded-[16px] px-1.5 py-3 text-center text-[10px] font-medium transition-all duration-200 lg:px-2 lg:text-[11px]",
                         item.active
@@ -1826,6 +1898,69 @@ export default function AttendancePage() {
           </AnimatePresence>
         </div>
       </div>
+
+      <Sheet open={accessSheetOpen} onOpenChange={setAccessSheetOpen}>
+        <SheetContent side="right" className="w-[92vw] max-w-[460px] border-l border-white/5">
+          <form onSubmit={handleAccessRequestSubmit} className="flex h-full flex-col">
+            <div className="border-b border-white/5 px-5 py-5">
+              <SheetTitle className="text-left text-lg font-semibold text-white">Solicitar acesso</SheetTitle>
+              <SheetDescription className="mt-1 text-left text-sm text-slate-400">
+                Esse acesso deve ser solicitado diretamente para a InfraStudio.
+              </SheetDescription>
+            </div>
+
+            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
+              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                Apos o envio, acompanhe a resposta na central de Feedback.
+              </div>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-slate-300">Projeto</span>
+                <AppSelect
+                  value={accessRequest.projetoId}
+                  onChangeValue={(value) => setAccessRequest((current) => ({ ...current, projetoId: value }))}
+                  options={projectOptions}
+                />
+              </label>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-slate-300">Assunto</span>
+                <input
+                  value={accessRequest.assunto}
+                  onChange={(event) => setAccessRequest((current) => ({ ...current, assunto: event.target.value }))}
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+                />
+              </label>
+
+              <label className="block space-y-2">
+                <span className="text-sm font-semibold text-slate-300">Mensagem</span>
+                <textarea
+                  value={accessRequest.mensagemInicial}
+                  onChange={(event) => setAccessRequest((current) => ({ ...current, mensagemInicial: event.target.value }))}
+                  rows={8}
+                  className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
+                />
+              </label>
+
+              {accessError ? (
+                <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                  {accessError}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="border-t border-white/5 px-5 py-4">
+              <Button
+                type="submit"
+                disabled={accessSaving || !accessRequest.assunto.trim() || !accessRequest.mensagemInicial.trim()}
+                className="h-10 w-full rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
+              >
+                {accessSaving ? "Enviando..." : "Enviar para feedback"}
+              </Button>
+            </div>
+          </form>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

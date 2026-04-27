@@ -561,7 +561,12 @@ export function AdminProjectCard({
           }}
         >
           {project.owner ? (
-            <div className="pointer-events-none absolute left-2 top-2 z-10 flex max-w-[150px] items-center gap-1.5 rounded-full border border-white/5 bg-[#0b1120]/85 px-2 py-1 text-[10px] font-medium text-slate-400 backdrop-blur">
+            <div
+              className={cn(
+                'pointer-events-none absolute left-2 z-10 flex max-w-[150px] items-center gap-1.5 rounded-full border border-white/5 bg-[#0b1120]/85 px-2 py-1 text-[10px] font-medium text-slate-400 backdrop-blur',
+                compact ? 'top-1' : 'top-2',
+              )}
+            >
               {projectAvatarUrl ? (
                 <TinyAvatar src={projectAvatarUrl} fallback={project.name} />
               ) : (
