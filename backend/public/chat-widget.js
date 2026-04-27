@@ -104,6 +104,9 @@
     var requestInFlight = false;
     var messageOrderCounter = 0;
     var syncTimer = null;
+    var mobileHistoryEntryActive = false;
+    var ignoreNextMobilePopstate = false;
+    var mobileHistoryStateKey = "__infrastudioChatWidget:" + instanceKey;
     var mobileCloseGesture = {
       active: false,
       startX: 0,
@@ -2232,8 +2235,60 @@
       }
     }
 
+    function isMobileViewport() {
+      return window.innerWidth <= 640;
+    }
+
+    function syncMobileBackGestureEntry(nextOpen) {
+      if (typeof window.history === "undefined" || typeof window.history.pushState !== "function") {
+        return;
+      }
+
+      if (!isMobileViewport()) {
+        mobileHistoryEntryActive = false;
+        ignoreNextMobilePopstate = false;
+        return;
+      }
+
+      if (nextOpen) {
+        if (mobileHistoryEntryActive) {
+          return;
+        }
+
+        try {
+          window.history.pushState(
+            {
+              __infrastudioChatWidget: mobileHistoryStateKey,
+            },
+            document.title,
+            window.location.href
+          );
+          mobileHistoryEntryActive = true;
+        } catch (error) {
+        }
+        return;
+      }
+
+      if (!mobileHistoryEntryActive) {
+        return;
+      }
+
+      mobileHistoryEntryActive = false;
+      ignoreNextMobilePopstate = true;
+      try {
+        window.history.back();
+      } catch (error) {
+        ignoreNextMobilePopstate = false;
+      }
+    }
+
     function setOpen(nextOpen) {
+      if (open === nextOpen) {
+        return;
+      }
+
       open = nextOpen;
+      syncMobileBackGestureEntry(open);
       wrap.classList.toggle("open", open);
       if (open) {
         panel.classList.remove("closing");
@@ -2532,6 +2587,20 @@
         return;
       }
 
+      setOpen(false);
+    });
+
+    addListener(window, "popstate", function () {
+      if (ignoreNextMobilePopstate) {
+        ignoreNextMobilePopstate = false;
+        return;
+      }
+
+      if (!isMobileViewport() || !open || !mobileHistoryEntryActive) {
+        return;
+      }
+
+      mobileHistoryEntryActive = false;
       setOpen(false);
     });
 
