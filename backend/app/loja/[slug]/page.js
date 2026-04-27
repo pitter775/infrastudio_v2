@@ -60,6 +60,17 @@ export default async function LojaPage({ params, searchParams }) {
         projeto: result.store.widget.projectId,
         agente: result.store.widget.agentId || undefined,
         title: result.store.widget.title,
+        storeSlug: result.store.slug,
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+            storeSlug: result.store.slug,
+          },
+          ui: {
+            catalogPreferred: true,
+          },
+        },
         theme: 'light',
         accent: result.store.widget.accent || result.store.accentColor,
         transparent: false,

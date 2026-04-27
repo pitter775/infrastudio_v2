@@ -451,6 +451,9 @@ CREATE TABLE public.mercadolivre_produtos_snapshot (
   created_at timestamp without time zone NOT NULL DEFAULT now(),
   updated_at timestamp without time zone NOT NULL DEFAULT now(),
   imagens_json jsonb NOT NULL DEFAULT '[]'::jsonb,
+  categoria_nome character varying,
+  descricao_curta text,
+  descricao_longa text,
   CONSTRAINT mercadolivre_produtos_snapshot_pkey PRIMARY KEY (id),
   CONSTRAINT mercadolivre_produtos_snapshot_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
 );

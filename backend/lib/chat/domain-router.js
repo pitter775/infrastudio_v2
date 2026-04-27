@@ -1,4 +1,5 @@
 import { normalizeText } from "@/lib/chat/text-utils"
+import { buildProductSearchCandidates, isGreetingOrAckMessage } from "@/lib/chat/sales-heuristics"
 
 function sanitizeString(value) {
   const normalized = String(value || "").trim()
@@ -52,6 +53,41 @@ function hasCatalogSignal(message) {
   return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|tem|vende|estoque|modelo|opcoes|opcao|mostra|mostrar|mostre|manda|mande|envia|envie|traz|traga|procuro|quero ver|link|preciso|quero|busco|procurando|tiver|qualquer)\b/.test(
     normalized
   )
+}
+
+function hasStorefrontCatalogContext(context) {
+  return (
+    context?.ui?.catalogPreferred === true ||
+    context?.storefront?.kind === "mercado_livre" ||
+    context?.storefront?.pageKind === "storefront"
+  )
+}
+
+function hasShortCatalogQuerySignal(message) {
+  const rawMessage = String(message || "").trim()
+  const normalized = normalizeText(rawMessage)
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!normalized || isGreetingOrAckMessage(rawMessage)) {
+    return false
+  }
+
+  if (hasBillingSignal(normalized) || hasAgendaSignal(normalized) || hasHandoffSignal(normalized)) {
+    return false
+  }
+
+  const tokens = normalized.split(" ").filter(Boolean)
+  if (!tokens.length || tokens.length > 3) {
+    return false
+  }
+
+  if (tokens.some((token) => /^\d+$/.test(token))) {
+    return false
+  }
+
+  return buildProductSearchCandidates(normalized).length > 0
 }
 
 function hasCatalogFollowUpSignal(message) {
@@ -195,12 +231,18 @@ export function resolveChatDomainRoute(input = {}) {
     }
   }
 
-  if (capabilities.mercadoLivre && (hasCatalogSignal(message) || isLikelyCatalogAnswerAfterPrompt(message, input.history))) {
+  const storefrontCatalogSignal =
+    capabilities.mercadoLivre && hasStorefrontCatalogContext(context) && hasShortCatalogQuerySignal(message)
+
+  if (
+    capabilities.mercadoLivre &&
+    (hasCatalogSignal(message) || isLikelyCatalogAnswerAfterPrompt(message, input.history) || storefrontCatalogSignal)
+  ) {
     return {
       domain: "catalog",
       source: "mercado_livre",
-      confidence: 0.86,
-      reason: "catalog_signal",
+      confidence: storefrontCatalogSignal ? 0.9 : 0.86,
+      reason: storefrontCatalogSignal ? "catalog_storefront_short_query" : "catalog_signal",
       shouldUseTool: true,
       capabilities,
       focus: {

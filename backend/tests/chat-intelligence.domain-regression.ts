@@ -16,6 +16,7 @@ import {
   isHumanHandoffIntent,
   isLikelyLeadNameReply,
   resolveCanonicalWhatsAppExternalIdentifier,
+  resolveChatDomainRoute,
   resolveConversationPipelineStageState,
   resolveRecentCatalogProductReference,
 } from "@/tests/chat-source"
@@ -106,6 +107,37 @@ async function main() {
   })
   assert.equal(stage.conversationDomainStage, "api_runtime")
   assert.equal(stage.shouldCallModel, true)
+
+  const storefrontCatalogRoute = resolveChatDomainRoute({
+    latestUserMessage: "saleiro",
+    context: {
+      ...catalogContext,
+      ui: {
+        catalogPreferred: true,
+      },
+      storefront: {
+        kind: "mercado_livre",
+        pageKind: "storefront",
+        storeSlug: "vitoria-rocha-moepftn8-chat",
+      },
+      projeto: {
+        directConnections: {
+          mercadoLivre: 1,
+        },
+      },
+    },
+    project: {
+      directConnections: {
+        mercadoLivre: 1,
+      },
+    },
+    history: [],
+    runtimeApis: [],
+    focusedApiContext: { fields: [] },
+  })
+  assert.equal(storefrontCatalogRoute.domain, "catalog")
+  assert.equal(storefrontCatalogRoute.source, "mercado_livre")
+  assert.equal(storefrontCatalogRoute.shouldUseTool, true)
 
   const prompt = buildSystemPrompt(
     {

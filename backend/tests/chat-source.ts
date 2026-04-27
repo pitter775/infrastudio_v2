@@ -26,6 +26,7 @@ export { buildSystemPrompt } from "@/lib/chat/prompt-builders";
 export { executeSalesOrchestrator } from "@/lib/chat/orchestrator";
 
 export { resolveConversationPipelineStageState } from "@/lib/chat/pipeline-stage";
+export { resolveChatDomainRoute } from "@/lib/chat/domain-router";
 
 export {
   resolveMercadoLivreFlowState,

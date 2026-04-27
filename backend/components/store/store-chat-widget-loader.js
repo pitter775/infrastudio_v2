@@ -7,6 +7,9 @@ export function StoreChatWidgetLoader({ config }) {
     return null
   }
 
+  const serializedContext =
+    config.context && typeof config.context === 'object' ? JSON.stringify(config.context) : undefined
+
   return (
     <Script
       id={`store-widget-${config.widgetId || config.widget}`}
@@ -20,6 +23,8 @@ export function StoreChatWidgetLoader({ config }) {
       data-title={config.title || undefined}
       data-theme={config.theme || undefined}
       data-accent={config.accent || undefined}
+      data-store-slug={config.storeSlug || undefined}
+      data-context={serializedContext}
       data-transparent={typeof config.transparent === 'boolean' ? (config.transparent ? 'true' : 'false') : undefined}
     />
   )
