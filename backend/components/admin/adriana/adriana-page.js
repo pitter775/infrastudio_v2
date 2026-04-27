@@ -252,7 +252,7 @@ export function AdrianaPage({ currentUser }) {
   return (
     <div>
       <AdminPageHeader
-        title="Adriana"
+        title="Morinho ❤"
         description="Renomeador de PDFs por XML usando a mesma logica operacional do legado, agora no admin do v2."
       />
 

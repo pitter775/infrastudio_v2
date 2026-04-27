@@ -318,10 +318,11 @@ function ConversationItem({ conversation, active, onClick }) {
   )
 }
 
-function MessageBubble({ message }) {
+function MessageBubble({ message, isAdmin = false }) {
   const isAgent = message.autor === "atendente"
   const [showAiTrace, setShowAiTrace] = useState(false)
   const trace = message.observability
+  const canShowAiTrace = isAdmin && trace
   const bubbleClassName = isAgent
     ? "rounded-[9px] rounded-br-[4px] bg-sky-800/20 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.03),0_2px_4px_rgba(0,0,0,0.28)]"
     : "rounded-[14px] rounded-bl-[4px] bg-[rgba(30,41,59,0.92)] text-[rgba(226,232,240,0.86)] shadow-[inset_0_1px_0_rgba(255,255,255,0.01),0_2px_4px_rgba(0,0,0,0.08)]"
@@ -346,7 +347,7 @@ function MessageBubble({ message }) {
           className={cn("mt-2 leading-6", contentClassName)}
           dangerouslySetInnerHTML={{ __html: formatWhatsappText(message.texto) }}
         />
-        {trace ? (
+        {canShowAiTrace ? (
           <div className="mt-3">
             <button
               type="button"
@@ -756,7 +757,7 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
   )
 }
 
-function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile }) {
+function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile, isAdmin = false }) {
   const initials = getInitials(conversation.cliente.nome)
   const lastMessage = getLastMessage(conversation)
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
@@ -1087,7 +1088,7 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.18 }}
                 >
-                  <MessageBubble message={item.message} />
+                  <MessageBubble message={item.message} isAdmin={isAdmin} />
                 </motion.div>
               )
             )}
@@ -1202,7 +1203,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                   )}
                 </div>
 
-                <div>
+                {isAdmin ? (
+                  <div>
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Observabilidade tecnica</div>
@@ -1311,7 +1313,8 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
                       Esta conversa ainda nao gerou timeline tecnica de IA.
                     </div>
                   )}
-                </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           </SheetContent>
@@ -1468,6 +1471,18 @@ export default function AttendancePage() {
             totalMensagens: detail.mensagens?.length ?? selectedPreview.totalMensagens ?? 0,
           },
         }))
+        setConversations((current) =>
+          current.map((conversation) =>
+            conversation.id === selectedConversationId
+              ? {
+                  ...conversation,
+                  mensagens: detail.mensagens?.length ? [detail.mensagens[detail.mensagens.length - 1]] : conversation.mensagens,
+                  totalMensagens: detail.mensagens?.length ?? conversation.totalMensagens ?? 0,
+                  updatedAt: detail.updatedAt ?? conversation.updatedAt,
+                }
+              : conversation,
+          ),
+        )
       } catch {}
     }
 
@@ -1873,6 +1888,7 @@ export default function AttendancePage() {
               conversation={activeConversation}
               onMessageSent={updateConversation}
               onStatusChanged={updateConversationStatus}
+              isAdmin={currentUser?.role === "admin"}
             />
           </section>
 
@@ -1892,6 +1908,7 @@ export default function AttendancePage() {
                   onMessageSent={updateConversation}
                   onStatusChanged={updateConversationStatus}
                   onCloseMobile={handleMobileClose}
+                  isAdmin={currentUser?.role === "admin"}
                 />
               </motion.section>
             ) : null}

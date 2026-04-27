@@ -378,6 +378,7 @@ export async function getAdminConversationDetail(input, user) {
     origem: primaryChat.chat.canal === "whatsapp" ? "whatsapp" : "site",
     status: primaryChat.handoff.status,
     handoff: primaryChat.handoff.handoff,
+    totalMensagens: mergedMessages.length,
     mensagens: mergedMessages,
     updatedAt: primaryChat.chat.updatedAt,
   }
