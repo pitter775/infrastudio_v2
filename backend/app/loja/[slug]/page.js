@@ -78,7 +78,7 @@ export default async function LojaPage({ params, searchParams }) {
     categoryLabel: activeCategoryLabel,
   })
   const breadcrumbStructuredData = buildBreadcrumbStructuredData([
-    { name: "InfraStudio", url: "https://www.infrastudio.pro" },
+    { name: "Loja", url: `https://www.infrastudio.pro/loja/${result.store.slug}` },
     { name: result.store.name, url: `https://www.infrastudio.pro/loja/${result.store.slug}` },
   ])
 

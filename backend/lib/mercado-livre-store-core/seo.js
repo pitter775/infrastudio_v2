@@ -12,7 +12,7 @@ function buildAbsoluteStoreUrl(pathname) {
 function buildStoreMetadata(store, options = {}) {
   if (!store) {
     return {
-      title: "Loja | InfraStudio",
+      title: "Loja",
       alternates: {
         canonical: buildAbsoluteStoreUrl("/loja"),
       },
@@ -25,7 +25,7 @@ function buildStoreMetadata(store, options = {}) {
     ? `/loja/${store.slug}?cat=${encodeURIComponent(String(options.categoryId || "").trim())}`
     : `/loja/${store.slug}`
   const canonical = buildAbsoluteStoreUrl(canonicalPath)
-  const ogImage = store.logoUrl || null
+  const ogImage = buildAbsoluteStoreUrl(`/loja/${store.slug}/opengraph-image`)
   const baseDescription =
     String(store.headline || "").trim() ||
     `Conheca ${store.name} e veja os produtos com atendimento direto pelo chat.`
@@ -38,7 +38,7 @@ function buildStoreMetadata(store, options = {}) {
     ? `${categoryLabel} | ${store.name}`
     : query
       ? `${query} | ${store.name}`
-      : `${store.name} | Loja InfraStudio`
+      : store.name
 
   return {
     title,
@@ -56,12 +56,12 @@ function buildStoreMetadata(store, options = {}) {
       title,
       description,
       url: canonical,
-      siteName: "InfraStudio",
+      siteName: store.name,
       type: "website",
       images: ogImage ? [{ url: ogImage, alt: store.name }] : [],
     },
     twitter: {
-      card: ogImage ? "summary_large_image" : "summary",
+      card: "summary_large_image",
       title,
       description,
       images: ogImage ? [ogImage] : [],
@@ -72,7 +72,7 @@ function buildStoreMetadata(store, options = {}) {
 function buildStoreProductMetadata(store, product) {
   if (!store || !product) {
     return {
-      title: "Produto | Loja InfraStudio",
+      title: "Produto",
     }
   }
 
@@ -90,7 +90,7 @@ function buildStoreProductMetadata(store, product) {
       title: `${product.title} | ${store.name}`,
       description,
       url: canonical,
-      siteName: "InfraStudio",
+      siteName: store.name,
       type: "website",
       images: ogImage ? [{ url: ogImage, alt: product.title }] : [],
     },
@@ -148,8 +148,8 @@ function buildStoreCollectionStructuredData(store, products = [], options = {}) 
     url: buildAbsoluteStoreUrl(canonicalPath),
     isPartOf: {
       "@type": "WebSite",
-      name: "InfraStudio",
-      url: STORE_BASE_URL,
+      name: store.name,
+      url: buildAbsoluteStoreUrl(`/loja/${store.slug}`),
     },
     about: categoryLabel || undefined,
     mainEntity: products.slice(0, 12).map((product) => ({

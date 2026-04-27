@@ -253,7 +253,7 @@ export default async function LojaProdutoPage({ params }) {
     : null
   const structuredData = buildProductStructuredData(result.store, result.product)
   const breadcrumbStructuredData = buildBreadcrumbStructuredData([
-    { name: "InfraStudio", url: "https://www.infrastudio.pro" },
+    { name: "Loja", url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`) },
     { name: result.store.name, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`) },
     { name: result.product.title, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}/produto/${result.product.slug}`) },
   ])
