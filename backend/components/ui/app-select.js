@@ -2,18 +2,23 @@
 
 import Select from "react-select"
 
-function buildStyles({ minHeight = 48 } = {}) {
+function buildStyles({ minHeight = 48, tone = "dark", accentColor = "#0ea5e9" } = {}) {
+  const light = tone === "light"
   return {
     control: (base, state) => ({
       ...base,
       minHeight,
       borderRadius: 16,
-      borderColor: state.isFocused ? "rgba(56,189,248,0.35)" : "rgba(255,255,255,0.1)",
-      backgroundColor: "rgba(2,6,23,0.55)",
-      boxShadow: state.isFocused ? "0 0 0 2px rgba(14,165,233,0.12)" : "none",
+      borderColor: state.isFocused
+        ? light ? `${accentColor}55` : "rgba(56,189,248,0.35)"
+        : light ? "rgba(15,23,42,0.08)" : "rgba(255,255,255,0.1)",
+      backgroundColor: light ? "#ffffff" : "rgba(2,6,23,0.55)",
+      boxShadow: state.isFocused
+        ? light ? `0 0 0 2px ${accentColor}1f` : "0 0 0 2px rgba(14,165,233,0.12)"
+        : "none",
       cursor: "pointer",
       "&:hover": {
-        borderColor: "rgba(255,255,255,0.16)",
+        borderColor: light ? `${accentColor}44` : "rgba(255,255,255,0.16)",
       },
     }),
     valueContainer: (base) => ({
@@ -22,22 +27,24 @@ function buildStyles({ minHeight = 48 } = {}) {
     }),
     input: (base) => ({
       ...base,
-      color: "#fff",
+      color: light ? "#0f172a" : "#fff",
     }),
     singleValue: (base) => ({
       ...base,
-      color: "#fff",
+      color: light ? "#0f172a" : "#fff",
     }),
     placeholder: (base) => ({
       ...base,
-      color: "#64748b",
+      color: light ? "#94a3b8" : "#64748b",
     }),
     indicatorSeparator: () => ({ display: "none" }),
     dropdownIndicator: (base, state) => ({
       ...base,
-      color: state.isFocused ? "#e2e8f0" : "#64748b",
+      color: state.isFocused
+        ? light ? accentColor : "#e2e8f0"
+        : light ? "#64748b" : "#64748b",
       "&:hover": {
-        color: "#e2e8f0",
+        color: light ? accentColor : "#e2e8f0",
       },
     }),
     menu: (base) => ({
@@ -45,9 +52,9 @@ function buildStyles({ minHeight = 48 } = {}) {
       zIndex: 60,
       overflow: "hidden",
       borderRadius: 16,
-      border: "1px solid rgba(255,255,255,0.08)",
-      backgroundColor: "#0b1120",
-      boxShadow: "0 18px 40px rgba(2,6,23,0.46)",
+      border: light ? "1px solid rgba(15,23,42,0.08)" : "1px solid rgba(255,255,255,0.08)",
+      backgroundColor: light ? "#ffffff" : "#0b1120",
+      boxShadow: light ? "0 18px 40px rgba(15,23,42,0.12)" : "0 18px 40px rgba(2,6,23,0.46)",
     }),
     menuList: (base) => ({
       ...base,
@@ -57,14 +64,14 @@ function buildStyles({ minHeight = 48 } = {}) {
       ...base,
       borderRadius: 12,
       backgroundColor: state.isSelected
-        ? "rgba(14,165,233,0.18)"
+        ? light ? `${accentColor}18` : "rgba(14,165,233,0.18)"
         : state.isFocused
-          ? "rgba(255,255,255,0.06)"
+          ? light ? "rgba(15,23,42,0.04)" : "rgba(255,255,255,0.06)"
           : "transparent",
-      color: state.isSelected ? "#e0f2fe" : "#e2e8f0",
+      color: state.isSelected ? (light ? accentColor : "#e0f2fe") : light ? "#0f172a" : "#e2e8f0",
       cursor: "pointer",
       "&:active": {
-        backgroundColor: "rgba(14,165,233,0.22)",
+        backgroundColor: light ? `${accentColor}20` : "rgba(14,165,233,0.22)",
       },
     }),
   }
@@ -78,6 +85,8 @@ export function AppSelect({
   isClearable = false,
   menuPlacement = "auto",
   minHeight = 48,
+  tone = "dark",
+  accentColor = "#0ea5e9",
 }) {
   const selectedOption = options.find((option) => option.value === value) ?? null
 
@@ -91,7 +100,7 @@ export function AppSelect({
       placeholder={placeholder}
       isClearable={isClearable}
       menuPlacement={menuPlacement}
-      styles={buildStyles({ minHeight })}
+      styles={buildStyles({ minHeight, tone, accentColor })}
       noOptionsMessage={() => "Nenhuma opcao"}
     />
   )

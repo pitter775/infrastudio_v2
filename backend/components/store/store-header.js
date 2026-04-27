@@ -1,7 +1,10 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import { Camera, Globe, LayoutGrid, Phone, Play, Sparkles, Store, Users, AtSign } from 'lucide-react'
+
+import { buildStoreAccentPalette } from '@/components/store/store-utils'
 
 const socialIcons = {
   instagram: Camera,
@@ -30,7 +33,25 @@ function resolveMenuHref(storeSlug, href, samePageNavigation) {
   return href === '#topo' ? `/loja/${storeSlug}` : `/loja/${storeSlug}${href}`
 }
 
-export function StoreHeader({ activeSection = 'topo', headerSolid = false, samePageNavigation = false, store }) {
+export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavigation = false, store }) {
+  const palette = buildStoreAccentPalette(store.accentColor)
+  const [scrollSolid, setScrollSolid] = useState(false)
+  const resolvedHeaderSolid = typeof headerSolid === 'boolean' ? headerSolid : scrollSolid
+
+  useEffect(() => {
+    if (typeof headerSolid === 'boolean') {
+      return
+    }
+
+    function handleScroll() {
+      setScrollSolid(window.scrollY > 18)
+    }
+
+    handleScroll()
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [headerSolid])
+
   function handleAnchorNavigation(event, href) {
     if (!samePageNavigation || !href || !href.startsWith('#')) {
       return
@@ -48,8 +69,8 @@ export function StoreHeader({ activeSection = 'topo', headerSolid = false, sameP
   return (
     <header
       className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
-        headerSolid
-          ? 'bg-[rgba(247,244,238,0.86)] shadow-[0_16px_34px_-28px_rgba(15,23,42,0.16)] backdrop-blur-xl'
+        resolvedHeaderSolid
+          ? 'bg-[#f7f4ee]/92 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.14)] backdrop-blur-xl'
           : 'bg-transparent shadow-none'
       }`}
     >
@@ -85,9 +106,14 @@ export function StoreHeader({ activeSection = 'topo', headerSolid = false, sameP
                   onClick={(event) => handleAnchorNavigation(event, item.href)}
                   className={`inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-[13px] font-semibold transition ${
                     isActive
-                      ? 'bg-[#155eef] text-white shadow-[0_14px_28px_-18px_rgba(21,94,239,0.5)]'
-                      : 'border border-transparent text-slate-600 hover:border-slate-200 hover:bg-white/72 hover:text-slate-950'
+                      ? 'text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]'
+                      : 'text-[var(--store-text)] hover:bg-[var(--store-hover-bg)] hover:text-[var(--store-text)]'
                   }`}
+                  style={
+                    isActive
+                      ? { backgroundColor: palette.accentDark, '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
+                      : { backgroundColor: 'transparent', '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
+                  }
                 >
                   <Icon className="h-4 w-4" />
                   {item.label}
@@ -110,11 +136,18 @@ export function StoreHeader({ activeSection = 'topo', headerSolid = false, sameP
                   onClick={(event) => handleAnchorNavigation(event, item.href)}
                   className={`shrink-0 rounded-[14px] px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[0.16em] transition-all ${
                     isActive
-                      ? 'bg-[#155eef] text-white shadow-[0_14px_28px_-18px_rgba(21,94,239,0.5)]'
-                      : headerSolid
-                        ? 'bg-white/72 text-slate-700 shadow-[0_14px_28px_-24px_rgba(15,23,42,0.12)] backdrop-blur-xl'
-                        : 'bg-transparent text-slate-700 shadow-none'
+                      ? 'text-white shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]'
+                      : resolvedHeaderSolid
+                        ? 'text-[var(--store-text)] shadow-[0_14px_28px_-24px_rgba(15,23,42,0.08)] hover:bg-[var(--store-hover-bg)]'
+                        : 'text-[var(--store-text)] shadow-none hover:bg-[var(--store-hover-bg)]'
                   }`}
+                  style={
+                    isActive
+                      ? { backgroundColor: palette.accentDark, '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
+                      : resolvedHeaderSolid
+                        ? { backgroundColor: '#ffffff', '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
+                        : { backgroundColor: 'transparent', '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
+                  }
                 >
                   {item.label}
                 </a>

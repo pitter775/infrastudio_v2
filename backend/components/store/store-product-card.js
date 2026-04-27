@@ -5,7 +5,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, MapPin } from 'lucide-react'
 
-import { formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
@@ -15,6 +15,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
   const href = `/loja/${storeSlug}/produto/${product.slug}`
   const images = getStoreProductImages(product)
   const [imageIndex, setImageIndex] = useState(0)
+  const palette = buildStoreAccentPalette(accentColor)
   const image = images[imageIndex] || images[0] || ''
   const hasGallery = images.length > 1
   const statusLabel = String(product.status || '').trim()
@@ -60,11 +61,11 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
         }}
         className={
           compact
-            ? 'group flex h-full flex-col overflow-hidden rounded-[18px] border border-slate-200 bg-white shadow-[0_20px_46px_-40px_rgba(15,23,42,0.2)] transition duration-300 hover:shadow-[0_30px_72px_-28px_rgba(21,94,239,0.28)]'
-            : 'group flex h-full flex-col overflow-hidden rounded-[20px] border border-slate-200 bg-white shadow-[0_22px_50px_-40px_rgba(15,23,42,0.2)] transition duration-300 hover:shadow-[0_44px_92px_-30px_rgba(21,94,239,0.26)]'
+            ? 'group flex h-full flex-col overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_16px_30px_-28px_rgba(15,23,42,0.16)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_20px_-14px_rgba(0,0,0,0.22)]'
+            : 'group flex h-full flex-col overflow-hidden rounded-[16px] border border-slate-200 bg-white shadow-[0_16px_30px_-28px_rgba(15,23,42,0.16)] transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_16px_20px_-14px_rgba(0,0,0,0.22)]'
         }
       >
-        <div className={compact ? 'relative aspect-[1.12/1] overflow-hidden bg-[#eef2f7]' : 'relative aspect-[1.15/1] overflow-hidden bg-[#eef2f7]'}>
+        <div className={compact ? 'relative aspect-[1.12/1] overflow-hidden bg-[#eef2f7]' : 'relative aspect-[1.1/1] overflow-hidden bg-[#eef2f7]'}>
           {image ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={image} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.06]" />
@@ -113,9 +114,9 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
           ) : null}
         </div>
 
-        <div className={compact ? 'flex min-h-[240px] flex-1 flex-col gap-4 p-5' : 'flex min-h-[260px] flex-1 flex-col gap-4 p-6'}>
+        <div className={compact ? 'flex min-h-[210px] flex-1 flex-col gap-3 p-4' : 'flex min-h-[226px] flex-1 flex-col gap-3 p-4'}>
           <div className="flex items-center justify-between gap-4">
-            <span className={compact ? 'text-[1.45rem] font-bold leading-none' : 'text-[1.55rem] font-bold leading-none'} style={{ color: accentColor }}>
+            <span className={compact ? 'text-[1.28rem] font-bold leading-none' : 'text-[1.34rem] font-bold leading-none'} style={{ color: palette.accentDark }}>
               {formatStoreCurrency(product.price, product.currencyId)}
             </span>
             <span className="inline-flex items-center gap-1 text-xs text-slate-500">
@@ -124,13 +125,13 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
             </span>
           </div>
 
-          <div className={compact ? 'line-clamp-2 text-[1.2rem] font-bold leading-tight tracking-[-0.025em] text-slate-950' : 'line-clamp-2 text-[1.24rem] font-bold leading-tight tracking-[-0.025em] text-slate-950'}>
+          <div className={compact ? 'line-clamp-2 text-[1.02rem] font-bold leading-tight tracking-[-0.025em] text-slate-950' : 'line-clamp-2 text-[1.06rem] font-bold leading-tight tracking-[-0.025em] text-slate-950'}>
             {product.title}
           </div>
 
-          <div className="line-clamp-2 min-h-[56px] text-[15px] leading-7 text-slate-600">{description}</div>
+          <div className="line-clamp-2 min-h-[44px] text-[13px] leading-6 text-slate-600">{description}</div>
 
-          <div className="mt-auto grid grid-cols-[repeat(2,minmax(0,1fr))_auto] gap-3 border-t border-slate-200 pt-4">
+          <div className="mt-auto grid grid-cols-[repeat(2,minmax(0,1fr))_auto] gap-3 border-t border-slate-200 pt-3">
             <div className="flex flex-col">
               <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">Status</span>
               <span className="mt-1 text-sm font-bold text-slate-950">{statusLabel || '-'}</span>
@@ -140,7 +141,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
               <span className="mt-1 text-sm font-bold text-slate-950">{stockValue}</span>
             </div>
             <div className="flex items-end justify-end">
-              <span className="inline-flex h-11 items-center justify-center rounded-[12px] bg-slate-950 px-5 text-sm font-bold text-white transition group-hover:-translate-y-0.5">
+              <span className="inline-flex h-10 items-center justify-center rounded-[12px] px-4 text-sm font-bold text-white transition" style={{ backgroundColor: palette.accentDark }}>
                 Detalhes
               </span>
             </div>

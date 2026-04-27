@@ -20,8 +20,15 @@ export function mapMercadoLivreItem(payload) {
           name: sanitizeString(attribute?.name),
           valueId: sanitizeString(attribute?.value_id),
           valueName: sanitizeString(attribute?.value_name || attribute?.value_struct?.name),
+          value: sanitizeString(attribute?.value_name || attribute?.value?.name || attribute?.value),
+          valueLabel: sanitizeString(attribute?.value_name || attribute?.value?.name || attribute?.value),
+          valueStruct: attribute?.value_struct && typeof attribute.value_struct === "object" ? attribute.value_struct : null,
+          values: Array.isArray(attribute?.values) ? attribute.values : [],
+          value_list: Array.isArray(attribute?.value_list) ? attribute.value_list : [],
+          attributeGroupName: sanitizeString(attribute?.attribute_group_name || attribute?.attribute_group_id),
+          attribute_group_name: sanitizeString(attribute?.attribute_group_name || attribute?.attribute_group_id),
         }))
-        .filter((attribute) => attribute.name && attribute.valueName)
+        .filter((attribute) => attribute.name)
     : []
 
   const pictures = Array.isArray(payload?.pictures)
@@ -51,6 +58,10 @@ export function mapMercadoLivreItem(payload) {
     title: sanitizeString(payload?.title),
     price: Number(payload?.price ?? 0),
     currencyId: sanitizeString(payload?.currency_id),
+    installmentQuantity: Number(payload?.installments?.quantity ?? 0) || 0,
+    installmentAmount: Number(payload?.installments?.amount ?? 0) || 0,
+    installmentRate: Number(payload?.installments?.rate ?? 0) || 0,
+    unitPrice: Number(payload?.sale_price?.price_per_unit ?? payload?.price_per_unit ?? 0) || 0,
     availableQuantity: Number(payload?.available_quantity ?? 0),
     status: sanitizeString(payload?.status),
     permalink: sanitizeString(payload?.permalink),

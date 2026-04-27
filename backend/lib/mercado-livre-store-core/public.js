@@ -1,5 +1,6 @@
 import { getAgenteAtivo } from "@/lib/agentes"
 import { getChatWidgetByProjetoAgente } from "@/lib/chat-widgets"
+import { getMercadoLivreLiveProductByProjectId } from "@/lib/mercado-livre-connector"
 import { getSupabaseAdminClient, getSupabaseAdminEnv } from "@/lib/supabase-admin"
 
 import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } from "./constants"
@@ -9,6 +10,63 @@ import { isStoreProductAvailable, normalizeSnapshotProduct, normalizeStore, sani
 function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
   return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message)
+}
+
+function productNeedsLiveDetails(product) {
+  if (!product) {
+    return false
+  }
+
+  const images = Array.isArray(product.images) ? product.images.filter(Boolean) : []
+  const attributes = Array.isArray(product.attributes) ? product.attributes : []
+  const description = String(product.descriptionLong || product.shortDescription || "").trim()
+
+  return images.length <= 1 || !attributes.length || !description
+}
+
+function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
+  if (!snapshotProduct) {
+    return liveProduct
+  }
+
+  if (!liveProduct) {
+    return snapshotProduct
+  }
+
+  return {
+    ...snapshotProduct,
+    ...liveProduct,
+    id: snapshotProduct.id || liveProduct.id,
+    itemId: snapshotProduct.itemId || liveProduct.itemId || liveProduct.id,
+    slug: snapshotProduct.slug || liveProduct.slug,
+    title: snapshotProduct.title || liveProduct.title,
+    price: snapshotProduct.price || liveProduct.price,
+    originalPrice: snapshotProduct.originalPrice || liveProduct.originalPrice || 0,
+    installmentQuantity: snapshotProduct.installmentQuantity || liveProduct.installmentQuantity || 0,
+    installmentAmount: snapshotProduct.installmentAmount || liveProduct.installmentAmount || 0,
+    installmentRate: snapshotProduct.installmentRate || liveProduct.installmentRate || 0,
+    unitPrice: snapshotProduct.unitPrice || liveProduct.unitPrice || 0,
+    thumbnail: snapshotProduct.thumbnail || liveProduct.thumbnail,
+    images:
+      (Array.isArray(liveProduct.images) && liveProduct.images.filter(Boolean).length
+        ? liveProduct.images.filter(Boolean)
+        : Array.isArray(snapshotProduct.images)
+          ? snapshotProduct.images.filter(Boolean)
+          : []),
+    permalink: snapshotProduct.permalink || liveProduct.permalink,
+    status: snapshotProduct.status || liveProduct.status,
+    stock: snapshotProduct.stock || liveProduct.stock || 0,
+    categoryId: snapshotProduct.categoryId || liveProduct.categoryId,
+    categoryLabel: snapshotProduct.categoryLabel || liveProduct.categoryLabel || liveProduct.categoryName,
+    shortDescription: snapshotProduct.shortDescription || liveProduct.shortDescription || "",
+    descriptionLong: snapshotProduct.descriptionLong || liveProduct.descriptionPlain || liveProduct.descriptionLong || "",
+    attributes:
+      (Array.isArray(liveProduct.attributes) && liveProduct.attributes.length
+        ? liveProduct.attributes
+        : Array.isArray(snapshotProduct.attributes)
+          ? snapshotProduct.attributes
+          : []),
+  }
 }
 
 async function resolveFeaturedProducts(project, store, options = {}) {
@@ -305,7 +363,14 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
   }
 
   const supabase = options.supabase ?? getSupabaseAdminClient()
-  const product = await getSnapshotProductBySlug(storeResult.store.projectId, productSlug, { supabase })
+  const snapshotProduct = await getSnapshotProductBySlug(storeResult.store.projectId, productSlug, { supabase })
+  const product =
+    snapshotProduct && productNeedsLiveDetails(snapshotProduct)
+      ? mergeMercadoLivreProductDetails(
+          snapshotProduct,
+          await getMercadoLivreLiveProductByProjectId(storeResult.store.projectId, snapshotProduct.itemId || snapshotProduct.id, { supabase })
+        )
+      : snapshotProduct
   if (!product) {
     return {
       store: storeResult.store,

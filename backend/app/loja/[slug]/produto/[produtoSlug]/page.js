@@ -1,11 +1,13 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ChevronLeft, Package, ShieldCheck, Tag } from "lucide-react"
+import { ChevronLeft, FileText, Globe, Images, LayoutGrid, Package, Phone, Ruler, ShieldCheck, ShoppingBag, Sparkles, Store, Tag } from "lucide-react"
 
 import { StoreHeader } from "@/components/store/store-header"
 import { StoreProductActions } from "@/components/store/store-product-actions"
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
-import { formatStoreCurrency } from "@/components/store/store-utils"
+import { StoreProductCard } from "@/components/store/store-product-card"
+import { StoreProductHeroGallery } from "@/components/store/store-product-hero-gallery"
+import { buildStoreAccentPalette, formatStoreCurrency } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
 import {
   buildAbsoluteStoreUrl,
@@ -15,6 +17,207 @@ import {
 } from "@/lib/mercado-livre-store-core/seo"
 
 export const revalidate = 300
+
+const menuIconMap = {
+  topo: Store,
+  produtos: LayoutGrid,
+  sobre: Sparkles,
+  contato: Phone,
+}
+
+const HIDDEN_ATTRIBUTE_NAMES = new Set([
+  "syi pymes id",
+  "utilizações seguras",
+  "utilizacoes seguras",
+  "origem do dado do pacote de fábrica",
+  "origem do dado do pacote de fabrica",
+  "motivo de gtin vazio",
+  "regalavel",
+])
+
+function sanitizeAttributeName(value) {
+  return String(value || "")
+    .replace(/\s*da embalagem do vendedor\s*/gi, "")
+    .replace(/\s*da embalagem do vendor\s*/gi, "")
+    .replace(/\s*do vendedor\s*/gi, "")
+    .replace(/\s*do vendor\s*/gi, "")
+    .replace(/\s*da embalagem\s*/gi, "")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function getVisibleCategoryLabel(product) {
+  const label = String(product?.categoryLabel || "").trim()
+  return label && !/^MLB\d+$/i.test(label) ? label : ""
+}
+
+function normalizeAttributeValue(attribute) {
+  if (!attribute || typeof attribute !== "object") {
+    return ""
+  }
+
+  const directValue = String(
+    attribute.valueName ||
+      attribute.value_name ||
+      attribute.value ||
+      attribute.valueLabel ||
+      attribute.value_label ||
+      "",
+  ).trim()
+  if (directValue && directValue !== "[object Object]") {
+    return directValue
+  }
+
+  const valueStruct = attribute.valueStruct || attribute.value_struct
+  if (valueStruct && typeof valueStruct === "object") {
+    const amount = String(valueStruct.number || valueStruct.amount || "").trim()
+    const unit = String(valueStruct.unit || valueStruct.unit_name || "").trim()
+    const normalized = [amount, unit].filter(Boolean).join(" ").trim()
+    if (normalized && normalized !== "[object Object]") {
+      return normalized
+    }
+  }
+
+  const values = Array.isArray(attribute.values) ? attribute.values : Array.isArray(attribute.value_list) ? attribute.value_list : []
+  if (values.length) {
+    const normalizedValues = values
+      .map((item) => {
+        if (item && typeof item === "object") {
+          const label = String(
+            item.name ||
+              item.value_name ||
+              item.valueName ||
+              item.label ||
+              item.value ||
+              "",
+          ).trim()
+          if (label && label !== "[object Object]") {
+            return label
+          }
+
+          const itemStruct = item.value_struct || item.valueStruct
+          if (itemStruct && typeof itemStruct === "object") {
+            const amount = String(itemStruct.number || itemStruct.amount || "").trim()
+            const unit = String(itemStruct.unit || itemStruct.unit_name || "").trim()
+            const normalized = [amount, unit].filter(Boolean).join(" ").trim()
+            return normalized !== "[object Object]" ? normalized : ""
+          }
+        }
+
+        const normalized = String(item || "").trim()
+        return normalized !== "[object Object]" ? normalized : ""
+      })
+      .filter(Boolean)
+
+    if (normalizedValues.length) {
+      return normalizedValues.join(", ")
+    }
+  }
+
+  return ""
+}
+
+function getAttributeGroupName(attribute) {
+  const directGroup = String(
+    attribute?.attributeGroupName ||
+      attribute?.attribute_group_name ||
+      attribute?.attributeGroup ||
+      attribute?.attribute_group ||
+      attribute?.groupName ||
+      attribute?.group_name ||
+      "",
+  ).trim()
+
+  if (directGroup) {
+    return directGroup
+  }
+
+  const normalizedName = String(attribute?.name || attribute?.label || "").toLowerCase()
+  if (/(altura|largura|comprimento|profundidade|diametro|di[aâ]metro|peso|volume|capacidade|espessura|medida|tamanho)/i.test(normalizedName)) {
+    return "Dimensoes"
+  }
+  if (/(kit|unidade|formato de venda|embalagem|quantidade|pe[çc]as por kit)/i.test(normalizedName)) {
+    return "Caracteristicas de venda"
+  }
+
+  return "Detalhes do produto"
+}
+
+function groupProductAttributes(attributes = []) {
+  const groups = new Map()
+  const dedupe = new Set()
+
+  for (const attribute of Array.isArray(attributes) ? attributes : []) {
+    const name = sanitizeAttributeName(attribute?.name || attribute?.label || "")
+    const value = normalizeAttributeValue(attribute)
+    if (!name || !value) continue
+    if (HIDDEN_ATTRIBUTE_NAMES.has(name.toLowerCase())) continue
+
+    const normalizedKey = `${name.toLowerCase()}::${value.toLowerCase()}`
+    if (dedupe.has(normalizedKey)) {
+      continue
+    }
+    dedupe.add(normalizedKey)
+
+    const groupName = getAttributeGroupName(attribute)
+
+    if (!groups.has(groupName)) {
+      groups.set(groupName, [])
+    }
+
+    groups.get(groupName).push({
+      id: attribute?.id || name,
+      name,
+      value,
+    })
+  }
+
+  return Array.from(groups.entries()).map(([title, items]) => ({
+    title,
+    items,
+  }))
+    .sort((left, right) => {
+      const order = ["Caracteristicas principais", "Caracteristicas de venda", "Dimensoes", "Outros", "Detalhes do produto"]
+      const leftIndex = order.indexOf(left.title)
+      const rightIndex = order.indexOf(right.title)
+      const normalizedLeft = leftIndex === -1 ? order.length : leftIndex
+      const normalizedRight = rightIndex === -1 ? order.length : rightIndex
+      if (normalizedLeft !== normalizedRight) {
+        return normalizedLeft - normalizedRight
+      }
+      return left.title.localeCompare(right.title, "pt-BR")
+    })
+}
+
+function buildDescriptionBlocks(product) {
+  const raw = String(product?.descriptionLong || product?.shortDescription || "").trim()
+  if (!raw) {
+    return []
+  }
+
+  return raw
+    .split(/\n{2,}/)
+    .map((block) => block.trim())
+    .filter(Boolean)
+}
+
+function handleFooterHref(storeSlug, href) {
+  if (!href || !href.startsWith("#")) {
+    return href || `/loja/${storeSlug}`
+  }
+
+  return href === "#topo" ? `/loja/${storeSlug}` : `/loja/${storeSlug}${href}`
+}
+
+function formatInstallmentText(product) {
+  const quantity = Number(product?.installmentQuantity ?? 0) || 0
+  const amount = Number(product?.installmentAmount ?? 0) || 0
+  if (quantity <= 1 || amount <= 0) {
+    return ""
+  }
+
+  return `${quantity}x ${formatStoreCurrency(amount, product?.currencyId)}`
+}
 
 export async function generateMetadata({ params }) {
   const { slug, produtoSlug } = await params
@@ -26,22 +229,15 @@ export default async function LojaProdutoPage({ params }) {
   const { slug, produtoSlug } = await params
   const result = await getPublicMercadoLivreProductPage(slug, produtoSlug)
 
-  if (!result.store) {
+  if (!result.store || !result.product) {
     notFound()
   }
 
-  if (!result.product) {
-    notFound()
-  }
-
-  const visibleCategoryLabel =
-    result.product.categoryLabel && !/^MLB\d+$/i.test(String(result.product.categoryLabel))
-      ? result.product.categoryLabel
-      : ""
-  const productDescription =
-    String(result.product.descriptionLong || result.product.shortDescription || "").trim() ||
-    "Este produto esta publicado na vitrine da loja com compra final no Mercado Livre."
-
+  const visibleCategoryLabel = getVisibleCategoryLabel(result.product)
+  const descriptionBlocks = buildDescriptionBlocks(result.product)
+  const attributeGroups = groupProductAttributes(result.product.attributes)
+  const palette = buildStoreAccentPalette(result.store.accentColor)
+  const installmentText = formatInstallmentText(result.product)
   const widgetConfig = result.store.widget
     ? {
         widgetId: result.store.widget.id,
@@ -77,141 +273,253 @@ export default async function LojaProdutoPage({ params }) {
         />
       ) : null}
       <div className="min-h-screen bg-[#f7f3eb] text-slate-900">
-        <StoreHeader store={result.store} activeSection="produtos" headerSolid />
+        <StoreHeader store={result.store} activeSection="produtos" />
         <main className="pt-[112px] md:pt-[108px]">
-        <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-          <Link
-            href={`/loja/${result.store.slug}`}
-            className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            Voltar para a loja
-          </Link>
+          <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+            <Link
+              href={`/loja/${result.store.slug}`}
+              className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
+            >
+              <ChevronLeft className="h-4 w-4" />
+              Voltar para a loja
+            </Link>
 
-          <div className="mt-8 grid gap-6 lg:grid-cols-[1.05fr_0.95fr] lg:gap-8">
-            <div className="overflow-hidden rounded-[32px] border border-black/5 bg-white p-4 shadow-[0_28px_90px_-44px_rgba(15,23,42,0.42)]">
-              <div className="aspect-[4/3] overflow-hidden rounded-[24px] bg-[#efe8da]">
-                {result.product.thumbnail ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={result.product.thumbnail} alt={result.product.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
-                ) : null}
-              </div>
-            </div>
+            <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
+              <div className="grid gap-5">
+                <StoreProductHeroGallery key={result.product.id || result.product.slug} product={result.product} title={result.product.title} />
 
-            <div className="rounded-[32px] border border-black/5 bg-white p-5 shadow-[0_28px_90px_-44px_rgba(15,23,42,0.42)] sm:p-8">
-              <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{result.store.name}</div>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600">
-                  <Package className="h-3.5 w-3.5" />
-                  Produto da loja
-                </span>
-                {visibleCategoryLabel ? (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600">
-                    <Tag className="h-3.5 w-3.5" />
-                    {visibleCategoryLabel}
-                  </span>
-                ) : null}
-                {result.product.status ? (
-                  <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-emerald-700">
-                    <ShieldCheck className="h-3.5 w-3.5" />
-                    {result.product.status}
-                  </span>
-                ) : null}
-              </div>
-              <h1 className="mt-4 text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">{result.product.title}</h1>
-              <div className="mt-6 text-2xl font-semibold sm:text-3xl" style={{ color: result.store.accentColor }}>
-                {formatStoreCurrency(result.product.price, result.product.currencyId)}
-              </div>
-              {result.product.originalPrice > result.product.price ? (
-                <div className="mt-2 text-sm text-slate-500 line-through">
-                  {formatStoreCurrency(result.product.originalPrice, result.product.currencyId)}
-                </div>
-              ) : null}
-
-              <div className="mt-6 grid gap-3 rounded-[24px] border border-black/10 bg-[#faf7f0] px-5 py-4 text-sm text-slate-700">
-                <div className="flex items-center justify-between gap-4">
-                  <span>Compra final</span>
-                  <span className="font-medium text-slate-950">Mercado Livre</span>
-                </div>
-                {visibleCategoryLabel ? (
-                  <div className="flex items-center justify-between gap-4">
-                    <span>Categoria</span>
-                    <span className="font-medium text-slate-950">{visibleCategoryLabel}</span>
-                  </div>
-                ) : null}
-                {typeof result.product.stock === "number" && result.product.stock > 0 ? (
-                  <div className="flex items-center justify-between gap-4">
-                    <span>Estoque informado</span>
-                    <span className="font-medium text-slate-950">{result.product.stock}</span>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="mt-6 rounded-[24px] border border-black/5 bg-[#faf7f0] px-5 py-5 text-sm leading-7 text-slate-700 sm:px-6">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Descricao completa</div>
-                <div className="mt-3 whitespace-pre-line">{productDescription}</div>
-              </div>
-
-              {Array.isArray(result.product.attributes) && result.product.attributes.length ? (
-                <div className="mt-6 rounded-[24px] border border-black/5 bg-white px-5 py-5 sm:px-6">
-                  <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Detalhes do produto</div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    {result.product.attributes
-                      .filter((attribute) => attribute?.name && attribute?.valueName)
-                      .slice(0, 12)
-                      .map((attribute) => (
-                        <div key={`${attribute.id || attribute.name}-${attribute.valueName}`} className="rounded-[16px] border border-slate-200 bg-[#faf7f0] px-4 py-3">
-                          <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">{attribute.name}</div>
-                          <div className="mt-1 text-sm font-medium text-slate-900">{attribute.valueName}</div>
+                {attributeGroups.length ? (
+                  <section className="rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                      <LayoutGrid className="h-4 w-4" />
+                      Caracteristicas do produto
+                    </div>
+                    <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                      {attributeGroups.map((group) => (
+                        <div
+                          key={group.title}
+                          className={`rounded-[14px] bg-[#fbf8f2] p-4 shadow-[0_10px_18px_-18px_rgba(15,23,42,0.14)] ${
+                            group.title === "Detalhes do produto" ? "lg:col-span-2" : ""
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+                            <Sparkles className="h-4 w-4" style={{ color: palette.accentDark }} />
+                            {group.title}
+                          </div>
+                          <div className={`mt-4 grid gap-2 ${group.title === "Detalhes do produto" ? "md:grid-cols-2" : ""}`}>
+                            {group.items.map((item) => (
+                              <div key={`${group.title}-${item.id}-${item.value}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 rounded-[12px] bg-white px-3 py-3 text-sm shadow-[0_8px_16px_-16px_rgba(15,23,42,0.18)]">
+                                <div className="text-slate-500">{item.name}</div>
+                                <div className="font-medium text-slate-950">{item.value}</div>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       ))}
-                  </div>
-                </div>
-              ) : null}
+                    </div>
+                  </section>
+                ) : null}
 
-              <StoreProductActions
-                accentColor={result.store.accentColor}
-                chatDescription="O chat da loja pode ser aberto daqui para continuar o atendimento a partir desta pagina."
-                permalink={result.product.permalink}
-                product={result.product}
-                storeSlug={result.store.slug}
-                widgetId={result.store.widget?.id}
-                widgetSlug={result.store.widget?.slug}
-              />
-            </div>
-          </div>
+              </div>
 
-          <section className="mt-14">
-            <div className="flex items-center justify-between gap-4">
-              <h2 className="text-2xl font-semibold text-slate-950">Outros produtos</h2>
-              <Link href={`/loja/${result.store.slug}`} className="text-sm font-medium text-slate-600 transition hover:text-slate-950">
-                Ver todos
-              </Link>
-            </div>
-
-            <div className="mt-6 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-              {result.relatedProducts.map((product) => (
-                <Link
-                  key={product.slug}
-                  href={`/loja/${result.store.slug}/produto/${product.slug}`}
-                  className="rounded-[24px] border border-black/5 bg-white p-4 shadow-[0_24px_70px_-44px_rgba(15,23,42,0.42)] transition hover:-translate-y-1"
-                >
-                  <div className="aspect-[4/3] overflow-hidden rounded-[18px] bg-[#efe8da]">
-                    {product.thumbnail ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={product.thumbnail} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+              <div className="grid gap-5 self-start lg:sticky lg:top-[112px]">
+                <section className="rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+                  <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{result.store.name}</div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
+                      <Package className="h-3.5 w-3.5" />
+                      Produto da loja
+                    </span>
+                    {visibleCategoryLabel ? (
+                      <span className="inline-flex items-center gap-2 rounded-full bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
+                        <Tag className="h-3.5 w-3.5" />
+                        {visibleCategoryLabel}
+                      </span>
+                    ) : null}
+                    {result.product.status ? (
+                      <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em] shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]" style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}>
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        {result.product.status}
+                      </span>
                     ) : null}
                   </div>
-                  <div className="mt-4 line-clamp-2 text-sm font-semibold leading-6 text-slate-950">{product.title}</div>
-                  <div className="mt-3 text-base font-semibold" style={{ color: result.store.accentColor }}>
-                    {formatStoreCurrency(product.price, product.currencyId)}
+
+                  <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-950 sm:text-[3rem]">
+                    {result.product.title}
+                  </h1>
+
+                  <div className="mt-6 text-3xl font-semibold sm:text-4xl" style={{ color: palette.accentDark }}>
+                    {formatStoreCurrency(result.product.price, result.product.currencyId)}
                   </div>
-                </Link>
-              ))}
+                  {installmentText ? (
+                    <div className="mt-2 text-lg font-medium text-slate-700">
+                      {installmentText}
+                    </div>
+                  ) : null}
+                  {Number(result.product.unitPrice ?? 0) > 0 ? (
+                    <div className="mt-1 text-sm text-slate-500">
+                      Preco por unidade: {formatStoreCurrency(result.product.unitPrice, result.product.currencyId)}
+                    </div>
+                  ) : null}
+                  {result.product.originalPrice > result.product.price ? (
+                    <div className="mt-2 text-sm text-slate-500 line-through">
+                      {formatStoreCurrency(result.product.originalPrice, result.product.currencyId)}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-6 grid gap-3">
+                    <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
+                      <a
+                        href={result.product.permalink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-5 text-sm font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
+                        style={{ color: "#3483fa" }}
+                      >
+                        <ShoppingBag className="h-4 w-4" />
+                        Comprar agora
+                      </a>
+                    </div>
+                    <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
+                      <div className="grid gap-3 text-sm text-slate-700">
+                        {visibleCategoryLabel ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                              <Tag className="h-4 w-4" style={{ color: palette.accentDark }} />
+                              Categoria
+                            </div>
+                            <span className="font-medium text-slate-950">{visibleCategoryLabel}</span>
+                          </div>
+                        ) : null}
+                        {typeof result.product.stock === "number" && result.product.stock > 0 ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                              <Package className="h-4 w-4" style={{ color: palette.accentDark }} />
+                              Estoque informado
+                            </div>
+                            <span className="font-medium text-slate-950">{result.product.stock}</span>
+                          </div>
+                        ) : null}
+                        {attributeGroups.length ? (
+                          <div className="flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-2">
+                              <Ruler className="h-4 w-4" style={{ color: palette.accentDark }} />
+                              Caracteristicas
+                            </div>
+                            <span className="font-medium text-slate-950">
+                              {attributeGroups.reduce((total, group) => total + group.items.length, 0)}
+                            </span>
+                          </div>
+                        ) : null}
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            <Images className="h-4 w-4" style={{ color: palette.accentDark }} />
+                            Galeria
+                          </div>
+                          <span className="font-medium text-slate-950">{(result.product.images || []).length || 1} imagens</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-6 px-1 py-1">
+                    <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo da descricao</div>
+                    <div className="mt-3 grid gap-3 text-sm leading-7 text-slate-700">
+                      {(descriptionBlocks.length ? descriptionBlocks : ["Este produto esta publicado na vitrine da loja com compra final no Mercado Livre."])
+                        .slice(0, 3)
+                        .map((block, index) => (
+                          <p key={`${index}-${block.slice(0, 20)}`}>{block}</p>
+                        ))}
+                    </div>
+                  </div>
+
+                  <StoreProductActions
+                    accentColor={palette.accentDark}
+                    chatDescription="O chat da loja pode ser aberto daqui para continuar o atendimento a partir desta pagina com mais contexto do produto."
+                    permalink={result.product.permalink}
+                    product={result.product}
+                    storeSlug={result.store.slug}
+                    widgetId={result.store.widget?.id}
+                    widgetSlug={result.store.widget?.slug}
+                  />
+                </section>
+              </div>
             </div>
-          </section>
-        </div>
+
+            {descriptionBlocks.length ? (
+              <section className="mt-6 rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  <FileText className="h-4 w-4" />
+                  Descricao completa
+                </div>
+                <div className="mt-5 grid gap-4 text-[15px] leading-8 text-slate-700">
+                  <div className="text-lg font-medium text-slate-950">{result.product.title}</div>
+                  {descriptionBlocks.map((block, index) => (
+                    <p key={`${index}-${block.slice(0, 24)}`} className="whitespace-pre-line">
+                      {block}
+                    </p>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
+            <section className="mt-14">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-2xl font-semibold text-slate-950">Outros produtos</h2>
+                <Link href={`/loja/${result.store.slug}`} className="text-sm font-medium text-slate-600 transition hover:text-slate-950">
+                  Ver todos
+                </Link>
+              </div>
+
+              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                {result.relatedProducts.map((product) => (
+                  <StoreProductCard
+                    key={product.slug}
+                    storeSlug={result.store.slug}
+                    product={product}
+                    accentColor={result.store.accentColor}
+                    compact
+                    analyticsSource="product_page_related"
+                  />
+                ))}
+              </div>
+            </section>
+          </div>
         </main>
+        <footer className="mt-16" style={{ backgroundColor: palette.accentSoft }}>
+          <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
+            <div>
+              <div className="text-lg font-semibold text-slate-950">{result.store.name}</div>
+              <div className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{result.store.footerText}</div>
+              <a
+                href="https://www.infrastudio.pro"
+                target="_blank"
+                rel="noreferrer"
+                className="mt-6 inline-flex flex-col items-start transition hover:opacity-100"
+              >
+                <span className="text-base font-semibold tracking-[-0.02em] text-slate-950">InfraStudio</span>
+                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Sistema e automacao com IA</span>
+              </a>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              {result.store.menuLinks.map((item) => {
+                const sectionId = item.href.replace("#", "")
+                const Icon = menuIconMap[sectionId] || Globe
+
+                return (
+                  <Link
+                    key={`${item.label}-${item.href}-footer`}
+                    href={handleFooterHref(result.store.slug, item.href)}
+                    className="inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-950"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
+        </footer>
       </div>
       <StoreChatWidgetLoader config={widgetConfig} />
     </>

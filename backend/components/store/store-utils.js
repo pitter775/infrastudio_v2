@@ -5,6 +5,43 @@ export function formatStoreCurrency(price, currencyId = 'BRL') {
   })
 }
 
+function normalizeHexColor(value, fallback = '#155eef') {
+  const input = String(value || '').trim()
+  if (/^#[0-9a-f]{6}$/i.test(input)) {
+    return input
+  }
+  if (/^#[0-9a-f]{3}$/i.test(input)) {
+    return `#${input.slice(1).split('').map((char) => char + char).join('')}`
+  }
+  return fallback
+}
+
+function mixHexColors(primary, secondary, ratio) {
+  const from = normalizeHexColor(primary).slice(1)
+  const to = normalizeHexColor(secondary).slice(1)
+  const weight = Math.max(0, Math.min(1, ratio))
+
+  const channels = [0, 2, 4].map((index) => {
+    const fromValue = Number.parseInt(from.slice(index, index + 2), 16)
+    const toValue = Number.parseInt(to.slice(index, index + 2), 16)
+    return Math.round(fromValue * (1 - weight) + toValue * weight)
+  })
+
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+}
+
+export function buildStoreAccentPalette(accentColor) {
+  const accent = normalizeHexColor(accentColor)
+  return {
+    accent,
+    accentDark: mixHexColors(accent, '#020617', 0.28),
+    accentSoft: mixHexColors(accent, '#ffffff', 0.82),
+    accentMuted: mixHexColors(accent, '#ffffff', 0.9),
+    accentBorder: mixHexColors(accent, '#e2e8f0', 0.6),
+    accentShadow: mixHexColors(accent, '#0f172a', 0.45),
+  }
+}
+
 function getStoreAnalyticsSessionId() {
   if (typeof window === 'undefined') {
     return null

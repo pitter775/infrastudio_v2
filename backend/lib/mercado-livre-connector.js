@@ -751,6 +751,48 @@ async function loadMercadoLivreItems(itemIds, accessToken, deps = {}) {
   return items.filter(Boolean)
 }
 
+async function fetchMercadoLivreProductPageHtml(productUrl, deps = {}) {
+  const normalizedUrl = sanitizeString(productUrl)
+  if (!normalizedUrl) {
+    return ""
+  }
+
+  const fetchImpl = deps.fetchImpl ?? fetch
+  const response = await fetchImpl(normalizedUrl, {
+    headers: {
+      Accept: "text/html,application/xhtml+xml",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+    },
+    cache: "no-store",
+  })
+
+  if (!response.ok) {
+    return ""
+  }
+
+  return response.text().catch(() => "")
+}
+
+function extractMercadoLivreGalleryFromHtml(html) {
+  const source = String(html || "")
+  if (!source) {
+    return []
+  }
+
+  const matches = source.match(/https?:\\?\/\\?\/[^"'\\\s]+mlstatic\.com[^"'\\\s]+\.(?:jpg|jpeg|png|webp)/gi) || []
+  const normalized = matches
+    .map((item) =>
+      sanitizeString(item)
+        .replace(/\\\//g, "/")
+        .replace(/%5C\//gi, "/")
+    )
+    .map((item) => item.replace(/-[A-Z](\.(jpg|jpeg|png|webp)(\?.*)?)$/i, "-O$1"))
+    .filter(Boolean)
+
+  return [...new Set(normalized)].slice(0, 12)
+}
+
 async function loadMercadoLivreItemById(itemId, accessToken, deps = {}) {
   const fetchImpl = deps.fetchImpl ?? fetch
   const headers = {
@@ -774,11 +816,21 @@ async function loadMercadoLivreItemById(itemId, accessToken, deps = {}) {
   }
 
   const descriptionPayload = await descriptionResponse.json().catch(() => ({}))
-  return mapMercadoLivreItem({
+  const mappedItem = mapMercadoLivreItem({
     ...itemPayload,
     descriptionPlain: sanitizeString(descriptionPayload?.plain_text || descriptionPayload?.text),
     shortDescription: sanitizeString(descriptionPayload?.short_description || ""),
   })
+
+  if ((Array.isArray(mappedItem?.pictures) ? mappedItem.pictures.length : 0) <= 1 && sanitizeString(mappedItem?.permalink)) {
+    const html = await fetchMercadoLivreProductPageHtml(mappedItem.permalink, deps)
+    const htmlImages = extractMercadoLivreGalleryFromHtml(html)
+    if (htmlImages.length > 1) {
+      mappedItem.pictures = [...new Set([...(mappedItem.pictures || []), ...htmlImages])].slice(0, 12)
+    }
+  }
+
+  return mappedItem
 }
 
 async function fetchMercadoLivreCategoryName(categoryId, accessToken, deps = {}) {
@@ -1284,5 +1336,32 @@ export async function getMercadoLivreProductByIdForProject(project, itemId, deps
       connector: null,
       error: error instanceof Error ? error.message : "Nao foi possivel carregar o produto selecionado da loja.",
     }
+  }
+}
+
+export async function getMercadoLivreLiveProductByProjectId(projectId, itemId, deps = {}) {
+  const normalizedProjectId = sanitizeString(projectId)
+  const normalizedItemId = sanitizeString(itemId)
+
+  if (!normalizedProjectId || !normalizedItemId) {
+    return null
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(normalizedProjectId, { supabase })
+    if (!connector?.id) {
+      return null
+    }
+
+    const result = await withMercadoLivreAuthorizedOperation(connector, deps, async ({ accessToken }) => {
+      const item = await loadMercadoLivreItemById(normalizedItemId, accessToken, deps)
+      return { item, error: null }
+    })
+
+    return result?.item || null
+  } catch (error) {
+    console.error("[mercado-livre] failed to load live product for public store", error)
+    return null
   }
 }

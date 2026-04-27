@@ -6,6 +6,7 @@ const SNAPSHOT_SELECT_WITH_IMAGES =
   "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, updated_at"
 const SNAPSHOT_SELECT_LEGACY =
   "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at"
+const MERCADO_LIVRE_PUBLIC_API = "https://api.mercadolibre.com"
 
 function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
@@ -36,6 +37,43 @@ function applySnapshotSort(query, sort) {
 
 function applySnapshotAvailabilityFilters(query) {
   return query.eq("status", "active").gt("estoque", 0)
+}
+
+async function resolveMercadoLivreCategoryNames(items = []) {
+  const categoryIds = Array.from(
+    new Set(
+      items
+        .filter((item) => {
+          const id = sanitizeText(item?.id, 80)
+          const label = sanitizeText(item?.label, 160)
+          return id && /^MLB\d+$/i.test(id) && !label
+        })
+        .map((item) => sanitizeText(item.id, 80))
+    )
+  )
+
+  if (!categoryIds.length) {
+    return new Map()
+  }
+
+  const results = await Promise.all(
+    categoryIds.map(async (categoryId) => {
+      try {
+        const response = await fetch(`${MERCADO_LIVRE_PUBLIC_API}/categories/${encodeURIComponent(categoryId)}`, {
+          headers: {
+            Accept: "application/json",
+          },
+          cache: "force-cache",
+        })
+        const payload = await response.json().catch(() => ({}))
+        return [categoryId, sanitizeText(payload?.name, 160)]
+      } catch {
+        return [categoryId, ""]
+      }
+    })
+  )
+
+  return new Map(results.filter(([, label]) => label))
 }
 
 async function listSnapshotProductsByProjectId(projectId, options = {}) {
@@ -196,10 +234,10 @@ async function listSnapshotCategoryFacetsByProjectId(projectId, options = {}) {
   }
 
   const unique = new Set()
-  return (Array.isArray(data) ? data : [])
+  const rawItems = (Array.isArray(data) ? data : [])
     .map((row) => ({
       id: sanitizeText(row.categoria_id, 80),
-      label: sanitizeText(row.categoria_nome, 160) || sanitizeText(row.categoria_id, 80),
+      label: sanitizeText(row.categoria_nome, 160),
     }))
     .filter((item) => {
       if (!item.id || unique.has(item.id)) {
@@ -210,6 +248,13 @@ async function listSnapshotCategoryFacetsByProjectId(projectId, options = {}) {
     })
     .slice(0, 12)
     .map((item) => item)
+
+  const resolvedNames = await resolveMercadoLivreCategoryNames(rawItems)
+
+  return rawItems.map((item) => ({
+    id: item.id,
+    label: item.label || resolvedNames.get(item.id) || item.id,
+  }))
 }
 
 export { getSnapshotProductBySlug, listSnapshotCategoryFacetsByProjectId, listSnapshotProductsByProjectId }

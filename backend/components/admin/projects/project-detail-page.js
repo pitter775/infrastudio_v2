@@ -95,6 +95,8 @@ export function AdminProjectDetailPage({ project }) {
   const [pendingPanelId, setPendingPanelId] = useState(null)
   const [agentCardActive, setAgentCardActive] = useState(project.agent?.active !== false)
   const [savingAgentCardActive, setSavingAgentCardActive] = useState(false)
+  const [showAgentHint, setShowAgentHint] = useState(false)
+  const [agentHintDismissed, setAgentHintDismissed] = useState(false)
   const [integrationStats, setIntegrationStats] = useState(() => ({
     apis: Number(project.directConnections?.apis || project.integrations?.apis || project.apis?.length || 0),
     whatsapp: Number(project.directConnections?.whatsapp || project.integrations?.whatsapp || project.whatsappChannels?.length || 0),
@@ -132,6 +134,12 @@ export function AdminProjectDetailPage({ project }) {
         .map((panel) => panel.serviceIconType || panel.id),
     [activeIntegrationPanels],
   )
+  const agentHintStorageKey = `admin-project-agent-hint-opened:${projectIdentifier}`
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setAgentHintDismissed(window.localStorage.getItem(agentHintStorageKey) === '1')
+  }, [agentHintStorageKey])
 
   useEffect(() => {
     setIntegrationStats({
@@ -410,6 +418,34 @@ export function AdminProjectDetailPage({ project }) {
     return () => clearTimeout(timeout)
   }, [pendingPanelId])
 
+  useEffect(() => {
+    if (activePanel !== DEFAULT_PANEL || !isPanelOpen || agentHintDismissed) {
+      return
+    }
+
+    setShowAgentHint(false)
+    setAgentHintDismissed(true)
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(agentHintStorageKey, '1')
+    }
+  }, [activePanel, agentHintDismissed, agentHintStorageKey, isPanelOpen])
+
+  useEffect(() => {
+    if (agentHintDismissed || isPanelOpen || pendingPanelId) {
+      setShowAgentHint(false)
+      return
+    }
+
+    const showTimeout = window.setTimeout(() => setShowAgentHint(true), 14000)
+    const hideTimeout = window.setTimeout(() => setShowAgentHint(false), 19000)
+
+    return () => {
+      window.clearTimeout(showTimeout)
+      window.clearTimeout(hideTimeout)
+    }
+  }, [agentHintDismissed, isPanelOpen, pendingPanelId])
+
   function handleAgentTabChange(tabId) {
     setAgentTabFromUrl(tabId)
     updateAgentTabQuery(tabId)
@@ -580,19 +616,14 @@ export function AdminProjectDetailPage({ project }) {
               ) : null
             }
           >
-            {!isPanelOpen && !pendingPanelId ? (
+            {showAgentHint && !isPanelOpen && !pendingPanelId ? (
               <motion.div
                 initial={{ opacity: 0, y: 10, scale: 0.96 }}
-                animate={{
-                  opacity: [0, 0, 1, 1, 1, 0, 0],
-                  y: [10, 10, 0, -4, 0, 0, 0],
-                  scale: [0.96, 0.96, 1, 1, 1, 1, 1],
-                }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 6, scale: 0.98 }}
                 transition={{
-                  duration: 7.2,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                  times: [0, 0.16, 0.26, 0.4, 0.55, 0.7, 1],
+                  duration: 0.35,
+                  ease: 'easeOut',
                 }}
                 className="pointer-events-none absolute left-1/2 top-[-58px] z-30 -translate-x-1/2"
               >

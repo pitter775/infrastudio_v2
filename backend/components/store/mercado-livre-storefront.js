@@ -1,13 +1,19 @@
 ﻿'use client'
 
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 import { motion } from 'framer-motion'
-import { AtSign, Camera, ChevronRight, Globe, LayoutGrid, MapPin, MessageCircle, Phone, Play, Search, ShieldCheck, Sparkles, Store, Users } from 'lucide-react'
+import { ArrowRight, AtSign, Camera, ChevronLeft, ChevronRight, Globe, LayoutGrid, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
 
 import { StoreHeader } from '@/components/store/store-header'
 import { StoreProductCard } from '@/components/store/store-product-card'
-import { buildStoreUrl, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
+import { AppSelect } from '@/components/ui/app-select'
+import { buildStoreAccentPalette, buildStoreUrl, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
+
+function shouldHideCategoryCode(label) {
+  return /^MLB\d+$/i.test(String(label || '').trim())
+}
 
 export function MercadoLivreStorefront({
   store,
@@ -21,15 +27,36 @@ export function MercadoLivreStorefront({
   sort = 'recent',
   categories = [],
 }) {
+  const router = useRouter()
   const [activeIndex, setActiveIndex] = useState(0)
   const [activeSlideImageState, setActiveSlideImageState] = useState({ slideId: null, index: 0 })
   const [headerSolid, setHeaderSolid] = useState(false)
   const [activeSection, setActiveSection] = useState('topo')
+  const [searchTerm, setSearchTerm] = useState(query)
+  const [sortValue, setSortValue] = useState(sort)
   const slides = featuredProducts.length ? featuredProducts : products.slice(0, 4)
   const activeSlide = slides[activeIndex] || null
+  const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],
+  )
+  const visibleCategories = useMemo(
+    () => categories.filter((category) => category?.id && !shouldHideCategoryCode(category.label)),
+    [categories],
+  )
+  const categoryOptions = useMemo(
+    () => [{ value: '', label: 'Todas categorias' }, ...visibleCategories.map((category) => ({ value: category.id, label: category.label }))],
+    [visibleCategories],
+  )
+  const sortOptions = useMemo(
+    () => [
+      { value: 'recent', label: 'Mais recentes' },
+      { value: 'price_asc', label: 'Menor preco' },
+      { value: 'price_desc', label: 'Maior preco' },
+      { value: 'title', label: 'Nome' },
+    ],
+    [],
   )
   const socialIcons = {
     instagram: Camera,
@@ -44,7 +71,6 @@ export function MercadoLivreStorefront({
     sobre: Sparkles,
     contato: Phone,
   }
-  const storeUrl = buildStoreUrl(store.slug, query, page, categoryId, sort)
   const activeSlideImages = getStoreProductImages(activeSlide)
   const activeSlideImageIndex = activeSlideImageState.slideId === activeSlide?.id ? activeSlideImageState.index : 0
   const hasCategoryContext = Boolean(categoryId && categoryLabel)
@@ -61,6 +87,14 @@ export function MercadoLivreStorefront({
       : store.headline
   const productsHeading = hasCategoryContext ? `${categoryLabel} da loja` : hasSearchContext ? 'Resultados da busca' : 'Produtos da loja'
   const productsEyebrow = hasCategoryContext ? 'Categoria' : hasSearchContext ? 'Busca' : 'Catalogo'
+
+  useEffect(() => {
+    setSearchTerm(query)
+  }, [query])
+
+  useEffect(() => {
+    setSortValue(sort)
+  }, [sort])
 
   useEffect(() => {
     if (slides.length <= 1) {
@@ -127,6 +161,15 @@ export function MercadoLivreStorefront({
     }
   }
 
+  function navigateStore(nextQuery = searchTerm, nextCategoryId = categoryId, nextSort = sortValue, nextPage = 1) {
+    router.push(buildStoreUrl(store.slug, nextQuery, nextPage, nextCategoryId, nextSort), { scroll: false })
+  }
+
+  function handleSearchSubmit(event) {
+    event.preventDefault()
+    navigateStore(searchTerm, categoryId, sortValue, 1)
+  }
+
   function goToPreviousFeaturedImage() {
     if (!activeSlideImages.length) {
       return
@@ -145,6 +188,22 @@ export function MercadoLivreStorefront({
       slideId: activeSlide?.id ?? null,
       index: (activeSlideImageIndex + 1) % activeSlideImages.length,
     })
+  }
+
+  function goToPreviousSlide(event) {
+    event?.preventDefault?.()
+    event?.stopPropagation?.()
+    if (!slides.length) return
+    setActiveIndex((current) => (current - 1 + slides.length) % slides.length)
+    setActiveSlideImageState({ slideId: null, index: 0 })
+  }
+
+  function goToNextSlide(event) {
+    event?.preventDefault?.()
+    event?.stopPropagation?.()
+    if (!slides.length) return
+    setActiveIndex((current) => (current + 1) % slides.length)
+    setActiveSlideImageState({ slideId: null, index: 0 })
   }
 
   return (
@@ -178,9 +237,14 @@ export function MercadoLivreStorefront({
       >
         <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
 
-        <main className="pt-[112px] md:pt-[108px]">
-          <section id="topo" className="relative overflow-hidden">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(21,94,239,0.1),transparent_30%),linear-gradient(180deg,rgba(255,255,255,0.72),rgba(247,244,238,0.42))]" />
+        <main>
+          <section id="topo" className="relative -mt-[112px] overflow-hidden pt-[136px] md:-mt-[108px] md:pt-[132px]">
+            <div
+              className="absolute inset-0"
+              style={{
+                background: `radial-gradient(circle at top left, ${palette.accentMuted}, transparent 30%), linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,244,238,0.42))`,
+              }}
+            />
             <div className="relative mx-auto grid max-w-7xl gap-10 px-4 py-14 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-20">
               <motion.div
                 initial={{ opacity: 0, y: 22 }}
@@ -189,9 +253,12 @@ export function MercadoLivreStorefront({
                 transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                 className="max-w-2xl"
               >
-                <div className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#155eef]">
+                <div
+                  className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
+                  style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}
+                >
                   {hasCategoryContext ? `Categoria ${categoryLabel}` : hasSearchContext ? 'Busca ativa' : 'Vitrine conectada'}
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: store.accentColor }} />
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: palette.accent }} />
                 </div>
                 <h1 className="mt-5 max-w-xl text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-slate-950 sm:text-6xl">
                   {heroTitle}
@@ -202,9 +269,10 @@ export function MercadoLivreStorefront({
                   <a
                     href="#produtos"
                     onClick={(event) => handleAnchorNavigation(event, '#produtos')}
-                    className="inline-flex h-12 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_20px_34px_-24px_rgba(21,94,239,0.32)]"
-                    style={{ backgroundColor: store.accentColor }}
+                    className="inline-flex h-12 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_28px_-20px_rgba(15,23,42,0.34)] backdrop-blur-md"
+                    style={{ backgroundColor: `${palette.accentDark}e6` }}
                   >
+                    <LayoutGrid className="mr-2 h-4 w-4" />
                     Ver produtos
                     <ChevronRight className="ml-2 h-4 w-4" />
                   </a>
@@ -245,7 +313,7 @@ export function MercadoLivreStorefront({
                 transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
                 className="grid gap-4"
               >
-                <div className="rounded-[24px] p-4">
+                <div className="p-2">
                   {activeSlide ? (
                     <Link
                       href={`/loja/${store.slug}/produto/${activeSlide.slug}`}
@@ -258,9 +326,9 @@ export function MercadoLivreStorefront({
                           dedupeKey: `${store.slug}:product_open:featured:${activeSlide.slug}`,
                         })
                       }}
-                      className="relative grid w-full text-left"
+                      className="grid w-full gap-4 text-left"
                     >
-                      <div className="relative aspect-[4/3] overflow-hidden rounded-[24px] bg-[#e8edf4] shadow-[0_28px_60px_-40px_rgba(15,23,42,0.18)]">
+                      <div className="relative aspect-[4/3] overflow-hidden rounded-[12px] bg-[#e8edf4] shadow-[8px_10px_18px_rgba(15,23,42,0.18)]">
                         {activeSlideImages[activeSlideImageIndex] ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -299,50 +367,85 @@ export function MercadoLivreStorefront({
                             </button>
                           </>
                         ) : null}
-                        <div className="absolute inset-x-0 bottom-0 p-4 sm:p-5">
-                          <div className="rounded-[22px] border border-white/80 bg-white/96 p-5 shadow-[0_28px_50px_-34px_rgba(15,23,42,0.22)] backdrop-blur">
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="min-w-0">
-                                <div className="text-[11px] font-semibold uppercase tracking-[0.24em]" style={{ color: store.accentColor }}>
-                                  Em destaque
-                                </div>
-                                <div className="mt-2 line-clamp-2 text-xl font-semibold leading-tight text-slate-950">
-                                  {activeSlide.title}
-                                </div>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Preco</div>
-                                <div className="mt-2 text-lg font-semibold text-slate-950">
-                                  {formatStoreCurrency(activeSlide.price, activeSlide.currencyId)}
-                                </div>
-                              </div>
+                      </div>
+                      <div className="rounded-[14px] px-1 py-1">
+                        <div className="mb-4 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2">
+                            {slides.map((item, index) => (
+                              <button
+                                key={`${item.id}-slide-${index}`}
+                                type="button"
+                                onClick={(event) => {
+                                  event.preventDefault()
+                                  event.stopPropagation()
+                                  setActiveIndex(index)
+                                  setActiveSlideImageState({ slideId: null, index: 0 })
+                                }}
+                                className="h-2.5 rounded-full transition-all"
+                                style={{
+                                  width: index === activeIndex ? 28 : 10,
+                                  backgroundColor: index === activeIndex ? palette.accentDark : '#cbd5e1',
+                                }}
+                                aria-label={`Ver destaque ${index + 1}`}
+                              />
+                            ))}
+                          </div>
+                          {slides.length > 1 ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={goToPreviousSlide}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] bg-white text-slate-900 shadow-[0_8px_18px_-12px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5"
+                                aria-label="Destaque anterior"
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={goToNextSlide}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] bg-white text-slate-900 shadow-[0_8px_18px_-12px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5"
+                                aria-label="Proximo destaque"
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </button>
                             </div>
-                            <div className="mt-4 flex items-center justify-between gap-4">
-                              <div className="flex items-center gap-2">
-                                {activeSlideImages.length > 1
-                                  ? activeSlideImages.map((image, index) => (
-                                      <span
-                                        key={`${image}-${index}`}
-                                        className={`h-2.5 rounded-full transition-all ${
-                                          index === activeSlideImageIndex ? 'w-7 bg-blue-600' : 'w-2.5 bg-slate-300'
-                                        }`}
-                                      />
-                                    ))
-                                  : slides.map((item, index) => (
-                                      <span
-                                        key={`${item.id}-${index}`}
-                                        className={`h-2.5 rounded-full transition-all ${
-                                          index === activeIndex ? 'w-7 bg-blue-600' : 'w-2.5 bg-slate-300'
-                                        }`}
-                                      />
-                                    ))}
-                              </div>
-                              <span className="inline-flex items-center gap-1 rounded-xl bg-slate-950 px-3 py-1.5 text-xs font-semibold text-white">
-                                Ver produto
-                                <ChevronRight className="h-3.5 w-3.5" />
-                              </span>
+                          ) : null}
+                        </div>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="min-w-0">
+                            <div className="text-[11px] font-semibold uppercase tracking-[0.24em]" style={{ color: palette.accentDark }}>
+                              Em destaque
+                            </div>
+                            <div className="mt-2 line-clamp-2 text-xl font-semibold leading-tight text-slate-950">
+                              {activeSlide.title}
                             </div>
                           </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Preco</div>
+                            <div className="mt-2 text-lg font-semibold text-slate-950">
+                              {formatStoreCurrency(activeSlide.price, activeSlide.currencyId)}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2">
+                            {activeSlideImages.length > 1
+                              ? activeSlideImages.map((image, index) => (
+                                  <span
+                                    key={`${image}-${index}`}
+                                    className="h-2.5 rounded-full transition-all"
+                                    style={{
+                                      width: index === activeSlideImageIndex ? 28 : 10,
+                                      backgroundColor: index === activeSlideImageIndex ? palette.accentDark : '#cbd5e1',
+                                    }}
+                                  />
+                                ))
+                              : null}
+                          </div>
+                          <span className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold text-white" style={{ backgroundColor: palette.accentDark }}>
+                            Ver produto
+                            <ChevronRight className="h-3.5 w-3.5" />
+                          </span>
                         </div>
                       </div>
                     </Link>
@@ -360,68 +463,69 @@ export function MercadoLivreStorefront({
             <div className="flex flex-col gap-6">
               <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
                 <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#155eef]">{productsEyebrow}</div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accentDark }}>{productsEyebrow}</div>
                   <h2 className="mt-2 text-3xl font-semibold text-slate-950">{productsHeading}</h2>
                 </div>
 
-                <form action={`/loja/${store.slug}`} method="get" className="flex w-full max-w-3xl flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-2 shadow-[0_18px_36px_-32px_rgba(15,23,42,0.18)] md:flex-row md:items-center">
+                <form onSubmit={handleSearchSubmit} className="flex w-full max-w-3xl flex-col gap-3 rounded-2xl p-2 shadow-[0_18px_36px_-32px_rgba(15,23,42,0.12)] md:flex-row md:items-center">
                   <div className="flex min-w-0 flex-1 items-center gap-3 px-3">
                     <Search className="h-4 w-4 text-slate-400" />
                     <input
-                      name="q"
-                      defaultValue={query}
+                      value={searchTerm}
+                      onChange={(event) => setSearchTerm(event.target.value)}
                       placeholder="Buscar produto na loja"
                       className="h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
                     />
                   </div>
-                  <select
-                    name="sort"
-                    defaultValue={sort}
-                    className="h-11 rounded-xl border border-slate-200 bg-[#faf7f0] px-4 text-sm text-slate-900 outline-none"
-                  >
-                    <option value="recent">Mais recentes</option>
-                    <option value="price_asc">Menor preco</option>
-                    <option value="price_desc">Maior preco</option>
-                    <option value="title">Nome</option>
-                  </select>
-                  {categoryId ? <input type="hidden" name="cat" value={categoryId} /> : null}
+                  {categoryOptions.length > 1 ? (
+                    <div className="min-w-[220px]">
+                      <AppSelect
+                        options={categoryOptions}
+                        value={categoryId}
+                        onChangeValue={(value) => navigateStore(searchTerm, value || '', sortValue, 1)}
+                        placeholder="Categoria"
+                        minHeight={44}
+                        tone="light"
+                        accentColor={palette.accent}
+                      />
+                    </div>
+                  ) : null}
+                  <div className="min-w-[220px]">
+                    <AppSelect
+                      options={sortOptions}
+                      value={sortValue}
+                      onChangeValue={(value) => {
+                        const nextValue = value || 'recent'
+                        setSortValue(nextValue)
+                        navigateStore(searchTerm, categoryId, nextValue, 1)
+                      }}
+                      placeholder="Ordenar"
+                      minHeight={44}
+                      tone="light"
+                      accentColor={palette.accent}
+                    />
+                  </div>
                   <button
                     type="submit"
-                    className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(21,94,239,0.3)]"
-                    style={{ backgroundColor: store.accentColor }}
+                    className="inline-flex h-11 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(15,23,42,0.24)]"
+                    style={{ backgroundColor: palette.accentDark }}
                   >
+                    <Search className="mr-2 h-4 w-4" />
                     Buscar
                   </button>
                 </form>
               </div>
 
-              {categories.length ? (
-                <div className="flex flex-wrap gap-3">
-                  <Link
-                    href={buildStoreUrl(store.slug, query, 1, '', sort)}
-                    className={`rounded-xl border px-4 py-2 text-sm font-medium ${
-                      !categoryId ? 'border-slate-900 bg-slate-900 text-white' : 'border-black/10 bg-white text-slate-700'
-                    }`}
-                  >
-                    Todas
-                  </Link>
-                  {categories.map((category) => (
-                    <Link
-                      key={category.id}
-                      href={buildStoreUrl(store.slug, query, 1, category.id, sort)}
-                      className={`rounded-xl border px-4 py-2 text-sm font-medium ${
-                        categoryId === category.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-black/10 bg-white text-slate-700'
-                      }`}
-                    >
-                      {category.label}
-                    </Link>
-                  ))}
+              {categoryId && categoryLabel ? (
+                <div className="inline-flex w-fit items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm text-slate-700 shadow-[0_10px_20px_-16px_rgba(15,23,42,0.2)]">
+                  <Tag className="h-4 w-4" style={{ color: palette.accentDark }} />
+                  {categoryLabel}
                 </div>
               ) : null}
             </div>
 
             {products.length ? (
-              <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+              <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                 {products.map((product) => (
                   <StoreProductCard
                     key={product.id}
@@ -445,21 +549,25 @@ export function MercadoLivreStorefront({
               <div className="text-sm text-slate-500">Pagina {page}</div>
               <div className="flex w-full gap-3 sm:w-auto">
                 {page > 1 ? (
-                  <Link
-                    href={buildStoreUrl(store.slug, query, page - 1, categoryId, sort)}
-                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl border border-black/10 bg-white px-5 text-sm font-semibold text-slate-900 shadow-[0_14px_30px_-28px_rgba(15,23,42,0.18)] sm:flex-none"
+                  <button
+                    type="button"
+                    onClick={() => navigateStore(searchTerm, categoryId, sortValue, page - 1)}
+                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-slate-900 shadow-[0_14px_30px_-28px_rgba(15,23,42,0.18)] sm:flex-none"
                   >
+                    <ChevronLeft className="mr-2 h-4 w-4" />
                     Anterior
-                  </Link>
+                  </button>
                 ) : null}
                 {hasMore ? (
-                  <Link
-                    href={buildStoreUrl(store.slug, query, page + 1, categoryId, sort)}
-                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(21,94,239,0.3)] sm:flex-none"
-                    style={{ backgroundColor: store.accentColor }}
+                  <button
+                    type="button"
+                    onClick={() => navigateStore(searchTerm, categoryId, sortValue, page + 1)}
+                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(15,23,42,0.24)] sm:flex-none"
+                    style={{ backgroundColor: palette.accentDark }}
                   >
                     Proxima
-                  </Link>
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </button>
                 ) : null}
               </div>
             </div>
@@ -467,11 +575,11 @@ export function MercadoLivreStorefront({
 
           <section id="sobre" className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[24px] border border-slate-200 bg-white p-8 shadow-[0_20px_46px_-38px_rgba(15,23,42,0.16)]">
+              <div className="rounded-[24px] bg-white p-8 shadow-[0_20px_46px_-38px_rgba(15,23,42,0.16)]">
                 <div className="text-xs uppercase tracking-[0.22em] text-slate-500">Sobre nos</div>
                 <div className="mt-4 text-lg leading-8 text-slate-700">{store.about}</div>
               </div>
-              <div id="contato" className="rounded-[24px] border border-slate-200 bg-white p-8 shadow-[0_20px_46px_-38px_rgba(15,23,42,0.16)]">
+              <div id="contato" className="rounded-[24px] bg-white p-8 shadow-[0_20px_46px_-38px_rgba(15,23,42,0.16)]">
                 <div className="text-xs uppercase tracking-[0.22em] text-slate-500">Contato</div>
                 <div className="mt-4 grid gap-4 text-sm text-slate-700">
                   {store.contactEmail ? <div className="inline-flex items-center gap-3"><AtSign className="h-4 w-4 text-slate-500" />{store.contactEmail}</div> : null}
@@ -496,7 +604,7 @@ export function MercadoLivreStorefront({
           </section>
         </main>
 
-        <footer className="mt-16 border-t border-black/5 bg-white">
+        <footer className="mt-16" style={{ backgroundColor: palette.accentSoft }}>
           <div className="mx-auto grid max-w-7xl gap-8 px-4 py-10 sm:px-6 lg:grid-cols-[1fr_auto] lg:px-8">
             <div>
               <div className="text-lg font-semibold text-slate-950">{store.name}</div>
@@ -505,10 +613,10 @@ export function MercadoLivreStorefront({
                 href="https://www.infrastudio.pro"
                 target="_blank"
                 rel="noreferrer"
-                className="mt-6 inline-flex items-center transition hover:opacity-100"
+                className="mt-6 inline-flex flex-col items-start transition hover:opacity-100"
               >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/infra.png" alt="InfraStudio" loading="lazy" decoding="async" className="h-7 w-auto opacity-80" />
+                <span className="text-base font-semibold tracking-[-0.02em] text-slate-950">InfraStudio</span>
+                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Sistema e automacao com IA</span>
               </a>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -517,8 +625,13 @@ export function MercadoLivreStorefront({
                   key={`${item.label}-${item.href}-footer`}
                   href={item.href}
                   onClick={(event) => handleAnchorNavigation(event, item.href)}
-                  className="text-sm text-slate-500 transition hover:text-slate-950"
+                  className="inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-950"
                 >
+                  {(() => {
+                    const sectionId = item.href.replace('#', '')
+                    const Icon = menuIconMap[sectionId] || Globe
+                    return <Icon className="h-4 w-4" />
+                  })()}
                   {item.label}
                 </a>
               ))}
