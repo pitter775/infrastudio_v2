@@ -22,7 +22,7 @@ export const metadata = {
       'Automacao com IA, WhatsApp inteligente e sistemas sob medida para vender mais sem aumentar a operacao manual.',
     images: [
       {
-        url: '/compartilhar_novo.png',
+        url: '/compartilhar.png',
         width: 1200,
         height: 630,
         alt: 'InfraStudio - imagem de compartilhamento',
@@ -34,7 +34,7 @@ export const metadata = {
     title: 'InfraStudio',
     description:
       'Automacao com IA, WhatsApp inteligente e sistemas sob medida para vender mais sem aumentar a operacao manual.',
-    images: ['/compartilhar_novo.png'],
+    images: ['/compartilhar.png'],
   },
 }
 
