@@ -156,8 +156,8 @@ function buildMercadoLivreSearchReply(products, searchTerm, connector, paging) {
   const hasMore = paging?.hasMore === true
 
   return hasMore
-    ? `Encontrei ${countLabel}${storeSuffix}. Se quiser, posso trazer mais opcoes depois.`
-    : `Encontrei ${countLabel}${storeSuffix}. Me diga qual voce quer ver com mais detalhes.`
+    ? `Encontrei ${countLabel}${storeSuffix}. Vou te mostrar as principais opcoes agora e posso trazer mais depois.`
+    : `Encontrei ${countLabel}${storeSuffix}. Vou te mostrar as opcoes disponiveis agora.`
 }
 
 function normalizeMessage(value) {

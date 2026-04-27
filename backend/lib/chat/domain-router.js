@@ -66,6 +66,39 @@ function hasBillingSignal(message) {
   )
 }
 
+function hasRecentCatalogPrompt(history = []) {
+  return [...(history ?? [])]
+    .reverse()
+    .slice(0, 4)
+    .some((item) => {
+      if (item?.role !== "assistant") {
+        return false
+      }
+
+      const normalized = normalizeText(item.content ?? item.conteudo ?? "")
+      return /\b(produto|produtos|item|itens|loja|catalogo|catalogo|reliquia|reliquias|procurando|procura|buscando|busca|quer ver|mostrar)\b/.test(
+        normalized
+      )
+    })
+}
+
+function isLikelyCatalogAnswerAfterPrompt(message, history = []) {
+  const normalized = normalizeText(message).trim()
+  if (!normalized || normalized.length < 3) {
+    return false
+  }
+
+  if (hasBillingSignal(normalized) || hasAgendaSignal(normalized) || hasHandoffSignal(normalized)) {
+    return false
+  }
+
+  if (/^(oi|ola|ok|obrigado|obrigada|sim|nao|bom dia|boa tarde|boa noite)$/.test(normalized)) {
+    return false
+  }
+
+  return hasRecentCatalogPrompt(history)
+}
+
 function hasAgendaSignal(message) {
   return /\b(agenda|agendar|marcar|horario|reserva|reservar|reuniao|visita|disponibilidade)\b/i.test(String(message || ""))
 }
@@ -162,7 +195,7 @@ export function resolveChatDomainRoute(input = {}) {
     }
   }
 
-  if (capabilities.mercadoLivre && hasCatalogSignal(message)) {
+  if (capabilities.mercadoLivre && (hasCatalogSignal(message) || isLikelyCatalogAnswerAfterPrompt(message, input.history))) {
     return {
       domain: "catalog",
       source: "mercado_livre",

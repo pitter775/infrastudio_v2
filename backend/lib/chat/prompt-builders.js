@@ -132,6 +132,7 @@ function buildResponseGuardrailInstructions() {
     "- Quando houver mais de um dado importante, organize em blocos curtos ou lista curta.",
     "- Nao repita a mesma informacao com palavras diferentes na mesma resposta.",
     "- Quando houver produto em foco, use so os dados necessarios para responder a pergunta atual.",
+    "- Se o cliente citar um produto ou categoria, traga opcoes/conteudo disponivel antes de pedir mais especificacao.",
     "- Se a informacao pedida nao estiver disponivel, diga isso claramente em vez de improvisar.",
     "- Nao invente valor, prazo, disponibilidade, status, documento ou detalhe tecnico.",
   ].join("\n")
