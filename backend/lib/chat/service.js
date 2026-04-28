@@ -118,6 +118,38 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+function hasLockedProductDetailContext(context) {
+  return Boolean(
+    isPlainObject(context?.catalogo?.produtoAtual) &&
+      typeof context.catalogo.produtoAtual.nome === "string" &&
+      context.catalogo.produtoAtual.nome.trim() &&
+      (String(context?.conversation?.mode || "").trim().toLowerCase() === "product_detail" ||
+        context?.ui?.productDetailPreferred === true ||
+        context?.storefront?.pageKind === "product_detail")
+  )
+}
+
+function isExplicitProductDetailExitMessage(message) {
+  const normalized = String(message || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  if (!normalized) {
+    return false
+  }
+
+  return (
+    /\b(outro|outra|outros|outras|parecido|parecidos|similares|opcoes|modelos)\b/.test(normalized) ||
+    /\b(me mostra|mostra|mande|manda|envia|traz|buscar|busca|procuro|quero ver)\b[\s\S]{0,30}\b(outro|outra|outros|outras|mais|opcoes|modelos|parecidos)\b/.test(
+      normalized
+    )
+  )
+}
+
 export function mergeContext(base, ...extras) {
   return extras.filter(Boolean).reduce(
     (accumulator, extra) => ({
@@ -319,13 +351,15 @@ export function buildNextContext(input) {
     }
   }
 
-  if (isCatalogSearchMessage(input.message)) {
+  const lockedProductDetailContext = hasLockedProductDetailContext(mergedCurrentContext)
+  if (isCatalogSearchMessage(input.message) && (!lockedProductDetailContext || isExplicitProductDetailExitMessage(input.message))) {
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimaBusca: input.message.trim(),
       produtoAtual: null,
       ultimosProdutos: [],
       focusMode: "listing",
+      catalogState: "storefront_listing",
       paginationOffset: 0,
       paginationNextOffset: 0,
       paginationPoolLimit: 24,
@@ -383,6 +417,7 @@ export function updateContextFromAiResult(input) {
     catalogo: isPlainObject(input.nextContext?.catalogo) ? { ...input.nextContext.catalogo } : {},
     agenda: isPlainObject(input.nextContext?.agenda) ? { ...input.nextContext.agenda } : {},
   }
+  const lockedProductDetailContext = hasLockedProductDetailContext(nextContext)
 
   const metadataFocus = isPlainObject(input.ai?.metadata?.focus) ? input.ai.metadata.focus : null
   if (metadataFocus?.domain) {
@@ -403,12 +438,13 @@ export function updateContextFromAiResult(input) {
     ? extractPromisedCatalogSearchTerm(input.ai.reply)
     : ""
 
-  if (promisedCatalogSearchTerm) {
+  if (promisedCatalogSearchTerm && !lockedProductDetailContext) {
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimaBusca: promisedCatalogSearchTerm,
       produtoAtual: null,
       focusMode: "listing",
+      catalogState: "storefront_listing",
       paginationOffset: 0,
       paginationNextOffset: 0,
       paginationPoolLimit: 24,
@@ -437,6 +473,7 @@ export function updateContextFromAiResult(input) {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimosProdutos: recentMercadoLivreProducts,
       focusMode: recentMercadoLivreProducts.length === 1 ? "product_focus" : "listing",
+      catalogState: recentMercadoLivreProducts.length === 1 ? "product_focus" : "storefront_listing",
       snapshotId: `${input.chatId}:${snapshotTurnId}:${snapshotCreatedAt}`,
       snapshotCreatedAt,
       snapshotTurnId,
@@ -453,6 +490,9 @@ export function updateContextFromAiResult(input) {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       produtoAtual: metadataCatalogProduct,
       focusMode: "product_focus",
+      selectedItemId: typeof metadataCatalogProduct.id === "string" ? metadataCatalogProduct.id : nextContext.catalogo?.selectedItemId ?? null,
+      catalogState:
+        String(nextContext?.conversation?.mode || "").trim().toLowerCase() === "product_detail" ? "product_locked" : "product_focus",
     }
     const currentMode = String(nextContext?.conversation?.mode || "").trim().toLowerCase()
     nextContext.conversation = {
@@ -466,6 +506,12 @@ export function updateContextFromAiResult(input) {
     isPlainObject(input.ai.metadata) && isPlainObject(input.ai.metadata.catalogoBusca) ? input.ai.metadata.catalogoBusca : null
 
   if (metadataCatalogSearch) {
+    const shouldKeepLockedProduct =
+      hasLockedProductDetailContext(nextContext) &&
+      !isPlainObject(metadataCatalogSearch.produtoAtual) &&
+      Array.isArray(metadataCatalogSearch.ultimosProdutos) &&
+      metadataCatalogSearch.ultimosProdutos.length > 1
+
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimaBusca:
@@ -479,7 +525,16 @@ export function updateContextFromAiResult(input) {
         Number(metadataCatalogSearch.paginationPoolLimit ?? nextContext.catalogo?.paginationPoolLimit ?? 24) || 24,
       paginationHasMore: metadataCatalogSearch.paginationHasMore === true,
       paginationTotal: Number(metadataCatalogSearch.paginationTotal ?? nextContext.catalogo?.paginationTotal ?? 0) || 0,
-      focusMode: isPlainObject(metadataCatalogSearch.produtoAtual) ? "product_focus" : "listing",
+      focusMode: shouldKeepLockedProduct
+        ? nextContext.catalogo?.focusMode ?? "product_focus"
+        : isPlainObject(metadataCatalogSearch.produtoAtual)
+        ? "product_focus"
+        : "listing",
+      catalogState: shouldKeepLockedProduct
+        ? "product_locked"
+        : isPlainObject(metadataCatalogSearch.produtoAtual)
+        ? "product_focus"
+        : "storefront_listing",
     }
 
     if (Array.isArray(metadataCatalogSearch.ultimosProdutos)) {
@@ -487,7 +542,7 @@ export function updateContextFromAiResult(input) {
         (product) => isPlainObject(product) && typeof product.nome === "string" && product.nome.trim()
       )
 
-      if (nextContext.catalogo.ultimosProdutos.length > 1) {
+      if (nextContext.catalogo.ultimosProdutos.length > 1 && !shouldKeepLockedProduct) {
         nextContext.catalogo.focusMode = "listing"
         nextContext.conversation = {
           ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
@@ -504,6 +559,16 @@ export function updateContextFromAiResult(input) {
 
   if (isPlainObject(nextContext.catalogo?.produtoAtual) && !String(nextContext.catalogo?.focusMode || "").trim()) {
     nextContext.catalogo.focusMode = "product_focus"
+  }
+
+  if (hasLockedProductDetailContext(nextContext)) {
+    nextContext.catalogo.focusMode = "product_focus"
+    nextContext.catalogo.catalogState = "product_locked"
+    nextContext.conversation = {
+      ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
+      mode: "product_detail",
+      updatedAt: new Date().toISOString(),
+    }
   }
 
   const agendaReservation = input.ai?.metadata?.agendaReserva

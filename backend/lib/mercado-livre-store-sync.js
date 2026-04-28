@@ -50,6 +50,47 @@ function buildSnapshotRow(projectId, item) {
   }
 }
 
+function shouldFallbackToReplaceSync(error) {
+  const code = String(error?.code || "").trim()
+  const message = String(error?.message || "").trim().toLowerCase()
+
+  return (
+    code === "42P10" ||
+    message.includes("there is no unique or exclusion constraint matching the on conflict specification") ||
+    message.includes("no unique or exclusion constraint matching the on conflict specification")
+  )
+}
+
+async function replaceSnapshotRowsForProject(supabase, projectId, rows) {
+  const deleteResult = await supabase.from("mercadolivre_produtos_snapshot").delete().eq("projeto_id", projectId)
+
+  if (deleteResult.error) {
+    console.error("[mercado-livre-store-sync] failed to clear snapshot rows before replace sync", deleteResult.error)
+    return {
+      ok: false,
+      error: "Nao foi possivel limpar os produtos antigos da loja.",
+    }
+  }
+
+  for (let index = 0; index < rows.length; index += 100) {
+    const batch = rows.slice(index, index + 100)
+    const insertResult = await supabase.from("mercadolivre_produtos_snapshot").insert(batch)
+
+    if (insertResult.error) {
+      console.error("[mercado-livre-store-sync] failed to insert snapshot rows in replace sync", insertResult.error)
+      return {
+        ok: false,
+        error: "Nao foi possivel gravar os produtos atualizados da loja.",
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    error: null,
+  }
+}
+
 export async function getMercadoLivreSnapshotStatus(projectId, deps = {}) {
   if (!projectId) {
     return {
@@ -145,11 +186,22 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
       .upsert(rows, { onConflict: "projeto_id,ml_item_id" })
 
     if (error) {
-      console.error("[mercado-livre-store-sync] failed to upsert snapshot rows", error)
-      return {
-        synced: 0,
-        paging: lastPaging,
-        error: "Nao foi possivel atualizar o snapshot da loja.",
+      if (shouldFallbackToReplaceSync(error)) {
+        const replaceResult = await replaceSnapshotRowsForProject(supabase, project.id, rows)
+        if (!replaceResult.ok) {
+          return {
+            synced: 0,
+            paging: lastPaging,
+            error: replaceResult.error,
+          }
+        }
+      } else {
+        console.error("[mercado-livre-store-sync] failed to upsert snapshot rows", error)
+        return {
+          synced: 0,
+          paging: lastPaging,
+          error: "Nao foi possivel atualizar o snapshot da loja.",
+        }
       }
     }
   }

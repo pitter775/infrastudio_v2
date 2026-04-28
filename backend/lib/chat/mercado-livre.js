@@ -474,6 +474,19 @@ function isExplicitProductContextExitIntent(message) {
   )
 }
 
+function isImplicitCurrentProductReference(message) {
+  const normalized = normalizeMessage(message)
+  if (!normalized) {
+    return false
+  }
+
+  return (
+    isMercadoLivreDetailIntent(message) ||
+    isMercadoLivrePurchaseIntent(message) ||
+    /\b(esse|essa|desse|dessa|este|esta|dele|dela|aqui|item|produto)\b/.test(normalized)
+  )
+}
+
 function shouldStayOnCurrentProduct(message, context, currentProduct) {
   if (!currentProduct?.nome || !hasStrongProductDetailContext(context)) {
     return false
@@ -520,8 +533,18 @@ export function resolveMercadoLivreFlowState(input = {}) {
   const contextCatalog = input.context?.catalogo ?? {}
   const recentCatalogProducts = normalizeRecentCatalogProducts(input.context)
   const catalogComparisonIntent = detectCatalogComparisonIntent(input.latestUserMessage)
-  const candidateCurrentCatalogProduct = referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? null
-  const stayOnCurrentProduct = shouldStayOnCurrentProduct(input.latestUserMessage, input.context, candidateCurrentCatalogProduct)
+  const implicitSingleRecentProduct =
+    !referencedCatalogProducts?.length &&
+    !contextCatalog.produtoAtual &&
+    recentCatalogProducts.length === 1 &&
+    isImplicitCurrentProductReference(input.latestUserMessage)
+      ? recentCatalogProducts[0]
+      : null
+  const candidateCurrentCatalogProduct =
+    referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? implicitSingleRecentProduct ?? null
+  const stayOnCurrentProduct =
+    Boolean(implicitSingleRecentProduct) ||
+    shouldStayOnCurrentProduct(input.latestUserMessage, input.context, candidateCurrentCatalogProduct)
   const forceNewSearch = inferredRefinementDecision?.kind === "catalog_search_refinement" && !stayOnCurrentProduct
   const currentCatalogProduct = forceNewSearch ? null : candidateCurrentCatalogProduct
   const loadMoreCatalogRequested =

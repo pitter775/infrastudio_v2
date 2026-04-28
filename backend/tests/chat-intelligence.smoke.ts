@@ -946,6 +946,35 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "mercado livre promove unico item recente quando o usuario usa referencia deitica",
+    run: () => {
+      const flow = resolveMercadoLivreFlowState({
+        latestUserMessage: "gostei desse",
+        context: {
+          catalogo: {
+            ultimaBusca: "aparelho de jantar",
+            ultimosProdutos: [
+              {
+                id: "MLB-UNICO-1",
+                nome: "Aparelho De Jantar Oxford Ceramica",
+                descricao: "R$ 358,00 - 1 em estoque",
+                material: "Ceramica",
+              },
+            ],
+          },
+        },
+        detectProductSearch: () => false,
+        buildProductSearchCandidates: deps.buildProductSearchCandidates,
+        isMercadoLivreListingIntent: () => true,
+      });
+
+      assert.equal(flow.forceNewSearch, false);
+      assert.equal(flow.productSearchRequested, false);
+      assert.equal(flow.genericMercadoLivreListingRequested, false);
+      assert.equal(flow.currentCatalogProduct?.id, "MLB-UNICO-1");
+    },
+  },
+  {
     name: "mercado livre usa o modelo para detalhe de produto e preserva o asset do anuncio",
     run: async () => {
       const result = await executeSalesOrchestrator(
@@ -2266,6 +2295,46 @@ const tests: TestCase[] = [
       assert.equal(Array.isArray(nextContext.catalogo.ultimosProdutos), true)
       assert.equal(nextContext.conversation.mode, "listing")
       assert.equal(nextContext.widget.slug, "main")
+    },
+  },
+  {
+    name: "service preserva produto travado da pagina de detalhe sem derrubar foco por listagem posterior",
+    run: () => {
+      const updatedContext = updateContextFromAiResult({
+        nextContext: {
+          conversation: { mode: "product_detail" },
+          storefront: { pageKind: "product_detail" },
+          ui: { productDetailPreferred: true },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-LOCKED-1",
+              nome: "Aparelho De Jantar Oxford Ceramica",
+            },
+            focusMode: "product_focus",
+          },
+        },
+        ai: {
+          reply: "Encontrei algumas opcoes.",
+          assets: [],
+          metadata: {
+            catalogoBusca: {
+              ultimaBusca: "aparelho de jantar",
+              ultimosProdutos: [
+                { id: "MLB1", nome: "Opcao 1" },
+                { id: "MLB2", nome: "Opcao 2" },
+              ],
+            },
+          },
+        },
+        chatId: "chat-locked",
+        historyLengthSource: 3,
+      })
+
+      assert.equal(updatedContext.conversation.mode, "product_detail")
+      assert.equal(updatedContext.catalogo.catalogState, "product_locked")
+      assert.equal(updatedContext.catalogo.produtoAtual.id, "MLB-LOCKED-1")
+      assert.equal(updatedContext.catalogo.focusMode, "product_focus")
+      assert.equal(updatedContext.catalogo.ultimosProdutos.length, 2)
     },
   },
   {
