@@ -1880,10 +1880,11 @@ export async function processChatRequest(body, options = {}) {
     if (isMercadoLivreCatalogDebugContext(aiContext)) {
       await recordChatRuntimeEvent(runtimeState, {
         type: "catalog_debug_event",
-        origin: "chat_runtime",
+        origin: "laboratorio",
         level: "info",
         description: "Runtime recebeu contexto de catalogo Mercado Livre.",
         payload: {
+          keep: true,
           phase: "before_orchestrator",
           ...buildMercadoLivreCatalogDebugPayload(aiContext, runtimeState.prelude.message),
         },
@@ -1936,10 +1937,11 @@ export async function processChatRequest(body, options = {}) {
     if (isMercadoLivreCatalogDebugContext(aiContext)) {
       await recordChatRuntimeEvent(runtimeState, {
         type: "catalog_debug_event",
-        origin: "chat_runtime",
+        origin: "laboratorio",
         level: "info",
         description: "Runtime concluiu a decisao do catalogo Mercado Livre.",
         payload: {
+          keep: true,
           phase: "after_orchestrator",
           ...buildMercadoLivreCatalogDebugPayload(aiContext, runtimeState.prelude.message),
           provider: effectiveAiResult?.metadata?.provider ?? null,
