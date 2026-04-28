@@ -1,7 +1,7 @@
 import { buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReply } from "@/lib/chat/api-runtime"
 import {
-  decideCatalogFollowUpHeuristically,
   hasRecentCatalogSnapshot,
+  resolveDeterministicCatalogFollowUpDecision,
   resolveCatalogReferenceHeuristicReply,
 } from "@/lib/chat/catalog-follow-up"
 import { buildLeadNameAcknowledgementReply, enrichLeadContext, extractName, isLikelyLeadNameReply } from "@/lib/chat/lead-stage"
@@ -16,9 +16,17 @@ import {
 import { generateOpenAiSalesReply } from "@/lib/chat/openai-sales-reply"
 import { prefersStructuredReply } from "@/lib/chat/prompt-builders"
 import { resolveConversationPipelineStageState } from "@/lib/chat/pipeline-stage"
-import { buildCatalogDecisionFromSemanticIntent, classifySemanticIntentStage } from "@/lib/chat/semantic-intent-stage"
+import {
+  buildApiDecisionFromSemanticIntent,
+  buildBillingDecisionFromSemanticIntent,
+  buildCatalogDecisionFromSemanticIntent,
+  classifySemanticApiIntentStage,
+  classifySemanticBillingIntentStage,
+  classifySemanticIntentStage,
+} from "@/lib/chat/semantic-intent-stage"
 import {
   buildCatalogPricingReply,
+  buildPricingCatalogReplyFromIntent,
   buildProductSearchCandidates,
   isGreetingOrAckMessage,
   isOutOfScopeForCatalog,
@@ -36,6 +44,10 @@ function mapMessageRole(autor) {
 
 function hasFactualApiSignal(message) {
   return /\b(status|pedido|data|previsao|prazo|valor|estoque|codigo)\b/i.test(String(message || ""))
+}
+
+function isSemanticApiFactualDecision(decision) {
+  return ["api_fact_query", "api_status_query"].includes(decision?.kind)
 }
 
 function getAgentRuntimeConfig(context = {}) {
@@ -76,8 +88,114 @@ function buildHeuristicReplyResult(reply, metadata = {}) {
       catalogoProdutoAtual: metadata.catalogoProdutoAtual ?? null,
       catalogoBusca: metadata.catalogoBusca ?? null,
       semanticIntent: metadata.semanticIntent ?? null,
+      routingDecision: metadata.routingDecision ?? null,
+      focus: metadata.focus ?? null,
     },
   }
+}
+
+function buildBillingRoutingOverride(baseDecision, latestUserMessage, semanticBillingDecision) {
+  if (!semanticBillingDecision) {
+    return baseDecision
+  }
+
+  if (["handoff", "agenda", "api_runtime", "catalog"].includes(baseDecision?.domain)) {
+    return baseDecision
+  }
+
+  return {
+    ...(baseDecision ?? {}),
+    domain: "billing",
+    source: "agent",
+    confidence: semanticBillingDecision.confidence ?? 0.9,
+    reason: semanticBillingDecision.reason || "billing_semantic_intent",
+    shouldUseTool: false,
+    focus: {
+      domain: "billing",
+      source: "agent",
+      subject: latestUserMessage,
+      confidence: semanticBillingDecision.confidence ?? 0.9,
+    },
+  }
+}
+
+function buildApiRoutingOverride(baseDecision, latestUserMessage, semanticApiDecision) {
+  if (!semanticApiDecision) {
+    return baseDecision
+  }
+
+  if (["handoff", "agenda", "catalog", "billing"].includes(baseDecision?.domain)) {
+    return baseDecision
+  }
+
+  return {
+    ...(baseDecision ?? {}),
+    domain: "api_runtime",
+    source: "api",
+    confidence: semanticApiDecision.confidence ?? 0.9,
+    reason: semanticApiDecision.reason || "api_runtime_semantic_intent",
+    shouldUseTool: true,
+    focus: {
+      domain: "api_runtime",
+      source: "api",
+      subject: latestUserMessage,
+      confidence: semanticApiDecision.confidence ?? 0.9,
+    },
+  }
+}
+
+function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCatalogDecision, context = {}) {
+  if (!semanticCatalogDecision) {
+    return baseDecision
+  }
+
+  if (["handoff", "agenda", "api_runtime", "billing"].includes(baseDecision?.domain)) {
+    return baseDecision
+  }
+
+  const hasMercadoLivreCapability =
+    Number(baseDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0
+  if (!hasMercadoLivreCapability) {
+    return baseDecision
+  }
+
+  return {
+    ...(baseDecision ?? {}),
+    domain: "catalog",
+    source: "mercado_livre",
+    confidence: semanticCatalogDecision.confidence ?? 0.9,
+    reason: semanticCatalogDecision.reason || "catalog_semantic_intent",
+    shouldUseTool: true,
+    focus: {
+      domain: "catalog",
+      source: "mercado_livre",
+      subject: context?.catalogo?.produtoAtual?.nome || latestUserMessage,
+      confidence: semanticCatalogDecision.confidence ?? 0.9,
+    },
+  }
+}
+
+function mergeCatalogSemanticAndHeuristicDecision(semanticDecision, heuristicDecision) {
+  if (semanticDecision?.kind === "catalog_search" && heuristicDecision?.kind === "catalog_search_refinement") {
+    return semanticDecision
+  }
+
+  if (heuristicDecision?.kind === "catalog_search_refinement" && semanticDecision?.kind !== "catalog_search_refinement") {
+    return heuristicDecision
+  }
+
+  if (!semanticDecision) {
+    return heuristicDecision ?? null
+  }
+
+  if (
+    semanticDecision.kind === "recent_product_reference_unresolved" &&
+    ["catalog_search_refinement", "catalog_search", "recent_product_reference"].includes(heuristicDecision?.kind)
+  ) {
+    return heuristicDecision
+  }
+
+  return semanticDecision
 }
 
 export function buildConversationHistory(conversation, texto) {
@@ -106,7 +224,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const runtimeConfig = getAgentRuntimeConfig(context)
   const structuredResponse = prefersStructuredReply(context)
   const focusedApiContext = buildFocusedApiContext(latestUserMessage, runtimeApis)
-  const routingDecision = resolveChatDomainRoute({
+  const baseRoutingDecision = resolveChatDomainRoute({
     latestUserMessage,
     history,
     context,
@@ -115,29 +233,67 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     focusedApiContext,
     runtimeConfig,
   })
-  const shouldUseApiRuntime = routingDecision.domain === "api_runtime" && routingDecision.shouldUseTool === true
-  const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
-  const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
-  const semanticIntent =
-    shouldUseMercadoLivre && context?.catalogo?.produtoAtual
-      ? await (options.classifySemanticIntentStage ?? classifySemanticIntentStage)({
+  const semanticApiIntent =
+    runtimeApis.length
+      ? await (options.classifySemanticApiIntentStage ?? classifySemanticApiIntentStage)({
           latestUserMessage,
-          currentCatalogProduct: context?.catalogo?.produtoAtual,
+          runtimeApis,
           context,
           openAiKey,
           model,
         })
       : null
-  const semanticCatalogDecision = buildCatalogDecisionFromSemanticIntent({ semanticIntent })
-  const catalogFollowUpDecision =
+  const semanticApiDecision = buildApiDecisionFromSemanticIntent({ semanticIntent: semanticApiIntent })
+  const shouldUseBaseApiRuntime = baseRoutingDecision.domain === "api_runtime" && baseRoutingDecision.shouldUseTool === true
+  const shouldUseBaseMercadoLivre =
+    baseRoutingDecision.domain === "catalog" && baseRoutingDecision.source === "mercado_livre" && baseRoutingDecision.shouldUseTool === true
+  const shouldEvaluateSemanticCatalog =
+    (shouldUseBaseMercadoLivre || Number(baseRoutingDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0) &&
+    (context?.catalogo?.produtoAtual || hasRecentCatalogSnapshot(context))
+  const semanticCatalogIntent =
+    shouldEvaluateSemanticCatalog
+      ? await (options.classifySemanticIntentStage ?? classifySemanticIntentStage)({
+          latestUserMessage,
+          currentCatalogProduct: context?.catalogo?.produtoAtual,
+          recentProducts: context?.catalogo?.ultimosProdutos,
+          context,
+          openAiKey,
+          model,
+        })
+      : null
+  const semanticCatalogDecision = buildCatalogDecisionFromSemanticIntent({
+    semanticIntent: semanticCatalogIntent,
+    recentProducts: context?.catalogo?.ultimosProdutos,
+  })
+  const semanticBillingIntent =
+    runtimeConfig?.pricingCatalog?.enabled &&
+    Array.isArray(runtimeConfig?.pricingCatalog?.items) &&
+    runtimeConfig.pricingCatalog.items.length > 0 &&
+    !shouldUseBaseMercadoLivre
+      ? await (options.classifySemanticBillingIntentStage ?? classifySemanticBillingIntentStage)({
+          latestUserMessage,
+          pricingItems: runtimeConfig.pricingCatalog.items,
+          context,
+          openAiKey,
+          model,
+        })
+      : null
+  const semanticBillingDecision = buildBillingDecisionFromSemanticIntent({ semanticIntent: semanticBillingIntent })
+  const apiRoutingDecision = buildApiRoutingOverride(baseRoutingDecision, latestUserMessage, semanticApiDecision)
+  const billingRoutingDecision = buildBillingRoutingOverride(apiRoutingDecision, latestUserMessage, semanticBillingDecision)
+  const routingDecision = buildCatalogRoutingOverride(billingRoutingDecision, latestUserMessage, semanticCatalogDecision, context)
+  const shouldUseApiRuntime = routingDecision.domain === "api_runtime" && routingDecision.shouldUseTool === true
+  const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
+  const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
+  const heuristicCatalogFollowUpDecision =
     (shouldUseMercadoLivre || hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual) &&
     (hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual)
-      ? semanticCatalogDecision ??
-        decideCatalogFollowUpHeuristically(latestUserMessage, context, {
+      ? resolveDeterministicCatalogFollowUpDecision(latestUserMessage, context, {
           buildProductSearchCandidates,
           shouldSearchProducts,
         })
       : null
+  const catalogFollowUpDecision = mergeCatalogSemanticAndHeuristicDecision(semanticCatalogDecision, heuristicCatalogFollowUpDecision)
   const catalogReferenceReply = resolveCatalogReferenceHeuristicReply(catalogFollowUpDecision)
   const mercadoLivreFlowState = resolveMercadoLivreFlowState({
     latestUserMessage,
@@ -185,7 +341,12 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     (Array.isArray(apiCatalogSearchState?.ultimosProdutos) && apiCatalogSearchState.ultimosProdutos.length === 1
       ? apiCatalogSearchState.ultimosProdutos[0]
       : null)
-  const apiCatalogReply = shouldUseApiRuntime ? resolveApiCatalogReply(latestUserMessage, context, runtimeApis) : null
+  const apiCatalogReply =
+    shouldUseApiRuntime
+      ? resolveApiCatalogReply(latestUserMessage, context, runtimeApis, {
+          semanticApiDecision,
+        })
+      : null
   const mercadoLivreAssets = Array.isArray(mercadoLivreState?.mercadoLivreAssets) ? mercadoLivreState.mercadoLivreAssets : []
   const mercadoLivreCatalogSearchState =
     mercadoLivreState?.catalogSearchState && typeof mercadoLivreState.catalogSearchState === "object"
@@ -221,12 +382,10 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       mercadoLivreFlowState.genericMercadoLivreListingRequested ||
       mercadoLivreFlowState.loadMoreCatalogRequested)
   const catalogPricingReply = runtimeConfig?.pricingCatalog?.enabled
-    ? buildCatalogPricingReply(history, context, {
-        normalizeText,
+    ? buildPricingCatalogReplyFromIntent(runtimeConfig, context, semanticBillingDecision, {
         prefersStructuredReply,
-        runtimeConfig,
       })
-    : buildCatalogPricingReply(shouldUseMercadoLivre ? currentCatalogProduct : null)
+    : null
   const shouldDeferLeadCapture =
     Boolean(runtimeConfig?.leadCapture?.deferOnQuestions) &&
     (isCommercialCapabilityMessage(latestUserMessage) || /\?/.test(String(latestUserMessage || "")))
@@ -262,7 +421,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     catalogoProdutoAtual: (shouldUseMercadoLivre || shouldUseApiRuntime) ? currentCatalogProduct ?? null : null,
     routingDecision,
     focus: routingDecision.focus ?? null,
-    semanticIntent,
+    semanticIntent: semanticBillingIntent ?? semanticCatalogIntent ?? semanticApiIntent,
   }
 
   if (!context?.agente?.id || !agentName || !agentPromptBase) {
@@ -276,8 +435,13 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
-  if (hasFocusedApiContext && hasFactualApiSignal(latestUserMessage)) {
-    const apiReply = apiCatalogReply ?? buildApiFallbackReply(latestUserMessage, runtimeApis)
+  if (shouldUseApiRuntime && (isSemanticApiFactualDecision(semanticApiDecision) || (hasFocusedApiContext && hasFactualApiSignal(latestUserMessage)))) {
+    const apiReply =
+      apiCatalogReply ??
+      buildApiFallbackReply(latestUserMessage, runtimeApis, {
+        targetFieldHints: semanticApiDecision?.targetFieldHints,
+        supportFieldHints: semanticApiDecision?.supportFieldHints,
+      })
     if (apiReply) {
       return buildHeuristicReplyResult(apiReply, {
         ...heuristicMetadata,

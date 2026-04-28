@@ -12,7 +12,7 @@ import {
   buildHumanHandoffReply,
   buildWhatsAppMessageSequence,
   classifyHumanEscalationNeed,
-  decideCatalogFollowUpHeuristically,
+  resolveDeterministicCatalogFollowUpDecision,
   extractRecentMercadoLivreProductsFromAssets,
   isHumanHandoffIntent,
   mergeContext,
@@ -50,8 +50,8 @@ const whatsappContextFixture = loadWhatsAppContextFixture();
 function buildScenarioResults() {
   const scenarios: ScenarioResult[] = [];
 
-  const catalogDecision = decideCatalogFollowUpHeuristically("gostei da sopeira que mandou", catalogContext as never, deps as never);
-  const catalogAmbiguous = decideCatalogFollowUpHeuristically("quero o amarelo", catalogContext as never, deps as never);
+  const catalogDecision = resolveDeterministicCatalogFollowUpDecision("gostei da sopeira que mandou", catalogContext as never, deps as never);
+  const catalogAmbiguous = resolveDeterministicCatalogFollowUpDecision("quero o amarelo", catalogContext as never, deps as never);
   const catalogResolved = resolveRecentCatalogProductReference("gostei da dopeira que mandou", catalogContext as never);
   scenarios.push({
     category: "catalog",

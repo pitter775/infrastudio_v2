@@ -11,7 +11,7 @@ import {
   buildSystemPrompt,
   buildWhatsAppMessageSequence,
   classifyHumanEscalationNeed,
-  decideCatalogFollowUpHeuristically,
+  resolveDeterministicCatalogFollowUpDecision,
   enrichLeadContext,
   isHumanHandoffIntent,
   isLikelyLeadNameReply,
@@ -40,7 +40,7 @@ const handoffFixture = loadHandoffFixture()
 const whatsappContextFixture = loadWhatsAppContextFixture()
 
 async function main() {
-  const strongReference = decideCatalogFollowUpHeuristically("gostei da sopeira que mandou", catalogContext, deps)
+  const strongReference = resolveDeterministicCatalogFollowUpDecision("gostei da sopeira que mandou", catalogContext, deps)
   assert.equal(strongReference?.kind, "recent_product_reference")
 
   const staleResolved = resolveRecentCatalogProductReference(

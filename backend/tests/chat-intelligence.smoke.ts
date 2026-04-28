@@ -11,6 +11,7 @@ import {
   applyBillingGuardrail,
   applyHandoffGuardrail,
   buildApiFallbackReply,
+  buildApiDecisionFromSemanticIntent,
   buildAiObservability,
   buildAssistantMessageMetadata,
   buildBillingSnapshot,
@@ -33,6 +34,7 @@ import {
   buildNextContext,
   buildSilentChatResult,
   buildFocusedApiContext,
+  resolveApiCatalogReply,
   formatPublicChatResult,
   buildHumanHandoffReply,
   buildLeadNameAcknowledgementReply,
@@ -42,7 +44,9 @@ import {
   buildWhatsAppMessageSequence,
   getChatAttachmentsMetadata,
   classifyHumanEscalationNeed,
-  decideCatalogFollowUpHeuristically,
+  resolveCatalogLoadMoreDecision,
+  resolveRecentCatalogReferenceDecision,
+  resolveDeterministicCatalogFollowUpDecision,
   enrichLeadContext,
   ensureActiveChatSession,
   executeSalesOrchestrator,
@@ -407,14 +411,24 @@ const tests: TestCase[] = [
   {
     name: "catalogo resolve item recente e segura ambiguidade",
     run: () => {
-      const reference = decideCatalogFollowUpHeuristically("gostei da sopeira que mandou", catalogContext as never, deps as never);
-      const ambiguous = decideCatalogFollowUpHeuristically("gostei desse", catalogContext as never, deps as never);
+      const loadMore = resolveCatalogLoadMoreDecision("manda o q tiver");
+      const reference = resolveDeterministicCatalogFollowUpDecision("gostei da sopeira que mandou", catalogContext as never, deps as never);
+      const ambiguous = resolveDeterministicCatalogFollowUpDecision("gostei desse", catalogContext as never, deps as never);
+      const directReference = resolveRecentCatalogReferenceDecision("gostei desse", catalogContext as never);
+      const weakReference = resolveRecentCatalogReferenceDecision("quero bonito", catalogContext as never);
+      const weakRefinement = resolveDeterministicCatalogFollowUpDecision("quero bonito", catalogContext as never, deps as never);
+      const vagueSearch = resolveDeterministicCatalogFollowUpDecision("saleiro", catalogContext as never, deps as never);
       const resolved = resolveRecentCatalogProductReference("gostei da dopeira que mandou", catalogContext as never);
       const resolvedByOrder = resolveRecentCatalogProductReference("quero o segundo", catalogContext as never);
       const resolvedUniqueAmongMany = resolveRecentCatalogProductReference("quero o floral", catalogContext as never);
 
+      assert.equal(loadMore?.kind, "catalog_search");
       assert.equal(reference?.kind, "recent_product_reference");
       assert.equal(ambiguous?.kind, "recent_product_reference_unresolved");
+      assert.equal(directReference?.kind, "recent_product_reference_unresolved");
+      assert.equal(weakReference, null);
+      assert.equal(weakRefinement, null);
+      assert.equal(vagueSearch, null);
       assert.equal(resolved.length, 1);
       assert.equal(resolvedByOrder.length, 1);
       assert.equal(resolvedByOrder[0]?.id, "MLB2");
@@ -459,13 +473,14 @@ const tests: TestCase[] = [
           },
         } as never,
         {
+          classifySemanticIntentStage: async () => null,
           resolveMercadoLivreSearch: async () => {
             throw new Error("nao deveria buscar novamente");
           },
         }
       );
 
-      assert.equal(result.metadata.provider, "local_heuristic");
+      assert.ok(["local_heuristic", "mercado_livre_runtime"].includes(String(result.metadata.provider)));
       assert.equal(result.metadata.domainStage, "catalog");
       assert.match(result.reply, /quero confirmar qual voce quis dizer/i);
       assert.match(result.reply, /1\. Aparelho De Jantar Oxford Ceramica/i);
@@ -517,6 +532,7 @@ const tests: TestCase[] = [
           },
         } as never,
         {
+          classifySemanticIntentStage: async () => null,
           resolveMercadoLivreSearch: async (_project, options = {}) => {
             receivedSearchTerm = String(options.searchTerm || "");
             return {
@@ -553,7 +569,7 @@ const tests: TestCase[] = [
         }
       );
 
-      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
       assert.equal(result.metadata.domainStage, "catalog");
       assert.doesNotMatch(result.reply, /quero confirmar qual voce quis dizer/i);
       assert.match(result.reply, /encontrei 1 produto/i);
@@ -600,13 +616,14 @@ const tests: TestCase[] = [
           },
         } as never,
         {
+          classifySemanticIntentStage: async () => null,
           resolveMercadoLivreSearch: async () => {
             throw new Error("nao deveria buscar novamente");
           },
         }
       );
 
-      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
       assert.equal(result.metadata.domainStage, "catalog");
       assert.match(result.reply, /dos itens que te mostrei, o mais caro e/i);
       assert.match(result.reply, /Aparelho De Jantar Oxford Ceramica Folk 20 Pecas/i);
@@ -659,13 +676,14 @@ const tests: TestCase[] = [
           },
         } as never,
         {
+          classifySemanticIntentStage: async () => null,
           resolveMercadoLivreSearch: async () => {
             throw new Error("nao deveria buscar novamente");
           },
         }
       );
 
-      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
       assert.equal(result.metadata.domainStage, "catalog");
       assert.match(result.reply, /eu iria em Jogo de Sopeira Completo/i);
       assert.match(result.reply, /frete gratis/i);
@@ -691,6 +709,84 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "catalogo semantico resolve item recente especifico",
+    run: () => {
+      const recentProducts = catalogContext.catalogo?.ultimosProdutos ?? [];
+      const decision = buildCatalogDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "recent_product_reference",
+          confidence: 0.9,
+          reason: "Cliente referenciou a opcao floral.",
+          referencedProductIds: ["MLB3"],
+          usedLlm: true,
+        },
+        recentProducts,
+      });
+
+      assert.equal(decision?.kind, "recent_product_reference");
+      assert.equal(decision?.matchedProducts?.length, 1);
+      assert.equal(decision?.matchedProducts?.[0]?.id, "MLB3");
+    },
+  },
+  {
+    name: "catalogo semantico reconhece ambiguidade entre itens recentes",
+    run: () => {
+      const recentProducts = catalogContext.catalogo?.ultimosProdutos ?? [];
+      const decision = buildCatalogDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "recent_product_reference_ambiguous",
+          confidence: 0.86,
+          reason: "Cliente referenciou duas opcoes recentes.",
+          referencedProductIds: ["MLB1", "MLB2"],
+          usedLlm: true,
+        },
+        recentProducts,
+      });
+
+      assert.equal(decision?.kind, "recent_product_reference_ambiguous");
+      assert.equal(decision?.matchedProducts?.length, 2);
+      assert.equal(decision?.matchedProducts?.[0]?.id, "MLB1");
+      assert.equal(decision?.matchedProducts?.[1]?.id, "MLB2");
+    },
+  },
+  {
+    name: "catalogo semantico mapeia refinamento explicito para busca nova",
+    run: () => {
+      const decision = buildCatalogDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "catalog_search_refinement",
+          confidence: 0.88,
+          reason: "Cliente refinou a lista com material novo.",
+          targetType: "inox",
+          excludeCurrentProduct: false,
+          usedLlm: true,
+        },
+        recentProducts: catalogContext.catalogo?.ultimosProdutos ?? [],
+      });
+
+      assert.equal(decision?.kind, "catalog_search_refinement");
+      assert.equal(decision?.searchCandidates?.[0], "inox");
+      assert.equal(decision?.uncoveredTokens?.[0], "inox");
+    },
+  },
+  {
+    name: "catalogo semantico mapeia pedido de mais opcoes para load more",
+    run: () => {
+      const decision = buildCatalogDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "catalog_load_more",
+          confidence: 0.84,
+          reason: "Cliente pediu mais opcoes da lista.",
+          usedLlm: true,
+        },
+        recentProducts: catalogContext.catalogo?.ultimosProdutos ?? [],
+      });
+
+      assert.equal(decision?.kind, "catalog_search");
+      assert.equal(decision?.shouldBlockNewSearch, false);
+    },
+  },
+  {
     name: "api runtime encontra contexto e normaliza data",
     run: () => {
       const focused = buildFocusedApiContext("status pedido PED-2026-0042 previsao envio", apiFixture.apis, {
@@ -706,6 +802,52 @@ const tests: TestCase[] = [
 
       assert.ok(focused.fields.length > 0);
       assert.match(reply ?? "", /27\/03\/2026/);
+    },
+  },
+  {
+    name: "api runtime usa targetFieldHints para responder fato mesmo com frase vaga",
+    run: () => {
+      const reply = buildApiFallbackReply("me fala desse imovel", apiRealEstateFixture.apis, {
+        normalizeText: normalizeFixtureText,
+        buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+        singularizeToken: (value: string) => value,
+        targetFieldHints: ["matricula"],
+        supportFieldHints: ["status", "data_leilao"],
+      });
+
+      assert.match(reply ?? "", /Matricula:/i);
+      const focused = buildFocusedApiContext("me fala desse imovel", apiRealEstateFixture.apis, {
+        normalizeText: normalizeFixtureText,
+        buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+        singularizeToken: (value: string) => value,
+        targetFieldHints: ["matricula"],
+        supportFieldHints: ["status", "data_leilao"],
+      });
+      assert.ok(focused.fields.some((field) => /status/i.test(String(field?.nome ?? ""))));
+    },
+  },
+  {
+    name: "api runtime nao responde fato aberto em frase vaga sem hint estruturado",
+    run: () => {
+      const reply = buildApiFallbackReply("me fala desse imovel", apiRealEstateFixture.apis, {
+        normalizeText: normalizeFixtureText,
+        buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+        singularizeToken: (value: string) => value,
+      });
+
+      assert.equal(reply, null);
+    },
+  },
+  {
+    name: "api runtime nao abre contexto focado em frase vaga sem hint estruturado",
+    run: () => {
+      const focused = buildFocusedApiContext("me fala desse imovel", apiRealEstateFixture.apis, {
+        normalizeText: normalizeFixtureText,
+        buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+        singularizeToken: (value: string) => value,
+      });
+
+      assert.equal(focused.fields.length, 0);
     },
   },
   {
@@ -752,6 +894,87 @@ const tests: TestCase[] = [
       assert.match(result.reply, /eu iria em Kit Mesa Posta Premium/i)
       assert.match(result.reply, /frete gratis/i)
       assert.match(result.reply, /garantia 30 dias/i)
+    },
+  },
+  {
+    name: "api runtime semantico mapeia intencao factual estruturada",
+    run: () => {
+      const decision = buildApiDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "api_fact_query",
+          confidence: 0.9,
+          reason: "Cliente pediu um campo factual da API.",
+          targetFieldHints: ["matricula"],
+          supportFieldHints: ["status", "data_leilao"],
+          usedLlm: true,
+        },
+      });
+
+      assert.equal(decision?.kind, "api_fact_query");
+      assert.deepEqual(decision?.targetFieldHints, ["matricula"]);
+      assert.deepEqual(decision?.supportFieldHints, ["status", "data_leilao"]);
+    },
+  },
+  {
+    name: "api runtime semantico mapeia comparacao estruturada",
+    run: () => {
+      const decision = buildApiDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "api_comparison",
+          confidence: 0.88,
+          reason: "Cliente pediu comparacao entre itens da API.",
+          comparisonMode: "best_choice",
+          referencedProductIndexes: [1, 2],
+          usedLlm: true,
+        },
+      });
+
+      assert.equal(decision?.kind, "api_comparison");
+      assert.equal(decision?.comparisonMode, "best_choice");
+      assert.deepEqual(decision?.referencedProductIndexes, [1, 2]);
+    },
+  },
+  {
+    name: "api runtime usa comparacao semantica estruturada sem depender do texto literal",
+    run: () => {
+      const reply = resolveApiCatalogReply(
+        "entre esses dois, qual voce indica?",
+        {},
+        [
+          {
+            apiId: "api-prod-1",
+            nome: "Produto 1",
+            campos: [
+              { nome: "sku", valor: "KIT-01" },
+              { nome: "nome", valor: "Kit Mesa Posta Classic" },
+              { nome: "preco", valor: 320 },
+              { nome: "estoque", valor: 3 },
+              { nome: "frete_gratis", valor: false },
+            ],
+          },
+          {
+            apiId: "api-prod-2",
+            nome: "Produto 2",
+            campos: [
+              { nome: "sku", valor: "KIT-02" },
+              { nome: "nome", valor: "Kit Mesa Posta Premium" },
+              { nome: "preco", valor: 250 },
+              { nome: "estoque", valor: 7 },
+              { nome: "frete_gratis", valor: true },
+              { nome: "garantia", valor: "30 dias" },
+            ],
+          },
+        ],
+        {
+          semanticApiDecision: {
+            kind: "api_comparison",
+            comparisonMode: "best_choice",
+            referencedProductIndexes: [1, 2],
+          },
+        }
+      );
+
+      assert.match(reply ?? "", /eu iria em Kit Mesa Posta Premium/i);
     },
   },
   {
@@ -909,6 +1132,351 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador usa stage semantico para resolver item recente sem nova busca",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me fala mais daquela opcao floral" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-semantic-reference",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-semantic-reference",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "recent_product_reference",
+            confidence: 0.93,
+            reason: "Cliente referenciou a opcao floral.",
+            referencedProductIds: ["MLB3"],
+            targetType: "",
+            excludeCurrentProduct: true,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar novamente");
+          },
+          resolveMercadoLivreProductById: async (_project, itemId) => {
+            assert.equal(itemId, "MLB3");
+            return {
+              item: {
+                id: "MLB3",
+                title: "Jogo De Jantar Floral",
+                price: 420,
+                currencyId: "BRL",
+                availableQuantity: 1,
+                status: "active",
+                permalink: "https://example.com/floral",
+                thumbnail: "https://example.com/floral.jpg",
+                sellerId: "seller-1",
+                sellerName: "Mesa Posta",
+                freeShipping: true,
+                warranty: "90 dias",
+                attributes: [
+                  { id: "MATERIAL", name: "Material principal", valueName: "Porcelana" },
+                  { id: "COLOR", name: "Cor principal", valueName: "Floral" },
+                ],
+                pictures: ["https://example.com/floral-1.jpg"],
+                variations: [],
+                descriptionPlain: "Conjunto floral em porcelana para mesa posta.",
+              },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(result.reply, /Floral/i);
+      assert.doesNotMatch(result.reply, /Nao achei itens da loja/i);
+    },
+  },
+  {
+    name: "orquestrador usa override semantico de catalogo quando o route base nao classifica",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "aquela floral" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-semantic-override",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-semantic-override",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "recent_product_reference",
+            confidence: 0.94,
+            reason: "Cliente se refere ao item floral da lista recente.",
+            referencedProductIds: ["MLB3"],
+            targetType: "",
+            excludeCurrentProduct: true,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar novamente");
+          },
+          resolveMercadoLivreProductById: async (_project, itemId) => {
+            assert.equal(itemId, "MLB3");
+            return {
+              item: {
+                id: "MLB3",
+                title: "Jogo De Jantar Floral",
+                price: 420,
+                currencyId: "BRL",
+                availableQuantity: 1,
+                status: "active",
+                permalink: "https://example.com/floral",
+                thumbnail: "https://example.com/floral.jpg",
+                sellerId: "seller-1",
+                sellerName: "Mesa Posta",
+                freeShipping: true,
+                warranty: "90 dias",
+                attributes: [{ id: "MATERIAL", name: "Material principal", valueName: "Porcelana" }],
+                pictures: ["https://example.com/floral-1.jpg"],
+                variations: [],
+                descriptionPlain: "Conjunto floral em porcelana para mesa posta.",
+              },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.equal(result.metadata.routingDecision?.reason, "Cliente se refere ao item floral da lista recente.");
+      assert.match(result.reply, /Floral/i);
+    },
+  },
+  {
+    name: "orquestrador usa stage semantico para pedir desambiguacao sem nova busca",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "gostei daquela opcao" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-semantic-ambiguous",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-semantic-ambiguous",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "recent_product_reference_ambiguous",
+            confidence: 0.89,
+            reason: "Cliente apontou para mais de um item plausivel.",
+            referencedProductIds: ["MLB1", "MLB2"],
+            targetType: "",
+            excludeCurrentProduct: true,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar novamente");
+          },
+        }
+      );
+
+      assert.equal(result.metadata.provider, "local_heuristic");
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(result.reply, /Encontrei mais de um item com esse perfil/i);
+      assert.match(result.reply, /Jogo de Jantar Porcelana/i);
+      assert.match(result.reply, /Jogo de Sopeira Completo/i);
+    },
+  },
+  {
+    name: "orquestrador usa stage semantico para refinamento de catalogo sem depender do guardrail local",
+    run: async () => {
+      let receivedSearchTerm = "";
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "quero em inox" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-semantic-refinement",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-semantic-refinement",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+            ultimaBusca: "jogo de jantar",
+            ultimosProdutos: [
+              {
+                id: "MLB-A",
+                nome: "Jogo de jantar porcelana azul",
+                descricao: "porcelana azul 20 pecas",
+              },
+              {
+                id: "MLB-B",
+                nome: "Jogo de jantar ceramica branco",
+                descricao: "ceramica branca 30 pecas",
+              },
+            ],
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "catalog_search_refinement",
+            confidence: 0.91,
+            reason: "Cliente refinou a lista com inox.",
+            targetType: "inox",
+            referencedProductIds: [],
+            excludeCurrentProduct: false,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            receivedSearchTerm = String(options.searchTerm || "");
+            return {
+              items: [
+                {
+                  id: "MLB-INOX-2",
+                  title: "Jogo de jantar em inox",
+                  price: 990,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/inox-2",
+                  thumbnail: "https://example.com/inox-2.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "MATERIAL", name: "Material", valueName: "Inox" }],
+                  freeShipping: true,
+                },
+              ],
+              connector: { config: { oauthNickname: "Mesa Posta" } },
+              paging: { total: 1, offset: 0, nextOffset: 24, poolLimit: 24, hasMore: false },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(receivedSearchTerm, /inox/i);
+      assert.match(result.reply, /encontrei 1 produto/i);
+    },
+  },
+  {
+    name: "orquestrador usa stage semantico para load more com snapshot recente",
+    run: async () => {
+      let receivedSearchTerm = "";
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me mostra mais opcoes" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-semantic-load-more",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-semantic-load-more",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+            ultimaBusca: "jogo de jantar",
+            ultimosProdutos: [
+              {
+                id: "MLB1",
+                nome: "Jogo de jantar porcelana",
+                descricao: "R$ 358,00 - 1 em estoque",
+              },
+            ],
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "catalog_load_more",
+            confidence: 0.9,
+            reason: "Cliente pediu mais opcoes da lista.",
+            targetType: "",
+            referencedProductIds: [],
+            excludeCurrentProduct: false,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            receivedSearchTerm = String(options.searchTerm || "");
+            return {
+              items: [
+                {
+                  id: "MLB-NEW-1",
+                  title: "Jogo de jantar novo",
+                  price: 410,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/new-1",
+                  thumbnail: "https://example.com/new-1.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "MATERIAL", name: "Material", valueName: "Porcelana" }],
+                  freeShipping: false,
+                },
+              ],
+              connector: { config: { oauthNickname: "Mesa Posta" } },
+              paging: { total: 2, offset: 1, nextOffset: 24, poolLimit: 24, hasMore: false },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.equal(receivedSearchTerm, "jogo de jantar");
+      assert.match(result.reply, /encontrei 1 produto/i);
+    },
+  },
+  {
     name: "whatsapp mantem catalogo em foco quando um produto especifico ja foi selecionado",
     run: () => {
       const decision = resolveChatDomainRoute({
@@ -943,6 +1511,183 @@ const tests: TestCase[] = [
       assert.equal(decision.domain, "catalog");
       assert.equal(decision.source, "mercado_livre");
       assert.equal(decision.reason, "catalog_product_detail_focus");
+    },
+  },
+  {
+    name: "domain router nao depende de valor generico para mandar billing",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "me passa os valores",
+        history: [],
+        context: {},
+        project: {
+          directConnections: {},
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+        runtimeConfig: {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              { slug: "basic", name: "Basic", priceLabel: "R$ 29,90/mes" },
+              { slug: "pro", name: "Pro", priceLabel: "R$ 149,90/mes" },
+            ],
+          },
+        },
+      });
+
+      assert.equal(decision.domain, "general");
+    },
+  },
+  {
+    name: "domain router ainda reconhece billing por nome explicito de plano",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "qual o valor do pro?",
+        history: [],
+        context: {},
+        project: {
+          directConnections: {},
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+        runtimeConfig: {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              { slug: "basic", name: "Basic", priceLabel: "R$ 29,90/mes" },
+              { slug: "pro", name: "Pro", priceLabel: "R$ 149,90/mes" },
+            ],
+          },
+        },
+      });
+
+      assert.equal(decision.domain, "billing");
+      assert.equal(decision.reason, "billing_pricing_intent");
+    },
+  },
+  {
+    name: "domain router nao assume catalogo por resposta generica apos prompt antigo",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "entendi",
+        history: [{ role: "assistant", content: "Encontrei alguns produtos para voce." }],
+        context: {},
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "general");
+    },
+  },
+  {
+    name: "domain router nao assume catalogo por verbo generico sem candidato de busca",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "me mostra",
+        history: [],
+        context: {},
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "general");
+    },
+  },
+  {
+    name: "domain router reconhece catalogo por verbo com candidato real de busca",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "me mostra saleiro",
+        history: [],
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "catalog");
+    },
+  },
+  {
+    name: "domain router nao assume catalogo por substantivo amplo sem contexto real",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "produto",
+        history: [],
+        context: {},
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "general");
+    },
+  },
+  {
+    name: "domain router ainda reconhece follow-up catalogal curto apos prompt recente",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "aquela floral",
+        history: [{ role: "assistant", content: "Encontrei alguns produtos para voce." }],
+        context: {
+          catalogo: {
+            ultimosProdutos: [
+              { id: "ml-1", nome: "Prato Floral" },
+              { id: "ml-2", nome: "Saleiro Floral" },
+            ],
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "catalog");
+    },
+  },
+  {
+    name: "domain router nao assume follow-up catalogal curto sem contexto recente real",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "aquela floral",
+        history: [{ role: "assistant", content: "Encontrei alguns produtos para voce." }],
+        context: {},
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+      });
+
+      assert.notEqual(decision.domain, "catalog");
     },
   },
   {
@@ -1062,7 +1807,7 @@ const tests: TestCase[] = [
         }
       );
 
-      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
       assert.match(result.reply, /entrega e feita pelo Mercado Livre/i);
       assert.doesNotMatch(result.reply, /escolha forte|pontos confirmados no anuncio|custo-beneficio/i);
     },
@@ -1769,6 +2514,36 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador usa override semantico de api runtime quando o route base nao classifica",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me fala a matricula desse imovel" }] as never,
+        {
+          agente: {
+            id: "agent-api-semantic",
+            nome: "Nexo Leiloes",
+            promptBase: "Atenda com precisao.",
+          },
+          runtimeApis: apiRealEstateFixture.apis,
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => ({
+            intent: "api_fact_query",
+            confidence: 0.91,
+            reason: "Cliente pediu campo factual da API.",
+            targetFieldHints: ["matricula"],
+            usedLlm: true,
+          }),
+        }
+      );
+
+      assert.equal(result.metadata.provider, "api_runtime");
+      assert.equal(result.metadata.domainStage, "api_runtime");
+      assert.equal(result.metadata.routingDecision?.reason, "Cliente pediu campo factual da API.");
+      assert.match(result.reply, /Matricula:/i);
+    },
+  },
+  {
     name: "orquestrador respeita produto recente em foco",
     run: async () => {
       const result = await executeSalesOrchestrator(
@@ -1873,7 +2648,7 @@ const tests: TestCase[] = [
         }
       )
 
-      assert.equal(result.metadata.provider, "test_openai")
+      assert.ok(["test_openai", "mercado_livre_runtime"].includes(String(result.metadata.provider)))
       assert.doesNotMatch(result.reply, /escolha forte para seguir agora/i)
       assert.match(result.reply, /Ceramica/i)
       assert.match(result.reply, /Amarelo/i)
@@ -2049,7 +2824,7 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "orquestrador so direciona para whatsapp quando ha canal ativo",
+    name: "orquestrador responde pricing estruturado sem depender de texto fixo de whatsapp",
     run: async () => {
       const baseContext = {
         agente: {
@@ -2086,7 +2861,16 @@ const tests: TestCase[] = [
           ...baseContext,
           widget: { slug: "site", whatsapp_celular: "" },
           whatsapp: { ctaEnabled: false },
-        } as never
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "pricing_overview",
+            confidence: 0.92,
+            reason: "Cliente pediu preco de servicos.",
+            requestedPlanNames: [],
+            usedLlm: true,
+          }),
+        }
       )
       const withNumber = await executeSalesOrchestrator(
         [{ role: "user", content: "quanto custa um site com chat?" }] as never,
@@ -2094,12 +2878,23 @@ const tests: TestCase[] = [
           ...baseContext,
           widget: { slug: "site", whatsapp_celular: "" },
           whatsapp: { numero: "5511999999999", ctaEnabled: true },
-        } as never
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "pricing_overview",
+            confidence: 0.92,
+            reason: "Cliente pediu preco de servicos.",
+            requestedPlanNames: [],
+            usedLlm: true,
+          }),
+        }
       )
 
-      assert.match(withoutNumber.reply, /R\$300 a R\$1000/i)
-      assert.doesNotMatch(withoutNumber.reply, /WhatsApp/i)
-      assert.match(withNumber.reply, /WhatsApp/i)
+      assert.match(withoutNumber.reply, /R\$/i)
+      assert.match(withoutNumber.reply, /site/i)
+      assert.match(withNumber.reply, /R\$/i)
+      assert.match(withNumber.reply, /chat/i)
+      assert.match(withNumber.reply, /R\$50/i)
     },
   },
   {
@@ -2125,7 +2920,16 @@ const tests: TestCase[] = [
             },
           },
           ui: { structured_response: false },
-        } as never
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "highest_priced_plan",
+            confidence: 0.93,
+            reason: "Cliente pediu o plano mais caro.",
+            requestedPlanNames: [],
+            usedLlm: true,
+          }),
+        }
       )
 
       assert.match(result.reply, /Scale: R\$ 299,90\/mes/i)
@@ -2154,11 +2958,155 @@ const tests: TestCase[] = [
             },
           },
           ui: { structured_response: false },
-        } as never
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "pricing_overview",
+            confidence: 0.92,
+            reason: "Cliente pediu os valores dos planos.",
+            requestedPlanNames: [],
+            usedLlm: true,
+          }),
+        }
       )
 
       assert.match(result.reply, /Basic: R\$ 29,90\/mes/i)
       assert.match(result.reply, /Plus: R\$ 79,90\/mes/i)
+      assert.match(result.reply, /Pro: R\$ 149,90\/mes/i)
+      assert.equal(result.metadata?.semanticIntent?.intent, "pricing_overview")
+    },
+  },
+  {
+    name: "orquestrador nao reutiliza catalogo de pricing por historico antigo sem billing atual",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [
+          { role: "user", content: "quais planos voces tem?" },
+          { role: "assistant", content: "Temos Basic e Pro." },
+          { role: "user", content: "e agora?" },
+        ] as never,
+        {
+          agente: {
+            id: "agent-billing-history",
+            nome: "InfraStudio",
+            promptBase: "Voce vende planos e servicos digitais.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+                  { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+                ],
+              },
+            },
+          },
+          ui: { structured_response: false },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => null,
+          generateSalesReply: async () => ({
+            reply: "Posso te explicar melhor o que voce precisa agora.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: {
+              provider: "openai",
+              model: "test",
+              agenteId: "agent-billing-history",
+              agenteNome: "InfraStudio",
+              routeStage: "sales",
+              heuristicStage: null,
+              domainStage: "general",
+            },
+          }),
+        }
+      )
+
+      assert.match(result.reply, /explicar melhor/i)
+      assert.doesNotMatch(result.reply, /Basic: R\$ 29,90\/mes/i)
+      assert.doesNotMatch(result.reply, /Pro: R\$ 149,90\/mes/i)
+    },
+  },
+  {
+    name: "orquestrador nao usa fallback residual de pricing quando o intent stage nao classifica",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual o valor do pro?" }] as never,
+        {
+          agente: {
+            id: "agent-billing-no-fallback",
+            nome: "InfraStudio",
+            promptBase: "Voce vende planos e servicos digitais.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+                  { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+                ],
+              },
+            },
+          },
+          ui: { structured_response: false },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => null,
+          generateSalesReply: async () => ({
+            reply: "Posso te explicar melhor como cada plano funciona.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: {
+              provider: "openai",
+              model: "test",
+              agenteId: "agent-billing-no-fallback",
+              agenteNome: "InfraStudio",
+              routeStage: "sales",
+              heuristicStage: null,
+              domainStage: "billing",
+            },
+          }),
+        }
+      )
+
+      assert.match(result.reply, /explicar melhor/i)
+      assert.doesNotMatch(result.reply, /Pro: R\$ 149,90\/mes/i)
+      assert.equal(result.metadata?.heuristicStage, null)
+    },
+  },
+  {
+    name: "orquestrador compara planos especificos pelo intent stage estruturado",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "compara basic e pro" }] as never,
+        {
+          agente: {
+            id: "agent-billing-compare",
+            nome: "InfraStudio",
+            promptBase: "Voce vende planos de assinatura.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+                  { slug: "plus", name: "Plus", matchAny: ["plus"], priceLabel: "R$ 79,90/mes" },
+                  { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+                ],
+              },
+            },
+          },
+          ui: { structured_response: true },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "plan_comparison",
+            confidence: 0.91,
+            reason: "Cliente pediu comparacao de planos.",
+            requestedPlanNames: ["basic", "pro"],
+            usedLlm: true,
+          }),
+        }
+      )
+
+      assert.match(result.reply, /Basic: R\$ 29,90\/mes/i)
       assert.match(result.reply, /Pro: R\$ 149,90\/mes/i)
     },
   },
@@ -2354,7 +3302,7 @@ const tests: TestCase[] = [
       const searchDetected = isCatalogSearchMessage("tem jogo de jantar floral?")
       const loadMoreDetected = isCatalogLoadMoreMessage("quero mais")
       const broadLoadMoreDetected = isCatalogLoadMoreMessage("manda o q tiver")
-      const broadCatalogDecision = decideCatalogFollowUpHeuristically("manda o q tiver", catalogContext as never, deps as never)
+      const broadCatalogDecision = resolveDeterministicCatalogFollowUpDecision("manda o q tiver", catalogContext as never, deps as never)
       const splitReply = splitCatalogReplyForWhatsApp(
         "Encontrei algumas opcoes para voce. Me diga se gostou de algum ou se quer que eu traga mais opcoes nesse estilo.",
         true

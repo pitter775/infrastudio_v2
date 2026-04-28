@@ -76,6 +76,13 @@ const API_KEYWORD_GROUPS = [
   ["resumo", "descricao", "detalhe", "detalhes", "analise"],
 ]
 
+const API_VOCABULARY = new Set(
+  [
+    ...API_FIELD_INTENTS.flatMap((intent) => [...intent.triggers, ...intent.targets]),
+    ...API_KEYWORD_GROUPS.flatMap((group) => group),
+  ].map((item) => String(item || "").trim()).filter(Boolean)
+)
+
 const DIRECT_REPLY_FACTUAL_SIGNALS = [
   "matricula",
   "cartorio",
@@ -109,6 +116,74 @@ function getDeps(deps = {}) {
     buildSearchTokens: deps.buildSearchTokens ?? buildSearchTokens,
     singularizeToken: deps.singularizeToken ?? singularizeToken,
   }
+}
+
+function resolveTargetHintFields(availableApis = [], targetFieldHints = [], deps) {
+  const hints = Array.isArray(targetFieldHints)
+    ? targetFieldHints
+        .map((item) => normalizeApiFieldName(item, deps))
+        .filter(Boolean)
+    : []
+
+  if (!hints.length) {
+    return []
+  }
+
+  const selected = availableApis.flatMap((api) =>
+    (Array.isArray(api?.campos) ? api.campos : []).flatMap((field) => {
+      const normalizedField = normalizeApiFieldName(field?.nome, deps)
+      if (!normalizedField) {
+        return []
+      }
+
+      return hints.some((hint) => normalizedField === hint || normalizedField.endsWith(hint) || normalizedField.includes(hint))
+        ? [
+            {
+              apiId: sanitizeString(api?.apiId),
+              apiNome: sanitizeString(api?.nome),
+              nome: sanitizeString(field?.nome),
+              valor: field?.valor,
+              score: 10,
+            },
+          ]
+        : []
+    })
+  )
+
+  return [...new Map(selected.map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
+}
+
+function resolveSupportHintFields(apiContexts = [], primaryField, supportFieldHints = [], deps) {
+  const hints = Array.isArray(supportFieldHints)
+    ? supportFieldHints.map((item) => normalizeApiFieldName(item, deps)).filter(Boolean)
+    : []
+
+  if (!hints.length) {
+    return []
+  }
+
+  const primaryName = deps.normalizeText(primaryField?.nome)
+  const selected = apiContexts.flatMap((api) =>
+    (api.campos ?? []).flatMap((field) => {
+      const normalizedName = deps.normalizeText(field?.nome)
+      if (!normalizedName || normalizedName === primaryName) {
+        return []
+      }
+
+      return hints.some((hint) => normalizedName === hint || normalizedName.endsWith(hint) || normalizedName.includes(hint))
+        ? [
+            {
+              ...field,
+              apiId: api.apiId,
+              apiNome: api.nome,
+              supportScore: 10,
+            },
+          ]
+        : []
+    })
+  )
+
+  return [...new Map(selected.map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 3)
 }
 
 function sanitizeString(value) {
@@ -250,6 +325,10 @@ function detectApiCatalogComparisonIntent(message) {
   return null
 }
 
+function normalizeApiComparisonMode(value) {
+  return ["best_choice", "highest_price", "lowest_price"].includes(String(value || "")) ? String(value) : null
+}
+
 function resolveApiCatalogComparisonIndexes(message, products) {
   const normalized = normalizeComparisonMessage(message)
   const patterns = [
@@ -258,6 +337,11 @@ function resolveApiCatalogComparisonIndexes(message, products) {
     { pattern: /\b3\b|\bterceiro\b|\bterceira\b/, index: 2 },
   ]
   return [...new Set(patterns.filter((item) => item.pattern.test(normalized)).map((item) => item.index))].filter((index) => products[index])
+}
+
+function resolveApiCatalogSemanticComparisonIndexes(indexes, products) {
+  return [...new Set((Array.isArray(indexes) ? indexes : []).map((item) => Number(item) - 1))]
+    .filter((index) => Number.isInteger(index) && index >= 0 && products[index])
 }
 
 function buildApiCatalogAdvantageLines(product) {
@@ -336,9 +420,13 @@ export function resolveApiCatalogReply(message, context = {}, apis = [], customD
     return null
   }
 
-  const comparisonIntent = detectApiCatalogComparisonIntent(message)
+  const semanticApiDecision = customDeps?.semanticApiDecision
+  const comparisonIntent =
+    normalizeApiComparisonMode(semanticApiDecision?.comparisonMode) ?? detectApiCatalogComparisonIntent(message)
   if (comparisonIntent) {
-    return buildApiCatalogComparisonReply(products, comparisonIntent, resolveApiCatalogComparisonIndexes(message, products))
+    const semanticIndexes = resolveApiCatalogSemanticComparisonIndexes(semanticApiDecision?.referencedProductIndexes, products)
+    const indexes = semanticIndexes.length ? semanticIndexes : resolveApiCatalogComparisonIndexes(message, products)
+    return buildApiCatalogComparisonReply(products, comparisonIntent, indexes)
   }
 
   const reference = resolveRecentCatalogProductReference(message, {
@@ -495,6 +583,22 @@ function detectApiIntent(message, deps) {
   )
 }
 
+function detectApiIntentFromHints(targetFieldHints, deps) {
+  const normalizedHints = Array.isArray(targetFieldHints)
+    ? targetFieldHints.map((item) => deps.normalizeText(item)).filter(Boolean)
+    : []
+
+  if (!normalizedHints.length) {
+    return null
+  }
+
+  return (
+    API_FIELD_INTENTS.find((intent) =>
+      intent.targets.some((target) => normalizedHints.includes(deps.normalizeText(target)))
+    ) ?? null
+  )
+}
+
 function getSupportFieldSuffixes(intentId) {
   switch (intentId) {
     case "price":
@@ -517,8 +621,13 @@ function getSupportFieldSuffixes(intentId) {
   }
 }
 
-function findSupportFields(apiContexts, primaryField, message, deps) {
-  const intent = detectApiIntent(message, deps)
+function findSupportFields(apiContexts, primaryField, message, deps, customDeps = {}) {
+  const hintSupportFields = resolveSupportHintFields(apiContexts, primaryField, customDeps?.supportFieldHints, deps)
+  if (hintSupportFields.length) {
+    return hintSupportFields
+  }
+
+  const intent = detectApiIntentFromHints(customDeps?.targetFieldHints, deps) ?? detectApiIntent(message, deps)
   const supportSuffixes = getSupportFieldSuffixes(intent?.id)
   const primaryName = deps.normalizeText(primaryField?.nome)
 
@@ -583,25 +692,40 @@ function getApiKeywordGroups(message, deps) {
   const normalizedMessage = deps.normalizeText(message)
   const directTokens = deps.buildSearchTokens(message)
   const singularDirectTokens = directTokens.flatMap((token) => [token, deps.singularizeToken(token)])
+  const relevantDirectTokens = singularDirectTokens.filter((token) => API_VOCABULARY.has(token))
 
   const intentTokens = API_FIELD_INTENTS.flatMap((intent) =>
-    intent.triggers.some((trigger) => singularDirectTokens.includes(trigger) || normalizedMessage.includes(trigger))
+    intent.triggers.some((trigger) => relevantDirectTokens.includes(trigger) || normalizedMessage.includes(trigger))
       ? intent.targets
       : []
   )
 
   const matchedGroup =
-    API_KEYWORD_GROUPS.find(
-      (group) =>
-        group.some((keyword) => normalizedMessage.includes(keyword)) ||
-        group.some((keyword) => singularDirectTokens.includes(keyword))
-    ) ?? []
+    intentTokens.length > 0
+      ? API_KEYWORD_GROUPS.find(
+          (group) =>
+            group.some((keyword) => normalizedMessage.includes(keyword)) ||
+            group.some((keyword) => relevantDirectTokens.includes(keyword))
+        ) ?? []
+      : []
 
   return {
-    directTokens: [...new Set(singularDirectTokens)],
+    directTokens: [...new Set(relevantDirectTokens)],
     intentTokens: [...new Set(intentTokens.flatMap((token) => [token, deps.singularizeToken(token)]))],
-    relatedTokens: matchedGroup.filter((keyword) => !singularDirectTokens.includes(keyword)),
+    relatedTokens: matchedGroup.filter((keyword) => !relevantDirectTokens.includes(keyword)),
   }
+}
+
+function hasApiExplicitLookupSignal(message, deps) {
+  const { intentTokens } = getApiKeywordGroups(message, deps)
+  return intentTokens.length > 0
+}
+
+function tokenizeApiField(value, deps) {
+  return deps
+    .normalizeText(String(value || ""))
+    .split(/[^a-z0-9]+/i)
+    .filter(Boolean)
 }
 
 function findMatchingApiFields(apiContexts, message, deps) {
@@ -612,13 +736,14 @@ function findMatchingApiFields(apiContexts, message, deps) {
       const normalizedPath = deps.normalizeText(field.nome)
       const normalizedLabel = deps.normalizeText(formatApiFieldLabel(field.nome))
       const leafLabel = normalizedLabel.split(".").at(-1) ?? normalizedLabel
+      const fieldTokens = [...new Set([...tokenizeApiField(normalizedPath, deps), ...tokenizeApiField(normalizedLabel, deps)])]
 
       const directScore = directTokens.reduce((total, keyword) => {
         if (!keyword) return total
         if (leafLabel === keyword) return total + 60
         if (normalizedPath === keyword || normalizedLabel === keyword) return total + 40
         if (normalizedPath.endsWith(`.${keyword}`) || normalizedPath.endsWith(keyword)) return total + 28
-        if (normalizedPath.includes(keyword) || normalizedLabel.includes(keyword)) return total + 16
+        if (fieldTokens.includes(keyword)) return total + 14
         return total
       }, 0)
 
@@ -626,7 +751,7 @@ function findMatchingApiFields(apiContexts, message, deps) {
         if (!keyword) return total
         if (leafLabel === keyword) return total + 22
         if (normalizedPath.endsWith(`.${keyword}`) || normalizedPath.endsWith(keyword)) return total + 12
-        if (normalizedPath.includes(keyword) || normalizedLabel.includes(keyword)) return total + 6
+        if (fieldTokens.includes(keyword)) return total + 5
         return total
       }, 0)
 
@@ -634,7 +759,7 @@ function findMatchingApiFields(apiContexts, message, deps) {
         if (!keyword) return total
         if (normalizedPath === keyword || normalizedLabel === keyword) return total + 6
         if (normalizedPath.endsWith(`.${keyword}`) || normalizedPath.endsWith(keyword)) return total + 4
-        if (normalizedPath.includes(keyword) || normalizedLabel.includes(keyword)) return total + 2
+        if (fieldTokens.includes(keyword)) return total + 2
         return total
       }, 0)
 
@@ -714,13 +839,17 @@ function buildFallbackFields(apiContexts, deps, message) {
   return []
 }
 
-function buildDirectApiReply(message, apiContexts, deps) {
+function buildDirectApiReply(message, apiContexts, deps, customDeps = {}) {
   const availableApis = apiContexts.filter((api) => Array.isArray(api.campos) && api.campos.length > 0)
   if (!availableApis.length) {
     return null
   }
 
-  const matches = findMatchingApiFields(availableApis, message, deps)
+  const hintMatches = resolveTargetHintFields(availableApis, customDeps?.targetFieldHints, deps)
+  if (!hintMatches.length && !hasApiExplicitLookupSignal(message, deps)) {
+    return null
+  }
+  const matches = (hintMatches.length ? hintMatches : findMatchingApiFields(availableApis, message, deps))
     .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
     .slice(0, 3)
 
@@ -736,7 +865,7 @@ function buildDirectApiReply(message, apiContexts, deps) {
   }
 
   const primaryField = strongMatches[0]
-  const supportFields = findSupportFields(availableApis, primaryField, message, deps)
+  const supportFields = findSupportFields(availableApis, primaryField, message, deps, customDeps)
   const contextualReply = buildContextualDirectReply(primaryField, supportFields, deps)
   if (contextualReply) {
     return contextualReply
@@ -754,11 +883,20 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
     return { instructions: "", fields: [], apis: [] }
   }
 
+  const hintMatches = resolveTargetHintFields(availableApis, customDeps?.targetFieldHints, deps)
+  if (!hintMatches.length && !hasApiExplicitLookupSignal(message, deps)) {
+    return { instructions: failedApis.length ? failedApis.map((api) => `- API indisponivel: ${api.nome}. Motivo: ${api.erro}`).join("\n") : "", fields: [], apis: [] }
+  }
+  const supportHintMatches = resolveSupportHintFields(availableApis, hintMatches[0] ?? null, customDeps?.supportFieldHints, deps)
   const matches = findMatchingApiFields(availableApis, message, deps)
     .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
     .slice(0, 6)
 
-  const selectedFields = matches.length ? matches : buildFallbackFields(availableApis, deps, message)
+  const selectedFields = hintMatches.length
+    ? [...new Map([...hintMatches, ...supportHintMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
+    : matches.length
+      ? matches
+      : buildFallbackFields(availableApis, deps, message)
   const fieldLines = selectedFields.map(
     (field) => `- ${formatApiFieldLabel(field.nome)} (${field.nome}): ${formatApiFieldValue(field.nome, field.valor, deps)}`
   )
@@ -781,13 +919,17 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
 export function buildApiFallbackReply(message, apis = [], customDeps = {}) {
   const deps = getDeps(customDeps)
   const analytical = isAnalyticalQuery(message, deps)
-  const directReply = buildDirectApiReply(message, apis, deps)
+  const directReply = buildDirectApiReply(message, apis, deps, customDeps)
 
   if (directReply && !analytical) {
     return directReply
   }
 
-  const focused = buildFocusedApiContext(message, apis, deps)
+  if (!analytical && !(Array.isArray(customDeps?.targetFieldHints) && customDeps.targetFieldHints.length) && !hasApiExplicitLookupSignal(message, deps)) {
+    return null
+  }
+
+  const focused = buildFocusedApiContext(message, apis, customDeps)
   if (!focused.fields.length) {
     return null
   }

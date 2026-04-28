@@ -77,6 +77,22 @@ function normalizeConversationHistory(history = [], deps = {}) {
     .join(" ")
 }
 
+function detectCatalogItemsFromText(text = "", runtimeConfig = {}) {
+  const normalizedText = normalizeText(text)
+  const configuredItems = Array.isArray(runtimeConfig?.pricingCatalog?.items) ? runtimeConfig.pricingCatalog.items : null
+  if (!configuredItems?.length || !normalizedText) {
+    return []
+  }
+
+  return configuredItems
+    .filter((item) => Array.isArray(item?.matchAny) && item.matchAny.some((token) => normalizedText.includes(normalizeText(token))))
+    .map((item) => ({
+      slug: item.slug,
+      nome: item.name,
+      precoLabel: item.priceLabel,
+    }))
+}
+
 export function isGreetingOrAckMessage(message, deps = {}) {
   const normalize = deps.normalizeText ?? normalizeText
   const normalized = normalize(message)
@@ -223,33 +239,7 @@ export function isMercadoLivreListingIntent(message, deps = {}) {
 export function detectCatalogItems(history = [], deps = {}) {
   const runtimeConfig = deps.runtimeConfig ?? null
   const userText = normalizeConversationHistory(history, deps)
-  const configuredItems = Array.isArray(runtimeConfig?.pricingCatalog?.items) ? runtimeConfig.pricingCatalog.items : null
-  if (!configuredItems?.length) {
-    return []
-  }
-
-  return configuredItems
-    .filter((item) => Array.isArray(item?.matchAny) && item.matchAny.some((token) => userText.includes(normalizeText(token))))
-    .map((item) => ({
-      slug: item.slug,
-      nome: item.name,
-      precoLabel: item.priceLabel,
-    }))
-}
-
-function getLatestUserMessageText(history = [], deps = {}) {
-  const normalize = deps.normalizeText ?? normalizeText
-  const latestUserMessage = [...(Array.isArray(history) ? history : [])]
-    .reverse()
-    .find((item) => String(item?.role || "").toLowerCase() === "user")
-
-  return normalize(latestUserMessage?.content ?? latestUserMessage?.conteudo ?? "")
-}
-
-function isPricingCatalogOverviewIntent(message = "") {
-  return /\b(plano|planos|assinatura|mensalidade|basic|starter|plus|pro|scale|free|valor|valores|preco|precos|quanto custa|quanto sai|me passa|me manda|lista)\b/.test(
-    String(message || "")
-  )
+  return detectCatalogItemsFromText(userText, runtimeConfig)
 }
 
 function parsePriceLabelAmount(priceLabel = "") {
@@ -263,14 +253,9 @@ function parsePriceLabelAmount(priceLabel = "") {
   return Number.isFinite(parsed) ? parsed : null
 }
 
-function buildStructuredPricingCatalogReply(runtimeConfig, context, latestUserText, deps = {}) {
+function buildPricingItems(runtimeConfig) {
   const configuredItems = Array.isArray(runtimeConfig?.pricingCatalog?.items) ? runtimeConfig.pricingCatalog.items : []
-  if (!configuredItems.length || !isPricingCatalogOverviewIntent(latestUserText)) {
-    return null
-  }
-
-  const normalized = String(latestUserText || "")
-  const items = configuredItems
+  return configuredItems
     .map((item) => ({
       slug: item.slug,
       nome: item.name,
@@ -278,47 +263,83 @@ function buildStructuredPricingCatalogReply(runtimeConfig, context, latestUserTe
       amount: parsePriceLabelAmount(item.priceLabel),
     }))
     .filter((item) => item.nome && item.precoLabel)
+}
 
-  if (!items.length) {
+function buildPricingCatalogCtas(runtimeConfig, context) {
+  const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(context)
+  return {
+    listCta: hasWhatsAppDestination
+      ? runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opcoes e sigo com voce no WhatsApp."
+      : "Se quiser, eu comparo as opcoes e sigo com voce por aqui.",
+    singleCta: hasWhatsAppDestination
+      ? runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com voce por aqui ou no WhatsApp."
+      : "Se quiser, eu sigo com voce por aqui.",
+  }
+}
+
+export function buildPricingCatalogReplyFromIntent(runtimeConfig, context, semanticIntent, deps = {}) {
+  const items = buildPricingItems(runtimeConfig)
+  const intent = semanticIntent?.intent || semanticIntent?.kind || ""
+  if (!items.length || !intent) {
     return null
   }
 
   const structured = deps.prefersStructuredReply?.(context) ?? true
-  const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(context)
-  const listCta = hasWhatsAppDestination
-    ? runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opcoes e sigo com voce no WhatsApp."
-    : "Se quiser, eu comparo as opcoes e sigo com voce por aqui."
-  const singleCta = hasWhatsAppDestination
-    ? runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com voce por aqui ou no WhatsApp."
-    : "Se quiser, eu sigo com voce por aqui."
+  const { listCta, singleCta } = buildPricingCatalogCtas(runtimeConfig, context)
+  const requestedNames = Array.isArray(semanticIntent.requestedPlanNames)
+    ? semanticIntent.requestedPlanNames.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean)
+    : []
 
-  if (/\b(mais caro|maior valor|maior preco)\b/.test(normalized)) {
+  if (intent === "highest_priced_plan") {
     const ranked = items.filter((item) => item.amount != null).sort((a, b) => Number(b.amount) - Number(a.amount))
     const selected = ranked[0] || items[items.length - 1]
-    if (!selected) {
-      return null
-    }
-
-    return structured
-      ? [`**Plano mais caro**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
-      : `O plano mais caro hoje e ${selected.nome}: ${selected.precoLabel}. ${singleCta}`
+    return selected
+      ? structured
+        ? [`**Plano mais caro**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
+        : `O plano mais caro hoje e ${selected.nome}: ${selected.precoLabel}. ${singleCta}`
+      : null
   }
 
-  if (/\b(mais barato|menor valor|menor preco)\b/.test(normalized)) {
+  if (intent === "lowest_priced_plan") {
     const ranked = items.filter((item) => item.amount != null).sort((a, b) => Number(a.amount) - Number(b.amount))
     const selected = ranked[0] || items[0]
-    if (!selected) {
-      return null
-    }
-
-    return structured
-      ? [`**Plano mais barato**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
-      : `O plano mais barato hoje e ${selected.nome}: ${selected.precoLabel}. ${singleCta}`
+    return selected
+      ? structured
+        ? [`**Plano mais barato**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
+        : `O plano mais barato hoje e ${selected.nome}: ${selected.precoLabel}. ${singleCta}`
+      : null
   }
 
-  return structured
-    ? ["**Valores disponiveis**", ...items.map((item) => `- ${item.nome}: ${item.precoLabel}`), "", listCta].join("\n")
-    : `Hoje os valores disponiveis sao ${items.map((item) => `${item.nome}: ${item.precoLabel}`).join(" | ")}. ${listCta}`
+  if (intent === "specific_plan_question" && requestedNames.length) {
+    const matched = items.filter((item) =>
+      requestedNames.some((name) => item.nome.toLowerCase() === name || String(item.slug || "").toLowerCase() === name)
+    )
+    if (matched.length === 1) {
+      const selected = matched[0]
+      return structured
+        ? [`**Plano solicitado**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
+        : `Hoje o ${selected.nome} esta em ${selected.precoLabel}. ${singleCta}`
+    }
+  }
+
+  if (intent === "plan_comparison" && requestedNames.length >= 2) {
+    const matched = items.filter((item) =>
+      requestedNames.some((name) => item.nome.toLowerCase() === name || String(item.slug || "").toLowerCase() === name)
+    )
+    if (matched.length >= 2) {
+      return structured
+        ? ["**Comparacao de planos**", ...matched.map((item) => `- ${item.nome}: ${item.precoLabel}`), "", listCta].join("\n")
+        : `Hoje os planos comparados ficam assim: ${matched.map((item) => `${item.nome}: ${item.precoLabel}`).join(" | ")}. ${listCta}`
+    }
+  }
+
+  if (intent === "pricing_overview" || intent === "plan_comparison" || intent === "specific_plan_question") {
+    return structured
+      ? ["**Valores disponiveis**", ...items.map((item) => `- ${item.nome}: ${item.precoLabel}`), "", listCta].join("\n")
+      : `Hoje os valores disponiveis sao ${items.map((item) => `${item.nome}: ${item.precoLabel}`).join(" | ")}. ${listCta}`
+  }
+
+  return null
 }
 
 export function isOutOfScopeForCatalog(historyOrMessage, deps = {}) {
@@ -349,44 +370,6 @@ export function isOutOfScopeForCatalog(historyOrMessage, deps = {}) {
 }
 
 export function buildCatalogPricingReply(productOrHistory, context, deps = {}) {
-  if (Array.isArray(productOrHistory)) {
-    const history = productOrHistory
-    const runtimeConfig = deps.runtimeConfig ?? getRuntimeConfig(context)
-    const latestUserText = getLatestUserMessageText(history, deps)
-    const structuredPricingReply = buildStructuredPricingCatalogReply(runtimeConfig, context, latestUserText, deps)
-    if (structuredPricingReply) {
-      return structuredPricingReply
-    }
-
-    const catalogItems = detectCatalogItems(history, { ...deps, runtimeConfig })
-    if (catalogItems.length === 0 || isOutOfScopeForCatalog(history, deps)) {
-      return null
-    }
-
-    const labels = catalogItems.map((item) => `${item.nome}: ${item.precoLabel}`)
-    const joinedLabels = labels.join(" + ")
-    const structured = deps.prefersStructuredReply?.(context) ?? true
-    const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(context)
-    const singleCta = hasWhatsAppDestination
-      ? runtimeConfig?.pricingCatalog?.ctaSingle ||
-        "Se quiser, eu sigo com voce por aqui e ja te explico como isso entra no seu caso, ou te encaminho no WhatsApp para fecharmos mais rapido."
-      : "Se quiser, eu sigo com voce por aqui e ja te explico como isso entra no seu caso."
-    const multiCta = hasWhatsAppDestination
-      ? runtimeConfig?.pricingCatalog?.ctaMultiple ||
-        "Se quiser, eu posso te dizer qual combinacao faz mais sentido para o seu caso e te direcionar no WhatsApp para alinharmos os detalhes finais."
-      : "Se quiser, eu posso te dizer qual combinacao faz mais sentido para o seu caso por aqui."
-
-    if (catalogItems.length === 1) {
-      return structured
-        ? ["**Melhor encaixe inicial**", labels[0], "", singleCta].join("\n")
-        : `Pelo que voce descreveu, isso encaixa em ${joinedLabels}. ${singleCta}`
-    }
-
-    return structured
-      ? ["**Melhor encaixe inicial**", ...labels.map((label) => `- ${label}`), "", multiCta].join("\n")
-      : `Pelo que voce descreveu, isso encaixa no nosso catalogo como ${joinedLabels}. ${multiCta}`
-  }
-
   const product = productOrHistory
   if (!product?.nome || product?.preco == null) {
     return null

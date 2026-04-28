@@ -49,6 +49,39 @@ const REFINEMENT_HINT_PATTERN =
   /\b(inox|vidro|cristal|porcelana|ceramica|madeira|metal|prata|bronze|dourado|azul|verde|amarelo|preto|branco|bege|rosa|redondo|quadrado|grande|pequeno|moderno|antigo|vintage|rustico|industrial|material|cor|modelo|acabamento|estilo)\b/
 const REFINEMENT_SEARCH_PATTERN =
   /\b(quero|queria|procuro|busco|preciso|tem|com|sem|de|na cor|material|modelo|estilo|acabamento)\b/
+const REFINEMENT_HINT_TOKENS = new Set([
+  "inox",
+  "vidro",
+  "cristal",
+  "porcelana",
+  "ceramica",
+  "madeira",
+  "metal",
+  "prata",
+  "bronze",
+  "dourado",
+  "azul",
+  "verde",
+  "amarelo",
+  "preto",
+  "branco",
+  "bege",
+  "rosa",
+  "redondo",
+  "quadrado",
+  "grande",
+  "pequeno",
+  "moderno",
+  "antigo",
+  "vintage",
+  "rustico",
+  "industrial",
+  "material",
+  "cor",
+  "modelo",
+  "acabamento",
+  "estilo",
+])
 
 function isCatalogSnapshotFresh(context) {
   const snapshotCreatedAt = context?.catalogo?.snapshotCreatedAt
@@ -107,6 +140,10 @@ function extractCatalogMessageTokens(message) {
     .split(/\s+/)
     .filter((token) => token.length >= 3)
     .filter((token) => !REFINEMENT_STOPWORDS.has(token))
+}
+
+function extractCatalogRefinementHintTokens(tokens = []) {
+  return tokens.filter((token) => REFINEMENT_HINT_TOKENS.has(token))
 }
 
 function resolveProductByExplicitOrder(message, products) {
@@ -170,7 +207,13 @@ export function resolveRecentCatalogProductReference(message, context) {
 }
 
 export function isRecentCatalogReferenceAttempt(message) {
-  return /\b(gostei|quero|esse|essa|desse|dessa|primeiro|primeira|segundo|segunda|terceiro|terceira|1|2|3)\b/i.test(
+  return /\b(gostei|quero|esse|essa|desse|dessa|aquele|aquela|daquele|daquela|opcao|opcoes|primeiro|primeira|segundo|segunda|terceiro|terceira|1|2|3)\b/i.test(
+    String(message || "")
+  )
+}
+
+function hasStrongRecentCatalogReferenceSignal(message) {
+  return /\b(gostei|esse|essa|desse|dessa|aquele|aquela|daquele|daquela|opcao|opcoes|primeiro|primeira|segundo|segunda|terceiro|terceira|1|2|3)\b/i.test(
     String(message || "")
   )
 }
@@ -192,8 +235,13 @@ export function detectCatalogSearchRefinement(message, context, deps = {}) {
   const searchRequested = (deps.shouldSearchProducts ?? shouldSearchProducts)(message)
   const searchCandidates = (deps.buildProductSearchCandidates ?? buildProductSearchCandidates)(message)
   const messageTokens = extractCatalogMessageTokens(message)
+  const hintTokens = extractCatalogRefinementHintTokens(messageTokens)
 
   if (!messageTokens.length || (!searchRequested && !REFINEMENT_HINT_PATTERN.test(normalized) && !REFINEMENT_SEARCH_PATTERN.test(normalized))) {
+    return null
+  }
+
+  if (!hintTokens.length) {
     return null
   }
 
@@ -202,44 +250,50 @@ export function detectCatalogSearchRefinement(message, context, deps = {}) {
     return null
   }
 
+  const meaningfulUncoveredTokens = uncoveredTokens.filter((token) => REFINEMENT_HINT_TOKENS.has(token))
+  if (!meaningfulUncoveredTokens.length) {
+    return null
+  }
+
   return {
     kind: "catalog_search_refinement",
     confidence: 0.8,
     reason: "Mensagem adiciona filtros novos fora da ultima lista mostrada.",
     matchedProducts: [],
-    searchCandidates,
-    uncoveredTokens,
+    searchCandidates: [...new Set([...meaningfulUncoveredTokens, ...searchCandidates])].filter(Boolean),
+    uncoveredTokens: meaningfulUncoveredTokens,
     usedLlm: false,
     shouldBlockNewSearch: false,
   }
 }
 
-export function decideCatalogFollowUpHeuristically(message, context, deps = {}) {
+export function resolveCatalogLoadMoreDecision(message) {
+  if (!isCatalogLoadMoreIntent(message)) {
+    return null
+  }
+
+  return {
+    kind: "catalog_search",
+    confidence: 0.7,
+    reason: "Mensagem pede nova busca ou mais opcoes de catalogo.",
+    matchedProducts: [],
+    usedLlm: false,
+    shouldBlockNewSearch: false,
+  }
+}
+
+export function resolveRecentCatalogReferenceDecision(message, context) {
   const products = normalizeRecentCatalogProducts(context)
   if (!products.length) {
     return null
   }
 
-  const refinementDecision = detectCatalogSearchRefinement(message, context, deps)
-  if (refinementDecision) {
-    return refinementDecision
-  }
-
-  const candidates = (deps.buildProductSearchCandidates ?? buildProductSearchCandidates)(message)
-  const search = (deps.shouldSearchProducts ?? shouldSearchProducts)(message)
-  if (isCatalogLoadMoreIntent(message)) {
-    return {
-      kind: "catalog_search",
-      confidence: 0.7,
-      reason: "Mensagem pede nova busca ou mais opcoes de catalogo.",
-      matchedProducts: [],
-      usedLlm: false,
-      shouldBlockNewSearch: false,
-    }
-  }
-
   const matchedProducts = resolveRecentCatalogProductReference(message, context)
   if (!isRecentCatalogReferenceAttempt(message) && matchedProducts.length === 0) {
+    return null
+  }
+
+  if (!hasStrongRecentCatalogReferenceSignal(message) && matchedProducts.length === 0) {
     return null
   }
 
@@ -255,49 +309,47 @@ export function decideCatalogFollowUpHeuristically(message, context, deps = {}) 
   }
 
   if (matchedProducts.length > 1) {
-    const ambiguousMatches = matchedProducts
     return {
       kind: "recent_product_reference_ambiguous",
       confidence: 0.72,
       reason: "Mensagem referencia mais de um produto recente.",
-      matchedProducts: ambiguousMatches,
+      matchedProducts,
       usedLlm: false,
       shouldBlockNewSearch: true,
     }
   }
 
-  if (products.length > 1) {
-    if (search && candidates.length) {
-      return {
-        kind: "catalog_search",
-        confidence: 0.65,
-        reason: "Mensagem parece nova busca de catalogo.",
-        matchedProducts: [],
-        usedLlm: false,
-        shouldBlockNewSearch: false,
-      }
-    }
+  return {
+    kind: "recent_product_reference_unresolved",
+    confidence: 0.61,
+    reason: "Mensagem parece referenciar os produtos recentes, mas sem sinal textual suficiente para resolver.",
+    matchedProducts: products.slice(0, 3),
+    usedLlm: false,
+    shouldBlockNewSearch: true,
+  }
+}
 
-    return {
-      kind: "recent_product_reference_unresolved",
-      confidence: 0.61,
-      reason: "Mensagem parece referenciar os produtos recentes, mas sem sinal textual suficiente para resolver.",
-      matchedProducts: products.slice(0, 3),
-      usedLlm: false,
-      shouldBlockNewSearch: true,
-    }
+export function decideCatalogFollowUpHeuristically(message, context, deps = {}) {
+  return resolveDeterministicCatalogFollowUpDecision(message, context, deps)
+}
+
+export function resolveDeterministicCatalogFollowUpDecision(message, context, deps = {}) {
+  const products = normalizeRecentCatalogProducts(context)
+  if (!products.length) {
+    return null
   }
 
-  return search && candidates.length
-    ? {
-        kind: "catalog_search",
-        confidence: 0.65,
-        reason: "Mensagem parece nova busca de catalogo.",
-        matchedProducts: [],
-        usedLlm: false,
-        shouldBlockNewSearch: false,
-      }
-    : null
+  const refinementDecision = detectCatalogSearchRefinement(message, context, deps)
+  if (refinementDecision) {
+    return refinementDecision
+  }
+
+  const loadMoreDecision = resolveCatalogLoadMoreDecision(message)
+  if (loadMoreDecision) {
+    return loadMoreDecision
+  }
+
+  return resolveRecentCatalogReferenceDecision(message, context)
 }
 
 export function resolveCatalogReferenceHeuristicReply(decision) {

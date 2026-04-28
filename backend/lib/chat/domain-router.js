@@ -37,6 +37,16 @@ function getCatalogFocusMode(context = {}) {
   return mode || null
 }
 
+function extractPricingPlanTokens(runtimeConfig = {}) {
+  const items = Array.isArray(runtimeConfig?.pricingCatalog?.items) ? runtimeConfig.pricingCatalog.items : []
+  return [...new Set(
+    items
+      .flatMap((item) => [item?.slug, item?.name])
+      .map((item) => normalizeText(item))
+      .filter(Boolean)
+  )]
+}
+
 function hasApiRuntimeSignal(message, focusedApiContext) {
   const normalized = normalizeText(message)
   if (!focusedApiContext?.fields?.length) {
@@ -54,15 +64,60 @@ function hasApiRuntimeSignal(message, focusedApiContext) {
   return /\b\d{3,}\b/.test(normalized)
 }
 
-function hasCatalogSignal(message) {
+function hasExplicitCatalogObjectSignal(message) {
+  const normalized = normalizeText(message)
+
+  return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|estoque|modelo|link)\b/.test(normalized)
+}
+
+function hasCatalogSignal(message, context = {}) {
   const normalized = normalizeText(message)
   if (/\b(plano|planos|assinatura|mensalidade|basic|starter|plus|pro|free|credito|creditos)\b/.test(normalized)) {
     return false
   }
 
-  return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|tem|vende|estoque|modelo|opcoes|opcao|mostra|mostrar|mostre|manda|mande|envia|envie|traz|traga|procuro|quero ver|link|preciso|quero|busco|procurando|tiver|qualquer)\b/.test(
-    normalized
-  )
+  if (hasExplicitCatalogObjectSignal(normalized)) {
+    return hasStorefrontCatalogContext(context) || hasRecentCatalogContext(context) || hasMeaningfulCatalogSearchCandidate(normalized)
+  }
+
+  if (/\b(tem|vende|mostra|mostrar|mostre|manda|mande|envia|envie|traz|traga|procuro|quero ver|preciso|quero|busco|procurando)\b/.test(normalized)) {
+    return hasMeaningfulCatalogSearchCandidate(normalized)
+  }
+
+  return false
+}
+
+function hasMeaningfulCatalogSearchCandidate(message) {
+  const ignored = new Set([
+    "tem",
+    "vende",
+    "mostra",
+    "mostrar",
+    "mostre",
+    "manda",
+    "mande",
+    "envia",
+    "envie",
+    "traz",
+    "traga",
+    "procuro",
+    "quero",
+    "ver",
+    "quero ver",
+    "preciso",
+    "busco",
+    "procurando",
+    "mais",
+    "opcao",
+    "opcoes",
+    "modelo",
+    "modelos",
+  ])
+
+  return buildProductSearchCandidates(message).some((candidate) => {
+    const normalizedCandidate = normalizeText(candidate)
+    return normalizedCandidate && !ignored.has(normalizedCandidate)
+  })
 }
 
 function hasStorefrontCatalogContext(context) {
@@ -114,15 +169,31 @@ function hasShortCatalogQuerySignal(message) {
 }
 
 function hasCatalogFollowUpSignal(message) {
-  return /\b(mais|outras|outros|opcoes|opcao|modelos|esse|essa|desse|dessa|link|detalhe|detalhes|gostei|quero|manda|mande|envia|envie|mostra|mostre|traz|traga|tiver|qualquer)\b/i.test(
+  return /\b(mais|outras|outros|opcoes|opcao|modelos|esse|essa|desse|dessa|aquele|aquela|daquele|daquela|link|detalhe|detalhes|gostei|quero|manda|mande|envia|envie|mostra|mostre|traz|traga|tiver|qualquer)\b/i.test(
     String(message || "")
   )
 }
 
-function hasBillingSignal(message) {
-  return /\b(plano|planos|assinatura|mensalidade|basic|starter|plus|pro|free|credito|creditos|quanto custa|preco|valor)\b/i.test(
-    String(message || "")
+function hasRecentCatalogContext(context = {}) {
+  return (
+    Boolean(context?.catalogo?.produtoAtual?.nome) ||
+    (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 0)
   )
+}
+
+function hasBillingSignal(message) {
+  return /\b(plano|planos|assinatura|mensalidade|credito|creditos)\b/i.test(String(message || ""))
+}
+
+function hasExplicitPricingCatalogSignal(message, runtimeConfig = {}) {
+  const normalized = normalizeText(message)
+  const planTokens = extractPricingPlanTokens(runtimeConfig)
+
+  if (/\b(plano|planos|assinatura|mensalidade|credito|creditos)\b/.test(normalized)) {
+    return true
+  }
+
+  return planTokens.some((token) => token && normalized.includes(token))
 }
 
 function hasRecentCatalogPrompt(history = []) {
@@ -151,11 +222,19 @@ function isLikelyCatalogAnswerAfterPrompt(message, history = []) {
     return false
   }
 
-  if (/^(oi|ola|ok|obrigado|obrigada|sim|nao|bom dia|boa tarde|boa noite)$/.test(normalized)) {
+  if (/^(oi|ola|ok|obrigado|obrigada|sim|nao|bom dia|boa tarde|boa noite|entendi|certo|beleza|perfeito|show)$/.test(normalized)) {
     return false
   }
 
-  return hasRecentCatalogPrompt(history)
+  return hasRecentCatalogPrompt(history) && (hasCatalogFollowUpSignal(normalized) || hasShortCatalogQuerySignal(normalized))
+}
+
+function isCatalogFollowUpWithRecentState(message, history = [], context = {}) {
+  if (!hasRecentCatalogContext(context)) {
+    return false
+  }
+
+  return isLikelyCatalogAnswerAfterPrompt(message, history)
 }
 
 function hasAgendaSignal(message) {
@@ -171,6 +250,7 @@ export function resolveChatDomainRoute(input = {}) {
   const context = input.context && typeof input.context === "object" ? input.context : {}
   const runtimeApis = Array.isArray(input.runtimeApis) ? input.runtimeApis : []
   const focusedApiContext = input.focusedApiContext ?? null
+  const runtimeConfig = input.runtimeConfig && typeof input.runtimeConfig === "object" ? input.runtimeConfig : {}
   const projectConnections = input.project?.directConnections ?? context?.projeto?.directConnections ?? {}
   const capabilities = {
     mercadoLivre: Number(projectConnections?.mercadoLivre ?? 0) > 0,
@@ -218,7 +298,7 @@ export function resolveChatDomainRoute(input = {}) {
     }
   }
 
-  if (hasBillingSignal(message) && !hasCatalogSignal(message) && !hasProductDetailCatalogContext(context)) {
+  if (hasExplicitPricingCatalogSignal(message, runtimeConfig) && !hasCatalogSignal(message, context) && !hasProductDetailCatalogContext(context)) {
     return {
       domain: "billing",
       source: "agent",
@@ -277,7 +357,7 @@ export function resolveChatDomainRoute(input = {}) {
 
   if (
     capabilities.mercadoLivre &&
-    (hasCatalogSignal(message) || isLikelyCatalogAnswerAfterPrompt(message, input.history) || storefrontCatalogSignal)
+    (hasCatalogSignal(message, context) || isCatalogFollowUpWithRecentState(message, input.history, context) || storefrontCatalogSignal)
   ) {
     return {
       domain: "catalog",
@@ -296,7 +376,11 @@ export function resolveChatDomainRoute(input = {}) {
     }
   }
 
-  if (activeFocus?.domain === "catalog" && capabilities.mercadoLivre && hasCatalogFollowUpSignal(message)) {
+  if (
+    activeFocus?.domain === "catalog" &&
+    capabilities.mercadoLivre &&
+    (hasCatalogFollowUpSignal(message) || hasShortCatalogQuerySignal(message))
+  ) {
     return {
       domain: "catalog",
       source: "mercado_livre",

@@ -652,6 +652,7 @@ export function resolveMercadoLivreFlowState(input = {}) {
     referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? implicitSingleRecentProduct ?? null
   const stayOnCurrentProduct =
     Boolean(implicitSingleRecentProduct) ||
+    (referencedCatalogProducts?.length === 1 && inferredRefinementDecision?.kind !== "catalog_search_refinement") ||
     shouldStayOnCurrentProduct(input.latestUserMessage, input.context, candidateCurrentCatalogProduct)
   const forceNewSearch = inferredRefinementDecision?.kind === "catalog_search_refinement" && !stayOnCurrentProduct
   const currentCatalogProduct = forceNewSearch ? null : candidateCurrentCatalogProduct
@@ -677,7 +678,14 @@ export function resolveMercadoLivreFlowState(input = {}) {
     currentCatalogProduct,
     recentCatalogProducts,
     catalogFollowUpDecision: inferredRefinementDecision ?? null,
-    productSearchTerm: inferredRefinementDecision?.searchCandidates?.[0] ?? productSearchCandidates[0] ?? "",
+    productSearchTerm:
+      loadMoreCatalogRequested && inferredRefinementDecision?.kind !== "catalog_search_refinement"
+        ? ""
+        :
+      inferredRefinementDecision?.uncoveredTokens?.[0] ??
+      inferredRefinementDecision?.searchCandidates?.[0] ??
+      productSearchCandidates[0] ??
+      "",
     excludeCurrentProductFromSearch: inferredRefinementDecision?.excludeCurrentProduct === true,
     lastSearchTerm: sanitizeString(contextCatalog.ultimaBusca),
     paginationOffset: forceNewSearch
@@ -832,7 +840,10 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     }
   }
 
-  const freshSearchTerm = sanitizeString(input.productSearchTerm) || sanitizeString(input.latestUserMessage)
+  const refinementSearchTerm =
+    sanitizeString(input.catalogFollowUpDecision?.uncoveredTokens?.[0]) ||
+    sanitizeString(input.catalogFollowUpDecision?.searchCandidates?.[0])
+  const freshSearchTerm = refinementSearchTerm || sanitizeString(input.productSearchTerm) || sanitizeString(input.latestUserMessage)
   const searchTerm = input.forceNewSearch
     ? freshSearchTerm || sanitizeString(input.lastSearchTerm) || sanitizeString(input.context?.catalogo?.ultimaBusca)
     : input.loadMoreCatalogRequested

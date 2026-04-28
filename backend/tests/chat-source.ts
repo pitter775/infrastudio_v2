@@ -1,11 +1,15 @@
 export {
   decideCatalogFollowUpHeuristically,
+  resolveCatalogLoadMoreDecision,
+  resolveRecentCatalogReferenceDecision,
+  resolveDeterministicCatalogFollowUpDecision,
   resolveRecentCatalogProductReference,
 } from "@/lib/chat/catalog-follow-up";
 
 export {
   buildApiFallbackReply,
   buildFocusedApiContext,
+  resolveApiCatalogReply,
 } from "@/lib/chat/api-runtime";
 
 export {
@@ -169,4 +173,4 @@ export {
   normalizeWhatsAppLookupPhone,
 } from "@/lib/chats";
 
-export { buildCatalogDecisionFromSemanticIntent } from "@/lib/chat/semantic-intent-stage";
+export { buildApiDecisionFromSemanticIntent, buildCatalogDecisionFromSemanticIntent } from "@/lib/chat/semantic-intent-stage";
