@@ -191,6 +191,7 @@
     var widgetContext = parseContext(rawContext);
     var navigationResetTimer = null;
     var locationSignature = getLocationSignature();
+    var chatContextResetKey = getChatContextResetKey(widgetContext, locationSignature);
 
     function resolveWidgetScriptElement() {
       if (bootScript && bootScript.isConnected) {
@@ -228,6 +229,15 @@
 
     function getLocationSignature() {
       return String(window.location.pathname || "") + String(window.location.search || "");
+    }
+
+    function getChatContextResetKey(context, fallbackLocationSignature) {
+      var safeContext = context && typeof context === "object" ? context : {};
+      var pageKind = String(safeContext?.storefront?.pageKind || "").trim().toLowerCase();
+      var productSlug = String(safeContext?.storefront?.productSlug || "").trim().toLowerCase();
+      var storeSlugContext = String(safeContext?.storefront?.storeSlug || storeSlug || "").trim().toLowerCase();
+      var pathnameSignature = String(fallbackLocationSignature || getLocationSignature() || "");
+      return [storeSlugContext, pageKind, productSlug, pathnameSignature].join("|");
     }
 
     function resolveChatSessionScope(context) {
@@ -2755,8 +2765,39 @@
       navigationResetTimer = window.setTimeout(function () {
         navigationResetTimer = null;
         syncWidgetContextFromDom();
+        chatContextResetKey = getChatContextResetKey(widgetContext, locationSignature);
         resetConversationState({ animated: false });
       }, 140);
+    });
+
+    addListener(window, "infrastudio-chat:context-sync", function (event) {
+      var requestedWidgetId = event && event.detail ? event.detail.widgetId : null;
+      var requestedWidgetSlug = event && event.detail ? event.detail.widgetSlug : null;
+      if (requestedWidgetId && requestedWidgetId !== widgetId) {
+        return;
+      }
+      if (!requestedWidgetId && requestedWidgetSlug && requestedWidgetSlug !== widgetSlug) {
+        return;
+      }
+
+      syncWidgetContextFromDom();
+      var nextSignature = getLocationSignature();
+      var nextResetKey = getChatContextResetKey(widgetContext, nextSignature);
+
+      if (!shouldResetChatOnNavigation()) {
+        locationSignature = nextSignature;
+        chatContextResetKey = nextResetKey;
+        return;
+      }
+
+      if (nextResetKey === chatContextResetKey) {
+        locationSignature = nextSignature;
+        return;
+      }
+
+      locationSignature = nextSignature;
+      chatContextResetKey = nextResetKey;
+      resetConversationState({ animated: false });
     });
 
     addListener(window, "popstate", function () {
