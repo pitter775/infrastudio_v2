@@ -1,7 +1,6 @@
 import "server-only"
 
 import { listMercadoLivreItemsForProject } from "@/lib/mercado-livre-connector"
-import { createLogEntry } from "@/lib/logs"
 import { slugifyProduct } from "@/lib/mercado-livre-store"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
@@ -70,20 +69,6 @@ function buildSyncError(message, stage, details = {}) {
     details,
     error: message,
   }
-}
-
-async function logSnapshotSyncEvent(projectId, level, description, payload = {}) {
-  await createLogEntry({
-    projectId,
-    type: "mercado_livre_snapshot_sync",
-    origin: "laboratorio",
-    level,
-    description,
-    payload: {
-      keep: true,
-      ...payload,
-    },
-  })
 }
 
 async function replaceSnapshotRowsForProject(supabase, projectId, rows) {
@@ -165,11 +150,6 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
     )
 
     if (result.error) {
-      await logSnapshotSyncEvent(project.id, "error", "Falha ao listar itens da loja para sincronizacao.", {
-        stage: "list_items",
-        error: result.error,
-        paging: result.paging || lastPaging,
-      })
       return buildSyncError(result.error, "list_items", { paging: result.paging || lastPaging })
     }
 
@@ -195,14 +175,6 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
   if (existingResult.error) {
     console.error("[mercado-livre-store-sync] failed to load existing snapshot rows", existingResult.error)
-    await logSnapshotSyncEvent(project.id, "error", "Falha ao carregar snapshot atual da loja.", {
-      stage: "load_existing_rows",
-      paging: lastPaging,
-      error: existingResult.error.message || "unknown_error",
-      errorCode: existingResult.error.code || null,
-      details: existingResult.error.details || null,
-      hint: existingResult.error.hint || null,
-    })
     return buildSyncError("Nao foi possivel atualizar o snapshot da loja.", "load_existing_rows", {
       paging: lastPaging,
       error: existingResult.error.message || "unknown_error",
@@ -227,12 +199,6 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
       if (shouldFallbackToReplaceSync(error)) {
         const replaceResult = await replaceSnapshotRowsForProject(supabase, project.id, rows)
         if (!replaceResult.ok) {
-          await logSnapshotSyncEvent(project.id, "error", "Falha ao substituir snapshot da loja.", {
-            stage: "replace_rows",
-            paging: lastPaging,
-            error: replaceResult.error,
-            rows: rows.length,
-          })
           return buildSyncError(replaceResult.error, "replace_rows", {
             paging: lastPaging,
             rows: rows.length,
@@ -240,15 +206,6 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
         }
       } else {
         console.error("[mercado-livre-store-sync] failed to upsert snapshot rows", error)
-        await logSnapshotSyncEvent(project.id, "error", "Falha ao gravar snapshot da loja.", {
-          stage: "upsert_rows",
-          paging: lastPaging,
-          error: error.message || "unknown_error",
-          errorCode: error.code || null,
-          details: error.details || null,
-          hint: error.hint || null,
-          rows: rows.length,
-        })
         return buildSyncError("Nao foi possivel atualizar o snapshot da loja.", "upsert_rows", {
           paging: lastPaging,
           error: error.message || "unknown_error",
@@ -269,16 +226,6 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
     if (deleteResult.error) {
       console.error("[mercado-livre-store-sync] failed to delete stale snapshot rows", deleteResult.error)
-      await logSnapshotSyncEvent(project.id, "error", "Falha ao remover produtos inativos do snapshot.", {
-        stage: "delete_stale_rows",
-        paging: lastPaging,
-        error: deleteResult.error.message || "unknown_error",
-        errorCode: deleteResult.error.code || null,
-        details: deleteResult.error.details || null,
-        hint: deleteResult.error.hint || null,
-        syncedRows: rows.length,
-        staleRows: idsToDelete.length,
-      })
       return {
         synced: rows.length,
         paging: lastPaging,
@@ -294,15 +241,6 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
       }
     }
   }
-
-  await logSnapshotSyncEvent(project.id, "info", "Snapshot da loja Mercado Livre atualizado com sucesso.", {
-    stage: "completed",
-    synced: rows.length,
-    scanned: collectedItems.length,
-    eligible: eligibleItems.length,
-    deleted: idsToDelete.length,
-    paging: lastPaging,
-  })
 
   return {
     synced: rows.length,

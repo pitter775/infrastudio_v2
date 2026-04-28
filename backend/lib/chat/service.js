@@ -1170,38 +1170,6 @@ function attachRuntimeDiagnostics(result, runtimeState, extra = {}) {
   }
 }
 
-function isMercadoLivreCatalogDebugContext(context = {}) {
-  return Boolean(
-    context?.storefront?.kind === "mercado_livre" ||
-      context?.storefront?.pageKind === "product_detail" ||
-      context?.storefront?.pageKind === "storefront" ||
-      context?.ui?.catalogPreferred === true ||
-      context?.ui?.productDetailPreferred === true ||
-      context?.catalogo?.produtoAtual?.id ||
-      (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 0)
-  )
-}
-
-function buildMercadoLivreCatalogDebugPayload(context = {}, message = "") {
-  const recentProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
-  return {
-    latestMessage: String(message || "").trim().slice(0, 220),
-    storefrontKind: context?.storefront?.kind ?? null,
-    storefrontPageKind: context?.storefront?.pageKind ?? null,
-    conversationMode: context?.conversation?.mode ?? null,
-    catalogFocusMode: context?.catalogo?.focusMode ?? null,
-    catalogState: context?.catalogo?.catalogState ?? null,
-    productDetailPreferred: context?.ui?.productDetailPreferred === true,
-    catalogPreferred: context?.ui?.catalogPreferred === true,
-    produtoAtualId: context?.catalogo?.produtoAtual?.id ?? null,
-    produtoAtualNome: context?.catalogo?.produtoAtual?.nome ?? null,
-    selectedItemId: context?.catalogo?.selectedItemId ?? null,
-    latestSnapshotId: context?.catalogo?.snapshotId ?? null,
-    latestRecentProductsCount: recentProducts.length,
-    latestRecentProductIds: recentProducts.slice(0, 3).map((item) => item?.id).filter(Boolean),
-  }
-}
-
 async function recordChatRuntimeEvent(runtimeState, entry = {}) {
   const payload =
     entry?.payload && typeof entry.payload === "object" && !Array.isArray(entry.payload)
@@ -1877,20 +1845,6 @@ export async function processChatRequest(body, options = {}) {
     )
     runtimeState.agendaSlots = agendaSlots
 
-    if (isMercadoLivreCatalogDebugContext(aiContext)) {
-      await recordChatRuntimeEvent(runtimeState, {
-        type: "catalog_debug_event",
-        origin: "laboratorio",
-        level: "info",
-        description: "Runtime recebeu contexto de catalogo Mercado Livre.",
-        payload: {
-          keep: true,
-          phase: "before_orchestrator",
-          ...buildMercadoLivreCatalogDebugPayload(aiContext, runtimeState.prelude.message),
-        },
-      })
-    }
-
     const agendaSkillResult = await resolveAgendaReservationSkill({
       message: runtimeState.prelude.message,
       aiContext,
@@ -1933,30 +1887,6 @@ export async function processChatRequest(body, options = {}) {
         handoffRequested: escalationState?.handoffRequested ?? false,
       },
     })
-
-    if (isMercadoLivreCatalogDebugContext(aiContext)) {
-      await recordChatRuntimeEvent(runtimeState, {
-        type: "catalog_debug_event",
-        origin: "laboratorio",
-        level: "info",
-        description: "Runtime concluiu a decisao do catalogo Mercado Livre.",
-        payload: {
-          keep: true,
-          phase: "after_orchestrator",
-          ...buildMercadoLivreCatalogDebugPayload(aiContext, runtimeState.prelude.message),
-          provider: effectiveAiResult?.metadata?.provider ?? null,
-          routeStage: effectiveAiResult?.metadata?.routeStage ?? null,
-          heuristicStage: effectiveAiResult?.metadata?.heuristicStage ?? null,
-          domainStage: effectiveAiResult?.metadata?.domainStage ?? null,
-          routingDecision: effectiveAiResult?.metadata?.routingDecision ?? null,
-          resolvedCatalogProductId: effectiveAiResult?.metadata?.catalogoProdutoAtual?.id ?? null,
-          resolvedCatalogProductName: effectiveAiResult?.metadata?.catalogoProdutoAtual?.nome ?? null,
-          resolvedCatalogSearch: effectiveAiResult?.metadata?.catalogoBusca ?? null,
-          assetsCount: Array.isArray(effectiveAiResult?.assets) ? effectiveAiResult.assets.length : 0,
-          replyPreview: String(effectiveAiResult?.reply || "").trim().slice(0, 280),
-        },
-      })
-    }
 
     const finalResult = await finalizeV2AiTurn(runtimeState, effectiveAiResult, options)
 

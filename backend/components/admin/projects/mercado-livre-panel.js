@@ -42,8 +42,13 @@ export function MercadoLivrePanel({
   const [answeringQuestionId, setAnsweringQuestionId] = useState('')
   const [suggestingQuestionId, setSuggestingQuestionId] = useState('')
   const [syncingStoreSnapshot, setSyncingStoreSnapshot] = useState(false)
+  const [loadingSnapshotStatus, setLoadingSnapshotStatus] = useState(false)
   const [expandedQuestionId, setExpandedQuestionId] = useState('')
   const [copiedField, setCopiedField] = useState('')
+  const [snapshotStatus, setSnapshotStatus] = useState({
+    total: 0,
+    lastSyncAt: null,
+  })
   const [connectorMeta, setConnectorMeta] = useState({
     id: null,
     oauthConnected: false,
@@ -67,6 +72,35 @@ export function MercadoLivrePanel({
   ]
   const redirectUri = useMemo(() => buildMercadoLivreRedirectUri(), [])
   const webhookUrl = useMemo(() => buildMercadoLivreWebhookUrl(project.id), [project.id])
+
+  const loadSnapshotStatus = useCallback(async () => {
+    if (!connectorMeta.id) {
+      setSnapshotStatus({ total: 0, lastSyncAt: null })
+      return
+    }
+
+    setLoadingSnapshotStatus(true)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/snapshot`, {
+        cache: 'no-store',
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        return
+      }
+
+      const snapshot = data?.snapshot && typeof data.snapshot === 'object' ? data.snapshot : {}
+      setSnapshotStatus({
+        total: Number(snapshot.total || 0) || 0,
+        lastSyncAt: snapshot.lastSyncAt || null,
+      })
+    } catch {
+    } finally {
+      setLoadingSnapshotStatus(false)
+    }
+  }, [connectorMeta.id, projectIdentifier])
 
   function applyConnector(connector) {
     if (!connector || typeof connector !== 'object') {
@@ -206,6 +240,10 @@ export function MercadoLivrePanel({
       setLoadingTestItems(false)
     }
   }, [projectIdentifier])
+
+  useEffect(() => {
+    void loadSnapshotStatus()
+  }, [loadSnapshotStatus])
 
   const handleLoadOrders = useCallback(async (nextOffset = 0) => {
     setLoadingOrders(true)
@@ -568,11 +606,16 @@ export function MercadoLivrePanel({
         return
       }
 
+      const snapshot = data?.snapshot && typeof data.snapshot === 'object' ? data.snapshot : {}
+      setSnapshotStatus({
+        total: Number(snapshot.total || 0) || 0,
+        lastSyncAt: snapshot.lastSyncAt || null,
+      })
       setFeedback({
         tone: 'success',
         text:
           Number(data.synced || 0) > 0
-            ? `Loja atualizada no banco com ${Number(data.synced || 0)} produtos ativos e com estoque.`
+            ? `Loja atualizada no banco com ${Number(snapshot.total || data.synced || 0)} produtos ativos e com estoque.`
             : 'Loja atualizada. Nenhum produto ativo com estoque ficou elegivel para o snapshot.',
       })
     } catch {
@@ -667,6 +710,13 @@ export function MercadoLivrePanel({
                 <p className="mt-1 text-amber-50/80">
                   Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
                 </p>
+                {connectorMeta.oauthConnected ? (
+                  <div className="mt-2 text-sm text-amber-50/80">
+                    Produtos no banco:{' '}
+                    {loadingSnapshotStatus && !syncingStoreSnapshot ? 'carregando...' : Number(snapshotStatus.total || 0)}
+                    {snapshotStatus.lastSyncAt ? ` | ultima atualizacao: ${new Date(snapshotStatus.lastSyncAt).toLocaleString('pt-BR')}` : ''}
+                  </div>
+                ) : null}
                 <div className="mt-3 flex flex-wrap gap-3">
                   <a
                     href="https://developers.mercadolivre.com.br/devcenter"
