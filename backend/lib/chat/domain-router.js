@@ -78,10 +78,18 @@ function hasStrongCatalogObjectSignal(message) {
   return /\b(mercado livre|mlb\d+|estoque|modelo|link)\b/.test(normalizeText(message))
 }
 
+function hasExplicitMlItemSignal(message) {
+  return /\bmlb\d+\b/.test(normalizeText(message))
+}
+
 function hasCatalogSignal(message, context = {}) {
   const normalized = normalizeText(message)
   if (/\b(plano|planos|assinatura|mensalidade|basic|starter|plus|pro|free|credito|creditos)\b/.test(normalized)) {
     return false
+  }
+
+  if (hasStorefrontCatalogContext(context) && !hasRecentCatalogContext(context)) {
+    return hasExplicitMlItemSignal(normalized)
   }
 
   if (hasExplicitCatalogObjectSignal(normalized)) {
@@ -161,37 +169,6 @@ function hasProductDetailCatalogContext(context) {
   )
 }
 
-function hasShortCatalogQuerySignal(message) {
-  const rawMessage = String(message || "").trim()
-  const normalized = normalizeText(rawMessage)
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-
-  if (!normalized || isGreetingOrAckMessage(rawMessage)) {
-    return false
-  }
-
-  if (hasBillingSignal(normalized) || hasAgendaSignal(normalized) || hasHandoffSignal(normalized)) {
-    return false
-  }
-
-  const tokens = normalized.split(" ").filter(Boolean)
-  if (!tokens.length || tokens.length > 3) {
-    return false
-  }
-
-  if (tokens.some((token) => /^\d+$/.test(token))) {
-    return false
-  }
-
-  if (hasExplicitCatalogObjectSignal(normalized) && !hasStrongCatalogObjectSignal(normalized)) {
-    return false
-  }
-
-  return hasMeaningfulCatalogSearchCandidate(normalized)
-}
-
 function hasCatalogFollowUpSignal(message) {
   const normalized = normalizeText(message)
 
@@ -225,28 +202,6 @@ function hasBillingSignal(message) {
   return /\b(plano|planos|assinatura|mensalidade|credito|creditos)\b/i.test(String(message || ""))
 }
 
-function hasExplicitPricingCatalogSignal(message, runtimeConfig = {}) {
-  if (!hasRuntimePricingCatalog(runtimeConfig)) {
-    return false
-  }
-
-  const normalized = normalizeText(message)
-  const planTokens = extractPricingPlanTokens(runtimeConfig)
-  const hasNamedPlan = planTokens.some((token) => token && normalized.includes(token))
-  if (hasNamedPlan) {
-    return true
-  }
-
-  if (
-    /\b(plano|planos|assinatura|mensalidade|credito|creditos)\b/.test(normalized) &&
-    /\b(mais caro|mais barato|compar|diferenca|valores|precos|quanto custa|qual o valor|qual o preco|tabela)\b/.test(normalized)
-  ) {
-    return true
-  }
-
-  return false
-}
-
 function hasRecentCatalogPrompt(history = []) {
   return [...(history ?? [])]
     .reverse()
@@ -277,7 +232,7 @@ function isLikelyCatalogAnswerAfterPrompt(message, history = []) {
     return false
   }
 
-  return hasRecentCatalogPrompt(history) && (hasCatalogFollowUpSignal(normalized) || hasShortCatalogQuerySignal(normalized))
+  return hasRecentCatalogPrompt(history) && hasCatalogFollowUpSignal(normalized)
 }
 
 function isCatalogFollowUpWithRecentState(message, history = [], context = {}) {
@@ -349,24 +304,6 @@ export function resolveChatDomainRoute(input = {}) {
     }
   }
 
-  if (hasExplicitPricingCatalogSignal(message, runtimeConfig) && !hasCatalogSignal(message, context) && !hasProductDetailCatalogContext(context)) {
-    return {
-      domain: "billing",
-      source: "agent",
-      confidence: 0.9,
-      reason: "billing_pricing_intent",
-      shouldUseTool: false,
-      capabilities,
-      focus: {
-        domain: "billing",
-        source: "agent",
-        subject: message,
-        confidence: 0.9,
-        expiresAt: buildExpiresAt(8),
-      },
-    }
-  }
-
   if (capabilities.apis && hasApiRuntimeSignal(message, focusedApiContext)) {
     return {
       domain: "api_runtime",
@@ -428,7 +365,7 @@ export function resolveChatDomainRoute(input = {}) {
     activeFocus?.domain === "catalog" &&
     capabilities.mercadoLivre &&
     hasRecentCatalogListContext(context) &&
-    (hasCatalogFollowUpSignal(message) || hasShortCatalogQuerySignal(message))
+    hasCatalogFollowUpSignal(message)
   ) {
     return {
       domain: "catalog",

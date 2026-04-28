@@ -271,14 +271,14 @@ Ja feito:
 
 Ainda errado / fragil:
 
- - `domain-router` ainda existe como camada heuristica para billing, embora agora mais restrita a nome real de plano ou pedido forte de pricing
- - billing ainda tem deteccoes auxiliares espalhadas no runtime, mas pricing estruturado saiu do caminho heuristico principal
+- billing ainda tem deteccoes auxiliares espalhadas no runtime, mas pricing estruturado saiu do caminho heuristico principal
 - catalogo ainda depende bastante de `catalog-follow-up.js`, embora o stage semantico ja cubra produto em foco e item recente
  - `catalog-follow-up.js` ainda concentra guardrails textuais locais para refinamento/load more/referencia, embora agora mais ancorados em estado real
 - `catalog-follow-up.js` ainda continua como fallback local para refinamento/load more/referencia quando o stage semantico nao rodar ou nao classificar
 - `domain-router` ainda decide dominio demais por regex
 - `domain-router` de catalogo ainda tem regex, mas agora mais dependente de candidato real de busca e menos de verbo solto
 - `sales-heuristics` ainda concentra regra de negocio demais
+- `sales-heuristics` ainda concentra regra de negocio demais, mas ja ficou menos acoplado a pricing/billing
 - regressao em um dominio ainda pode contaminar outro
  - `api_runtime` ainda depende bastante de matching textual em `api-runtime.js`, apesar de agora usar melhor os hints estruturados do stage semantico
  - `api-runtime.js` ainda concentra a escolha interna de campos por matching textual quando faltam hints estruturados
@@ -286,7 +286,7 @@ Ainda errado / fragil:
 - `api-runtime.js` ainda usa matching textual para detectar comparacao entre itens e para agrupar suporte contextual de campos
 - `api-runtime.js` ainda usa matching textual como fallback quando o stage semantico nao devolver hints suficientes
 - principalmente em deteccao aberta de intent e em busca livre por campos
-- a parte mais ampla agora esta menor, mas `findMatchingApiFields` e `getApiKeywordGroups` ainda concentram bastante matching local
+- a parte mais ampla agora esta menor, mas `findMatchingApiFields` e `getApiKeywordGroups` ainda concentram matching local residual
 - o fallback ainda existe, mas ficou mais contido e menos propenso a “adivinhar” contexto de API em frase aberta
 - a busca livre por campo continua existindo, mas agora bem mais amarrada ao vocabulario conhecido de API
 - o score ainda existe, mas agora bem menos dependente de substring parcial
@@ -300,6 +300,89 @@ Ainda errado / fragil:
 - o roteador de vitrine ficou mais fail-closed: contexto de storefront sem sinal forte ou estado recente real nao sobe mais catalogo sozinho
 - a vitrine agora depende mais de estado recente real ou de override semantico do orquestrador, e menos de regex no roteador
 - billing agora tambem depende mais de runtime estruturado real ou de override semantico do orquestrador, e menos de regex no roteador
+- o `domain-router` parou de subir billing como decisor inicial por regex de pricing:
+  - a entrada inicial de billing agora depende do `intent-stage` do orquestrador
+  - o roteador nao continua mais billing por `focus`
+  - isso fecha o ultimo resquicio de billing local no `domain-router`
+- a classificacao semantica de billing agora roda mesmo quando o route base caiu em `catalog` sem produto travado
+  - isso evita perder uma pergunta de pricing por falso positivo catalogal no roteamento base
+  - a resposta continua deterministica sobre `runtimeConfig.pricingCatalog`
+- o fallback factual de API tambem ficou mais fail-closed:
+  - o runtime deixou de pegar arbitrariamente os primeiros campos da API so porque a frase parecia um follow-up curto
+  - sem hints estruturados e sem match factual real, ele prefere nao adivinhar contexto de campo
+- o fallback residual de campo em `api-runtime.js` tambem ficou menos amplo:
+  - quando ainda precisa cair em preferencia local, ele passa a priorizar campos do intent detectado (`price`, `docs`, `status`, etc.)
+  - so usa a lista ampla generica quando nao houver nenhum intent factual minimamente resolvido
+  - isso reduz mais um caminho em que o runtime podia puxar campo irrelevante por fallback aberto
+- a comparacao textual residual de API tambem ficou mais ancorada:
+  - sem decisao semantica, comparacao por texto agora exige ancora real de lista
+  - isso pode vir de referencia explicita a `1/2/3` ou de lista recente no contexto
+  - comparacao vaga como `qual vale mais a pena?` deixa de escolher item so porque existem produtos na API
+- a busca livre de campo em `api-runtime.js` tambem ficou mais estreita:
+  - `findMatchingApiFields` agora so roda quando houver token direto real do vocabulario de API na mensagem
+  - e o campo so entra na disputa se houver acerto direto real nesse proprio campo
+  - intent derivado sozinho nao libera mais matching livre de campo
+  - isso reduz mais um caminho de casamento textual amplo quando faltam hints estruturados
+- `sales-heuristics.js` tambem perdeu mais um vazamento de billing:
+  - a checagem de fronteira para lead capture deixou de depender de `pricingCatalog` e nomes de plano
+  - agora ela usa sinal real de conversa de catalogo/produto em vez de match com pricing estruturado
+  - o helper residual `buildCatalogPricingReply` saiu do arquivo por nao participar mais do fluxo principal
+- o `load more` residual de `catalog-follow-up.js` tambem ficou mais estrito:
+  - frase explicita como `mais opcoes` ou `manda o que tiver` continua valendo
+  - palavra solta como `outras` agora precisa de ancora real de lista/busca recente
+  - isso reduz mais um sequestro de catalogo por fallback curto fora de contexto
+- a referencia recente ambigua do catalogo tambem ficou menos ampla:
+  - se houver um unico produto recente, deitico forte agora trava direto nesse item
+  - a desambiguacao residual (`recent_product_reference_unresolved`) fica reservada para lista recente realmente concorrente
+  - isso reduz mais um caso em que o fallback local abria ambiguidade desnecessaria
+- o merge de catalogo no orquestrador tambem ficou mais semantico-first:
+  - quando existe decisao semantica, ela passa a mandar na maior parte dos casos
+  - a heuristica local so sobrescreve o stage quando ele caiu em `recent_product_reference_unresolved` e o guardrail local conseguiu resolver referencia concreta
+  - isso rebaixa mais `catalog-follow-up.js` para buraco residual, nao decisor paralelo
+- o `domain-router` de vitrine tambem ficou mais semantico-first:
+  - busca verbal com candidato real (`me mostra saleiro`) deixa de subir direto por regex local
+  - na vitrine sem contexto recente, a subida volta a depender do stage semantico
+  - o roteador ainda aceita item explicito do Mercado Livre (`MLB...`) como excecao forte
+- o `domain-router` de follow-up curto tambem ficou mais semantico-first:
+  - resposta apos prompt antigo nao sobe mais catalogo por query curta local
+  - nesse caminho o roteador agora aceita so referencia forte ou pedido explicito de mais opcoes
+  - busca curta nova fica para o stage semantico do orquestrador
+- o gate de lookup explicito em `api-runtime.js` tambem ficou mais estrito:
+  - sinal de API agora exige token direto real + intent factual
+  - intent derivado sozinho nao abre mais lookup livre
+- o fallback residual de campos na API tambem ficou mais curto:
+  - sem `targetFieldHints` e sem intent factual detectado, o runtime nao cai mais na lista generica de campos preferidos
+  - isso reduz mais um caminho de resposta semi-estruturada por chute local
+- a continuidade por `focus` de catalogo tambem ficou mais estreita:
+  - query curta em foco deixa de subir so por `hasShortCatalogQuerySignal`
+  - com foco recente, o roteador agora continua catalogo so em follow-up de referencia forte ou pedido explicito de mais opcoes
+  - busca curta nova volta a depender do stage semantico
+- `api-runtime.js` perdeu mais um score residual de matching livre:
+  - `findMatchingApiFields` deixou de somar `relatedTokens` por grupo semantico aproximado
+  - o score residual agora fica restrito a `directTokens` reais do vocabulario de API + `intentTokens`
+  - isso reduz mais um caminho em que grupo relacionado podia empurrar campo por associacao frouxa
+- o `domain-router` tambem perdeu uma heuristica curta que ja nao participava mais do fluxo real:
+  - `hasShortCatalogQuerySignal` saiu do arquivo
+  - a continuidade/local guard de catalogo fica explicitamente limitada a referencia forte ou pedido claro de mais opcoes
+- `api-runtime.js` tambem ficou menos dependente de substring ampla para inferir intent:
+  - `getApiKeywordGroups` agora deriva `intentTokens` so de tokens reais presentes no vocabulario conhecido
+  - `detectApiIntent` deixou de depender de `normalizedMessage.includes(trigger)` e passa a olhar tokens reais/hints derivados
+  - `API_KEYWORD_GROUPS` saiu do arquivo
+  - isso reduz mais um caminho em que frase aberta podia empurrar intent factual por substring ampla
+- o agrupamento auxiliar de suporte em `api-runtime.js` tambem ficou mais fechado:
+  - `findSupportFields` agora usa so `supportFieldHints` estruturados ou campos auxiliares derivados do intent detectado
+  - o fallback final por suffix solto foi removido
+  - `buildFocusedApiContext` passou a reutilizar esse mesmo resolve unico de suporte
+  - isso reduz mais um caminho em que o runtime podia anexar contexto auxiliar por casamento local amplo
+- a comparacao textual residual de API tambem ficou mais fechada:
+  - comparacao textual de `best_choice` agora so vale com referencia explicita de itens (`1/2/3`, ordinais)
+  - ranking textual de preco (`mais barato`, `mais caro`) continua aceito quando houver lista recente real
+  - comparacao consultiva vaga sem ancora explicita volta a depender do stage semantico
+  - isso reduz mais um caminho em que o runtime podia comparar itens por texto amplo sem referencia concreta
+- o orquestrador tambem rebaixou mais o fallback local de catalogo:
+  - `resolveDeterministicCatalogFollowUpDecision` agora so e consultado quando nao houver decisao semantica de catalogo ou quando o stage cair em `recent_product_reference_unresolved`
+  - com isso, o guardrail local deixa de rodar em paralelo nos casos em que o stage semantico ja decidiu refinamento, load more, busca nova ou referencia resolvida
+  - isso reduz mais o papel do fallback local como decisor concorrente
 
 ## Ordem de ataque obrigatoria
 
@@ -348,4 +431,6 @@ Ainda errado / fragil:
 
 ## Proximo passo recomendado agora
 
- - revisar `sales-heuristics.js` e o restante do runtime para remover deteccoes auxiliares de billing que ainda nao dependem do `intent-stage`
+- continuar reduzindo matching textual em `api-runtime.js`, principalmente revisando se `detectApiCatalogComparisonIntent` e o agrupamento de suporte ainda podem depender menos de texto livre
+- seguir rebaixando `catalog-follow-up.js` para guardrail residual, nao decisor
+- depois revisar se o merge final no `orchestrator.js` ja pode simplificar mais um passo sem reabrir regressao

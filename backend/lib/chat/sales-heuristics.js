@@ -77,20 +77,15 @@ function normalizeConversationHistory(history = [], deps = {}) {
     .join(" ")
 }
 
-function detectCatalogItemsFromText(text = "", runtimeConfig = {}) {
+function hasCatalogConversationSignal(text = "") {
   const normalizedText = normalizeText(text)
-  const configuredItems = Array.isArray(runtimeConfig?.pricingCatalog?.items) ? runtimeConfig.pricingCatalog.items : null
-  if (!configuredItems?.length || !normalizedText) {
-    return []
+  if (!normalizedText) {
+    return false
   }
 
-  return configuredItems
-    .filter((item) => Array.isArray(item?.matchAny) && item.matchAny.some((token) => normalizedText.includes(normalizeText(token))))
-    .map((item) => ({
-      slug: item.slug,
-      nome: item.name,
-      precoLabel: item.priceLabel,
-    }))
+  return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|estoque|modelo|cor|tamanho|material|link)\b/.test(
+    normalizedText
+  )
 }
 
 export function isGreetingOrAckMessage(message, deps = {}) {
@@ -236,12 +231,6 @@ export function isMercadoLivreListingIntent(message, deps = {}) {
   ) || /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/.test(normalized)
 }
 
-export function detectCatalogItems(history = [], deps = {}) {
-  const runtimeConfig = deps.runtimeConfig ?? null
-  const userText = normalizeConversationHistory(history, deps)
-  return detectCatalogItemsFromText(userText, runtimeConfig)
-}
-
 function parsePriceLabelAmount(priceLabel = "") {
   const match = String(priceLabel || "").match(/r\$\s*([\d\.\,]+)/i)
   if (!match?.[1]) {
@@ -373,20 +362,7 @@ export function isOutOfScopeForCatalog(historyOrMessage, deps = {}) {
     /\bmais de um\b/,
   ]
 
-  const catalogItems = detectCatalogItems(historyOrMessage, deps)
-  return catalogItems.length === 0 || (!asksForChat && complexSignals.some((pattern) => pattern.test(userText)))
-}
-
-export function buildCatalogPricingReply(productOrHistory, context, deps = {}) {
-  const product = productOrHistory
-  if (!product?.nome || product?.preco == null) {
-    return null
-  }
-
-  return `${product.nome} esta por R$ ${Number(product.preco).toLocaleString("pt-BR", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}.`
+  return !hasCatalogConversationSignal(userText) || (!asksForChat && complexSignals.some((pattern) => pattern.test(userText)))
 }
 
 export function maybeAskForLeadIdentification(context = {}, history = [], latestUserMessage = "", deps = {}) {

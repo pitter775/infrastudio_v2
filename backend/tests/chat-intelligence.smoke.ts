@@ -412,6 +412,8 @@ const tests: TestCase[] = [
     name: "catalogo resolve item recente e segura ambiguidade",
     run: () => {
       const loadMore = resolveCatalogLoadMoreDecision("manda o q tiver");
+      const broadLoadMoreWithoutList = resolveCatalogLoadMoreDecision("outras", { catalogo: { ultimaBusca: "" } } as never);
+      const broadLoadMoreWithList = resolveCatalogLoadMoreDecision("outras", catalogContext as never);
       const notLoadMore = resolveCatalogLoadMoreDecision("me fala mais dele");
       const reference = resolveDeterministicCatalogFollowUpDecision("gostei da sopeira que mandou", catalogContext as never, deps as never);
       const ambiguous = resolveDeterministicCatalogFollowUpDecision("gostei desse", catalogContext as never, deps as never);
@@ -420,11 +422,17 @@ const tests: TestCase[] = [
       const shortSearch = resolveRecentCatalogReferenceDecision("saleiro azul", catalogContext as never);
       const weakRefinement = resolveDeterministicCatalogFollowUpDecision("quero bonito", catalogContext as never, deps as never);
       const vagueSearch = resolveDeterministicCatalogFollowUpDecision("saleiro", catalogContext as never, deps as never);
+      const singleRecentReference = resolveRecentCatalogReferenceDecision(
+        "gostei desse",
+        { catalogo: { ultimosProdutos: [catalogContext.catalogo?.ultimosProdutos?.[0]] } } as never
+      );
       const resolved = resolveRecentCatalogProductReference("gostei da dopeira que mandou", catalogContext as never);
       const resolvedByOrder = resolveRecentCatalogProductReference("quero o segundo", catalogContext as never);
       const resolvedUniqueAmongMany = resolveRecentCatalogProductReference("quero o floral", catalogContext as never);
 
       assert.equal(loadMore?.kind, "catalog_search");
+      assert.equal(broadLoadMoreWithoutList, null);
+      assert.equal(broadLoadMoreWithList?.kind, "catalog_search");
       assert.equal(notLoadMore, null);
       assert.equal(reference?.kind, "recent_product_reference");
       assert.equal(ambiguous?.kind, "recent_product_reference_unresolved");
@@ -433,6 +441,7 @@ const tests: TestCase[] = [
       assert.equal(shortSearch, null);
       assert.equal(weakRefinement, null);
       assert.equal(vagueSearch, null);
+      assert.equal(singleRecentReference?.kind, "recent_product_reference");
       assert.equal(resolved.length, 1);
       assert.equal(resolvedByOrder.length, 1);
       assert.equal(resolvedByOrder[0]?.id, "MLB2");
@@ -999,6 +1008,64 @@ const tests: TestCase[] = [
       );
 
       assert.match(reply ?? "", /eu iria em Kit Mesa Posta Premium/i);
+    },
+  },
+  {
+    name: "api runtime nao compara por texto solto sem ancora real de lista",
+    run: () => {
+      const reply = resolveApiCatalogReply(
+        "qual vale mais a pena?",
+        {},
+        [
+          {
+            apiId: "api-prod-1",
+            nome: "Produto 1",
+            campos: [
+              { nome: "sku", valor: "KIT-01" },
+              { nome: "nome", valor: "Kit Mesa Posta Classic" },
+              { nome: "preco", valor: 320 },
+            ],
+          },
+          {
+            apiId: "api-prod-2",
+            nome: "Produto 2",
+            campos: [
+              { nome: "sku", valor: "KIT-02" },
+              { nome: "nome", valor: "Kit Mesa Posta Premium" },
+              { nome: "preco", valor: 250 },
+            ],
+          },
+        ]
+      );
+
+      assert.equal(reply, null);
+    },
+  },
+  {
+    name: "api runtime ainda aceita ranking textual de preco com lista recente real",
+    run: () => {
+      const products = [
+        {
+          nome: "Kit Mesa Posta Classic",
+          preco: 320,
+        },
+        {
+          nome: "Kit Mesa Posta Premium",
+          preco: 250,
+        },
+      ];
+      const reply = resolveApiCatalogReply(
+        "qual o mais barato?",
+        {
+          catalogo: {
+            ultimosProdutos: products,
+          },
+        },
+        []
+      );
+
+      assert.match(reply ?? "", /mais barato/i);
+      assert.match(reply ?? "", /Kit Mesa Posta Premium/i);
     },
   },
   {
@@ -1634,7 +1701,7 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "domain router ainda reconhece billing por nome explicito de plano",
+    name: "domain router deixa billing inicial para o stage semantico mesmo com nome explicito de plano",
     run: () => {
       const decision = resolveChatDomainRoute({
         latestUserMessage: "qual o valor do pro?",
@@ -1656,8 +1723,41 @@ const tests: TestCase[] = [
         },
       });
 
-      assert.equal(decision.domain, "billing");
-      assert.equal(decision.reason, "billing_pricing_intent");
+      assert.equal(decision.domain, "general");
+    },
+  },
+  {
+    name: "domain router nao continua billing nem com focus ativo antigo",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "qual o valor do pro?",
+        history: [{ role: "assistant", content: "Posso te passar os valores dos planos Basic e Pro." }],
+        context: {
+          focus: {
+            domain: "billing",
+            source: "agent",
+            subject: "planos",
+            confidence: 0.9,
+            expiresAt: new Date(Date.now() + 60_000).toISOString(),
+          },
+        },
+        project: {
+          directConnections: {},
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+        runtimeConfig: {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              { slug: "basic", name: "Basic", priceLabel: "R$ 29,90/mes" },
+              { slug: "pro", name: "Pro", priceLabel: "R$ 149,90/mes" },
+            ],
+          },
+        },
+      });
+
+      assert.equal(decision.domain, "general");
     },
   },
   {
@@ -1717,10 +1817,34 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "domain router reconhece catalogo por verbo com candidato real de busca",
+    name: "domain router deixa busca verbal de vitrine para o stage semantico",
     run: () => {
       const decision = resolveChatDomainRoute({
         latestUserMessage: "me mostra saleiro",
+        history: [],
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "general");
+    },
+  },
+  {
+    name: "domain router ainda reconhece item explicito do mercado livre na vitrine",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "me mostra o mlb123456789",
         history: [],
         context: {
           storefront: {

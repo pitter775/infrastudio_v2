@@ -27,7 +27,6 @@ import {
   extractSemanticPricingCatalogFromAgentText,
 } from "@/lib/chat/semantic-intent-stage"
 import {
-  buildCatalogPricingReply,
   buildPricingCatalogReplyFromIntent,
   buildProductSearchCandidates,
   isGreetingOrAckMessage,
@@ -51,10 +50,6 @@ function getPricingCatalogExtractionCache() {
 
 function mapMessageRole(autor) {
   return autor === "atendente" ? "assistant" : "user"
-}
-
-function hasFactualApiSignal(message) {
-  return /\b(status|pedido|data|previsao|prazo|valor|estoque|codigo)\b/i.test(String(message || ""))
 }
 
 function isSemanticApiFactualDecision(decision) {
@@ -323,21 +318,13 @@ function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCa
 }
 
 function mergeCatalogSemanticAndHeuristicDecision(semanticDecision, heuristicDecision) {
-  if (semanticDecision?.kind === "catalog_search" && heuristicDecision?.kind === "catalog_search_refinement") {
-    return semanticDecision
-  }
-
-  if (heuristicDecision?.kind === "catalog_search_refinement" && semanticDecision?.kind !== "catalog_search_refinement") {
-    return heuristicDecision
-  }
-
   if (!semanticDecision) {
     return heuristicDecision ?? null
   }
 
   if (
     semanticDecision.kind === "recent_product_reference_unresolved" &&
-    ["catalog_search_refinement", "catalog_search", "recent_product_reference"].includes(heuristicDecision?.kind)
+    ["recent_product_reference", "recent_product_reference_ambiguous"].includes(heuristicDecision?.kind)
   ) {
     return heuristicDecision
   }
@@ -514,7 +501,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     recentProducts: context?.catalogo?.ultimosProdutos,
   })
   const semanticBillingIntent =
-    hasRuntimePricingCatalog(runtimeConfig) && !shouldUseBaseMercadoLivre && !hasProductPricingPriority
+    hasRuntimePricingCatalog(runtimeConfig) && !hasProductPricingPriority
       ? await (options.classifySemanticBillingIntentStage ?? classifySemanticBillingIntentStage)({
           latestUserMessage,
           pricingItems: runtimeConfig.pricingCatalog.items,
@@ -530,14 +517,16 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const shouldUseApiRuntime = routingDecision.domain === "api_runtime" && routingDecision.shouldUseTool === true
   const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
   const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
-  const heuristicCatalogFollowUpDecision =
+  const shouldEvaluateHeuristicCatalogFollowUp =
+    (!semanticCatalogDecision || semanticCatalogDecision.kind === "recent_product_reference_unresolved") &&
     (shouldUseMercadoLivre || hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual) &&
     (hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual)
-      ? resolveDeterministicCatalogFollowUpDecision(latestUserMessage, context, {
-          buildProductSearchCandidates,
-          shouldSearchProducts,
-        })
-      : null
+  const heuristicCatalogFollowUpDecision = shouldEvaluateHeuristicCatalogFollowUp
+    ? resolveDeterministicCatalogFollowUpDecision(latestUserMessage, context, {
+        buildProductSearchCandidates,
+        shouldSearchProducts,
+      })
+    : null
   const catalogFollowUpDecision = mergeCatalogSemanticAndHeuristicDecision(semanticCatalogDecision, heuristicCatalogFollowUpDecision)
   const catalogReferenceReply = resolveCatalogReferenceHeuristicReply(catalogFollowUpDecision)
   const mercadoLivreFlowState = resolveMercadoLivreFlowState({

@@ -66,23 +66,6 @@ const API_FIELD_INTENTS = [
   },
 ]
 
-const API_KEYWORD_GROUPS = [
-  ["endereco", "rua", "numero", "complemento", "cep", "cidade", "estado", "localizacao"],
-  ["valor", "preco", "avaliacao", "minimo", "mercado", "lance", "roi", "lucro", "custo"],
-  ["leilao", "data", "prazo", "previsao", "agenda", "status"],
-  ["ocupacao", "ocupado", "desocupado", "disponibilidade", "estoque"],
-  ["matricula", "cartorio", "juridico", "documento", "observacoes", "risco", "riscos"],
-  ["quarto", "quartos", "banheiro", "banheiros", "area", "construida", "total", "tipo", "propriedade"],
-  ["resumo", "descricao", "detalhe", "detalhes", "analise"],
-]
-
-const API_VOCABULARY = new Set(
-  [
-    ...API_FIELD_INTENTS.flatMap((intent) => [...intent.triggers, ...intent.targets]),
-    ...API_KEYWORD_GROUPS.flatMap((group) => group),
-  ].map((item) => String(item || "").trim()).filter(Boolean)
-)
-
 const DIRECT_REPLY_FACTUAL_SIGNALS = [
   "matricula",
   "cartorio",
@@ -109,6 +92,13 @@ const DIRECT_REPLY_FACTUAL_SIGNALS = [
   "codigo",
   "estoque",
 ]
+
+const API_VOCABULARY = new Set(
+  [
+    ...API_FIELD_INTENTS.flatMap((intent) => [...intent.triggers, ...intent.targets]),
+    ...DIRECT_REPLY_FACTUAL_SIGNALS,
+  ].map((item) => String(item || "").trim()).filter(Boolean)
+)
 
 function getDeps(deps = {}) {
   return {
@@ -335,6 +325,10 @@ function normalizeApiComparisonMode(value) {
   return ["best_choice", "highest_price", "lowest_price"].includes(String(value || "")) ? String(value) : null
 }
 
+function isPriceRankingComparisonMode(value) {
+  return value === "highest_price" || value === "lowest_price"
+}
+
 function resolveApiCatalogComparisonIndexes(message, products) {
   const normalized = normalizeComparisonMessage(message)
   const patterns = [
@@ -343,6 +337,15 @@ function resolveApiCatalogComparisonIndexes(message, products) {
     { pattern: /\b3\b|\bterceiro\b|\bterceira\b/, index: 2 },
   ]
   return [...new Set(patterns.filter((item) => item.pattern.test(normalized)).map((item) => item.index))].filter((index) => products[index])
+}
+
+function hasTextualApiComparisonAnchor(message, contextProducts, products) {
+  const explicitIndexes = resolveApiCatalogComparisonIndexes(message, products)
+  if (explicitIndexes.length >= 2) {
+    return true
+  }
+
+  return Array.isArray(contextProducts) && contextProducts.length > 1
 }
 
 function resolveApiCatalogSemanticComparisonIndexes(indexes, products) {
@@ -427,10 +430,23 @@ export function resolveApiCatalogReply(message, context = {}, apis = [], customD
   }
 
   const semanticApiDecision = customDeps?.semanticApiDecision
-  const comparisonIntent =
-    normalizeApiComparisonMode(semanticApiDecision?.comparisonMode) ?? detectApiCatalogComparisonIntent(message)
+  const semanticComparisonMode = normalizeApiComparisonMode(semanticApiDecision?.comparisonMode)
+  const textualComparisonIntent = detectApiCatalogComparisonIntent(message)
+  const comparisonIntent = semanticComparisonMode ?? textualComparisonIntent
   if (comparisonIntent) {
     const semanticIndexes = resolveApiCatalogSemanticComparisonIndexes(semanticApiDecision?.referencedProductIndexes, products)
+    if (!semanticComparisonMode) {
+      const textualIndexes = resolveApiCatalogComparisonIndexes(message, products)
+      const hasExplicitIndexes = textualIndexes.length >= 2
+      const hasRecentListAnchor = Array.isArray(contextProducts) && contextProducts.length > 1
+      const allowTextualComparison = isPriceRankingComparisonMode(comparisonIntent)
+        ? hasExplicitIndexes || hasRecentListAnchor
+        : hasExplicitIndexes
+      if (!allowTextualComparison || !hasTextualApiComparisonAnchor(message, contextProducts, products)) {
+        return null
+      }
+    }
+
     const indexes = semanticIndexes.length ? semanticIndexes : resolveApiCatalogComparisonIndexes(message, products)
     return buildApiCatalogComparisonReply(products, comparisonIntent, indexes)
   }
@@ -501,21 +517,6 @@ function isAnalyticalQuery(message, deps) {
   return ANALYTICAL_QUERY_SIGNALS.some((signal) => normalized.includes(signal))
 }
 
-function isApiContinuationMessage(message, deps) {
-  const normalized = deps.normalizeText(message)
-    .replace(/[^\p{L}\p{N}\s]/gu, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-
-  if (!normalized) return false
-  if (normalized.length > 48) return false
-
-  const words = normalized.split(" ").filter(Boolean)
-  if (words.length > 8) return false
-
-  return !/^(oi|ola|bom dia|boa tarde|boa noite)$/.test(normalized)
-}
-
 function formatApiFieldLabel(path) {
   return String(path || "")
     .split(".")
@@ -575,13 +576,11 @@ function formatDirectFieldReply(fieldName, value, deps) {
 }
 
 function detectApiIntent(message, deps) {
-  const normalizedMessage = deps.normalizeText(message)
   const tokens = getApiKeywordGroups(message, deps)
   return (
     API_FIELD_INTENTS.find((intent) =>
       intent.triggers.some(
         (trigger) =>
-          normalizedMessage.includes(trigger) ||
           tokens.directTokens.includes(trigger) ||
           tokens.intentTokens.includes(trigger)
       )
@@ -676,35 +675,7 @@ function findSupportFields(apiContexts, primaryField, message, deps, customDeps 
     return intentSupportFields.slice(0, 3)
   }
 
-  const supportSuffixes = getSupportFieldSuffixes(intent?.id)
-  const primaryName = deps.normalizeText(primaryField?.nome)
-
-  return apiContexts
-    .flatMap((api) =>
-      (api.campos ?? []).flatMap((field) => {
-        const normalizedName = deps.normalizeText(field.nome)
-        if (!normalizedName || normalizedName === primaryName) {
-          return []
-        }
-
-        const matchedSuffix = supportSuffixes.find((suffix) => normalizedName.endsWith(suffix))
-        if (!matchedSuffix) {
-          return []
-        }
-
-        return [
-          {
-            ...field,
-            apiId: api.apiId,
-            apiNome: api.nome,
-            supportScore: supportSuffixes.length - supportSuffixes.indexOf(matchedSuffix),
-          },
-        ]
-      })
-    )
-    .sort((left, right) => right.supportScore - left.supportScore || left.nome.localeCompare(right.nome))
-    .filter((field, index, list) => list.findIndex((item) => item.nome === field.nome) === index)
-    .slice(0, 2)
+  return []
 }
 
 function buildContextualDirectReply(primaryField, supportFields, deps) {
@@ -737,36 +708,25 @@ function getApiFieldIcon(fieldName, deps) {
 }
 
 function getApiKeywordGroups(message, deps) {
-  const normalizedMessage = deps.normalizeText(message)
   const directTokens = deps.buildSearchTokens(message)
   const singularDirectTokens = directTokens.flatMap((token) => [token, deps.singularizeToken(token)])
   const relevantDirectTokens = singularDirectTokens.filter((token) => API_VOCABULARY.has(token))
 
   const intentTokens = API_FIELD_INTENTS.flatMap((intent) =>
-    intent.triggers.some((trigger) => relevantDirectTokens.includes(trigger) || normalizedMessage.includes(trigger))
+    intent.triggers.some((trigger) => relevantDirectTokens.includes(trigger))
       ? intent.targets
       : []
   )
 
-  const matchedGroup =
-    intentTokens.length > 0
-      ? API_KEYWORD_GROUPS.find(
-          (group) =>
-            group.some((keyword) => normalizedMessage.includes(keyword)) ||
-            group.some((keyword) => relevantDirectTokens.includes(keyword))
-        ) ?? []
-      : []
-
   return {
     directTokens: [...new Set(relevantDirectTokens)],
     intentTokens: [...new Set(intentTokens.flatMap((token) => [token, deps.singularizeToken(token)]))],
-    relatedTokens: matchedGroup.filter((keyword) => !relevantDirectTokens.includes(keyword)),
   }
 }
 
 function hasApiExplicitLookupSignal(message, deps) {
-  const { intentTokens } = getApiKeywordGroups(message, deps)
-  return intentTokens.length > 0
+  const { directTokens, intentTokens } = getApiKeywordGroups(message, deps)
+  return directTokens.length > 0 && intentTokens.length > 0
 }
 
 function tokenizeApiField(value, deps) {
@@ -777,7 +737,10 @@ function tokenizeApiField(value, deps) {
 }
 
 function findMatchingApiFields(apiContexts, message, deps) {
-  const { directTokens, intentTokens, relatedTokens } = getApiKeywordGroups(message, deps)
+  const { directTokens, intentTokens } = getApiKeywordGroups(message, deps)
+  if (!directTokens.length) {
+    return []
+  }
 
   return apiContexts.flatMap((api) =>
     (api.campos ?? []).flatMap((field) => {
@@ -803,18 +766,11 @@ function findMatchingApiFields(apiContexts, message, deps) {
         return total
       }, 0)
 
-      const relatedScore = relatedTokens.reduce((total, keyword) => {
-        if (!keyword) return total
-        if (normalizedPath === keyword || normalizedLabel === keyword) return total + 6
-        if (normalizedPath.endsWith(`.${keyword}`) || normalizedPath.endsWith(keyword)) return total + 4
-        if (fieldTokens.includes(keyword)) return total + 2
-        return total
-      }, 0)
-
-      const score = directScore + intentScore + relatedScore
-      if (score <= 0) {
+      if (directScore <= 0) {
         return []
       }
+
+      const score = directScore + intentScore
 
       return [
         {
@@ -828,27 +784,16 @@ function findMatchingApiFields(apiContexts, message, deps) {
   )
 }
 
-function buildFallbackFields(apiContexts, deps, message) {
-  const normalizedMessage = deps.normalizeText(message)
+function buildFallbackFields(apiContexts, deps, message, customDeps = {}) {
   const availableApis = apiContexts.filter((api) => Array.isArray(api.campos) && api.campos.length > 0)
-  const preferredFields = [
-    "riscos",
-    "risco",
-    "cartorio",
-    "matricula",
-    "data_leilao",
-    "status",
-    "valor_minimo",
-    "valor_avaliacao",
-    "valor_mercado",
-    "valor",
-    "preco",
-    "roi_estimado",
-    "titulo",
-    "nome",
-    "descricao",
-    "resumo",
-  ]
+  const detectedIntent = detectApiIntentFromHints(customDeps?.targetFieldHints, deps) ?? detectApiIntent(message, deps)
+  if (!detectedIntent?.targets?.length) {
+    return []
+  }
+
+  const preferredFields = detectedIntent?.targets?.length
+    ? detectedIntent.targets
+    : []
 
   const selected = preferredFields.flatMap((suffix) =>
     availableApis.flatMap((api) =>
@@ -869,19 +814,6 @@ function buildFallbackFields(apiContexts, deps, message) {
 
   if (selected.length) {
     return selected.slice(0, 5)
-  }
-
-  if (isApiContinuationMessage(normalizedMessage, deps)) {
-    return availableApis
-      .flatMap((api) =>
-        api.campos.slice(0, 5).map((field) => ({
-          ...field,
-          apiId: api.apiId,
-          apiNome: api.nome,
-          score: 1,
-        }))
-      )
-      .slice(0, 5)
   }
 
   return []
@@ -942,18 +874,18 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
     return { instructions: failedApis.length ? failedApis.map((api) => `- API indisponivel: ${api.nome}. Motivo: ${api.erro}`).join("\n") : "", fields: [], apis: [] }
   }
   const primaryField = hintMatches[0] ?? intentMatches[0] ?? null
-  const supportHintMatches = resolveSupportHintFields(availableApis, primaryField, customDeps?.supportFieldHints, deps)
+  const supportMatches = primaryField ? findSupportFields(availableApis, primaryField, message, deps, customDeps) : []
   const matches = findMatchingApiFields(availableApis, message, deps)
     .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
     .slice(0, 6)
 
   const selectedFields = hintMatches.length
-    ? [...new Map([...hintMatches, ...supportHintMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
+    ? [...new Map([...hintMatches, ...supportMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
     : intentMatches.length
-      ? [...new Map([...intentMatches, ...supportHintMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
+      ? [...new Map([...intentMatches, ...supportMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
     : matches.length
       ? matches
-      : buildFallbackFields(availableApis, deps, message)
+      : buildFallbackFields(availableApis, deps, message, customDeps)
   const fieldLines = selectedFields.map(
     (field) => `- ${formatApiFieldLabel(field.nome)} (${field.nome}): ${formatApiFieldValue(field.nome, field.valor, deps)}`
   )

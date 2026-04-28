@@ -251,6 +251,17 @@ export function isCatalogLoadMoreIntent(message) {
     /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/.test(normalized)
 }
 
+function hasExplicitCatalogLoadMorePhrase(message) {
+  const normalized = normalizeCatalogMessage(message)
+  return (
+    /\b(mais\s+(opcoes|opcao|modelos|produtos|itens)|outras\s+(opcoes|opcao|alternativas)|outros\s+(modelos|produtos|itens)|mais\s+produtos|mais\s+itens)\b/.test(
+      normalized
+    ) ||
+    /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/.test(normalized) ||
+    /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/.test(normalized)
+  )
+}
+
 export function detectCatalogSearchRefinement(message, context, deps = {}) {
   const products = normalizeRecentCatalogProducts(context)
   if (!products.length) {
@@ -297,8 +308,16 @@ export function detectCatalogSearchRefinement(message, context, deps = {}) {
   }
 }
 
-export function resolveCatalogLoadMoreDecision(message) {
+export function resolveCatalogLoadMoreDecision(message, context = {}) {
   if (!isCatalogLoadMoreIntent(message)) {
+    return null
+  }
+
+  const hasRecentListAnchor =
+    Boolean(String(context?.catalogo?.ultimaBusca || "").trim()) ||
+    (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 1)
+
+  if (!hasExplicitCatalogLoadMorePhrase(message) && !hasRecentListAnchor) {
     return null
   }
 
@@ -316,6 +335,17 @@ export function resolveRecentCatalogReferenceDecision(message, context) {
   const products = normalizeRecentCatalogProducts(context)
   if (!products.length) {
     return null
+  }
+
+  if (products.length === 1 && hasStrongRecentCatalogReferenceSignal(message)) {
+    return {
+      kind: "recent_product_reference",
+      confidence: 0.92,
+      reason: "Mensagem referencia o unico produto recente em contexto.",
+      matchedProducts: products,
+      usedLlm: false,
+      shouldBlockNewSearch: true,
+    }
   }
 
   if (!hasStrongRecentCatalogReferenceSignal(message) && buildProductSearchCandidates(message).length > 0) {
@@ -353,6 +383,10 @@ export function resolveRecentCatalogReferenceDecision(message, context) {
     }
   }
 
+  if (products.length < 2) {
+    return null
+  }
+
   return {
     kind: "recent_product_reference_unresolved",
     confidence: 0.61,
@@ -378,7 +412,7 @@ export function resolveDeterministicCatalogFollowUpDecision(message, context, de
     return refinementDecision
   }
 
-  const loadMoreDecision = resolveCatalogLoadMoreDecision(message)
+  const loadMoreDecision = resolveCatalogLoadMoreDecision(message, context)
   if (loadMoreDecision) {
     return loadMoreDecision
   }
