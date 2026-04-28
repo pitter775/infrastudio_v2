@@ -680,6 +680,16 @@ export function MercadoLivrePanel({
                   >
                     {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Conta conectada' : 'Conectar conta'}
                   </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={handleSyncStoreSnapshot}
+                    disabled={syncingStoreSnapshot || !connectorMeta.oauthConnected}
+                    className="h-9 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100 disabled:opacity-50"
+                  >
+                    <RefreshCcw className={`mr-2 h-4 w-4 ${syncingStoreSnapshot ? 'animate-spin' : ''}`} />
+                    {syncingStoreSnapshot ? 'Atualizando...' : 'Atualizar loja'}
+                  </Button>
                 </div>
               </div>
               <form id="mercado-livre-save-form" className="grid gap-4" onSubmit={handleSaveConnection}>
@@ -693,16 +703,6 @@ export function MercadoLivrePanel({
                     Voltar e trocar link do produto
                   </Button>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-xs text-slate-400">
-                  {seedId ? `Identificador sugerido: ${seedId}` : 'Resolucao automatica indisponivel. Preencha manualmente.'}
-                </div>
-                {connectorMeta.id ? (
-                  <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-3 text-sm text-sky-100">
-                    {connectorMeta.oauthConnected
-                      ? 'Conexao salva e conta autorizada no Mercado Livre.'
-                      : 'Conexao salva. Falta autorizar a conta da loja no OAuth do Mercado Livre.'}
-                  </div>
-                ) : null}
                 <div className="grid gap-3">
                   <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
                     <label className="block">
@@ -723,23 +723,6 @@ export function MercadoLivrePanel({
                       <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Client secret</span>
                       <input value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
                     </label>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
-                      {connectorMeta.oauthConnected
-                        ? `${connectorMeta.oauthNickname || storeName || 'Loja conectada'}${connectorMeta.oauthUserId ? ` (${connectorMeta.oauthUserId})` : ''}`
-                        : 'Conta ainda nao autorizada'}
-                    </div>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={handleSyncStoreSnapshot}
-                      disabled={syncingStoreSnapshot || !connectorMeta.oauthConnected}
-                      className="h-9 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100 disabled:opacity-50"
-                    >
-                      <RefreshCcw className={`mr-2 h-4 w-4 ${syncingStoreSnapshot ? 'animate-spin' : ''}`} />
-                      {syncingStoreSnapshot ? 'Atualizando...' : 'Atualizar loja'}
-                    </Button>
                   </div>
                 </div>
               </form>
