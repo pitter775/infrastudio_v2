@@ -35,8 +35,9 @@ export async function POST(request, context) {
   const body = await request.json().catch(() => ({}))
   const limit = Math.min(Math.max(Number(body.limit ?? 20) || 20, 1), 20)
   const offset = Math.max(Number(body.offset ?? 0) || 0, 0)
+  const fullSync = body?.fullSync !== false
 
-  const result = await syncMercadoLivreSnapshotForProject(project, { limit, offset })
+  const result = await syncMercadoLivreSnapshotForProject(project, { limit, offset, fullSync })
   if (result.error) {
     return NextResponse.json({ error: result.error, paging: result.paging }, { status: 400 })
   }

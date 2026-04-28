@@ -220,7 +220,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
             headers: {
               'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ limit: 20, offset: 0 }),
+            body: JSON.stringify({ limit: 20, offset: 0, fullSync: true }),
           })
           const snapshotData = await snapshotResponse.json().catch(() => ({}))
 
@@ -299,7 +299,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ limit: 20, offset: 0 }),
+        body: JSON.stringify({ limit: 20, offset: 0, fullSync: true }),
       })
       const data = await response.json().catch(() => ({}))
 

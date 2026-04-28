@@ -1173,6 +1173,158 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "pagina de produto segura pergunta factual mesmo quando o resumo local nao trouxe o atributo ainda",
+    run: async () => {
+      const productPageContext = {
+        projeto: {
+          id: "proj-mercado-livre-material-missing",
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        storefront: {
+          kind: "mercado_livre",
+          pageKind: "product_detail",
+        },
+        conversation: {
+          mode: "product_detail",
+        },
+        ui: {
+          catalogPreferred: true,
+          productDetailPreferred: true,
+        },
+        catalogo: {
+          ultimaBusca: "aparelho de jantar",
+          produtoAtual: {
+            id: "MLB-OXFORD-1",
+            nome: "Aparelho De Jantar Oxford Ceramica",
+            descricao: "R$ 358,00 - 1 em estoque",
+          },
+          ultimosProdutos: [
+            {
+              id: "MLB-OXFORD-1",
+              nome: "Aparelho De Jantar Oxford Ceramica",
+              descricao: "R$ 358,00 - 1 em estoque",
+            },
+          ],
+        },
+      };
+
+      const flow = resolveMercadoLivreFlowState({
+        latestUserMessage: "qual o material desse produto ?",
+        context: productPageContext,
+        detectProductSearch: (message: string) => deps.shouldSearchProducts(message),
+        buildProductSearchCandidates: deps.buildProductSearchCandidates,
+        isMercadoLivreListingIntent: () => true,
+      });
+
+      const state = await resolveMercadoLivreHeuristicState({
+        context: productPageContext,
+        project: productPageContext.projeto,
+        latestUserMessage: "qual o material desse produto ?",
+        productSearchRequested: flow.productSearchRequested,
+        genericMercadoLivreListingRequested: flow.genericMercadoLivreListingRequested,
+        forceNewSearch: flow.forceNewSearch,
+        loadMoreCatalogRequested: flow.loadMoreCatalogRequested,
+        productSearchTerm: flow.productSearchTerm,
+        lastSearchTerm: flow.lastSearchTerm,
+        paginationOffset: flow.paginationOffset,
+        paginationPoolLimit: flow.paginationPoolLimit,
+        catalogComparisonIntent: flow.catalogComparisonIntent,
+        currentCatalogProduct: flow.currentCatalogProduct,
+        recentCatalogProducts: flow.recentCatalogProducts,
+        referencedCatalogProducts: flow.referencedCatalogProducts,
+        resolveMercadoLivreSearch: async () => {
+          throw new Error("nao deveria cair em listagem quando o usuario pergunta do item aberto");
+        },
+        resolveMercadoLivreProductById: async () => ({
+          item: {
+            id: "MLB-OXFORD-1",
+            title: "Aparelho De Jantar Oxford Ceramica",
+            price: 358,
+            currencyId: "BRL",
+            availableQuantity: 1,
+            status: "active",
+            permalink: "https://example.com/oxford",
+            thumbnail: "https://example.com/oxford.jpg",
+            sellerId: "seller-1",
+            sellerName: "PITTER774",
+            freeShipping: false,
+            warranty: "",
+            attributes: [{ id: "MATERIAL", name: "Material", valueName: "Ceramica" }],
+            pictures: ["https://example.com/oxford-1.jpg"],
+            variations: [],
+            descriptionPlain: "Aparelho de jantar em ceramica para mesa posta.",
+          },
+          error: null,
+        }),
+        resolveMercadoLivreStoreSettings: async () => ({
+          chatContextFull: false,
+        }),
+      });
+
+      assert.equal(flow.forceNewSearch, false);
+      assert.equal(flow.productSearchRequested, false);
+      assert.equal(flow.genericMercadoLivreListingRequested, false);
+      assert.equal(flow.currentCatalogProduct?.id, "MLB-OXFORD-1");
+      assert.match(state.selectedProductSalesReply ?? "", /Material:\s*Ceramica/i);
+      assert.equal(state.mercadoLivreHeuristicReply, null);
+    },
+  },
+  {
+    name: "pagina de produto mantem item travado mesmo em frase solta de reafirmacao de contexto",
+    run: async () => {
+      const productPageContext = {
+        projeto: {
+          id: "proj-mercado-livre-locked-focus",
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        storefront: {
+          kind: "mercado_livre",
+          pageKind: "product_detail",
+        },
+        conversation: {
+          mode: "product_detail",
+        },
+        ui: {
+          catalogPreferred: true,
+          productDetailPreferred: true,
+        },
+        catalogo: {
+          produtoAtual: {
+            id: "MLB-OXFORD-LOCKED",
+            nome: "Aparelho De Jantar Oxford Ceramica",
+            descricao: "R$ 358,00 - 1 em estoque",
+            material: "Ceramica",
+          },
+          ultimosProdutos: [
+            {
+              id: "MLB-OXFORD-LOCKED",
+              nome: "Aparelho De Jantar Oxford Ceramica",
+              descricao: "R$ 358,00 - 1 em estoque",
+              material: "Ceramica",
+            },
+          ],
+        },
+      };
+
+      const flow = resolveMercadoLivreFlowState({
+        latestUserMessage: "estou falando do produto que estou vendo aqui",
+        context: productPageContext,
+        detectProductSearch: (message: string) => deps.shouldSearchProducts(message),
+        buildProductSearchCandidates: deps.buildProductSearchCandidates,
+        isMercadoLivreListingIntent: () => true,
+      });
+
+      assert.equal(flow.forceNewSearch, false);
+      assert.equal(flow.productSearchRequested, false);
+      assert.equal(flow.genericMercadoLivreListingRequested, false);
+      assert.equal(flow.currentCatalogProduct?.id, "MLB-OXFORD-LOCKED");
+    },
+  },
+  {
     name: "mercado livre expande contexto completo do produto em foco quando a loja ativa a opcao",
     run: async () => {
       const state = await resolveMercadoLivreHeuristicState({
@@ -1336,6 +1488,16 @@ const tests: TestCase[] = [
               mercadoLivre: 1,
             },
           },
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "product_detail",
+          },
+          conversation: {
+            mode: "product_detail",
+          },
+          ui: {
+            productDetailPreferred: true,
+          },
           catalogo: {
             produtoAtual: {
               id: "MLB1",
@@ -1349,6 +1511,8 @@ const tests: TestCase[] = [
 
       assert.match(prompt, /Tecnica de vendas para produto do Mercado Livre/i)
       assert.match(prompt, /nao como catalogo neutro/i)
+      assert.match(prompt, /Contexto travado: o cliente esta na pagina de detalhe do produto Aparelho De Jantar Oxford Ceramica/i)
+      assert.match(prompt, /Nunca diga que nao conseguiu identificar o produto/i)
       assert.match(prompt, /Evite repetir so o titulo do produto/i)
     },
   },

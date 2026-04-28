@@ -1043,9 +1043,36 @@ export async function listMercadoLivreQuestionsForUser(project, user, options = 
       }
 
       const { questions, paging, error } = await listMercadoLivreQuestions(userId, accessToken, options, deps)
+      const questionList = Array.isArray(questions) ? questions : []
+      const itemIds = [...new Set(questionList.map((question) => sanitizeString(question?.itemId)).filter(Boolean))].slice(0, 20)
+      const itemDetailsMap = new Map()
+
+      if (itemIds.length) {
+        const detailedItems = await loadMercadoLivreItems(itemIds, accessToken, deps)
+        for (const item of detailedItems) {
+          const itemId = sanitizeString(item?.id)
+          if (!itemId) {
+            continue
+          }
+
+          itemDetailsMap.set(itemId, {
+            itemTitle: sanitizeString(item?.title),
+            itemThumbnail: sanitizeString(item?.thumbnail),
+          })
+        }
+      }
 
       return {
-        questions,
+        questions: questionList.map((question) => {
+          const itemId = sanitizeString(question?.itemId)
+          const details = itemDetailsMap.get(itemId)
+
+          return {
+            ...question,
+            itemTitle: sanitizeString(question?.itemTitle) || details?.itemTitle || "",
+            itemThumbnail: sanitizeString(question?.itemThumbnail) || details?.itemThumbnail || "",
+          }
+        }),
         paging,
         connector: resolvedConnector,
         error,

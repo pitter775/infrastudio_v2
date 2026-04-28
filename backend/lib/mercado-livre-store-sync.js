@@ -18,6 +18,12 @@ function sanitizeImageList(value) {
   return list.map((item) => sanitizeText(item, 500)).filter(Boolean).slice(0, 8)
 }
 
+function isSnapshotEligibleItem(item) {
+  const status = sanitizeText(item?.status, 40).toLowerCase()
+  const availableQuantity = Number(item?.availableQuantity ?? 0) || 0
+  return status === "active" && availableQuantity > 0
+}
+
 function buildSnapshotRow(projectId, item) {
   const now = new Date().toISOString()
   const images = sanitizeImageList(item?.pictures)
@@ -79,37 +85,96 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
   const supabase = deps.supabase ?? getSupabaseAdminClient()
   const limit = Math.min(Math.max(Number(options.limit ?? 20) || 20, 1), 20)
-  const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
-  const result = await listMercadoLivreItemsForProject(project, { limit, offset, includeDetails: true }, { supabase })
+  const fullSync = options.fullSync !== false
+  const startOffset = Math.max(Number(options.offset ?? 0) || 0, 0)
+  const collectedItems = []
+  let currentOffset = startOffset
+  let lastPaging = null
 
-  if (result.error) {
-    return { synced: 0, paging: result.paging || null, error: result.error }
+  while (true) {
+    const result = await listMercadoLivreItemsForProject(
+      project,
+      { limit, offset: currentOffset, includeDetails: true },
+      { supabase }
+    )
+
+    if (result.error) {
+      return { synced: 0, paging: result.paging || lastPaging, error: result.error }
+    }
+
+    const pageItems = Array.isArray(result.items) ? result.items : []
+    collectedItems.push(...pageItems)
+    lastPaging = result.paging || lastPaging
+
+    if (!fullSync || result.paging?.hasMore !== true) {
+      break
+    }
+
+    currentOffset += limit
   }
 
-  const rows = (Array.isArray(result.items) ? result.items : [])
-    .map((item) => buildSnapshotRow(project.id, item))
-    .filter((row) => row.ml_item_id && row.titulo && row.slug)
+  const eligibleItems = collectedItems.filter(isSnapshotEligibleItem)
+  const rows = eligibleItems.map((item) => buildSnapshotRow(project.id, item)).filter((row) => row.ml_item_id && row.titulo && row.slug)
+  const eligibleIds = [...new Set(rows.map((row) => row.ml_item_id).filter(Boolean))]
 
-  if (!rows.length) {
-    return { synced: 0, paging: result.paging || null, error: null }
-  }
-
-  const { error } = await supabase
+  const existingResult = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .upsert(rows, { onConflict: "projeto_id,ml_item_id" })
+    .select("ml_item_id")
+    .eq("projeto_id", project.id)
 
-  if (error) {
-    console.error("[mercado-livre-store-sync] failed to upsert snapshot rows", error)
+  if (existingResult.error) {
+    console.error("[mercado-livre-store-sync] failed to load existing snapshot rows", existingResult.error)
     return {
       synced: 0,
-      paging: result.paging || null,
+      paging: lastPaging,
       error: "Nao foi possivel atualizar o snapshot da loja.",
+    }
+  }
+
+  const existingIds = Array.isArray(existingResult.data)
+    ? existingResult.data.map((row) => sanitizeText(row?.ml_item_id, 60)).filter(Boolean)
+    : []
+  const eligibleIdSet = new Set(eligibleIds)
+  const idsToDelete = eligibleIds.length
+    ? existingIds.filter((itemId) => !eligibleIdSet.has(itemId))
+    : existingIds
+
+  if (rows.length) {
+    const { error } = await supabase
+      .from("mercadolivre_produtos_snapshot")
+      .upsert(rows, { onConflict: "projeto_id,ml_item_id" })
+
+    if (error) {
+      console.error("[mercado-livre-store-sync] failed to upsert snapshot rows", error)
+      return {
+        synced: 0,
+        paging: lastPaging,
+        error: "Nao foi possivel atualizar o snapshot da loja.",
+      }
+    }
+  }
+
+  for (let index = 0; index < idsToDelete.length; index += 100) {
+    const batch = idsToDelete.slice(index, index + 100)
+    const deleteResult = await supabase
+      .from("mercadolivre_produtos_snapshot")
+      .delete()
+      .eq("projeto_id", project.id)
+      .in("ml_item_id", batch)
+
+    if (deleteResult.error) {
+      console.error("[mercado-livre-store-sync] failed to delete stale snapshot rows", deleteResult.error)
+      return {
+        synced: rows.length,
+        paging: lastPaging,
+        error: "Nao foi possivel limpar produtos inativos do snapshot.",
+      }
     }
   }
 
   return {
     synced: rows.length,
-    paging: result.paging || null,
+    paging: lastPaging,
     error: null,
   }
 }

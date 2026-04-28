@@ -116,6 +116,8 @@ export function mapMercadoLivreQuestion(payload) {
   return {
     id: String(payload?.id ?? "").trim(),
     itemId: sanitizeString(payload?.item_id),
+    itemTitle: sanitizeString(payload?.item_title || payload?.item?.title),
+    itemThumbnail: normalizeMercadoLivreImageUrl(payload?.item_thumbnail || payload?.item?.thumbnail),
     sellerId: String(payload?.seller_id ?? "").trim(),
     status: sanitizeString(payload?.status),
     text: sanitizeString(payload?.text),

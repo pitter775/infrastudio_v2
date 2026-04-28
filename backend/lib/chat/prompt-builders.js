@@ -156,6 +156,13 @@ function buildMercadoLivreSalesTechniqueInstructions(context = {}) {
     return ""
   }
 
+  const lockedProductDetailContext = Boolean(
+    context?.catalogo?.produtoAtual?.nome &&
+      (String(context?.conversation?.mode || "").trim().toLowerCase() === "product_detail" ||
+        context?.ui?.productDetailPreferred === true ||
+        context?.storefront?.pageKind === "product_detail")
+  )
+
   return [
     "Tecnica de vendas para produto do Mercado Livre:",
     "- Atue como vendedor consultivo, nao como catalogo neutro.",
@@ -165,6 +172,12 @@ function buildMercadoLivreSalesTechniqueInstructions(context = {}) {
     "- Mantenha os detalhes completos do produto em memoria para responder qualquer pergunta especifica sobre ele.",
     "- So revele atributo, medida, material, garantia, frete, estoque, descricao ou variacao quando a pergunta do cliente pedir isso direta ou indiretamente.",
     "- Se o cliente fizer pergunta curta como 'tem garantia?', 'qual material?', 'serve?', responda objetivamente com base no produto em foco.",
+    lockedProductDetailContext
+      ? `- Contexto travado: o cliente esta na pagina de detalhe do produto ${context.catalogo.produtoAtual.nome}. Considere este item como produto em foco por padrao.`
+      : "",
+    lockedProductDetailContext
+      ? "- Nunca diga que nao conseguiu identificar o produto e nunca peca para o cliente informar qual item esta vendo, a menos que ele peça explicitamente outra opcao."
+      : "",
     "- Evite repetir so o titulo do produto. Sempre acrescente valor comercial.",
     "- Feche com CTA curto: link, comparacao rapida ou confirmacao do interesse.",
   ].join("\n")

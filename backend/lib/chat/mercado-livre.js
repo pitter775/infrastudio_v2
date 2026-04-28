@@ -450,6 +450,30 @@ function hasStrongProductDetailContext(context) {
   return hasFocusedCatalogProductContext(context)
 }
 
+function hasLockedProductDetailContext(context = {}) {
+  return Boolean(
+    context?.catalogo?.produtoAtual?.nome &&
+      (getConversationMode(context) === "product_detail" ||
+        context?.ui?.productDetailPreferred === true ||
+        context?.storefront?.pageKind === "product_detail")
+  )
+}
+
+function isExplicitProductContextExitIntent(message) {
+  const normalized = normalizeMessage(message)
+  if (!normalized) {
+    return false
+  }
+
+  return (
+    /\b(outro|outra|outros|outras|parecido|parecidos|similares|opcoes|modelos)\b/.test(normalized) ||
+    /\b(me mostra|mostra|mande|manda|envia|traz)\b[\s\S]{0,30}\b(outro|outra|outros|outras|mais|opcoes|modelos|parecidos)\b/.test(
+      normalized
+    ) ||
+    /\b(quero ver|quero buscar|busca|procura|procuro|buscar)\b/.test(normalized)
+  )
+}
+
 function shouldStayOnCurrentProduct(message, context, currentProduct) {
   if (!currentProduct?.nome || !hasStrongProductDetailContext(context)) {
     return false
@@ -458,6 +482,10 @@ function shouldStayOnCurrentProduct(message, context, currentProduct) {
   const normalized = normalizeMessage(message)
   if (!normalized) {
     return false
+  }
+
+  if (hasLockedProductDetailContext(context) && !isExplicitProductContextExitIntent(message)) {
+    return true
   }
 
   if (isMercadoLivreDetailIntent(message) || isMercadoLivrePurchaseIntent(message)) {
@@ -492,9 +520,10 @@ export function resolveMercadoLivreFlowState(input = {}) {
   const contextCatalog = input.context?.catalogo ?? {}
   const recentCatalogProducts = normalizeRecentCatalogProducts(input.context)
   const catalogComparisonIntent = detectCatalogComparisonIntent(input.latestUserMessage)
-  const forceNewSearch = inferredRefinementDecision?.kind === "catalog_search_refinement"
-  const currentCatalogProduct = forceNewSearch ? null : referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? null
-  const stayOnCurrentProduct = shouldStayOnCurrentProduct(input.latestUserMessage, input.context, currentCatalogProduct)
+  const candidateCurrentCatalogProduct = referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? null
+  const stayOnCurrentProduct = shouldStayOnCurrentProduct(input.latestUserMessage, input.context, candidateCurrentCatalogProduct)
+  const forceNewSearch = inferredRefinementDecision?.kind === "catalog_search_refinement" && !stayOnCurrentProduct
+  const currentCatalogProduct = forceNewSearch ? null : candidateCurrentCatalogProduct
   const loadMoreCatalogRequested =
     !forceNewSearch &&
     !stayOnCurrentProduct &&

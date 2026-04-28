@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Check, Copy, Files, MessageCircle, MessageSquare, PackageSearch, Store } from 'lucide-react'
+import { BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -41,6 +41,8 @@ export function MercadoLivrePanel({
   const [questionDrafts, setQuestionDrafts] = useState({})
   const [answeringQuestionId, setAnsweringQuestionId] = useState('')
   const [suggestingQuestionId, setSuggestingQuestionId] = useState('')
+  const [syncingStoreSnapshot, setSyncingStoreSnapshot] = useState(false)
+  const [expandedQuestionId, setExpandedQuestionId] = useState('')
   const [copiedField, setCopiedField] = useState('')
   const [connectorMeta, setConnectorMeta] = useState({
     id: null,
@@ -538,6 +540,39 @@ export function MercadoLivrePanel({
     onTabChange?.(tabId)
   }
 
+  async function handleSyncStoreSnapshot() {
+    setSyncingStoreSnapshot(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/snapshot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ fullSync: true, limit: 20, offset: 0 }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel atualizar a loja no banco.' })
+        return
+      }
+
+      setFeedback({
+        tone: 'success',
+        text:
+          Number(data.synced || 0) > 0
+            ? `Loja atualizada no banco com ${Number(data.synced || 0)} produtos ativos e com estoque.`
+            : 'Loja atualizada. Nenhum produto ativo com estoque ficou elegivel para o snapshot.',
+      })
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel atualizar a loja no banco.' })
+    } finally {
+      setSyncingStoreSnapshot(false)
+    }
+  }
+
   return (
     <div className="grid gap-4">
       <div className={cn("flex flex-wrap gap-2", compact && "hidden")}>
@@ -584,8 +619,9 @@ export function MercadoLivrePanel({
       {currentTab === 'connection' ? (
         <div className="grid gap-4">
           {loadingConnector ? (
-            <div className="rounded-xl bg-white/[0.03] px-3 py-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-              carregando conector
+            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
+              <LoaderCircle className="h-4 w-4 animate-spin text-sky-300" />
+              Carregando integracao do Mercado Livre...
             </div>
           ) : null}
           {step === 1 ? (
@@ -663,27 +699,48 @@ export function MercadoLivrePanel({
                 {connectorMeta.id ? (
                   <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-3 text-sm text-sky-100">
                     {connectorMeta.oauthConnected
-                      ? `Conta conectada: ${connectorMeta.oauthNickname || 'loja autorizada'}${connectorMeta.oauthUserId ? ` (${connectorMeta.oauthUserId})` : ''}`
+                      ? 'Conexao salva e conta autorizada no Mercado Livre.'
                       : 'Conexao salva. Falta autorizar a conta da loja no OAuth do Mercado Livre.'}
                   </div>
                 ) : null}
                 <div className="grid gap-3">
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da loja</span>
-                    <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">App ID</span>
-                    <input value={appId} onChange={(event) => setAppId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Client secret</span>
-                    <input value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Seed ID</span>
-                    <input value={seedId} onChange={(event) => setSeedId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                  </label>
+                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da loja</span>
+                      <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Seed ID</span>
+                      <input value={seedId} onChange={(event) => setSeedId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                    </label>
+                  </div>
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">App ID</span>
+                      <input value={appId} onChange={(event) => setAppId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Client secret</span>
+                      <input value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3">
+                    <div className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                      {connectorMeta.oauthConnected
+                        ? `${connectorMeta.oauthNickname || storeName || 'Loja conectada'}${connectorMeta.oauthUserId ? ` (${connectorMeta.oauthUserId})` : ''}`
+                        : 'Conta ainda nao autorizada'}
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleSyncStoreSnapshot}
+                      disabled={syncingStoreSnapshot || !connectorMeta.oauthConnected}
+                      className="h-9 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100 disabled:opacity-50"
+                    >
+                      <RefreshCcw className={`mr-2 h-4 w-4 ${syncingStoreSnapshot ? 'animate-spin' : ''}`} />
+                      {syncingStoreSnapshot ? 'Atualizando...' : 'Atualizar loja'}
+                    </Button>
+                  </div>
                 </div>
               </form>
             </>
@@ -981,86 +1038,112 @@ export function MercadoLivrePanel({
 
                 {questions.length > 0 ? (
                   <div className="grid gap-3">
-                    {questions.map((question) => (
-                      <div key={question.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <div className="text-sm font-semibold text-white">{getQuestionDisplayName(question)}</div>
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">
-                            {question.status || 'sem status'}
-                          </span>
-                          {question.answerStatus ? (
-                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">
-                              resposta {question.answerStatus}
-                            </span>
-                          ) : null}
-                        </div>
-                        <div className="mt-2 text-sm leading-6 text-slate-200">{question.text || 'Pergunta sem texto.'}</div>
-                        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-300">
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
-                            pergunta {question.id}
-                          </span>
-                          {question.fromNickname ? (
-                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
-                              {question.fromNickname}
-                            </span>
-                          ) : null}
-                          {question.itemId ? (
-                            <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
-                              item {question.itemId}
-                            </span>
-                          ) : null}
-                          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
-                            {question.dateCreated ? new Date(question.dateCreated).toLocaleString('pt-BR') : 'sem data'}
-                          </span>
-                        </div>
-                        {question.answerText ? (
-                          <div className="mt-3 rounded-xl border border-emerald-400/15 bg-emerald-500/5 p-3">
-                            <div className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">Resposta</div>
-                            <div className="mt-2 text-sm leading-6 text-slate-200">{question.answerText}</div>
-                          </div>
-                        ) : (
-                          <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-500/5 p-3">
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-amber-300">
-                                <MessageCircle className="h-3.5 w-3.5" />
-                                Responder agora
+                    {questions.map((question) => {
+                      const expanded = expandedQuestionId === question.id
+
+                      return (
+                        <div key={question.id} className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.03]">
+                          <button
+                            type="button"
+                            onClick={() => setExpandedQuestionId((current) => (current === question.id ? '' : question.id))}
+                            className="flex w-full items-center gap-3 px-4 py-4 text-left transition hover:bg-white/[0.04]"
+                          >
+                            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#080e1d]">
+                              {question.itemThumbnail ? (
+                                <img src={question.itemThumbnail} alt={question.itemTitle || question.itemId || 'Produto'} className="h-full w-full object-cover" />
+                              ) : (
+                                <div className="flex h-full items-center justify-center text-[10px] uppercase tracking-[0.16em] text-slate-500">sem foto</div>
+                              )}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <div className="text-sm font-semibold text-white">{getQuestionDisplayName(question)}</div>
+                                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-300">
+                                  {question.status || 'sem status'}
+                                </span>
+                                {question.answerStatus ? (
+                                  <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-[10px] uppercase tracking-[0.16em] text-slate-400">
+                                    resposta {question.answerStatus}
+                                  </span>
+                                ) : null}
                               </div>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                disabled={suggestingQuestionId === question.id}
-                                onClick={() => handleSuggestQuestion(question)}
-                                className="h-8 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 text-[11px] text-emerald-100"
-                              >
-                                {suggestingQuestionId === question.id ? 'Gerando...' : 'Sugerir com agente'}
-                              </Button>
+                              <div className="mt-1 truncate text-sm text-slate-300">{question.itemTitle || question.itemId || 'Produto da pergunta'}</div>
+                              <div className="mt-2 line-clamp-2 text-sm leading-6 text-slate-200">{question.text || 'Pergunta sem texto.'}</div>
                             </div>
-                            <textarea
-                              value={questionDrafts?.[question.id] || ''}
-                              onChange={(event) =>
-                                setQuestionDrafts((current) => ({
-                                  ...current,
-                                  [question.id]: event.target.value,
-                                }))
-                              }
-                              placeholder="Digite a resposta que sera publicada no Mercado Livre"
-                              className="mt-3 min-h-[108px] w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 py-3 text-sm text-white outline-none transition focus:border-sky-400/30"
-                            />
-                            <div className="mt-3 flex justify-end">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                disabled={answeringQuestionId === question.id}
-                                onClick={() => handleAnswerQuestion(question.id)}
-                                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
-                              >
-                                {answeringQuestionId === question.id ? 'Enviando...' : 'Responder no Mercado Livre'}
-                              </Button>
+                            <ChevronDown className={cn('h-4 w-4 shrink-0 text-slate-400 transition-transform', expanded && 'rotate-180')} />
+                          </button>
+
+                          {expanded ? (
+                            <div className="border-t border-white/10 px-4 pb-4 pt-3">
+                              <div className="flex flex-wrap gap-2 text-xs text-slate-300">
+                                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                                  pergunta {question.id}
+                                </span>
+                                {question.fromNickname ? (
+                                  <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                                    {question.fromNickname}
+                                  </span>
+                                ) : null}
+                                {question.itemId ? (
+                                  <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                                    item {question.itemId}
+                                  </span>
+                                ) : null}
+                                <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1">
+                                  {question.dateCreated ? new Date(question.dateCreated).toLocaleString('pt-BR') : 'sem data'}
+                                </span>
+                              </div>
+                              {question.answerText ? (
+                                <div className="mt-3 rounded-xl border border-emerald-400/15 bg-emerald-500/5 p-3">
+                                  <div className="text-[10px] uppercase tracking-[0.16em] text-emerald-300">Resposta</div>
+                                  <div className="mt-2 text-sm leading-6 text-slate-200">{question.answerText}</div>
+                                </div>
+                              ) : (
+                                <div className="mt-3 rounded-xl border border-amber-400/15 bg-amber-500/5 p-3">
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 text-[10px] uppercase tracking-[0.16em] text-amber-300">
+                                      <MessageCircle className="h-3.5 w-3.5" />
+                                      Responder agora
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      disabled={suggestingQuestionId === question.id}
+                                      onClick={() => handleSuggestQuestion(question)}
+                                      className="h-8 rounded-xl border border-emerald-400/20 bg-emerald-500/10 px-3 text-[11px] text-emerald-100"
+                                    >
+                                      {suggestingQuestionId === question.id ? 'Gerando...' : 'Sugerir com agente'}
+                                    </Button>
+                                  </div>
+                                  <textarea
+                                    value={questionDrafts?.[question.id] || ''}
+                                    onChange={(event) =>
+                                      setQuestionDrafts((current) => ({
+                                        ...current,
+                                        [question.id]: event.target.value,
+                                      }))
+                                    }
+                                    placeholder="Digite a resposta que sera publicada no Mercado Livre"
+                                    className="mt-3 min-h-[108px] w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 py-3 text-sm text-white outline-none transition focus:border-sky-400/30"
+                                  />
+                                  <div className="mt-3 flex justify-end">
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      disabled={answeringQuestionId === question.id}
+                                      onClick={() => handleAnswerQuestion(question.id)}
+                                      className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100"
+                                    >
+                                      {answeringQuestionId === question.id ? 'Enviando...' : 'Responder no Mercado Livre'}
+                                    </Button>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          ) : null}
+                        </div>
+                      )
+                    })}
                   </div>
                 ) : null}
               </>

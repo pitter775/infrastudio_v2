@@ -59,6 +59,7 @@ function buildSelectedProductInstructions(product) {
       : "",
     product.descricaoLonga ? `Resumo longo do anuncio: ${String(product.descricaoLonga).slice(0, 500)}.` : "",
     product.link ? `Link conhecido: ${product.link}` : "",
+    "Nao peca para o cliente repetir ou identificar este produto se ele ja estiver em foco no contexto.",
     "Se este produto for do Mercado Livre e o cliente ja demonstrou preferencia, responda vendendo: destaque aderencia, reduza friccao e proponha o proximo passo.",
   ]
     .filter(Boolean)
