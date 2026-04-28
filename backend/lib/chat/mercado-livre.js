@@ -678,6 +678,7 @@ export function resolveMercadoLivreFlowState(input = {}) {
     recentCatalogProducts,
     catalogFollowUpDecision: inferredRefinementDecision ?? null,
     productSearchTerm: inferredRefinementDecision?.searchCandidates?.[0] ?? productSearchCandidates[0] ?? "",
+    excludeCurrentProductFromSearch: inferredRefinementDecision?.excludeCurrentProduct === true,
     lastSearchTerm: sanitizeString(contextCatalog.ultimaBusca),
     paginationOffset: forceNewSearch
       ? 0
@@ -846,6 +847,10 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   const poolLimit = input.loadMoreCatalogRequested
     ? Math.max(12, sanitizeNumber(input.paginationPoolLimit, 24))
     : Math.max(18, sanitizeNumber(input.paginationPoolLimit, 24))
+  const excludeItemIds =
+    input.excludeCurrentProductFromSearch && currentProduct?.id
+      ? [sanitizeString(currentProduct.id)].filter(Boolean)
+      : []
 
   const { items, connector, paging, error } = await (input.resolveMercadoLivreSearch ?? searchMercadoLivreProductsForProject)(
     input.project,
@@ -854,6 +859,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       limit: 3,
       offset: searchOffset,
       poolLimit,
+      excludeItemIds,
     }
   )
 

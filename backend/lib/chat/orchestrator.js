@@ -16,6 +16,7 @@ import {
 import { generateOpenAiSalesReply } from "@/lib/chat/openai-sales-reply"
 import { prefersStructuredReply } from "@/lib/chat/prompt-builders"
 import { resolveConversationPipelineStageState } from "@/lib/chat/pipeline-stage"
+import { buildCatalogDecisionFromSemanticIntent, classifySemanticIntentStage } from "@/lib/chat/semantic-intent-stage"
 import {
   buildCatalogPricingReply,
   buildProductSearchCandidates,
@@ -74,6 +75,7 @@ function buildHeuristicReplyResult(reply, metadata = {}) {
       domainStage: metadata.domainStage ?? "general",
       catalogoProdutoAtual: metadata.catalogoProdutoAtual ?? null,
       catalogoBusca: metadata.catalogoBusca ?? null,
+      semanticIntent: metadata.semanticIntent ?? null,
     },
   }
 }
@@ -116,10 +118,22 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const shouldUseApiRuntime = routingDecision.domain === "api_runtime" && routingDecision.shouldUseTool === true
   const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
   const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
+  const semanticIntent =
+    shouldUseMercadoLivre && context?.catalogo?.produtoAtual
+      ? await (options.classifySemanticIntentStage ?? classifySemanticIntentStage)({
+          latestUserMessage,
+          currentCatalogProduct: context?.catalogo?.produtoAtual,
+          context,
+          openAiKey,
+          model,
+        })
+      : null
+  const semanticCatalogDecision = buildCatalogDecisionFromSemanticIntent({ semanticIntent })
   const catalogFollowUpDecision =
     (shouldUseMercadoLivre || hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual) &&
     (hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual)
-      ? decideCatalogFollowUpHeuristically(latestUserMessage, context, {
+      ? semanticCatalogDecision ??
+        decideCatalogFollowUpHeuristically(latestUserMessage, context, {
           buildProductSearchCandidates,
           shouldSearchProducts,
         })
@@ -149,6 +163,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     forceNewSearch: shouldUseMercadoLivre && mercadoLivreFlowState.forceNewSearch,
     loadMoreCatalogRequested: shouldUseMercadoLivre && mercadoLivreFlowState.loadMoreCatalogRequested,
     productSearchTerm: mercadoLivreFlowState.productSearchTerm,
+    excludeCurrentProductFromSearch: mercadoLivreFlowState.excludeCurrentProductFromSearch,
     lastSearchTerm: mercadoLivreFlowState.lastSearchTerm,
     paginationOffset: mercadoLivreFlowState.paginationOffset,
     paginationPoolLimit: mercadoLivreFlowState.paginationPoolLimit,
@@ -247,6 +262,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     catalogoProdutoAtual: (shouldUseMercadoLivre || shouldUseApiRuntime) ? currentCatalogProduct ?? null : null,
     routingDecision,
     focus: routingDecision.focus ?? null,
+    semanticIntent,
   }
 
   if (!context?.agente?.id || !agentName || !agentPromptBase) {

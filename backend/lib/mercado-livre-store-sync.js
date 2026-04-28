@@ -1,6 +1,7 @@
 import "server-only"
 
 import { listMercadoLivreItemsForProject } from "@/lib/mercado-livre-connector"
+import { createLogEntry } from "@/lib/logs"
 import { slugifyProduct } from "@/lib/mercado-livre-store"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
@@ -59,6 +60,30 @@ function shouldFallbackToReplaceSync(error) {
     message.includes("there is no unique or exclusion constraint matching the on conflict specification") ||
     message.includes("no unique or exclusion constraint matching the on conflict specification")
   )
+}
+
+function buildSyncError(message, stage, details = {}) {
+  return {
+    synced: 0,
+    paging: details?.paging ?? null,
+    stage,
+    details,
+    error: message,
+  }
+}
+
+async function logSnapshotSyncEvent(projectId, level, description, payload = {}) {
+  await createLogEntry({
+    projectId,
+    type: "mercado_livre_snapshot_sync",
+    origin: "laboratorio",
+    level,
+    description,
+    payload: {
+      keep: true,
+      ...payload,
+    },
+  })
 }
 
 async function replaceSnapshotRowsForProject(supabase, projectId, rows) {
@@ -121,7 +146,7 @@ export async function getMercadoLivreSnapshotStatus(projectId, deps = {}) {
 
 export async function syncMercadoLivreSnapshotForProject(project, options = {}, deps = {}) {
   if (!project?.id) {
-    return { synced: 0, paging: null, error: "Projeto nao encontrado." }
+    return buildSyncError("Projeto nao encontrado.", "project_lookup")
   }
 
   const supabase = deps.supabase ?? getSupabaseAdminClient()
@@ -140,7 +165,12 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
     )
 
     if (result.error) {
-      return { synced: 0, paging: result.paging || lastPaging, error: result.error }
+      await logSnapshotSyncEvent(project.id, "error", "Falha ao listar itens da loja para sincronizacao.", {
+        stage: "list_items",
+        error: result.error,
+        paging: result.paging || lastPaging,
+      })
+      return buildSyncError(result.error, "list_items", { paging: result.paging || lastPaging })
     }
 
     const pageItems = Array.isArray(result.items) ? result.items : []
@@ -165,11 +195,19 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
   if (existingResult.error) {
     console.error("[mercado-livre-store-sync] failed to load existing snapshot rows", existingResult.error)
-    return {
-      synced: 0,
+    await logSnapshotSyncEvent(project.id, "error", "Falha ao carregar snapshot atual da loja.", {
+      stage: "load_existing_rows",
       paging: lastPaging,
-      error: "Nao foi possivel atualizar o snapshot da loja.",
-    }
+      error: existingResult.error.message || "unknown_error",
+      errorCode: existingResult.error.code || null,
+      details: existingResult.error.details || null,
+      hint: existingResult.error.hint || null,
+    })
+    return buildSyncError("Nao foi possivel atualizar o snapshot da loja.", "load_existing_rows", {
+      paging: lastPaging,
+      error: existingResult.error.message || "unknown_error",
+      errorCode: existingResult.error.code || null,
+    })
   }
 
   const existingIds = Array.isArray(existingResult.data)
@@ -189,19 +227,34 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
       if (shouldFallbackToReplaceSync(error)) {
         const replaceResult = await replaceSnapshotRowsForProject(supabase, project.id, rows)
         if (!replaceResult.ok) {
-          return {
-            synced: 0,
+          await logSnapshotSyncEvent(project.id, "error", "Falha ao substituir snapshot da loja.", {
+            stage: "replace_rows",
             paging: lastPaging,
             error: replaceResult.error,
-          }
+            rows: rows.length,
+          })
+          return buildSyncError(replaceResult.error, "replace_rows", {
+            paging: lastPaging,
+            rows: rows.length,
+          })
         }
       } else {
         console.error("[mercado-livre-store-sync] failed to upsert snapshot rows", error)
-        return {
-          synced: 0,
+        await logSnapshotSyncEvent(project.id, "error", "Falha ao gravar snapshot da loja.", {
+          stage: "upsert_rows",
           paging: lastPaging,
-          error: "Nao foi possivel atualizar o snapshot da loja.",
-        }
+          error: error.message || "unknown_error",
+          errorCode: error.code || null,
+          details: error.details || null,
+          hint: error.hint || null,
+          rows: rows.length,
+        })
+        return buildSyncError("Nao foi possivel atualizar o snapshot da loja.", "upsert_rows", {
+          paging: lastPaging,
+          error: error.message || "unknown_error",
+          errorCode: error.code || null,
+          rows: rows.length,
+        })
       }
     }
   }
@@ -216,13 +269,40 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
     if (deleteResult.error) {
       console.error("[mercado-livre-store-sync] failed to delete stale snapshot rows", deleteResult.error)
+      await logSnapshotSyncEvent(project.id, "error", "Falha ao remover produtos inativos do snapshot.", {
+        stage: "delete_stale_rows",
+        paging: lastPaging,
+        error: deleteResult.error.message || "unknown_error",
+        errorCode: deleteResult.error.code || null,
+        details: deleteResult.error.details || null,
+        hint: deleteResult.error.hint || null,
+        syncedRows: rows.length,
+        staleRows: idsToDelete.length,
+      })
       return {
         synced: rows.length,
         paging: lastPaging,
+        stage: "delete_stale_rows",
+        details: {
+          paging: lastPaging,
+          error: deleteResult.error.message || "unknown_error",
+          errorCode: deleteResult.error.code || null,
+          syncedRows: rows.length,
+          staleRows: idsToDelete.length,
+        },
         error: "Nao foi possivel limpar produtos inativos do snapshot.",
       }
     }
   }
+
+  await logSnapshotSyncEvent(project.id, "info", "Snapshot da loja Mercado Livre atualizado com sucesso.", {
+    stage: "completed",
+    synced: rows.length,
+    scanned: collectedItems.length,
+    eligible: eligibleItems.length,
+    deleted: idsToDelete.length,
+    paging: lastPaging,
+  })
 
   return {
     synced: rows.length,

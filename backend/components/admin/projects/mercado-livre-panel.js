@@ -555,7 +555,16 @@ export function MercadoLivrePanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel atualizar a loja no banco.' })
+        const stage = String(data?.stage || '').trim()
+        const detailError = String(data?.details?.error || '').trim()
+        const detailCode = String(data?.details?.errorCode || '').trim()
+        const detailSuffix = [stage ? `etapa: ${stage}` : '', detailCode ? `codigo: ${detailCode}` : '', detailError ? `detalhe: ${detailError}` : '']
+          .filter(Boolean)
+          .join(' | ')
+        setFeedback({
+          tone: 'error',
+          text: `${data.error || 'Nao foi possivel atualizar a loja no banco.'}${detailSuffix ? ` (${detailSuffix})` : ''}`,
+        })
         return
       }
 

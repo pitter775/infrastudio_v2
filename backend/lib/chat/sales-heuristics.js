@@ -52,7 +52,16 @@ const PRODUCT_SEARCH_STOPWORDS = new Set([
   "item",
   "itens",
   "desse",
-  "dessa",
+  "deste",
+  "desta",
+  "dele",
+  "dela",
+  "alem",
+  "alemd",
+  "outro",
+  "outra",
+  "outros",
+  "outras",
 ])
 
 function getRuntimeConfig(context) {

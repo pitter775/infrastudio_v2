@@ -1154,6 +1154,104 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "pagina de produto usa classificacao semantica para buscar outro item do mesmo tipo",
+    run: async () => {
+      let receivedSearchTerm = ""
+      let receivedExcludeItemIds: string[] = []
+
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem outro saleiro alem desse ?" }] as never,
+        {
+          agente: {
+            id: "agent-mercado-livre-same-type",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-mercado-livre-same-type",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "product_detail",
+            productSlug: "saleiro-de-porcelana",
+          },
+          conversation: {
+            mode: "product_detail",
+          },
+          ui: {
+            productDetailPreferred: true,
+          },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-SALEIRO-ATUAL",
+              nome: "Saleiro De Porcelana Canelado Com Tampa De Madeira",
+              descricao: "R$ 147,65 - 1 em estoque",
+              preco: 147.65,
+              categoriaLabel: "Saleiros",
+              atributos: [{ nome: "Material", valor: "Porcelana" }],
+            },
+            ultimosProdutos: [],
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "same_type_search",
+            confidence: 0.94,
+            reason: "Cliente pediu outro item do mesmo tipo.",
+            targetType: "saleiro",
+            excludeCurrentProduct: true,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            receivedSearchTerm = String(options.searchTerm || "")
+            receivedExcludeItemIds = Array.isArray(options.excludeItemIds) ? options.excludeItemIds.map(String) : []
+            return {
+              items: [
+                {
+                  id: "MLB-SALEIRO-2",
+                  title: "Saleiro De Porcelana Floral",
+                  price: 129.9,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/saleiro-2",
+                  thumbnail: "https://example.com/saleiro-2.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "TIPO", name: "Tipo", valueName: "Saleiro" }],
+                },
+              ],
+              connector: {
+                config: {
+                  oauthNickname: "Mesa Posta",
+                },
+              },
+              paging: {
+                total: 1,
+                offset: 0,
+                nextOffset: 24,
+                poolLimit: 24,
+                hasMore: false,
+              },
+              error: null,
+            }
+          },
+        },
+      )
+
+      assert.equal(result.metadata.provider, "mercado_livre_runtime")
+      assert.equal(result.metadata.semanticIntent?.intent, "same_type_search")
+      assert.equal(receivedSearchTerm, "saleiro")
+      assert.deepEqual(receivedExcludeItemIds, ["MLB-SALEIRO-ATUAL"])
+      assert.match(result.reply, /encontrei 1 produto/i)
+      assert.match(result.reply, /loja Mesa Posta/i)
+    },
+  },
+  {
     name: "pagina de produto nao troca detalhe por nova listagem ao perguntar material",
     run: async () => {
       const productPageContext = {

@@ -39,7 +39,10 @@ export async function POST(request, context) {
 
   const result = await syncMercadoLivreSnapshotForProject(project, { limit, offset, fullSync })
   if (result.error) {
-    return NextResponse.json({ error: result.error, paging: result.paging }, { status: 400 })
+    return NextResponse.json(
+      { error: result.error, paging: result.paging, stage: result.stage || null, details: result.details || null },
+      { status: 400 }
+    )
   }
 
   const snapshot = await getMercadoLivreSnapshotStatus(project.id)

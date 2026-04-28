@@ -1180,6 +1180,9 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
     const poolLimit = Math.min(Math.max(Number(options.poolLimit ?? 24) || 24, requestedLimit), 50)
     const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
     const searchTerm = sanitizeString(options.searchTerm)
+    const excludedItemIds = Array.isArray(options.excludeItemIds)
+      ? options.excludeItemIds.map((itemId) => sanitizeString(itemId)).filter(Boolean)
+      : []
     return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
       const config = getConnectorConfig(resolvedConnector)
       const userId = sanitizeString(config.oauthUserId)
@@ -1203,6 +1206,7 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
 
       const loadedItems = await loadMercadoLivreItems(itemIds, accessToken, deps)
       const rankedItems = loadedItems
+        .filter((item) => !excludedItemIds.includes(sanitizeString(item?.id)))
         .map((item) => ({
           ...item,
           _score: searchTerm ? scoreMercadoLivreItem(item, searchTerm) : 0,
