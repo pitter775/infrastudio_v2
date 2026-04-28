@@ -1,5 +1,5 @@
 import Link from "next/link"
-import { notFound } from "next/navigation"
+import { notFound, permanentRedirect } from "next/navigation"
 import { ChevronDown, ChevronLeft, FileText, Globe, Images, LayoutGrid, Package, Phone, Ruler, ShieldCheck, ShoppingBag, Sparkles, Store, Tag } from "lucide-react"
 
 import { StoreHeader } from "@/components/store/store-header"
@@ -9,10 +9,12 @@ import { StoreProductCard } from "@/components/store/store-product-card"
 import { StoreProductHeroGallery } from "@/components/store/store-product-hero-gallery"
 import { buildStoreAccentPalette, formatStoreCurrency } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
+import { buildStoreProductRef } from "@/lib/mercado-livre-store-core/sanitize"
 import {
   buildAbsoluteStoreUrl,
   buildBreadcrumbStructuredData,
   buildProductStructuredData,
+  buildStoreProductPath,
   buildStoreProductMetadata,
 } from "@/lib/mercado-livre-store-core/seo"
 
@@ -444,6 +446,11 @@ export default async function LojaProdutoPage({ params }) {
     notFound()
   }
 
+  const canonicalProductRef = buildStoreProductRef(result.product.itemId || result.product.id, result.product.slug || result.product.title)
+  if (produtoSlug !== canonicalProductRef) {
+    permanentRedirect(`/loja/${result.store.slug}/produto/${canonicalProductRef}`)
+  }
+
   const visibleCategoryLabel = getVisibleCategoryLabel(result.product)
   const descriptionBlocks = buildDescriptionBlocks(result.product)
   const attributeGroups = groupProductAttributes(result.product.attributes)
@@ -500,7 +507,7 @@ export default async function LojaProdutoPage({ params }) {
   const breadcrumbStructuredData = buildBreadcrumbStructuredData([
     { name: "Loja", url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`) },
     { name: result.store.name, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`) },
-    { name: result.product.title, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}/produto/${result.product.slug}`) },
+    { name: result.product.title, url: buildAbsoluteStoreUrl(buildStoreProductPath(result.store, result.product), result.store) },
   ])
 
   return (

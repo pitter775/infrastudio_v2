@@ -167,3 +167,10 @@ export function buildStoreUrl(storeSlug, query, page, categoryId, sort) {
   const serialized = params.toString()
   return serialized ? `/loja/${storeSlug}?${serialized}` : `/loja/${storeSlug}`
 }
+
+export function buildStoreProductHref(storeSlug, product) {
+  const itemId = String(product?.itemId || product?.id || '').trim()
+  const slug = String(product?.slug || product?.title || '').trim()
+  const productRef = itemId ? `${itemId}${slug ? `-${slug}` : ''}` : slug
+  return `/loja/${storeSlug}/produto/${productRef}`
+}

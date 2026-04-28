@@ -12,6 +12,36 @@ function slugifyProduct(value) {
   return slugify(value)
 }
 
+function buildStoreProductRef(itemId, slug) {
+  const normalizedItemId = sanitizeText(itemId, 80)
+  const normalizedSlug = sanitizeText(slug, 180) || slugifyProduct(slug)
+
+  if (!normalizedItemId) {
+    return normalizedSlug
+  }
+
+  return normalizedSlug ? `${normalizedItemId}-${normalizedSlug}` : normalizedItemId
+}
+
+function parseStoreProductRef(value) {
+  const normalized = sanitizeText(value, 260)
+  const match = normalized.match(/^(MLB\d+)(?:-(.+))?$/i)
+
+  if (!match) {
+    return {
+      itemId: "",
+      slug: normalized,
+      raw: normalized,
+    }
+  }
+
+  return {
+    itemId: sanitizeText(match[1], 80),
+    slug: sanitizeText(match[2], 180),
+    raw: normalized,
+  }
+}
+
 function sanitizeText(value, max = 0) {
   const normalized = String(value || "").trim()
   if (!normalized) {
@@ -207,9 +237,11 @@ function sortSnapshotProducts(items, sort) {
 }
 
 export {
+  buildStoreProductRef,
   buildDefaultMenu,
   normalizeSnapshotProduct,
   normalizeStore,
+  parseStoreProductRef,
   isStoreProductAvailable,
   sanitizeColor,
   sanitizeDomain,

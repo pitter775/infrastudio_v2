@@ -5,7 +5,7 @@ import { getSupabaseAdminClient, getSupabaseAdminEnv } from "@/lib/supabase-admi
 
 import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } from "./constants"
 import { getSnapshotProductBySlug, listSnapshotCategoryFacetsByProjectId, listSnapshotProductsByProjectId } from "./snapshot"
-import { isStoreProductAvailable, normalizeSnapshotProduct, normalizeStore, sanitizeText, slugifyProduct } from "./sanitize"
+import { buildStoreProductRef, isStoreProductAvailable, normalizeSnapshotProduct, normalizeStore, parseStoreProductRef, sanitizeText, slugifyProduct } from "./sanitize"
 
 function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
@@ -38,7 +38,7 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
     ...liveProduct,
     id: snapshotProduct.id || liveProduct.id,
     itemId: snapshotProduct.itemId || liveProduct.itemId || liveProduct.id,
-    slug: snapshotProduct.slug || liveProduct.slug,
+    slug: snapshotProduct.slug || liveProduct.slug || slugifyProduct(snapshotProduct.title || liveProduct.title),
     title: snapshotProduct.title || liveProduct.title,
     price: snapshotProduct.price || liveProduct.price,
     currencyId: snapshotProduct.currencyId || liveProduct.currencyId || "BRL",
@@ -101,17 +101,24 @@ function buildFeaturedFallbackProduct(featuredProduct = null) {
 }
 
 function normalizeProductSlugSearchTerm(productSlug = "") {
-  return sanitizeText(productSlug, 180)
+  const parsedRef = parseStoreProductRef(productSlug)
+  return sanitizeText(parsedRef.slug || parsedRef.raw, 180)
     .replace(/-/g, " ")
     .replace(/\s+/g, " ")
     .trim()
 }
 
 async function resolveLiveProductBySlug(projectId, productSlug, options = {}) {
-  const normalizedSlug = sanitizeText(productSlug, 180)
+  const parsedRef = parseStoreProductRef(productSlug)
+  const normalizedSlug = sanitizeText(parsedRef.slug || parsedRef.raw, 180)
+  const normalizedItemId = sanitizeText(parsedRef.itemId, 80)
   const searchTerm = normalizeProductSlugSearchTerm(normalizedSlug)
-  if (!projectId || !normalizedSlug || !searchTerm) {
+  if (!projectId || (!normalizedSlug && !normalizedItemId)) {
     return null
+  }
+
+  if (normalizedItemId) {
+    return getMercadoLivreLiveProductByProjectId(projectId, normalizedItemId, { supabase: options.supabase })
   }
 
   const liveSearch = await searchMercadoLivreProductsForProject(

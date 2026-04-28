@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 
 import { StoreProductActions } from '@/components/store/store-product-actions'
 import { StoreProductCard } from '@/components/store/store-product-card'
-import { formatStoreCurrency, getStoreProductImages } from '@/components/store/store-utils'
+import { buildStoreProductHref, formatStoreCurrency, getStoreProductImages } from '@/components/store/store-utils'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 
 export function StoreProductSheet({
@@ -140,7 +140,7 @@ export function StoreProductSheet({
                   </div>
                   <StoreProductActions
                     accentColor={store.accentColor}
-                    openPageHref={`/loja/${store.slug}/produto/${product.slug}`}
+                    openPageHref={buildStoreProductHref(store.slug, product)}
                     permalink={product.permalink}
                     product={product}
                     storeSlug={store.slug}

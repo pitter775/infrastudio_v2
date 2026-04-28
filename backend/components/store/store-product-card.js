@@ -5,14 +5,14 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide-react'
 
-import { buildStoreAccentPalette, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
 }
 
 export function StoreProductCard({ storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card' }) {
-  const href = `/loja/${storeSlug}/produto/${product.slug}`
+  const href = buildStoreProductHref(storeSlug, product)
   const images = getStoreProductImages(product)
   const [imageIndex, setImageIndex] = useState(0)
   const [isOpening, setIsOpening] = useState(false)

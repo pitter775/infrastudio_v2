@@ -1,4 +1,10 @@
+import { buildStoreProductRef } from "./sanitize"
+
 const STORE_BASE_URL = "https://www.infrastudio.pro"
+
+function buildStoreProductPath(store, product) {
+  return `/loja/${store.slug}/produto/${buildStoreProductRef(product?.itemId || product?.id, product?.slug || product?.title)}`
+}
 
 function buildStoreBaseUrl(store) {
   if (store?.customDomainActive === true && store?.customDomain) {
@@ -85,7 +91,7 @@ function buildStoreProductMetadata(store, product) {
     }
   }
 
-  const canonical = buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`, store)
+  const canonical = buildAbsoluteStoreUrl(buildStoreProductPath(store, product), store)
   const description = `Veja preco e detalhes de ${product.title}. Atendimento direto pelo chat.`
   const ogImage = product.thumbnail || store.logoUrl || null
 
@@ -164,7 +170,7 @@ function buildStoreCollectionStructuredData(store, products = [], options = {}) 
     mainEntity: products.slice(0, 12).map((product) => ({
       "@type": "Product",
       name: product.title,
-      url: buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`, store),
+      url: buildAbsoluteStoreUrl(buildStoreProductPath(store, product), store),
       image: product.thumbnail || undefined,
       offers: {
         "@type": "Offer",
@@ -207,7 +213,7 @@ function buildProductStructuredData(store, product) {
     name: product.title,
     image: product.thumbnail ? [product.thumbnail] : [],
     category: product.categoryId || undefined,
-    url: buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`, store),
+    url: buildAbsoluteStoreUrl(buildStoreProductPath(store, product), store),
     offers: {
       "@type": "Offer",
       priceCurrency: product.currencyId || "BRL",
@@ -216,7 +222,7 @@ function buildProductStructuredData(store, product) {
         typeof product.stock === "number" && product.stock > 0
           ? "https://schema.org/InStock"
           : "https://schema.org/OutOfStock",
-      url: product.permalink || buildAbsoluteStoreUrl(`/loja/${store.slug}/produto/${product.slug}`, store),
+      url: product.permalink || buildAbsoluteStoreUrl(buildStoreProductPath(store, product), store),
     },
     brand: {
       "@type": "Brand",
@@ -229,6 +235,7 @@ export {
   STORE_BASE_URL,
   buildAbsoluteStoreUrl,
   buildBreadcrumbStructuredData,
+  buildStoreProductPath,
   buildProductStructuredData,
   buildStoreCollectionStructuredData,
   buildStoreMetadata,

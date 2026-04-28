@@ -1,6 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
-import { isStoreProductAvailable, normalizeSnapshotProduct, sanitizeText, slugifyProduct } from "./sanitize"
+import { isStoreProductAvailable, normalizeSnapshotProduct, parseStoreProductRef, sanitizeText, slugifyProduct } from "./sanitize"
 
 const SNAPSHOT_SELECT_WITH_IMAGES =
   "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, updated_at"
@@ -256,25 +256,29 @@ async function getSnapshotProductBySlug(projectId, productSlug, options = {}) {
   }
 
   const supabase = options.supabase ?? getSupabaseAdminClient()
-  const normalizedSlug = sanitizeText(productSlug, 180)
+  const parsedRef = parseStoreProductRef(productSlug)
+  const normalizedSlug = sanitizeText(parsedRef.slug || parsedRef.raw, 180)
+  const normalizedItemId = sanitizeText(parsedRef.itemId, 80)
   let { data, error } = await supabase
     .from("mercadolivre_produtos_snapshot")
     .select(SNAPSHOT_SELECT_WITH_IMAGES)
     .eq("projeto_id", projectId)
-    .eq("slug", normalizedSlug)
     .eq("status", "active")
     .gt("estoque", 0)
-    .maybeSingle()
+    [normalizedItemId ? "eq" : "eq"](normalizedItemId ? "ml_item_id" : "slug", normalizedItemId || normalizedSlug)
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(20)
 
   if (error && isMissingSnapshotFieldError(error)) {
     const fallbackResult = await supabase
       .from("mercadolivre_produtos_snapshot")
       .select(SNAPSHOT_SELECT_LEGACY)
       .eq("projeto_id", projectId)
-      .eq("slug", normalizedSlug)
       .eq("status", "active")
       .gt("estoque", 0)
-      .maybeSingle()
+      [normalizedItemId ? "eq" : "eq"](normalizedItemId ? "ml_item_id" : "slug", normalizedItemId || normalizedSlug)
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(20)
 
     data = fallbackResult.data
     error = fallbackResult.error
@@ -285,9 +289,12 @@ async function getSnapshotProductBySlug(projectId, productSlug, options = {}) {
     return null
   }
 
-  const product = normalizeSnapshotProduct(data)
-  if (isStoreProductAvailable(product)) {
-    return product
+  const directMatches = (Array.isArray(data) ? data : [])
+    .map(normalizeSnapshotProduct)
+    .filter(isStoreProductAvailable)
+
+  if (directMatches.length) {
+    return directMatches[0]
   }
 
   let fallbackData = null
