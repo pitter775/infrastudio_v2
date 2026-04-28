@@ -2,6 +2,7 @@
   Building2,
   Clock,
   Code2,
+  Globe,
   Hammer,
   Headphones,
   Home,
@@ -10,8 +11,8 @@
   Share2,
   ShoppingBag,
   Smartphone,
-  Star,
   Stethoscope,
+  Store,
   Zap,
 } from 'lucide-react'
 
@@ -69,7 +70,7 @@ export const SERVICE_ITEMS = [
     delay: 0.3,
   },
   {
-    icon: MessageSquare,
+    icon: Globe,
     title: 'IA para sites',
     description:
       'Assistentes virtuais que entendem o seu produto e respondem clientes com contexto.',
@@ -83,10 +84,10 @@ export const SERVICE_ITEMS = [
     delay: 0.5,
   },
   {
-    icon: Star,
-    title: 'Instagram automation',
+    icon: Store,
+    title: 'Mercado Livre',
     description:
-      'Respostas automáticas no Direct e comentários para transformar seguidores em leads.',
+      'Atendente com IA e loja personalizada para vender mais no Mercado Livre com operação centralizada.',
     delay: 0.6,
   },
 ]

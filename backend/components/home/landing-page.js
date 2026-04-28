@@ -383,6 +383,43 @@ function HomeNavbar({ currentUser, onLoginClick }) {
 }
 
 function ServiceCard({ icon: Icon, title, description, delay }) {
+  const normalizedTitle = String(title || '').toLowerCase()
+  const accentMap =
+    normalizedTitle === 'automação whatsapp'
+      ? {
+          glow: 'rgba(16,185,129,0.18)',
+          iconClassName: 'border-emerald-400/35 bg-emerald-500/10 text-emerald-300',
+          titleClassName: 'from-emerald-200 via-emerald-300 to-cyan-300',
+          hoverBorderClassName: 'group-hover:border-emerald-300/30 dark:group-hover:border-emerald-300/25',
+        }
+      : normalizedTitle === 'mercado livre'
+        ? {
+            glow: 'rgba(250,204,21,0.18)',
+            iconClassName: 'border-amber-400/35 bg-amber-500/10 text-amber-300',
+            titleClassName: 'from-amber-200 via-amber-300 to-yellow-300',
+            hoverBorderClassName: 'group-hover:border-amber-300/30 dark:group-hover:border-amber-300/25',
+          }
+        : normalizedTitle === 'ia para sites'
+          ? {
+              glow: 'rgba(217,70,239,0.18)',
+              iconClassName: 'border-fuchsia-400/35 bg-fuchsia-500/10 text-fuchsia-300',
+              titleClassName: 'from-fuchsia-200 via-fuchsia-300 to-violet-300',
+              hoverBorderClassName: 'group-hover:border-fuchsia-300/30 dark:group-hover:border-fuchsia-300/25',
+            }
+          : normalizedTitle === 'integração de apis'
+            ? {
+                glow: 'rgba(56,189,248,0.18)',
+                iconClassName: 'border-sky-400/35 bg-sky-500/10 text-sky-300',
+                titleClassName: 'from-sky-200 via-sky-300 to-cyan-300',
+                hoverBorderClassName: 'group-hover:border-sky-300/30 dark:group-hover:border-sky-300/25',
+              }
+            : {
+                glow: 'rgba(59,130,246,0.16)',
+                iconClassName: 'border-blue-400/30 bg-blue-500/10 text-blue-300',
+                titleClassName: 'from-sky-200 via-blue-300 to-cyan-300',
+                hoverBorderClassName: 'group-hover:border-blue-300/25 dark:group-hover:border-white/20',
+              }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -399,11 +436,22 @@ function ServiceCard({ icon: Icon, title, description, delay }) {
           <div className="h-full w-full rounded-[1.55rem] bg-transparent" />
         </div>
       </div>
-      <div className="glass-effect relative min-h-[340px] h-full rounded-[1.65rem] border px-10 py-10 transition-all duration-300 group-hover:-translate-y-1 group-hover:border-blue-300/30 dark:group-hover:border-white/20">
-        <div className="mb-8 flex h-14 w-14 items-center justify-center rounded-xl bg-blue-500/10 text-blue-500 transition-transform duration-300 group-hover:scale-110">
+      <div
+        className={cn(
+          'glass-effect relative min-h-[340px] h-full rounded-[1.65rem] border px-10 py-10 transition-all duration-300 group-hover:-translate-y-1',
+          accentMap.hoverBorderClassName,
+        )}
+        style={{ boxShadow: `0 0 0 1px rgba(255,255,255,0.02), 0 24px 60px -36px ${accentMap.glow}` }}
+      >
+        <div
+          className={cn(
+            'mb-8 flex h-14 w-14 items-center justify-center rounded-full border transition-transform duration-300 group-hover:scale-110',
+            accentMap.iconClassName,
+          )}
+        >
           <Icon size={24} />
         </div>
-        <h3 className="mb-4 bg-gradient-to-r from-sky-700 via-blue-600 to-cyan-500 bg-clip-text text-[1.55rem] font-semibold text-transparent dark:from-sky-100 dark:via-cyan-200 dark:to-blue-300">{title}</h3>
+        <h3 className={cn('mb-4 bg-gradient-to-r bg-clip-text text-[1.55rem] font-semibold text-transparent', accentMap.titleClassName)}>{title}</h3>
         <p className="text-base leading-relaxed text-slate-600 dark:text-slate-400">{description}</p>
       </div>
     </motion.div>
@@ -416,7 +464,7 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
       <div className="absolute inset-0 bg-black" />
 
       <div
-        className="absolute inset-x-0 bottom-0 top-0 opacity-95"
+        className="absolute inset-x-0 bottom-0 top-0 hidden opacity-95 md:block"
         style={{
           backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 24%, rgba(0,0,0,0.18) 100%), url('/bginfra.png')",
           backgroundPosition: 'center calc(100% + 18px)',
@@ -426,18 +474,18 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
       />
 
       <div className="relative mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-10">
-        <div className="relative min-h-[360px] py-8 md:min-h-[430px] md:py-10">
-          <div className="mb-6 flex justify-end">
-            <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/8 px-3 py-2 text-[8px] font-semibold uppercase tracking-[0.22em] text-white/90 shadow-[0_0_20px_rgba(168,85,247,0.12)] md:px-4 md:text-[9px]">
+        <div className="relative min-h-[640px] py-8 md:min-h-[430px] md:py-10">
+          <div className="mb-8 flex justify-center md:mb-6 md:justify-end">
+            <div className="inline-flex items-center gap-2 rounded-full border border-fuchsia-400/40 bg-fuchsia-500/8 px-3 py-2 text-[8px] font-semibold uppercase tracking-[0.18em] text-white/90 shadow-[0_0_20px_rgba(168,85,247,0.12)] md:px-4 md:text-[9px] md:tracking-[0.22em]">
               <Sparkles className="h-4 w-4 text-fuchsia-300" />
               <span>Tecnologia de ponta</span>
               <span className="text-sky-300">Automação inteligente</span>
             </div>
           </div>
 
-          <div className="grid min-h-[290px] items-end gap-6 md:grid-cols-[1fr_1fr]">
-            <div className="max-w-[25rem] pt-2 md:max-w-[30rem] md:pt-8">
-              <h2 className="text-[1.7rem] font-semibold leading-[0.96] tracking-[-0.045em] text-white md:text-[2.55rem]">
+          <div className="grid min-h-[290px] items-start gap-8 md:grid-cols-[1fr_1fr] md:items-end md:gap-6">
+            <div className="mx-auto max-w-[25rem] pt-2 text-center md:mx-0 md:max-w-[30rem] md:pt-8 md:text-left">
+              <h2 className="mx-auto max-w-[15.5rem] text-[1.55rem] font-semibold leading-[0.98] tracking-[-0.04em] text-white md:mx-0 md:max-w-none md:text-[2.55rem]">
                 Tecnologia de ponta
                 <br />
                 para transformar
@@ -445,9 +493,7 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
                 <span className="text-[#2B6BEE]">seu atendimento</span>
               </h2>
 
-              <div className="mt-4 h-px w-full max-w-[19rem] bg-gradient-to-r from-cyan-400 via-[#2B6BEE] to-transparent" />
-
-              <div className="mt-5 flex flex-wrap gap-2.5 md:mt-6">
+              <div className="mt-5 grid grid-cols-2 gap-3 md:mt-6 md:flex md:flex-wrap md:gap-2.5">
                 {HOME_CHANNEL_SHOWCASE_ITEMS.map((item) => {
                   const Icon = item.icon
 
@@ -456,7 +502,7 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
                       key={item.key}
                       type="button"
                       onClick={() => onChannelClick(item)}
-                      className={cn('group flex min-h-[70px] w-[calc(50%-0.3125rem)] min-w-[140px] items-start gap-2 rounded-[0.9rem] border bg-[#07101f]/84 px-3 py-3 text-left shadow-[0_0_0_1px_rgba(255,255,255,0.02)] backdrop-blur-[1px] transition-all duration-300 hover:-translate-y-1 md:w-[140px]', item.accentClassName)}
+                      className={cn('group flex min-h-[88px] w-full items-start gap-2.5 rounded-[0.9rem] border bg-[#07101f]/84 px-3.5 py-3.5 text-left shadow-[0_0_0_1px_rgba(255,255,255,0.02)] backdrop-blur-[1px] transition-all duration-300 hover:-translate-y-1 sm:min-w-0 md:min-h-[78px] md:w-[234px] md:min-w-[234px]', item.accentClassName)}
                     >
                       <div
                         className={cn(
@@ -467,8 +513,8 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
                         <Icon className="h-4 w-4" />
                       </div>
                       <div>
-                        <div className="text-[0.72rem] font-semibold leading-none md:text-[0.76rem]">{item.title}</div>
-                        <p className="mt-1.5 text-[0.58rem] leading-[1.35] text-slate-300 md:text-[0.62rem]">
+                        <div className="text-[0.8rem] font-semibold leading-none md:text-[0.82rem]">{item.title}</div>
+                        <p className="mt-1.5 max-w-[12rem] text-[0.68rem] leading-[1.38] text-slate-300 md:max-w-none md:text-[0.66rem]">
                           {item.description}
                         </p>
                       </div>
@@ -478,11 +524,11 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
               </div>
             </div>
 
-            <div className="relative flex min-h-[260px] items-center justify-center md:min-h-[340px]">
+            <div className="relative hidden min-h-[300px] items-end justify-center md:flex md:min-h-[340px] md:items-center">
               <button
                 type="button"
                 onClick={onLoginClick}
-                className="absolute right-[10%] top-[2%] inline-flex items-center gap-3 rounded-[1rem] border border-emerald-400/45 bg-[#07101f]/88 px-4 py-3 text-left shadow-[0_0_0_1px_rgba(16,185,129,0.16),0_0_42px_rgba(16,185,129,0.08)] transition-all duration-300 hover:-translate-y-1 md:right-[12%] md:top-[0%]"
+                className="absolute left-1/2 top-2 z-10 inline-flex -translate-x-1/2 items-center gap-3 rounded-[1rem] border border-emerald-400/45 bg-[#07101f]/88 px-4 py-3 text-left shadow-[0_0_0_1px_rgba(16,185,129,0.16),0_0_42px_rgba(16,185,129,0.08)] transition-all duration-300 hover:-translate-y-1 md:left-auto md:right-[12%] md:top-[4%] md:translate-x-0"
               >
                 <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#2B6BEE]/40 bg-[#2B6BEE]/10 text-[#2B6BEE]">
                   <Sparkles className="h-4 w-4" />
@@ -492,7 +538,25 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
                   <div className="mt-1 text-[0.72rem] font-medium leading-none text-emerald-300">infrastudio.pro</div>
                 </div>
               </button>
+
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[220px] md:hidden" />
             </div>
+          </div>
+
+          <div className="mt-5 flex justify-center md:hidden">
+            <button
+              type="button"
+              onClick={onLoginClick}
+              className="inline-flex items-center gap-3 rounded-[1rem] border border-emerald-400/45 bg-[#07101f]/88 px-4 py-3 text-left shadow-[0_0_0_1px_rgba(16,185,129,0.16),0_0_42px_rgba(16,185,129,0.08)] transition-all duration-300 hover:-translate-y-1"
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#2B6BEE]/40 bg-[#2B6BEE]/10 text-[#2B6BEE]">
+                <Sparkles className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-[1rem] font-semibold leading-none text-white">Teste grátis</div>
+                <div className="mt-1 text-[0.72rem] font-medium leading-none text-emerald-300">infrastudio.pro</div>
+              </div>
+            </button>
           </div>
         </div>
       </div>
@@ -859,9 +923,9 @@ export function LandingPage({ currentUser = null, plans = [] }) {
             <button
               type="button"
               onClick={() => setLoginOpen(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-blue-200 bg-white px-8 py-4 font-semibold text-slate-800 shadow-[0_14px_34px_-24px_rgba(15,23,42,0.18)] transition-all duration-300 hover:-translate-y-1 hover:border-blue-300 hover:bg-blue-50 dark:rounded-xl dark:border-cyan-400/30 dark:bg-[#0d1834] dark:text-cyan-100 dark:shadow-[0_18px_40px_-24px_rgba(8,145,178,0.35)] dark:hover:border-cyan-300/45 dark:hover:bg-[#102044]"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-300/70 bg-white px-8 py-4 font-semibold text-slate-800 shadow-[0_14px_34px_-24px_rgba(15,23,42,0.18),0_0_0_1px_rgba(52,211,153,0.18),0_0_30px_rgba(16,185,129,0.18)] transition-all duration-300 hover:-translate-y-1 hover:border-emerald-400 hover:bg-emerald-50 hover:shadow-[0_18px_40px_-24px_rgba(15,23,42,0.2),0_0_0_1px_rgba(52,211,153,0.24),0_0_44px_rgba(16,185,129,0.24)] dark:rounded-xl dark:border-emerald-400/35 dark:bg-[#0d1834] dark:text-emerald-100 dark:shadow-[0_18px_40px_-24px_rgba(8,145,178,0.22),0_0_0_1px_rgba(52,211,153,0.18),0_0_38px_rgba(16,185,129,0.2)] dark:hover:border-emerald-300/45 dark:hover:bg-[#102044]"
             >
-              <Sparkles size={18} className="animate-pulse text-blue-500 dark:text-cyan-200" />
+              <Sparkles size={18} className="animate-pulse text-emerald-500 dark:text-emerald-200" />
               Comece agora no plano gratuito! 
             </button>
           </motion.div>
@@ -907,14 +971,14 @@ export function LandingPage({ currentUser = null, plans = [] }) {
                 {DEMO_FEATURES.map((item) => (
                   <div
                     key={item.title}
-                    className="flex items-start gap-4 rounded-2xl border border-slate-200/80 bg-white/78 p-5 shadow-[0_20px_45px_-34px_rgba(71,104,145,0.26)] transition-colors hover:border-blue-500/30 dark:border-white/10 dark:bg-[#0b1428] dark:shadow-[0_24px_50px_-34px_rgba(2,6,23,0.78)]"
+                    className="flex items-start gap-3 rounded-[0.9rem] border border-sky-400/25 bg-[#07101f]/84 p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.02)] transition-colors hover:border-sky-400/40 dark:border-sky-400/25 dark:bg-[#07101f]/84"
                   >
-                    <div className="rounded-lg bg-blue-500/20 p-2 text-blue-400">
+                    <div className="rounded-full border border-sky-400/30 bg-sky-500/10 p-2 text-sky-300">
                       <CheckCircle2 size={20} />
                     </div>
                     <div>
-                      <h4 className="mb-1 font-medium text-slate-800 dark:text-slate-100">{item.title}</h4>
-                      <p className="text-sm text-slate-600 dark:text-slate-300">{item.desc}</p>
+                      <h4 className="mb-1 text-sm font-semibold text-slate-100">{item.title}</h4>
+                      <p className="text-sm text-slate-300">{item.desc}</p>
                     </div>
                   </div>
                 ))}
