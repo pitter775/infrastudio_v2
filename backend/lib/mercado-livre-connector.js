@@ -794,43 +794,48 @@ function extractMercadoLivreGalleryFromHtml(html) {
 }
 
 async function loadMercadoLivreItemById(itemId, accessToken, deps = {}) {
-  const fetchImpl = deps.fetchImpl ?? fetch
-  const headers = {
-    Authorization: `Bearer ${accessToken}`,
-    Accept: "application/json",
-  }
-  const [itemResponse, descriptionResponse] = await Promise.all([
-    fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}`, {
-      headers,
-      cache: "no-store",
-    }),
-    fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}/description`, {
-      headers,
-      cache: "no-store",
-    }),
-  ])
+  try {
+    const fetchImpl = deps.fetchImpl ?? fetch
+    const headers = {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+    }
+    const [itemResponse, descriptionResponse] = await Promise.all([
+      fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}`, {
+        headers,
+        cache: "no-store",
+      }),
+      fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}/description`, {
+        headers,
+        cache: "no-store",
+      }),
+    ])
 
-  const itemPayload = await itemResponse.json().catch(() => ({}))
-  if (!itemResponse.ok || !itemPayload?.id) {
+    const itemPayload = await itemResponse.json().catch(() => ({}))
+    if (!itemResponse.ok || !itemPayload?.id) {
+      return null
+    }
+
+    const descriptionPayload = await descriptionResponse.json().catch(() => ({}))
+    const mappedItem = mapMercadoLivreItem({
+      ...itemPayload,
+      descriptionPlain: sanitizeString(descriptionPayload?.plain_text || descriptionPayload?.text),
+      shortDescription: sanitizeString(descriptionPayload?.short_description || ""),
+    })
+
+    if ((Array.isArray(mappedItem?.pictures) ? mappedItem.pictures.length : 0) <= 1 && sanitizeString(mappedItem?.permalink)) {
+      const html = await fetchMercadoLivreProductPageHtml(mappedItem.permalink, deps)
+      const htmlImages = extractMercadoLivreGalleryFromHtml(html)
+      if (htmlImages.length > 1) {
+        mappedItem.pictures = [...new Set([...(mappedItem.pictures || []), ...htmlImages])].slice(0, 12)
+      }
+    }
+
+    return mappedItem
+  } catch (error) {
+    console.error("[mercado-livre] failed to load item by id", itemId, error)
     return null
   }
-
-  const descriptionPayload = await descriptionResponse.json().catch(() => ({}))
-  const mappedItem = mapMercadoLivreItem({
-    ...itemPayload,
-    descriptionPlain: sanitizeString(descriptionPayload?.plain_text || descriptionPayload?.text),
-    shortDescription: sanitizeString(descriptionPayload?.short_description || ""),
-  })
-
-  if ((Array.isArray(mappedItem?.pictures) ? mappedItem.pictures.length : 0) <= 1 && sanitizeString(mappedItem?.permalink)) {
-    const html = await fetchMercadoLivreProductPageHtml(mappedItem.permalink, deps)
-    const htmlImages = extractMercadoLivreGalleryFromHtml(html)
-    if (htmlImages.length > 1) {
-      mappedItem.pictures = [...new Set([...(mappedItem.pictures || []), ...htmlImages])].slice(0, 12)
-    }
-  }
-
-  return mappedItem
 }
 
 async function fetchMercadoLivreCategoryName(categoryId, accessToken, deps = {}) {
@@ -1283,13 +1288,15 @@ export async function listMercadoLivreItemsForProject(project, options = {}, dep
       const baseItemIds = itemIds.slice(0, limit)
       const items = shouldIncludeDetails
         ? (
-            await Promise.all(
+            await Promise.allSettled(
               baseItemIds.map(async (itemId) => {
                 const detailedItem = await loadMercadoLivreItemById(itemId, accessToken, deps)
                 return detailedItem
               })
             )
-          ).filter(Boolean)
+          )
+            .map((entry) => (entry.status === "fulfilled" ? entry.value : null))
+            .filter(Boolean)
         : await loadMercadoLivreItems(baseItemIds, accessToken, deps)
 
       const categoryIds = [...new Set(items.map((item) => sanitizeString(item?.categoryId)).filter(Boolean))]
