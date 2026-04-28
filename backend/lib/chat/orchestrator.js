@@ -410,13 +410,13 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const runtimeApis = Array.isArray(context?.runtimeApis) ? context.runtimeApis : []
   const baseRuntimeConfig = getAgentRuntimeConfig(context)
   const structuredResponse = prefersStructuredReply(context)
-  const focusedApiContext = buildFocusedApiContext(latestUserMessage, runtimeApis)
+  const initialFocusedApiContext = buildFocusedApiContext(latestUserMessage, runtimeApis)
   const initialRoutingDecision = buildBaseRoutingDecision(
     latestUserMessage,
     history,
     context,
     runtimeApis,
-    focusedApiContext,
+    initialFocusedApiContext,
     baseRuntimeConfig
   )
   const hasProductPricingPriority = hasLockedCatalogProductPricingPriority(initialRoutingDecision, context)
@@ -472,7 +472,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const baseRoutingDecision =
     effectiveContext === context && runtimeConfig === baseRuntimeConfig
       ? initialRoutingDecision
-      : buildBaseRoutingDecision(latestUserMessage, history, effectiveContext, runtimeApis, focusedApiContext, runtimeConfig)
+      : buildBaseRoutingDecision(latestUserMessage, history, effectiveContext, runtimeApis, initialFocusedApiContext, runtimeConfig)
   const semanticApiIntent =
     runtimeApis.length
       ? await (options.classifySemanticApiIntentStage ?? classifySemanticApiIntentStage)({
@@ -484,6 +484,13 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         })
       : null
   const semanticApiDecision = buildApiDecisionFromSemanticIntent({ semanticIntent: semanticApiIntent })
+  const focusedApiContext =
+    semanticApiDecision?.targetFieldHints?.length || semanticApiDecision?.supportFieldHints?.length
+      ? buildFocusedApiContext(latestUserMessage, runtimeApis, {
+          targetFieldHints: semanticApiDecision?.targetFieldHints,
+          supportFieldHints: semanticApiDecision?.supportFieldHints,
+        })
+      : initialFocusedApiContext
   const shouldUseBaseApiRuntime = baseRoutingDecision.domain === "api_runtime" && baseRoutingDecision.shouldUseTool === true
   const shouldUseBaseMercadoLivre =
     baseRoutingDecision.domain === "catalog" && baseRoutingDecision.source === "mercado_livre" && baseRoutingDecision.shouldUseTool === true
@@ -673,7 +680,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
-  if (shouldUseApiRuntime && (isSemanticApiFactualDecision(semanticApiDecision) || (hasFocusedApiContext && hasFactualApiSignal(latestUserMessage)))) {
+  if (shouldUseApiRuntime && (isSemanticApiFactualDecision(semanticApiDecision) || hasFocusedApiContext)) {
     const apiReply =
       apiCatalogReply ??
       buildApiFallbackReply(latestUserMessage, runtimeApis, {

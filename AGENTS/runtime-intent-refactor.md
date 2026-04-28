@@ -131,9 +131,17 @@ Ja feito:
   - `me manda o link` ou `estoque` na vitrine sem lista recente nao sobem mais sozinhos para `catalog`
   - com lista recente real, continuam podendo subir
   - isso reduz mais um vazamento em que o roteador sequestrava a conversa antes do stage semantico
+- a continuidade de catalogo por `activeFocus` agora tambem ficou mais fail-closed:
+  - `focus` antigo sem lista/busca recente real nao mantem mais `catalog` sozinho
+  - contexto de vitrine por si so nao basta para continuar follow-up curto no roteador
+  - isso reduz dependencia de estado velho e deixa a retomada curta mais dependente de contexto catalogal real
 - o `domain-router` de billing tambem ficou mais fail-closed:
   - sem `pricingCatalog` estruturado real no runtime, o roteador nao assume billing so por `planos`, `assinatura` ou similares
   - isso joga mais casos para o `intent-stage` e reduz chute textual no roteador
+- o `domain-router` de billing agora tambem ficou mais estrito mesmo com `pricingCatalog`:
+  - nome explicito de plano continua subindo
+  - billing generico agora pede sinal mais forte de comparacao/valores em vez de subir so por noun amplo
+  - isso empurra mais casos para o `intent-stage` e reduz resquicio auxiliar de billing no roteador
 - billing/pricing ganhou `intent-stage` estruturado inicial no orquestrador para:
   - `pricing_overview`
   - `highest_priced_plan`
@@ -205,6 +213,10 @@ Ja feito:
     - agora so aceita refinamento textual quando houver atributo/sinal catalogal claro (`inox`, `vidro`, `material`, `cor`, etc.)
     - adjetivo vago ou refinamento aberto deixa de virar busca local
     - variacao linguistica mais aberta deve cair no `intent-stage`
+  - o fallback local de refinamento tambem passou a exigir ancora real no contexto:
+    - referencia forte ao item/lista recente ou sobreposicao com `ultimaBusca`/produto atual
+    - atributo solto sem ancora deixa de sequestrar a decisao como refinamento local
+    - isso rebaixa mais `catalog-follow-up.js` para guardrail local e nao decisor principal
 - o `intent-stage` de catalogo foi ampliado para:
   - `catalog_search_refinement`
   - `catalog_load_more`
@@ -222,11 +234,15 @@ Ja feito:
   - o stage semantico de API agora tambem pode devolver `comparisonMode` e `referencedProductIndexes`
   - `resolveApiCatalogReply` passou a usar essa decisao estruturada antes da deteccao textual de comparacao
   - o agrupamento contextual de campos tambem passou a aceitar hints estruturados antes da deteccao textual do intent
-  - o stage semantico de API agora tambem pode devolver `supportFieldHints`
-  - `buildFocusedApiContext` e `buildApiFallbackReply` passaram a mesclar esses campos de suporte quando a decisao estruturada trouxer contexto complementar
-  - o fallback factual de API agora tambem foi endurecido:
-    - sem `targetFieldHints` e sem sinal explicito real de lookup, `buildApiFallbackReply` deixa de responder fato aberto em frase vaga
-    - isso reduz vazamento de resposta estruturada quando o cliente fala algo amplo como `me fala desse imovel`
+- o stage semantico de API agora tambem pode devolver `supportFieldHints`
+- `buildFocusedApiContext` e `buildApiFallbackReply` passaram a mesclar esses campos de suporte quando a decisao estruturada trouxer contexto complementar
+- os hints estruturados de API agora tambem entram de forma mais deterministica no runtime:
+  - o orquestrador passa a reconstruir `focusedApiContext` com `targetFieldHints` e `supportFieldHints` apos o `intent-stage`
+  - `buildFocusedApiContext` e `buildApiFallbackReply` agora priorizam match por hints e por grupos estruturados de intent antes do score textual livre
+  - isso reduz dependencia do matcher textual bruto para escolher campo, suporte e resposta factual
+- o fallback factual de API agora tambem foi endurecido:
+  - sem `targetFieldHints` e sem sinal explicito real de lookup, `buildApiFallbackReply` deixa de responder fato aberto em frase vaga
+  - isso reduz vazamento de resposta estruturada quando o cliente fala algo amplo como `me fala desse imovel`
   - `buildFocusedApiContext` tambem deixou de abrir contexto focado em frase vaga quando nao houver hint estruturado nem lookup explicito
   - `relatedTokens` em `getApiKeywordGroups` agora so entram quando ja existe sinal semantico real de lookup
   - `directTokens` de `getApiKeywordGroups` agora foram limitados ao vocabulario real de API
@@ -255,19 +271,17 @@ Ja feito:
 
 Ainda errado / fragil:
 
-- `domain-router` ainda existe como camada heuristica para billing, embora bem menor
-- billing ainda tem fallback heuristico em `sales-heuristics.js` quando o `intent-stage` nao roda ou falha
-- billing ainda tem fallback heuristico residual em `sales-heuristics.js`, mas agora limitado a contexto ja roteado como billing e a sinais explicitos de plano/catalogo
-- billing ainda tem deteccoes auxiliares espalhadas no runtime, mas pricing estruturado saiu do caminho heuristico principal
+ - `domain-router` ainda existe como camada heuristica para billing, embora agora mais restrita a nome real de plano ou pedido forte de pricing
+ - billing ainda tem deteccoes auxiliares espalhadas no runtime, mas pricing estruturado saiu do caminho heuristico principal
 - catalogo ainda depende bastante de `catalog-follow-up.js`, embora o stage semantico ja cubra produto em foco e item recente
-- `catalog-follow-up.js` ainda concentra guardrails textuais locais para refinamento/load more/referencia, embora agora em funcoes menores e explicitas
+ - `catalog-follow-up.js` ainda concentra guardrails textuais locais para refinamento/load more/referencia, embora agora mais ancorados em estado real
 - `catalog-follow-up.js` ainda continua como fallback local para refinamento/load more/referencia quando o stage semantico nao rodar ou nao classificar
 - `domain-router` ainda decide dominio demais por regex
 - `domain-router` de catalogo ainda tem regex, mas agora mais dependente de candidato real de busca e menos de verbo solto
 - `sales-heuristics` ainda concentra regra de negocio demais
 - regressao em um dominio ainda pode contaminar outro
-- `api_runtime` ainda depende bastante de matching textual em `api-runtime.js`, apesar do override semantico inicial no orquestrador
-- `api-runtime.js` ainda concentra a escolha interna de campos por matching textual, mesmo quando o dominio ja subiu corretamente por intent semantico
+ - `api_runtime` ainda depende bastante de matching textual em `api-runtime.js`, apesar de agora usar melhor os hints estruturados do stage semantico
+ - `api-runtime.js` ainda concentra a escolha interna de campos por matching textual quando faltam hints estruturados
 - `api-runtime.js` ainda precisa empurrar mais comparacao, resumo e selecao de grupos para dados estruturados em vez de matching local
 - `api-runtime.js` ainda usa matching textual para detectar comparacao entre itens e para agrupar suporte contextual de campos
 - `api-runtime.js` ainda usa matching textual como fallback quando o stage semantico nao devolver hints suficientes
@@ -334,4 +348,4 @@ Ainda errado / fragil:
 
 ## Proximo passo recomendado agora
 
- - revisar se `sales-heuristics.js` ainda tem algum fallback de billing que ja pode sair do fluxo principal
+ - revisar `sales-heuristics.js` e o restante do runtime para remover deteccoes auxiliares de billing que ainda nao dependem do `intent-stage`

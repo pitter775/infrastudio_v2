@@ -136,7 +136,10 @@ function resolveTargetHintFields(availableApis = [], targetFieldHints = [], deps
         return []
       }
 
-      return hints.some((hint) => normalizedField === hint || normalizedField.endsWith(hint) || normalizedField.includes(hint))
+      const fieldTokens = tokenizeApiField(normalizedField, deps)
+      return hints.some(
+        (hint) => normalizedField === hint || normalizedField.endsWith(`.${hint}`) || normalizedField.endsWith(hint) || fieldTokens.includes(hint)
+      )
         ? [
             {
               apiId: sanitizeString(api?.apiId),
@@ -170,7 +173,10 @@ function resolveSupportHintFields(apiContexts = [], primaryField, supportFieldHi
         return []
       }
 
-      return hints.some((hint) => normalizedName === hint || normalizedName.endsWith(hint) || normalizedName.includes(hint))
+      const fieldTokens = tokenizeApiField(normalizedName, deps)
+      return hints.some(
+        (hint) => normalizedName === hint || normalizedName.endsWith(`.${hint}`) || normalizedName.endsWith(hint) || fieldTokens.includes(hint)
+      )
         ? [
             {
               ...field,
@@ -599,6 +605,41 @@ function detectApiIntentFromHints(targetFieldHints, deps) {
   )
 }
 
+function resolveIntentTargetFields(apiContexts = [], targetNames = [], deps, score = 8) {
+  const normalizedTargets = Array.isArray(targetNames)
+    ? targetNames.map((item) => normalizeApiFieldName(item, deps)).filter(Boolean)
+    : []
+
+  if (!normalizedTargets.length) {
+    return []
+  }
+
+  const selected = apiContexts.flatMap((api) =>
+    (api.campos ?? []).flatMap((field) => {
+      const normalizedName = normalizeApiFieldName(field?.nome, deps)
+      if (!normalizedName) {
+        return []
+      }
+
+      const fieldTokens = tokenizeApiField(normalizedName, deps)
+      return normalizedTargets.some(
+        (target) => normalizedName === target || normalizedName.endsWith(`.${target}`) || normalizedName.endsWith(target) || fieldTokens.includes(target)
+      )
+        ? [
+            {
+              ...field,
+              apiId: api.apiId,
+              apiNome: api.nome,
+              score,
+            },
+          ]
+        : []
+    })
+  )
+
+  return [...new Map(selected.map((item) => [`${item.apiId}:${item.nome}`, item])).values()]
+}
+
 function getSupportFieldSuffixes(intentId) {
   switch (intentId) {
     case "price":
@@ -628,6 +669,13 @@ function findSupportFields(apiContexts, primaryField, message, deps, customDeps 
   }
 
   const intent = detectApiIntentFromHints(customDeps?.targetFieldHints, deps) ?? detectApiIntent(message, deps)
+  const intentSupportFields = resolveIntentTargetFields(apiContexts, getSupportFieldSuffixes(intent?.id), deps, 7).filter(
+    (field) => deps.normalizeText(field.nome) !== deps.normalizeText(primaryField?.nome)
+  )
+  if (intentSupportFields.length) {
+    return intentSupportFields.slice(0, 3)
+  }
+
   const supportSuffixes = getSupportFieldSuffixes(intent?.id)
   const primaryName = deps.normalizeText(primaryField?.nome)
 
@@ -846,10 +894,13 @@ function buildDirectApiReply(message, apiContexts, deps, customDeps = {}) {
   }
 
   const hintMatches = resolveTargetHintFields(availableApis, customDeps?.targetFieldHints, deps)
-  if (!hintMatches.length && !hasApiExplicitLookupSignal(message, deps)) {
+  const detectedIntent = detectApiIntentFromHints(customDeps?.targetFieldHints, deps) ?? detectApiIntent(message, deps)
+  const intentMatches = resolveIntentTargetFields(availableApis, detectedIntent?.targets, deps)
+
+  if (!hintMatches.length && !intentMatches.length && !hasApiExplicitLookupSignal(message, deps)) {
     return null
   }
-  const matches = (hintMatches.length ? hintMatches : findMatchingApiFields(availableApis, message, deps))
+  const matches = (hintMatches.length ? hintMatches : intentMatches.length ? intentMatches : findMatchingApiFields(availableApis, message, deps))
     .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
     .slice(0, 3)
 
@@ -884,16 +935,22 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
   }
 
   const hintMatches = resolveTargetHintFields(availableApis, customDeps?.targetFieldHints, deps)
-  if (!hintMatches.length && !hasApiExplicitLookupSignal(message, deps)) {
+  const detectedIntent = detectApiIntentFromHints(customDeps?.targetFieldHints, deps) ?? detectApiIntent(message, deps)
+  const intentMatches = resolveIntentTargetFields(availableApis, detectedIntent?.targets, deps)
+
+  if (!hintMatches.length && !intentMatches.length && !hasApiExplicitLookupSignal(message, deps)) {
     return { instructions: failedApis.length ? failedApis.map((api) => `- API indisponivel: ${api.nome}. Motivo: ${api.erro}`).join("\n") : "", fields: [], apis: [] }
   }
-  const supportHintMatches = resolveSupportHintFields(availableApis, hintMatches[0] ?? null, customDeps?.supportFieldHints, deps)
+  const primaryField = hintMatches[0] ?? intentMatches[0] ?? null
+  const supportHintMatches = resolveSupportHintFields(availableApis, primaryField, customDeps?.supportFieldHints, deps)
   const matches = findMatchingApiFields(availableApis, message, deps)
     .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
     .slice(0, 6)
 
   const selectedFields = hintMatches.length
     ? [...new Map([...hintMatches, ...supportHintMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
+    : intentMatches.length
+      ? [...new Map([...intentMatches, ...supportHintMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
     : matches.length
       ? matches
       : buildFallbackFields(availableApis, deps, message)

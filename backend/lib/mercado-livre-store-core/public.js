@@ -41,6 +41,7 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
     slug: snapshotProduct.slug || liveProduct.slug,
     title: snapshotProduct.title || liveProduct.title,
     price: snapshotProduct.price || liveProduct.price,
+    currencyId: snapshotProduct.currencyId || liveProduct.currencyId || "BRL",
     originalPrice: snapshotProduct.originalPrice || liveProduct.originalPrice || 0,
     installmentQuantity: snapshotProduct.installmentQuantity || liveProduct.installmentQuantity || 0,
     installmentAmount: snapshotProduct.installmentAmount || liveProduct.installmentAmount || 0,
@@ -66,6 +67,36 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
         : Array.isArray(snapshotProduct.attributes)
           ? snapshotProduct.attributes
           : []),
+  }
+}
+
+function buildFeaturedFallbackProduct(featuredProduct = null) {
+  if (!featuredProduct?.id || !featuredProduct?.title) {
+    return null
+  }
+
+  return {
+    id: featuredProduct.id,
+    itemId: featuredProduct.id,
+    title: featuredProduct.title,
+    slug: featuredProduct.slug || slugifyProduct(featuredProduct.title),
+    price: Number(featuredProduct.price ?? 0) || 0,
+    currencyId: featuredProduct.currencyId || "BRL",
+    originalPrice: 0,
+    installmentQuantity: 0,
+    installmentAmount: 0,
+    installmentRate: 0,
+    unitPrice: 0,
+    thumbnail: featuredProduct.thumbnail || "",
+    images: featuredProduct.thumbnail ? [featuredProduct.thumbnail] : [],
+    permalink: featuredProduct.permalink || "",
+    status: "active",
+    stock: 1,
+    categoryId: "",
+    categoryLabel: "",
+    shortDescription: "",
+    descriptionLong: "",
+    attributes: [],
   }
 }
 
@@ -364,13 +395,25 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
 
   const supabase = options.supabase ?? getSupabaseAdminClient()
   const snapshotProduct = await getSnapshotProductBySlug(storeResult.store.projectId, productSlug, { supabase })
-  const product =
+  let product =
     snapshotProduct && productNeedsLiveDetails(snapshotProduct)
       ? mergeMercadoLivreProductDetails(
           snapshotProduct,
           await getMercadoLivreLiveProductByProjectId(storeResult.store.projectId, snapshotProduct.itemId || snapshotProduct.id, { supabase })
         )
       : snapshotProduct
+
+  if (!product) {
+    const featuredMatch = (Array.isArray(storeResult.featuredProducts) ? storeResult.featuredProducts : []).find(
+      (item) => sanitizeText(item?.slug, 180) === sanitizeText(productSlug, 180)
+    )
+
+    if (featuredMatch?.id) {
+      const liveProduct = await getMercadoLivreLiveProductByProjectId(storeResult.store.projectId, featuredMatch.id, { supabase })
+      product = mergeMercadoLivreProductDetails(buildFeaturedFallbackProduct(featuredMatch), liveProduct)
+    }
+  }
+
   if (!product) {
     return {
       store: storeResult.store,

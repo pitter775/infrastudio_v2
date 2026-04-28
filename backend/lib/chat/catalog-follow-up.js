@@ -146,6 +146,31 @@ function extractCatalogRefinementHintTokens(tokens = []) {
   return tokens.filter((token) => REFINEMENT_HINT_TOKENS.has(token))
 }
 
+function extractAnchorTokensFromCatalogContext(context = {}) {
+  const lastSearchTokens = buildProductSearchCandidates(context?.catalogo?.ultimaBusca ?? "")
+    .flatMap((candidate) => normalizeCatalogMessage(candidate).split(/\s+/))
+    .filter((token) => token.length >= 3)
+  const currentProductTokens = normalizeCatalogMessage(context?.catalogo?.produtoAtual?.nome ?? "")
+    .split(/\s+/)
+    .filter((token) => token.length >= 4)
+
+  return [...new Set([...lastSearchTokens, ...currentProductTokens].filter(Boolean))]
+}
+
+function hasCatalogRefinementAnchor(message, context = {}) {
+  if (hasStrongRecentCatalogReferenceSignal(message)) {
+    return true
+  }
+
+  const anchorTokens = extractAnchorTokensFromCatalogContext(context)
+  if (!anchorTokens.length) {
+    return false
+  }
+
+  const messageTokens = extractCatalogMessageTokens(message)
+  return messageTokens.some((token) => anchorTokens.includes(token))
+}
+
 function resolveProductByExplicitOrder(message, products) {
   const normalized = normalizeCatalogMessage(message)
   const explicitPatterns = [
@@ -243,6 +268,10 @@ export function detectCatalogSearchRefinement(message, context, deps = {}) {
   }
 
   if (!hintTokens.length) {
+    return null
+  }
+
+  if (!hasCatalogRefinementAnchor(message, context)) {
     return null
   }
 

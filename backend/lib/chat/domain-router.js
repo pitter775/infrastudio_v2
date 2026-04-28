@@ -214,6 +214,13 @@ function hasRecentCatalogContext(context = {}) {
   )
 }
 
+function hasRecentCatalogListContext(context = {}) {
+  return (
+    Boolean(String(context?.catalogo?.ultimaBusca || "").trim()) ||
+    (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 0)
+  )
+}
+
 function hasBillingSignal(message) {
   return /\b(plano|planos|assinatura|mensalidade|credito|creditos)\b/i.test(String(message || ""))
 }
@@ -225,12 +232,19 @@ function hasExplicitPricingCatalogSignal(message, runtimeConfig = {}) {
 
   const normalized = normalizeText(message)
   const planTokens = extractPricingPlanTokens(runtimeConfig)
-
-  if (/\b(plano|planos|assinatura|mensalidade|credito|creditos)\b/.test(normalized)) {
+  const hasNamedPlan = planTokens.some((token) => token && normalized.includes(token))
+  if (hasNamedPlan) {
     return true
   }
 
-  return planTokens.some((token) => token && normalized.includes(token))
+  if (
+    /\b(plano|planos|assinatura|mensalidade|credito|creditos)\b/.test(normalized) &&
+    /\b(mais caro|mais barato|compar|diferenca|valores|precos|quanto custa|qual o valor|qual o preco|tabela)\b/.test(normalized)
+  ) {
+    return true
+  }
+
+  return false
 }
 
 function hasRecentCatalogPrompt(history = []) {
@@ -267,7 +281,7 @@ function isLikelyCatalogAnswerAfterPrompt(message, history = []) {
 }
 
 function isCatalogFollowUpWithRecentState(message, history = [], context = {}) {
-  if (!hasRecentCatalogContext(context)) {
+  if (!hasRecentCatalogListContext(context)) {
     return false
   }
 
@@ -413,7 +427,7 @@ export function resolveChatDomainRoute(input = {}) {
   if (
     activeFocus?.domain === "catalog" &&
     capabilities.mercadoLivre &&
-    (hasRecentCatalogContext(context) || hasStorefrontCatalogContext(context)) &&
+    hasRecentCatalogListContext(context) &&
     (hasCatalogFollowUpSignal(message) || hasShortCatalogQuerySignal(message))
   ) {
     return {

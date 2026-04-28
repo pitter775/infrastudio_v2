@@ -1,6 +1,6 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
-import { isStoreProductAvailable, normalizeSnapshotProduct, sanitizeText } from "./sanitize"
+import { isStoreProductAvailable, normalizeSnapshotProduct, sanitizeText, slugifyProduct } from "./sanitize"
 
 const SNAPSHOT_SELECT_WITH_IMAGES =
   "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, updated_at"
@@ -286,7 +286,60 @@ async function getSnapshotProductBySlug(projectId, productSlug, options = {}) {
   }
 
   const product = normalizeSnapshotProduct(data)
-  return isStoreProductAvailable(product) ? product : null
+  if (isStoreProductAvailable(product)) {
+    return product
+  }
+
+  let fallbackData = null
+  let fallbackError = null
+  let fallbackRows = null
+
+  const fallbackQuery = () =>
+    supabase
+      .from("mercadolivre_produtos_snapshot")
+      .select(SNAPSHOT_SELECT_WITH_IMAGES)
+      .eq("projeto_id", projectId)
+      .eq("status", "active")
+      .gt("estoque", 0)
+      .limit(200)
+
+  ;({ data: fallbackRows, error: fallbackError } = await fallbackQuery())
+
+  if (fallbackError && isMissingSnapshotFieldError(fallbackError)) {
+    const fallbackLegacyResult = await supabase
+      .from("mercadolivre_produtos_snapshot")
+      .select(SNAPSHOT_SELECT_LEGACY)
+      .eq("projeto_id", projectId)
+      .eq("status", "active")
+      .gt("estoque", 0)
+      .limit(200)
+
+    fallbackRows = fallbackLegacyResult.data
+    fallbackError = fallbackLegacyResult.error
+  }
+
+  if (fallbackError) {
+    console.error("[mercado-livre-store] failed to resolve fallback snapshot product by slug", fallbackError)
+    return null
+  }
+
+  fallbackData = (Array.isArray(fallbackRows) ? fallbackRows : []).find((row) => {
+    const normalizedProduct = normalizeSnapshotProduct(row)
+    if (!isStoreProductAvailable(normalizedProduct)) {
+      return false
+    }
+
+    const rowSlug = sanitizeText(normalizedProduct?.slug, 180)
+    const derivedSlug = slugifyProduct(normalizedProduct?.title)
+    return rowSlug === normalizedSlug || derivedSlug === normalizedSlug
+  })
+
+  if (!fallbackData) {
+    return null
+  }
+
+  const fallbackProduct = normalizeSnapshotProduct(fallbackData)
+  return isStoreProductAvailable(fallbackProduct) ? fallbackProduct : null
 }
 
 async function listSnapshotCategoryFacetsByProjectId(projectId, options = {}) {
