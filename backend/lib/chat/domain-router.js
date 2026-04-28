@@ -47,6 +47,10 @@ function extractPricingPlanTokens(runtimeConfig = {}) {
   )]
 }
 
+function hasRuntimePricingCatalog(runtimeConfig = {}) {
+  return Array.isArray(runtimeConfig?.pricingCatalog?.items) && runtimeConfig.pricingCatalog.items.length > 0
+}
+
 function hasApiRuntimeSignal(message, focusedApiContext) {
   const normalized = normalizeText(message)
   if (!focusedApiContext?.fields?.length) {
@@ -70,6 +74,10 @@ function hasExplicitCatalogObjectSignal(message) {
   return /\b(produto|produtos|item|itens|catalogo|loja|mercado livre|mlb\d+|estoque|modelo|link)\b/.test(normalized)
 }
 
+function hasStrongCatalogObjectSignal(message) {
+  return /\b(mercado livre|mlb\d+|estoque|modelo|link)\b/.test(normalizeText(message))
+}
+
 function hasCatalogSignal(message, context = {}) {
   const normalized = normalizeText(message)
   if (/\b(plano|planos|assinatura|mensalidade|basic|starter|plus|pro|free|credito|creditos)\b/.test(normalized)) {
@@ -77,7 +85,11 @@ function hasCatalogSignal(message, context = {}) {
   }
 
   if (hasExplicitCatalogObjectSignal(normalized)) {
-    return hasStorefrontCatalogContext(context) || hasRecentCatalogContext(context) || hasMeaningfulCatalogSearchCandidate(normalized)
+    if (hasStrongCatalogObjectSignal(normalized)) {
+      return hasRecentCatalogContext(context)
+    }
+
+    return hasRecentCatalogContext(context) || hasMeaningfulCatalogSearchCandidate(normalized)
   }
 
   if (/\b(tem|vende|mostra|mostrar|mostre|manda|mande|envia|envie|traz|traga|procuro|quero ver|preciso|quero|busco|procurando)\b/.test(normalized)) {
@@ -112,6 +124,14 @@ function hasMeaningfulCatalogSearchCandidate(message) {
     "opcoes",
     "modelo",
     "modelos",
+    "link",
+    "estoque",
+    "produto",
+    "produtos",
+    "item",
+    "itens",
+    "loja",
+    "catalogo",
   ])
 
   return buildProductSearchCandidates(message).some((candidate) => {
@@ -165,7 +185,11 @@ function hasShortCatalogQuerySignal(message) {
     return false
   }
 
-  return buildProductSearchCandidates(normalized).length > 0
+  if (hasExplicitCatalogObjectSignal(normalized) && !hasStrongCatalogObjectSignal(normalized)) {
+    return false
+  }
+
+  return hasMeaningfulCatalogSearchCandidate(normalized)
 }
 
 function hasCatalogFollowUpSignal(message) {
@@ -195,6 +219,10 @@ function hasBillingSignal(message) {
 }
 
 function hasExplicitPricingCatalogSignal(message, runtimeConfig = {}) {
+  if (!hasRuntimePricingCatalog(runtimeConfig)) {
+    return false
+  }
+
   const normalized = normalizeText(message)
   const planTokens = extractPricingPlanTokens(runtimeConfig)
 
@@ -361,18 +389,15 @@ export function resolveChatDomainRoute(input = {}) {
     }
   }
 
-  const storefrontCatalogSignal =
-    capabilities.mercadoLivre && hasStorefrontCatalogContext(context) && hasShortCatalogQuerySignal(message)
-
   if (
     capabilities.mercadoLivre &&
-    (hasCatalogSignal(message, context) || isCatalogFollowUpWithRecentState(message, input.history, context) || storefrontCatalogSignal)
+    (hasCatalogSignal(message, context) || isCatalogFollowUpWithRecentState(message, input.history, context))
   ) {
     return {
       domain: "catalog",
       source: "mercado_livre",
-      confidence: storefrontCatalogSignal ? 0.9 : 0.86,
-      reason: storefrontCatalogSignal ? "catalog_storefront_short_query" : "catalog_signal",
+      confidence: 0.86,
+      reason: "catalog_signal",
       shouldUseTool: true,
       capabilities,
       focus: {

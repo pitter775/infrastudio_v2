@@ -417,6 +417,7 @@ const tests: TestCase[] = [
       const ambiguous = resolveDeterministicCatalogFollowUpDecision("gostei desse", catalogContext as never, deps as never);
       const directReference = resolveRecentCatalogReferenceDecision("gostei desse", catalogContext as never);
       const weakReference = resolveRecentCatalogReferenceDecision("quero bonito", catalogContext as never);
+      const shortSearch = resolveRecentCatalogReferenceDecision("saleiro azul", catalogContext as never);
       const weakRefinement = resolveDeterministicCatalogFollowUpDecision("quero bonito", catalogContext as never, deps as never);
       const vagueSearch = resolveDeterministicCatalogFollowUpDecision("saleiro", catalogContext as never, deps as never);
       const resolved = resolveRecentCatalogProductReference("gostei da dopeira que mandou", catalogContext as never);
@@ -429,6 +430,7 @@ const tests: TestCase[] = [
       assert.equal(ambiguous?.kind, "recent_product_reference_unresolved");
       assert.equal(directReference?.kind, "recent_product_reference_unresolved");
       assert.equal(weakReference, null);
+      assert.equal(shortSearch, null);
       assert.equal(weakRefinement, null);
       assert.equal(vagueSearch, null);
       assert.equal(resolved.length, 1);
@@ -769,6 +771,26 @@ const tests: TestCase[] = [
       assert.equal(decision?.kind, "catalog_search_refinement");
       assert.equal(decision?.searchCandidates?.[0], "inox");
       assert.equal(decision?.uncoveredTokens?.[0], "inox");
+    },
+  },
+  {
+    name: "catalogo semantico mapeia nova busca de vitrine",
+    run: () => {
+      const decision = buildCatalogDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "new_catalog_search",
+          confidence: 0.9,
+          reason: "Cliente iniciou nova busca curta na vitrine.",
+          targetType: "saleiro azul",
+          excludeCurrentProduct: false,
+          usedLlm: true,
+        },
+        recentProducts: [],
+      });
+
+      assert.equal(decision?.kind, "catalog_search_refinement");
+      assert.equal(decision?.searchCandidates?.[0], "saleiro azul");
+      assert.equal(decision?.uncoveredTokens?.[0], "saleiro azul");
     },
   },
   {
@@ -1479,6 +1501,76 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador usa stage semantico para busca curta de vitrine mesmo sem snapshot recente",
+    run: async () => {
+      let receivedSearchTerm = "";
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "saleiro azul" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-storefront-semantic",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-storefront-semantic",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+          catalogo: {
+            ultimosProdutos: [],
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "new_catalog_search",
+            confidence: 0.92,
+            reason: "Cliente iniciou busca curta na vitrine.",
+            targetType: "saleiro azul",
+            referencedProductIds: [],
+            excludeCurrentProduct: false,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            receivedSearchTerm = String(options.searchTerm || "");
+            return {
+              items: [
+                {
+                  id: "MLB-SALEIRO-AZUL",
+                  title: "Saleiro Azul Decorado",
+                  price: 199,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/saleiro-azul",
+                  thumbnail: "https://example.com/saleiro-azul.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "COLOR", name: "Cor", valueName: "Azul" }],
+                  freeShipping: false,
+                },
+              ],
+              connector: { config: { oauthNickname: "Mesa Posta" } },
+              paging: { total: 1, offset: 0, nextOffset: 24, poolLimit: 24, hasMore: false },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.equal(result.metadata.semanticIntent?.intent, "new_catalog_search");
+      assert.equal(receivedSearchTerm, "saleiro azul");
+      assert.match(result.reply, /encontrei 1 produto/i);
+    },
+  },
+  {
     name: "whatsapp mantem catalogo em foco quando um produto especifico ja foi selecionado",
     run: () => {
       const decision = resolveChatDomainRoute({
@@ -1566,6 +1658,24 @@ const tests: TestCase[] = [
 
       assert.equal(decision.domain, "billing");
       assert.equal(decision.reason, "billing_pricing_intent");
+    },
+  },
+  {
+    name: "domain router nao assume billing sem pricing catalog estruturado",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "quais planos voces tem?",
+        history: [],
+        context: {},
+        project: {
+          directConnections: {},
+        },
+        runtimeConfig: {},
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.notEqual(decision.domain, "billing");
     },
   },
   {
@@ -1687,6 +1797,129 @@ const tests: TestCase[] = [
             mercadoLivre: 1,
           },
         },
+      });
+
+      assert.notEqual(decision.domain, "catalog");
+    },
+  },
+  {
+    name: "domain router nao assume catalogo por substantivo amplo so por contexto de vitrine",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "produto",
+        history: [],
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.notEqual(decision.domain, "catalog");
+    },
+  },
+  {
+    name: "domain router nao assume catalogo por sinal forte de objeto na vitrine sem contexto recente",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "me manda o link",
+        history: [],
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.notEqual(decision.domain, "catalog");
+    },
+  },
+  {
+    name: "domain router assume catalogo por sinal forte de objeto com contexto recente",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "me manda o link",
+        history: [],
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+          catalogo: {
+            ultimosProdutos: [{ id: "MLB1", nome: "Saleiro Azul" }],
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "catalog");
+    },
+  },
+  {
+    name: "domain router nao assume catalogo por busca curta de vitrine sem contexto recente",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "saleiro azul",
+        history: [],
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.notEqual(decision.domain, "catalog");
+    },
+  },
+  {
+    name: "domain router nao assume catalogo por query curta ampla em vitrine",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "item",
+        history: [],
+        context: {
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
       });
 
       assert.notEqual(decision.domain, "catalog");

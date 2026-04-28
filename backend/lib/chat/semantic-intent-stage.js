@@ -107,6 +107,20 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
     }
   }
 
+  if (semanticIntent.intent === "new_catalog_search" && sanitizeString(semanticIntent.targetType)) {
+    return {
+      kind: "catalog_search_refinement",
+      confidence: semanticIntent.confidence,
+      reason: semanticIntent.reason ?? "Cliente iniciou uma nova busca de catalogo.",
+      matchedProducts: [],
+      usedLlm: Boolean(semanticIntent.usedLlm),
+      shouldBlockNewSearch: false,
+      searchCandidates: [sanitizeString(semanticIntent.targetType)],
+      uncoveredTokens: [sanitizeString(semanticIntent.targetType)],
+      excludeCurrentProduct: false,
+    }
+  }
+
   if (semanticIntent.intent === "catalog_load_more") {
     return {
       kind: "catalog_search",
@@ -394,10 +408,11 @@ export async function classifySemanticIntentStage(input = {}) {
   const latestUserMessage = sanitizeString(input?.latestUserMessage)
   const currentCatalogProduct = input?.currentCatalogProduct
   const recentProducts = Array.isArray(input?.recentProducts) ? input.recentProducts : []
+  const storefrontContext = input?.storefrontContext && typeof input.storefrontContext === "object" ? input.storefrontContext : null
   const openAiKey = sanitizeString(input?.openAiKey)
   const model = sanitizeString(input?.model) || "gpt-4o-mini"
 
-  if (!latestUserMessage || (!currentCatalogProduct?.nome && !recentProducts.length) || !openAiKey) {
+  if (!latestUserMessage || (!currentCatalogProduct?.nome && !recentProducts.length && !storefrontContext) || !openAiKey) {
     return null
   }
 
@@ -413,13 +428,14 @@ export async function classifySemanticIntentStage(input = {}) {
         {
           role: "system",
           content: [
-            "Classifique a mensagem do cliente no contexto de um produto Mercado Livre em foco.",
+            "Classifique a mensagem do cliente no contexto de catalogo Mercado Livre.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"current_product_question|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|catalog_search_refinement|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false}.',
+            'Schema: {"intent":"current_product_question|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|catalog_search_refinement|new_catalog_search|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false}.',
             "Use same_type_search apenas quando o cliente pedir outro item do mesmo tipo ou da mesma classe do produto atual.",
             "Quando usar same_type_search, extraia targetType curto e literal, por exemplo saleiro, jarra, xicara, prato.",
             "Use catalog_search_refinement quando o cliente refinar a ultima lista com um atributo novo ou filtro novo, por exemplo inox, azul, madeira, vintage, grande.",
             "Quando usar catalog_search_refinement, extraia targetType curto e literal com o termo novo principal da busca.",
+            "Use new_catalog_search quando o cliente iniciar uma nova busca de catalogo, inclusive na vitrine, com um tipo ou termo curto claro, por exemplo saleiro azul, xicara vintage, vaso amarelo.",
             "Use catalog_load_more quando o cliente pedir mais opcoes, mais modelos, outras opcoes ou o que tiver, sem mudar o tipo principal da busca.",
             "Use recent_product_reference quando o cliente estiver se referindo a um item da lista recente e for possivel identificar qual item e.",
             "Use recent_product_reference_ambiguous quando a fala apontar para mais de um item recente de forma plausivel.",
@@ -432,6 +448,12 @@ export async function classifySemanticIntentStage(input = {}) {
           role: "user",
           content: JSON.stringify({
             message: latestUserMessage,
+            storefrontContext: storefrontContext
+              ? {
+                  kind: sanitizeString(storefrontContext?.kind),
+                  pageKind: sanitizeString(storefrontContext?.pageKind),
+                }
+              : null,
             currentProduct: {
               nome: sanitizeString(currentCatalogProduct?.nome),
               categoriaLabel: sanitizeString(currentCatalogProduct?.categoriaLabel),
@@ -470,6 +492,7 @@ export async function classifySemanticIntentStage(input = {}) {
                   "recent_product_reference_unresolved",
                   "same_type_search",
                   "catalog_search_refinement",
+                  "new_catalog_search",
                   "catalog_load_more",
                   "other",
                 ],

@@ -370,6 +370,20 @@ function hasLockedCatalogProductPricingPriority(routingDecision, context = {}) {
   return ["product_detail", "product_focus"].includes(mode)
 }
 
+function hasCatalogStorefrontSemanticContext(context = {}) {
+  const pageKind = String(context?.storefront?.pageKind || "").trim().toLowerCase()
+  const kind = String(context?.storefront?.kind || "").trim().toLowerCase()
+  const conversationMode = String(context?.conversation?.mode || context?.ui?.mode || "").trim().toLowerCase()
+
+  return (
+    kind === "mercado_livre" ||
+    pageKind === "storefront" ||
+    pageKind === "product_detail" ||
+    conversationMode === "listing" ||
+    context?.ui?.catalogPreferred === true
+  )
+}
+
 export function buildConversationHistory(conversation, texto) {
   const messages = conversation?.mensagens ?? []
   const history = messages.map((message) => ({
@@ -475,13 +489,14 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     baseRoutingDecision.domain === "catalog" && baseRoutingDecision.source === "mercado_livre" && baseRoutingDecision.shouldUseTool === true
   const shouldEvaluateSemanticCatalog =
     (shouldUseBaseMercadoLivre || Number(baseRoutingDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0) &&
-    (context?.catalogo?.produtoAtual || hasRecentCatalogSnapshot(context))
+    (context?.catalogo?.produtoAtual || hasRecentCatalogSnapshot(context) || hasCatalogStorefrontSemanticContext(context))
   const semanticCatalogIntent =
     shouldEvaluateSemanticCatalog
       ? await (options.classifySemanticIntentStage ?? classifySemanticIntentStage)({
           latestUserMessage,
           currentCatalogProduct: context?.catalogo?.produtoAtual,
           recentProducts: context?.catalogo?.ultimosProdutos,
+          storefrontContext: hasCatalogStorefrontSemanticContext(context) ? context?.storefront ?? { kind: "mercado_livre" } : null,
           context: effectiveContext,
           openAiKey,
           model,

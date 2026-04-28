@@ -277,6 +277,14 @@ function buildPricingCatalogCtas(runtimeConfig, context) {
   }
 }
 
+function formatPricingCatalogBullet(item) {
+  return `• ${item.nome}: ${item.precoLabel}`
+}
+
+function buildStructuredPricingSection(title, lines = [], cta = "") {
+  return [`**${title}**`, ...lines, ...(cta ? ["", cta] : [])].join("\n")
+}
+
 export function buildPricingCatalogReplyFromIntent(runtimeConfig, context, semanticIntent, deps = {}) {
   const items = buildPricingItems(runtimeConfig)
   const intent = semanticIntent?.intent || semanticIntent?.kind || ""
@@ -295,7 +303,7 @@ export function buildPricingCatalogReplyFromIntent(runtimeConfig, context, seman
     const selected = ranked[0] || items[items.length - 1]
     return selected
       ? structured
-        ? [`**Plano mais caro**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
+        ? buildStructuredPricingSection("💎 Plano mais caro", [formatPricingCatalogBullet(selected)], singleCta)
         : `O plano mais caro hoje e ${selected.nome}: ${selected.precoLabel}. ${singleCta}`
       : null
   }
@@ -305,7 +313,7 @@ export function buildPricingCatalogReplyFromIntent(runtimeConfig, context, seman
     const selected = ranked[0] || items[0]
     return selected
       ? structured
-        ? [`**Plano mais barato**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
+        ? buildStructuredPricingSection("🏷️ Plano mais barato", [formatPricingCatalogBullet(selected)], singleCta)
         : `O plano mais barato hoje e ${selected.nome}: ${selected.precoLabel}. ${singleCta}`
       : null
   }
@@ -317,7 +325,7 @@ export function buildPricingCatalogReplyFromIntent(runtimeConfig, context, seman
     if (matched.length === 1) {
       const selected = matched[0]
       return structured
-        ? [`**Plano solicitado**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
+        ? buildStructuredPricingSection("📦 Plano solicitado", [formatPricingCatalogBullet(selected)], singleCta)
         : `Hoje o ${selected.nome} esta em ${selected.precoLabel}. ${singleCta}`
     }
   }
@@ -328,14 +336,14 @@ export function buildPricingCatalogReplyFromIntent(runtimeConfig, context, seman
     )
     if (matched.length >= 2) {
       return structured
-        ? ["**Comparacao de planos**", ...matched.map((item) => `- ${item.nome}: ${item.precoLabel}`), "", listCta].join("\n")
+        ? buildStructuredPricingSection("⚖️ Comparação de planos", matched.map(formatPricingCatalogBullet), listCta)
         : `Hoje os planos comparados ficam assim: ${matched.map((item) => `${item.nome}: ${item.precoLabel}`).join(" | ")}. ${listCta}`
     }
   }
 
   if (intent === "pricing_overview" || intent === "plan_comparison" || intent === "specific_plan_question") {
     return structured
-      ? ["**Valores disponiveis**", ...items.map((item) => `- ${item.nome}: ${item.precoLabel}`), "", listCta].join("\n")
+      ? buildStructuredPricingSection("📋 Valores disponíveis", items.map(formatPricingCatalogBullet), listCta)
       : `Hoje os valores disponiveis sao ${items.map((item) => `${item.nome}: ${item.precoLabel}`).join(" | ")}. ${listCta}`
   }
 

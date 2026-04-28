@@ -108,6 +108,32 @@ Ja feito:
   - `quero`, `manda`, `mostra`, `traz` e afins nao continuam catalogo sozinhos
   - follow-up curto agora precisa de referencia forte (`esse`, `desse`, `gostei`, ordinais, `link`, `detalhes`) ou pedido explicito de mais opcoes
   - isso reduz mais um vazamento em que contexto velho de catalogo sequestrava conversa ampla
+- o `domain-router` de catalogo tambem ficou menos sensivel a substantivo amplo em vitrine:
+  - `produto`, `item`, `loja`, `catalogo` e afins nao sobem mais so por contexto de storefront
+  - esses termos agora pedem contexto recente real ou candidato de busca real
+  - sinais mais fortes como `link`, `estoque`, `modelo`, `MLB...` continuam podendo subir com contexto de catalogo/vitrine
+- o fallback local de referencia recente tambem ficou menos propenso a sequestrar busca nova curta:
+  - se a frase curta parece busca nova (`saleiro azul`) e nao traz deitico forte, o runtime nao pede desambiguacao da lista recente
+  - isso evita transformar busca nova curta em `recent_product_reference_unresolved`
+- o `hasShortCatalogQuerySignal` da vitrine tambem foi estreitado:
+  - query curta ampla como `item` deixa de subir para catalogo
+  - busca curta real como `saleiro azul` continua subindo
+  - isso reduz mais um falso positivo da vitrine sem matar busca curta valida
+- o `intent-stage` de catalogo agora tambem cobre `new_catalog_search`:
+  - isso permite tratar busca curta de vitrine como decisao semantica estruturada
+  - o orquestrador agora avalia o stage semantico de catalogo tambem em contexto de storefront, mesmo sem snapshot recente
+  - isso reduz mais o peso do `domain-router` na vitrine quando o cliente inicia uma busca curta real
+- o `domain-router` deixou de subir busca curta de vitrine por conta propria:
+  - `saleiro azul` na vitrine agora pode ficar `general` no roteador
+  - a subida para `catalog` passa a acontecer via override semantico do orquestrador
+  - isso reduz mais o papel do roteador como decisor primario de catalogo
+- o `domain-router` tambem deixou de subir sinal forte de objeto na vitrine sem contexto recente:
+  - `me manda o link` ou `estoque` na vitrine sem lista recente nao sobem mais sozinhos para `catalog`
+  - com lista recente real, continuam podendo subir
+  - isso reduz mais um vazamento em que o roteador sequestrava a conversa antes do stage semantico
+- o `domain-router` de billing tambem ficou mais fail-closed:
+  - sem `pricingCatalog` estruturado real no runtime, o roteador nao assume billing so por `planos`, `assinatura` ou similares
+  - isso joga mais casos para o `intent-stage` e reduz chute textual no roteador
 - billing/pricing ganhou `intent-stage` estruturado inicial no orquestrador para:
   - `pricing_overview`
   - `highest_priced_plan`
@@ -253,6 +279,13 @@ Ainda errado / fragil:
 - o `domain-router` de catalogo ficou mais dependente de estado recente real e menos de frase curta isolada
 - o `domain-router` de catalogo agora tambem ficou menos sensivel a substantivo amplo solto
 - o `domain-router` de catalogo ainda tem um guardrail local de follow-up curto, mas agora bem mais dependente de referencia forte real
+- o `domain-router` de catalogo ainda tem um guardrail local de substantivo/objeto, mas agora bem menos propenso a sequestrar vitrine so por palavra ampla
+- `catalog-follow-up.js` ainda tem fallback local de referencia recente, mas agora menos agressivo em frases curtas que parecem busca nova
+- o `domain-router` ainda tem heuristica local para query curta de vitrine, mas agora mais fail-closed e dependente de candidato real
+- a vitrine agora ja consegue usar `intent-stage` para nova busca curta mesmo sem lista recente, reduzindo acoplamento ao roteador textual
+- o roteador de vitrine ficou mais fail-closed: contexto de storefront sem sinal forte ou estado recente real nao sobe mais catalogo sozinho
+- a vitrine agora depende mais de estado recente real ou de override semantico do orquestrador, e menos de regex no roteador
+- billing agora tambem depende mais de runtime estruturado real ou de override semantico do orquestrador, e menos de regex no roteador
 
 ## Ordem de ataque obrigatoria
 
@@ -301,4 +334,4 @@ Ainda errado / fragil:
 
 ## Proximo passo recomendado agora
 
- - continuar estreitando o `domain-router` de catalogo, principalmente `hasCatalogSignal` para deixar busca nova cada vez mais dependente de estado recente ou candidato real
+ - revisar se `sales-heuristics.js` ainda tem algum fallback de billing que ja pode sair do fluxo principal

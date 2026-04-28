@@ -289,6 +289,10 @@ export function resolveRecentCatalogReferenceDecision(message, context) {
     return null
   }
 
+  if (!hasStrongRecentCatalogReferenceSignal(message) && buildProductSearchCandidates(message).length > 0) {
+    return null
+  }
+
   const matchedProducts = resolveRecentCatalogProductReference(message, context)
   if (!isRecentCatalogReferenceAttempt(message) && matchedProducts.length === 0) {
     return null
