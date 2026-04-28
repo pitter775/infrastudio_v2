@@ -237,6 +237,90 @@ export function detectCatalogItems(history = [], deps = {}) {
     }))
 }
 
+function getLatestUserMessageText(history = [], deps = {}) {
+  const normalize = deps.normalizeText ?? normalizeText
+  const latestUserMessage = [...(Array.isArray(history) ? history : [])]
+    .reverse()
+    .find((item) => String(item?.role || "").toLowerCase() === "user")
+
+  return normalize(latestUserMessage?.content ?? latestUserMessage?.conteudo ?? "")
+}
+
+function isPricingCatalogOverviewIntent(message = "") {
+  return /\b(plano|planos|assinatura|mensalidade|basic|starter|plus|pro|scale|free|valor|valores|preco|precos|quanto custa|quanto sai|me passa|me manda|lista)\b/.test(
+    String(message || "")
+  )
+}
+
+function parsePriceLabelAmount(priceLabel = "") {
+  const match = String(priceLabel || "").match(/r\$\s*([\d\.\,]+)/i)
+  if (!match?.[1]) {
+    return null
+  }
+
+  const normalized = match[1].replace(/\./g, "").replace(",", ".")
+  const parsed = Number(normalized)
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+function buildStructuredPricingCatalogReply(runtimeConfig, context, latestUserText, deps = {}) {
+  const configuredItems = Array.isArray(runtimeConfig?.pricingCatalog?.items) ? runtimeConfig.pricingCatalog.items : []
+  if (!configuredItems.length || !isPricingCatalogOverviewIntent(latestUserText)) {
+    return null
+  }
+
+  const normalized = String(latestUserText || "")
+  const items = configuredItems
+    .map((item) => ({
+      slug: item.slug,
+      nome: item.name,
+      precoLabel: item.priceLabel,
+      amount: parsePriceLabelAmount(item.priceLabel),
+    }))
+    .filter((item) => item.nome && item.precoLabel)
+
+  if (!items.length) {
+    return null
+  }
+
+  const structured = deps.prefersStructuredReply?.(context) ?? true
+  const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(context)
+  const listCta = hasWhatsAppDestination
+    ? runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opcoes e sigo com voce no WhatsApp."
+    : "Se quiser, eu comparo as opcoes e sigo com voce por aqui."
+  const singleCta = hasWhatsAppDestination
+    ? runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com voce por aqui ou no WhatsApp."
+    : "Se quiser, eu sigo com voce por aqui."
+
+  if (/\b(mais caro|maior valor|maior preco)\b/.test(normalized)) {
+    const ranked = items.filter((item) => item.amount != null).sort((a, b) => Number(b.amount) - Number(a.amount))
+    const selected = ranked[0] || items[items.length - 1]
+    if (!selected) {
+      return null
+    }
+
+    return structured
+      ? [`**Plano mais caro**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
+      : `O plano mais caro hoje e ${selected.nome}: ${selected.precoLabel}. ${singleCta}`
+  }
+
+  if (/\b(mais barato|menor valor|menor preco)\b/.test(normalized)) {
+    const ranked = items.filter((item) => item.amount != null).sort((a, b) => Number(a.amount) - Number(b.amount))
+    const selected = ranked[0] || items[0]
+    if (!selected) {
+      return null
+    }
+
+    return structured
+      ? [`**Plano mais barato**`, `${selected.nome}: ${selected.precoLabel}`, "", singleCta].join("\n")
+      : `O plano mais barato hoje e ${selected.nome}: ${selected.precoLabel}. ${singleCta}`
+  }
+
+  return structured
+    ? ["**Valores disponiveis**", ...items.map((item) => `- ${item.nome}: ${item.precoLabel}`), "", listCta].join("\n")
+    : `Hoje os valores disponiveis sao ${items.map((item) => `${item.nome}: ${item.precoLabel}`).join(" | ")}. ${listCta}`
+}
+
 export function isOutOfScopeForCatalog(historyOrMessage, deps = {}) {
   if (typeof historyOrMessage === "string") {
     return /\b(politica|religiao|codigo|programar)\b/i.test(String(historyOrMessage || ""))
@@ -268,6 +352,12 @@ export function buildCatalogPricingReply(productOrHistory, context, deps = {}) {
   if (Array.isArray(productOrHistory)) {
     const history = productOrHistory
     const runtimeConfig = deps.runtimeConfig ?? getRuntimeConfig(context)
+    const latestUserText = getLatestUserMessageText(history, deps)
+    const structuredPricingReply = buildStructuredPricingCatalogReply(runtimeConfig, context, latestUserText, deps)
+    if (structuredPricingReply) {
+      return structuredPricingReply
+    }
+
     const catalogItems = detectCatalogItems(history, { ...deps, runtimeConfig })
     if (catalogItems.length === 0 || isOutOfScopeForCatalog(history, deps)) {
       return null

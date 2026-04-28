@@ -2103,6 +2103,66 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador usa catalogo estruturado do agente para responder plano mais caro",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual o valor do plano mais caro?" }] as never,
+        {
+          agente: {
+            id: "agent-billing",
+            nome: "InfraStudio",
+            promptBase: "Voce vende planos de assinatura.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+                  { slug: "plus", name: "Plus", matchAny: ["plus"], priceLabel: "R$ 79,90/mes" },
+                  { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+                  { slug: "scale", name: "Scale", matchAny: ["scale"], priceLabel: "R$ 299,90/mes" },
+                ],
+              },
+            },
+          },
+          ui: { structured_response: false },
+        } as never
+      )
+
+      assert.match(result.reply, /Scale: R\$ 299,90\/mes/i)
+      assert.doesNotMatch(result.reply, /gratuitos|evoluem conforme o uso/i)
+    },
+  },
+  {
+    name: "orquestrador lista os valores estruturados quando o cliente pede os planos",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me passa os valores" }] as never,
+        {
+          agente: {
+            id: "agent-billing-list",
+            nome: "InfraStudio",
+            promptBase: "Voce vende planos de assinatura.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+                  { slug: "plus", name: "Plus", matchAny: ["plus"], priceLabel: "R$ 79,90/mes" },
+                  { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+                ],
+              },
+            },
+          },
+          ui: { structured_response: false },
+        } as never
+      )
+
+      assert.match(result.reply, /Basic: R\$ 29,90\/mes/i)
+      assert.match(result.reply, /Plus: R\$ 79,90\/mes/i)
+      assert.match(result.reply, /Pro: R\$ 149,90\/mes/i)
+    },
+  },
+  {
     name: "orquestrador nao aplica heuristica comercial da infrastudio em agente de cliente",
     run: async () => {
       const result = await executeSalesOrchestrator(

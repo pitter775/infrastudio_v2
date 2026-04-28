@@ -85,9 +85,24 @@ Saida comum:
 - nao reintroduzir fallback generico
 - nao deixar comportamento comercial da InfraStudio vazar para agente de cliente
 - o legado serve como referencia comportamental, nao como arquitetura
+- nao resolver regressao de linguagem com nova heuristica textual espalhada
+- heuristica nova so e aceitavel como guardrail minimo e local, nunca como decisor principal de dominio/intencao
+- para billing, catalogo, api runtime e agenda, priorizar:
+  - estado/contexto
+  - classificacao estruturada por LLM
+  - handlers deterministas sobre dados estruturados
+- se um ajuste tocar orquestrador, `domain-router`, `sales-heuristics`, `catalog-follow-up`, `mercado-livre` ou `api-runtime`, atualizar obrigatoriamente `AGENTS/runtime-intent-refactor.md`
 - tudo especifico de negocio deve ir para banco quando fizer sentido:
   - `agentes.configuracoes.runtimeConfig`
   - `apis.configuracoes`
+
+## Diretriz de arquitetura daqui pra frente
+
+- o orquestrador deve virar coordenador, nao concentrador de heuristica
+- evitar regex para decidir intencao principal do usuario
+- usar LLM para classificar intencao em JSON estruturado quando houver variacao linguistica relevante
+- usar JSON estruturado do agente e contexto estruturado como fonte de verdade para responder fatos
+- quando surgir regressao por palavra diferente do usuario, o caminho preferido e fortalecer `intent-stage`, nao adicionar mais if/regex
 
 ## Pendencias abertas do runtime
 
