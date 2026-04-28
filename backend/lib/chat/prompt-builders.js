@@ -11,6 +11,12 @@ function agentHasEmbeddedPricingInstructions(agent = {}) {
 
 function buildRuntimeConfigInstructions(context = {}) {
   const runtimeConfig = context?.agente?.runtimeConfig
+  const runtimeConfigMeta =
+    context?.agente?.runtimeConfigMeta &&
+    typeof context.agente.runtimeConfigMeta === "object" &&
+    !Array.isArray(context.agente.runtimeConfigMeta)
+      ? context.agente.runtimeConfigMeta
+      : null
   const contactProfile =
     context?.agente?.configuracoes?.contactProfile &&
     typeof context.agente.configuracoes.contactProfile === "object" &&
@@ -61,7 +67,7 @@ function buildRuntimeConfigInstructions(context = {}) {
   }
 
   if (
-    !agentHasEmbeddedPricingInstructions(context?.agente) &&
+    (runtimeConfigMeta?.pricingCatalogDerived === true || !agentHasEmbeddedPricingInstructions(context?.agente)) &&
     Array.isArray(runtimeConfig?.pricingCatalog?.items) &&
     runtimeConfig.pricingCatalog.items.length
   ) {

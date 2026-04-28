@@ -412,6 +412,7 @@ const tests: TestCase[] = [
     name: "catalogo resolve item recente e segura ambiguidade",
     run: () => {
       const loadMore = resolveCatalogLoadMoreDecision("manda o q tiver");
+      const notLoadMore = resolveCatalogLoadMoreDecision("me fala mais dele");
       const reference = resolveDeterministicCatalogFollowUpDecision("gostei da sopeira que mandou", catalogContext as never, deps as never);
       const ambiguous = resolveDeterministicCatalogFollowUpDecision("gostei desse", catalogContext as never, deps as never);
       const directReference = resolveRecentCatalogReferenceDecision("gostei desse", catalogContext as never);
@@ -423,6 +424,7 @@ const tests: TestCase[] = [
       const resolvedUniqueAmongMany = resolveRecentCatalogProductReference("quero o floral", catalogContext as never);
 
       assert.equal(loadMore?.kind, "catalog_search");
+      assert.equal(notLoadMore, null);
       assert.equal(reference?.kind, "recent_product_reference");
       assert.equal(ambiguous?.kind, "recent_product_reference_unresolved");
       assert.equal(directReference?.kind, "recent_product_reference_unresolved");
@@ -1691,6 +1693,125 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "domain router nao continua catalogo so por focus antigo sem contexto recente real",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "essa",
+        history: [],
+        context: {
+          focus: {
+            domain: "catalog",
+            source: "mercado_livre",
+            subject: "catalogo",
+            confidence: 0.82,
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "general");
+    },
+  },
+  {
+    name: "domain router nao continua catalogo por verbo generico com focus recente",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "quero",
+        history: [],
+        context: {
+          focus: {
+            domain: "catalog",
+            source: "mercado_livre",
+            subject: "catalogo",
+            confidence: 0.82,
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          },
+          catalogo: {
+            ultimosProdutos: [{ id: "MLB1", nome: "Saleiro Azul" }],
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "general");
+    },
+  },
+  {
+    name: "domain router continua catalogo por focus quando ainda existe contexto recente real",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "essa",
+        history: [],
+        context: {
+          focus: {
+            domain: "catalog",
+            source: "mercado_livre",
+            subject: "catalogo",
+            confidence: 0.82,
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          },
+          catalogo: {
+            ultimosProdutos: [{ id: "MLB1", nome: "Saleiro Azul" }],
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "catalog");
+      assert.equal(decision.reason, "catalog_focus_continuation");
+    },
+  },
+  {
+    name: "domain router continua catalogo por referencia forte com focus recente",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "gostei desse",
+        history: [],
+        context: {
+          focus: {
+            domain: "catalog",
+            source: "mercado_livre",
+            subject: "catalogo",
+            confidence: 0.82,
+            expiresAt: "2099-01-01T00:00:00.000Z",
+          },
+          catalogo: {
+            ultimosProdutos: [{ id: "MLB1", nome: "Saleiro Azul" }],
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "catalog");
+      assert.equal(decision.reason, "catalog_focus_continuation");
+    },
+  },
+  {
     name: "mercado livre promove unico item recente quando o usuario usa referencia deitica",
     run: () => {
       const flow = resolveMercadoLivreFlowState({
@@ -2430,6 +2551,49 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "prompt inclui catalogo estruturado quando pricing foi derivado do texto do agente",
+    run: () => {
+      const prompt = buildSystemPrompt(
+        {
+          id: "agent-derived-pricing-prompt",
+          nome: "InfraStudio",
+          promptBase: "Basic R$ 29,90/mes Pro R$ 149,90/mes",
+          runtimeConfig: {
+            pricingCatalog: {
+              enabled: true,
+              items: [
+                { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+                { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+              ],
+            },
+          },
+        } as never,
+        {
+          agente: {
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+                  { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+                ],
+              },
+            },
+            runtimeConfigMeta: {
+              pricingCatalogDerived: true,
+            },
+          },
+          channel: { kind: "external_widget" },
+        } as never,
+        false
+      )
+
+      assert.match(prompt, /Catalogo de precos estruturado/i)
+      assert.match(prompt, /Basic: R\$ 29,90\/mes/i)
+      assert.match(prompt, /Pro: R\$ 149,90\/mes/i)
+    },
+  },
+  {
     name: "prompt injeta tecnica de vendas quando houver contexto de produto do mercado livre",
     run: () => {
       const prompt = buildSystemPrompt(
@@ -2974,6 +3138,532 @@ const tests: TestCase[] = [
       assert.match(result.reply, /Plus: R\$ 79,90\/mes/i)
       assert.match(result.reply, /Pro: R\$ 149,90\/mes/i)
       assert.equal(result.metadata?.semanticIntent?.intent, "pricing_overview")
+    },
+  },
+  {
+    name: "orquestrador usa catalogo extraido do texto do agente quando runtime config nao traz pricing pronto",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem valores ?" }] as never,
+        {
+          agente: {
+            id: "agent-billing-extracted",
+            nome: "InfraStudio",
+            promptBase: [
+              "Basic",
+              "R$ 29,90/mes",
+              "Plus",
+              "R$ 79,90/mes",
+              "Pro",
+              "R$ 149,90/mes",
+            ].join("\n"),
+          },
+          ui: { structured_response: false },
+        } as never,
+        {
+          extractSemanticPricingCatalogFromAgentText: async () => ({
+            enabled: true,
+            items: [
+              { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+              { slug: "plus", name: "Plus", matchAny: ["plus"], priceLabel: "R$ 79,90/mes" },
+              { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+            ],
+          }),
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "pricing_overview",
+            confidence: 0.94,
+            reason: "Cliente pediu os valores dos planos.",
+            requestedPlanNames: [],
+            usedLlm: true,
+          }),
+        }
+      )
+
+      assert.match(result.reply, /Basic: R\$ 29,90\/mes/i)
+      assert.match(result.reply, /Plus: R\$ 79,90\/mes/i)
+      assert.match(result.reply, /Pro: R\$ 149,90\/mes/i)
+      assert.equal(result.metadata?.semanticIntent?.intent, "pricing_overview")
+    },
+  },
+  {
+    name: "orquestrador cacheia catalogo de pricing extraido do texto do agente",
+    run: async () => {
+      let extractionCalls = 0
+      const inputHistory = [{ role: "user", content: "tem valores ?" }] as never
+      const inputContext = {
+        agente: {
+          id: "agent-billing-extracted-cache",
+          nome: "InfraStudio",
+          promptBase: ["Basic", "R$ 29,90/mes", "Pro", "R$ 149,90/mes"].join("\n"),
+        },
+        ui: { structured_response: false },
+      } as never
+      const inputOptions = {
+        extractSemanticPricingCatalogFromAgentText: async () => {
+          extractionCalls += 1
+          return {
+            enabled: true,
+            items: [
+              { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+              { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+            ],
+          }
+        },
+        classifySemanticBillingIntentStage: async () => ({
+          intent: "pricing_overview",
+          confidence: 0.94,
+          reason: "Cliente pediu os valores dos planos.",
+          requestedPlanNames: [],
+          usedLlm: true,
+        }),
+      }
+
+      const first = await executeSalesOrchestrator(inputHistory, inputContext, inputOptions)
+      const second = await executeSalesOrchestrator(inputHistory, inputContext, inputOptions)
+
+      assert.match(first.reply, /Basic: R\$ 29,90\/mes/i)
+      assert.match(second.reply, /Pro: R\$ 149,90\/mes/i)
+      assert.equal(extractionCalls, 1)
+    },
+  },
+  {
+    name: "orquestrador responde plano mais caro com catalogo extraido do texto do agente",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual o valor do plano mais caro?" }] as never,
+        {
+          agente: {
+            id: "agent-billing-extracted-highest",
+            nome: "InfraStudio",
+            promptBase: [
+              "Basic",
+              "R$ 29,90/mes",
+              "Plus",
+              "R$ 79,90/mes",
+              "Scale",
+              "R$ 299,90/mes",
+            ].join("\n"),
+          },
+          ui: { structured_response: false },
+        } as never,
+        {
+          extractSemanticPricingCatalogFromAgentText: async () => ({
+            enabled: true,
+            items: [
+              { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+              { slug: "plus", name: "Plus", matchAny: ["plus"], priceLabel: "R$ 79,90/mes" },
+              { slug: "scale", name: "Scale", matchAny: ["scale"], priceLabel: "R$ 299,90/mes" },
+            ],
+          }),
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "highest_priced_plan",
+            confidence: 0.94,
+            reason: "Cliente pediu o plano mais caro.",
+            requestedPlanNames: [],
+            usedLlm: true,
+          }),
+        }
+      )
+
+      assert.match(result.reply, /Scale: R\$ 299,90\/mes/i)
+      assert.doesNotMatch(result.reply, /gratuitos|evoluem conforme o uso/i)
+    },
+  },
+  {
+    name: "orquestrador nao extrai pricing do texto do agente quando o roteamento inicial ja e catalogo",
+    run: async () => {
+      let extractionCalls = 0
+
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me mostra saleiros" }] as never,
+        {
+          agente: {
+            id: "agent-no-pricing-extract-catalog",
+            nome: "Loja Cliente",
+            promptBase: ["Basic", "R$ 29,90/mes", "Pro", "R$ 149,90/mes"].join("\n"),
+          },
+          projeto: {
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ultimosProdutos: [
+              { id: "saleiro-1", nome: "Saleiro Azul" },
+            ],
+          },
+        } as never,
+        {
+          extractSemanticPricingCatalogFromAgentText: async () => {
+            extractionCalls += 1
+            return {
+              enabled: true,
+              items: [{ slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" }],
+            }
+          },
+          classifySemanticIntentStage: async () => ({
+            intent: "catalog_search_refinement",
+            confidence: 0.91,
+            reason: "Cliente refinou a busca recente.",
+            targetType: "saleiro",
+            referencedProductIds: [],
+            excludeCurrentProduct: false,
+            usedLlm: true,
+          }),
+          generateSalesReply: async () => ({
+            reply: "Busca de catalogo mantida.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: {
+              provider: "openai",
+              model: "test",
+              agenteId: "agent-no-pricing-extract-catalog",
+              agenteNome: "Loja Cliente",
+              routeStage: "sales",
+              heuristicStage: null,
+              domainStage: "catalog",
+            },
+          }),
+        }
+      )
+
+      assert.equal(extractionCalls, 0)
+      assert.doesNotMatch(result.reply, /Basic: R\$ 29,90\/mes/i)
+    },
+  },
+  {
+    name: "orquestrador prioriza preco do produto em foco sobre pricing do agente",
+    run: async () => {
+      let extractionCalls = 0
+
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual o valor?" }] as never,
+        {
+          agente: {
+            id: "agent-product-price-priority",
+            nome: "Loja Cliente",
+            promptBase: ["Basic", "R$ 29,90/mes", "Pro", "R$ 149,90/mes"].join("\n"),
+          },
+          projeto: {
+            id: "proj-product-price-priority",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          conversation: {
+            mode: "product_detail",
+          },
+          storefront: {
+            pageKind: "product_detail",
+          },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-PRICE-1",
+              nome: "Saleiro De Porcelana",
+              preco: 147.65,
+              link: "https://example.com/saleiro",
+            },
+          },
+        } as never,
+        {
+          extractSemanticPricingCatalogFromAgentText: async () => {
+            extractionCalls += 1
+            return {
+              enabled: true,
+              items: [{ slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" }],
+            }
+          },
+          generateSalesReply: async () => ({
+            reply: "Nao deveria usar o gerador para valor de produto em foco.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: {
+              provider: "openai",
+              model: "test",
+              agenteId: "agent-product-price-priority",
+              agenteNome: "Loja Cliente",
+              routeStage: "sales",
+              heuristicStage: null,
+              domainStage: "catalog",
+            },
+          }),
+        }
+      )
+
+      assert.equal(extractionCalls, 0)
+      assert.match(result.reply, /R\$\s*147,65/i)
+      assert.doesNotMatch(result.reply, /Basic: R\$ 29,90\/mes/i)
+    },
+  },
+  {
+    name: "orquestrador nao sobrescreve pricing catalog explicito com texto do agente",
+    run: async () => {
+      let extractionCalls = 0
+
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me passa os valores" }] as never,
+        {
+          agente: {
+            id: "agent-explicit-pricing-priority",
+            nome: "InfraStudio",
+            promptBase: ["Basic", "R$ 19,90/mes", "Pro", "R$ 99,90/mes"].join("\n"),
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+                  { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+                ],
+              },
+            },
+          },
+          ui: { structured_response: false },
+        } as never,
+        {
+          extractSemanticPricingCatalogFromAgentText: async () => {
+            extractionCalls += 1
+            return {
+              enabled: true,
+              items: [
+                { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 19,90/mes" },
+                { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 99,90/mes" },
+              ],
+            }
+          },
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "pricing_overview",
+            confidence: 0.94,
+            reason: "Cliente pediu os valores dos planos.",
+            requestedPlanNames: [],
+            usedLlm: true,
+          }),
+        }
+      )
+
+      assert.equal(extractionCalls, 0)
+      assert.match(result.reply, /Basic: R\$ 29,90\/mes/i)
+      assert.match(result.reply, /Pro: R\$ 149,90\/mes/i)
+      assert.doesNotMatch(result.reply, /R\$ 19,90\/mes/i)
+      assert.doesNotMatch(result.reply, /R\$ 99,90\/mes/i)
+    },
+  },
+  {
+    name: "orquestrador entrega runtime config efetivo extraido ao gerador downstream",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "quero entender melhor" }] as never,
+        {
+          agente: {
+            id: "agent-effective-runtime-forward",
+            nome: "InfraStudio",
+            promptBase: ["Basic", "R$ 29,90/mes", "Pro", "R$ 149,90/mes"].join("\n"),
+          },
+          ui: { structured_response: false },
+        } as never,
+        {
+          extractSemanticPricingCatalogFromAgentText: async () => ({
+            enabled: true,
+            items: [
+              { slug: "basic", name: "Basic", matchAny: ["basic"], priceLabel: "R$ 29,90/mes" },
+              { slug: "pro", name: "Pro", matchAny: ["pro"], priceLabel: "R$ 149,90/mes" },
+            ],
+          }),
+          classifySemanticBillingIntentStage: async () => null,
+          generateSalesReply: async (_history, runtimeContext) => {
+            assert.equal(runtimeContext?.agente?.runtimeConfig?.pricingCatalog?.items?.length, 2)
+            return {
+              reply: "Runtime estruturado entregue ao gerador.",
+              assets: [],
+              usage: { inputTokens: 0, outputTokens: 0 },
+              metadata: {
+                provider: "openai",
+                model: "test",
+                agenteId: "agent-effective-runtime-forward",
+                agenteNome: "InfraStudio",
+                routeStage: "sales",
+                heuristicStage: null,
+                domainStage: "general",
+              },
+            }
+          },
+        }
+      )
+
+      assert.match(result.reply, /Runtime estruturado entregue/i)
+    },
+  },
+  {
+    name: "orquestrador extrai contexto comercial basico do texto do agente para o gerador downstream",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "como funciona?" }] as never,
+        {
+          agente: {
+            id: "agent-business-extracted-forward",
+            nome: "InfraStudio",
+            promptBase: "Automacao com IA, WhatsApp inteligente e sistemas sob medida para vender mais.",
+          },
+          ui: { structured_response: false },
+        } as never,
+        {
+          extractSemanticBusinessRuntimeFromAgentText: async () => ({
+            business: {
+              summary: "Automacao com IA para atendimento e operacao comercial.",
+              services: ["WhatsApp inteligente", "Sistemas sob medida"],
+            },
+            sales: {
+              cta: "Se fizer sentido, continue no WhatsApp.",
+            },
+          }),
+          classifySemanticBillingIntentStage: async () => null,
+          generateSalesReply: async (_history, runtimeContext) => {
+            assert.equal(runtimeContext?.agente?.runtimeConfig?.business?.summary, "Automacao com IA para atendimento e operacao comercial.")
+            assert.deepEqual(runtimeContext?.agente?.runtimeConfig?.business?.services, ["WhatsApp inteligente", "Sistemas sob medida"])
+            assert.equal(runtimeContext?.agente?.runtimeConfig?.sales?.cta, "Se fizer sentido, continue no WhatsApp.")
+            return {
+              reply: "Contexto comercial estruturado entregue.",
+              assets: [],
+              usage: { inputTokens: 0, outputTokens: 0 },
+              metadata: {
+                provider: "openai",
+                model: "test",
+                agenteId: "agent-business-extracted-forward",
+                agenteNome: "InfraStudio",
+                routeStage: "sales",
+                heuristicStage: null,
+                domainStage: "general",
+              },
+            }
+          },
+        }
+      )
+
+      assert.match(result.reply, /Contexto comercial estruturado entregue/i)
+    },
+  },
+  {
+    name: "orquestrador nao sobrescreve business explicito com texto do agente",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me explica" }] as never,
+        {
+          agente: {
+            id: "agent-business-explicit-priority",
+            nome: "InfraStudio",
+            promptBase: "Automacao com IA, WhatsApp e APIs.",
+            runtimeConfig: {
+              business: {
+                summary: "Resumo salvo explicitamente.",
+                services: ["Servico salvo"],
+              },
+              sales: {
+                cta: "CTA salvo.",
+              },
+            },
+          },
+          ui: { structured_response: false },
+        } as never,
+        {
+          extractSemanticBusinessRuntimeFromAgentText: async () => ({
+            business: {
+              summary: "Resumo vindo do texto.",
+              services: ["Servico do texto"],
+            },
+            sales: {
+              cta: "CTA do texto.",
+            },
+          }),
+          classifySemanticBillingIntentStage: async () => null,
+          generateSalesReply: async (_history, runtimeContext) => {
+            assert.equal(runtimeContext?.agente?.runtimeConfig?.business?.summary, "Resumo salvo explicitamente.")
+            assert.deepEqual(runtimeContext?.agente?.runtimeConfig?.business?.services, ["Servico salvo"])
+            assert.equal(runtimeContext?.agente?.runtimeConfig?.sales?.cta, "CTA salvo.")
+            return {
+              reply: "Business explicito preservado.",
+              assets: [],
+              usage: { inputTokens: 0, outputTokens: 0 },
+              metadata: {
+                provider: "openai",
+                model: "test",
+                agenteId: "agent-business-explicit-priority",
+                agenteNome: "InfraStudio",
+                routeStage: "sales",
+                heuristicStage: null,
+                domainStage: "general",
+              },
+            }
+          },
+        }
+      )
+
+      assert.match(result.reply, /Business explicito preservado/i)
+    },
+  },
+  {
+    name: "orquestrador nao extrai business do texto do agente quando o roteamento inicial ja e catalogo",
+    run: async () => {
+      let extractionCalls = 0
+
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "me mostra saleiros" }] as never,
+        {
+          agente: {
+            id: "agent-no-business-extract-catalog",
+            nome: "Loja Cliente",
+            promptBase: "Automacao com IA, WhatsApp e sistemas sob medida.",
+          },
+          projeto: {
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ultimosProdutos: [{ id: "saleiro-1", nome: "Saleiro Azul" }],
+          },
+        } as never,
+        {
+          extractSemanticBusinessRuntimeFromAgentText: async () => {
+            extractionCalls += 1
+            return {
+              business: {
+                summary: "Resumo extraido do texto.",
+                services: ["Servico extraido"],
+              },
+              sales: {
+                cta: "CTA extraido.",
+              },
+            }
+          },
+          classifySemanticIntentStage: async () => ({
+            intent: "catalog_search_refinement",
+            confidence: 0.91,
+            reason: "Cliente refinou a busca recente.",
+            targetType: "saleiro",
+            referencedProductIds: [],
+            excludeCurrentProduct: false,
+            usedLlm: true,
+          }),
+          generateSalesReply: async () => ({
+            reply: "Busca de catalogo mantida.",
+            assets: [],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: {
+              provider: "openai",
+              model: "test",
+              agenteId: "agent-no-business-extract-catalog",
+              agenteNome: "Loja Cliente",
+              routeStage: "sales",
+              heuristicStage: null,
+              domainStage: "catalog",
+            },
+          }),
+        }
+      )
+
+      assert.equal(extractionCalls, 0)
+      assert.match(result.reply, /Busca de catalogo mantida/i)
     },
   },
   {

@@ -86,6 +86,28 @@ Ja feito:
 - produto em foco do Mercado Livre ja responde varios fatos de forma deterministica
 - busca por "outro do mesmo tipo" no Mercado Livre ja usa classificacao semantica
 - pricing estruturado do agente voltou a responder `plano mais caro` e `me passa os valores` pelo `runtimeConfig.pricingCatalog`
+- quando o agente nao trouxer `runtimeConfig.pricingCatalog`, o orquestrador agora pode extrair um catalogo estruturado de pricing a partir do proprio texto do agente (`promptBase`/descricao) antes de classificar billing
+- isso fecha o caso de deploy em que os valores estao descritos no agente, mas ainda nao foram migrados para `runtimeConfig`
+- essa extracao agora tambem fica em cache em memoria por agente/prompt para evitar custo repetido em toda pergunta de billing
+- a chave desse cache foi reduzida para `agentId + hash(promptBase)` para nao carregar o prompt inteiro em memoria como chave
+- a extracao de pricing pelo texto do agente agora tambem so roda quando o roteamento inicial nao ja estiver claramente em `catalog`, `api_runtime`, `agenda` ou `handoff`
+- o `runtimeConfig` efetivo enriquecido por extracao semantica agora tambem e repassado para o gerador downstream, nao fica preso apenas aos handlers locais do billing
+- precedencia de preco agora precisa ser tratada como regra dura:
+  - `produto em foco` manda sobre qualquer pricing do agente
+  - `runtimeConfig.pricingCatalog` explicito manda sobre qualquer valor descrito no texto do agente
+  - extracao do texto do agente so entra quando nao houver catalogo estruturado explicito
+- o texto do agente agora tambem pode enriquecer `business.summary`, `business.services` e `sales.cta` quando esses blocos nao estiverem estruturados explicitamente
+- esses blocos estruturados tambem respeitam precedencia: se o agente ja tiver `runtimeConfig.business` ou `runtimeConfig.sales` explicitos, o texto nao sobrescreve
+- quando `pricingCatalog` vier por extracao do texto do agente, o prompt tambem passa a expor esse catalogo estruturado ao modelo, em vez de depender so do texto cru do agente
+- a extracao de business/sales pelo texto do agente agora tambem ficou gated: nao roda quando o roteamento inicial ja estiver claramente em `catalog`, `api_runtime`, `agenda` ou `handoff`
+- o `domain-router` de catalogo agora tambem nao continua so por `focus` antigo: ele exige estado recente real de catalogo ou contexto storefront junto do focus
+- o fallback local de `load more` no catalogo tambem foi estreitado:
+  - `mais` sozinho nao vira mais `catalog_search`
+  - agora precisa de frase mais explicita como `mais opcoes`, `mais produtos`, `outros modelos` ou verbos com `o que tiver`
+- o `domain-router` de catalogo tambem ficou menos sensivel a follow-up generico com foco recente:
+  - `quero`, `manda`, `mostra`, `traz` e afins nao continuam catalogo sozinhos
+  - follow-up curto agora precisa de referencia forte (`esse`, `desse`, `gostei`, ordinais, `link`, `detalhes`) ou pedido explicito de mais opcoes
+  - isso reduz mais um vazamento em que contexto velho de catalogo sequestrava conversa ampla
 - billing/pricing ganhou `intent-stage` estruturado inicial no orquestrador para:
   - `pricing_overview`
   - `highest_priced_plan`
@@ -230,6 +252,7 @@ Ainda errado / fragil:
 - o score ainda existe, mas agora bem menos dependente de substring parcial
 - o `domain-router` de catalogo ficou mais dependente de estado recente real e menos de frase curta isolada
 - o `domain-router` de catalogo agora tambem ficou menos sensivel a substantivo amplo solto
+- o `domain-router` de catalogo ainda tem um guardrail local de follow-up curto, mas agora bem mais dependente de referencia forte real
 
 ## Ordem de ataque obrigatoria
 
@@ -278,4 +301,4 @@ Ainda errado / fragil:
 
 ## Proximo passo recomendado agora
 
- - continuar estreitando o `domain-router` de catalogo, principalmente `hasCatalogFollowUpSignal`
+ - continuar estreitando o `domain-router` de catalogo, principalmente `hasCatalogSignal` para deixar busca nova cada vez mais dependente de estado recente ou candidato real

@@ -23,6 +23,8 @@ import {
   classifySemanticApiIntentStage,
   classifySemanticBillingIntentStage,
   classifySemanticIntentStage,
+  extractSemanticBusinessRuntimeFromAgentText,
+  extractSemanticPricingCatalogFromAgentText,
 } from "@/lib/chat/semantic-intent-stage"
 import {
   buildCatalogPricingReply,
@@ -37,6 +39,15 @@ import {
 import { normalizeText } from "@/lib/chat/text-utils"
 
 export const USE_ORCHESTRATOR = true
+const PRICING_CATALOG_CACHE_TTL_MS = 15 * 60 * 1000
+
+function getPricingCatalogExtractionCache() {
+  if (!globalThis.__infrastudioPricingCatalogExtractionCache) {
+    globalThis.__infrastudioPricingCatalogExtractionCache = new Map()
+  }
+
+  return globalThis.__infrastudioPricingCatalogExtractionCache
+}
 
 function mapMessageRole(autor) {
   return autor === "atendente" ? "assistant" : "user"
@@ -53,6 +64,142 @@ function isSemanticApiFactualDecision(decision) {
 function getAgentRuntimeConfig(context = {}) {
   const runtimeConfig = context?.agente?.runtimeConfig ?? context?.agente?.configuracoes?.runtimeConfig ?? null
   return runtimeConfig && typeof runtimeConfig === "object" && !Array.isArray(runtimeConfig) ? runtimeConfig : null
+}
+
+function hasRuntimePricingCatalog(runtimeConfig = null) {
+  return Boolean(
+    runtimeConfig?.pricingCatalog?.enabled &&
+      Array.isArray(runtimeConfig?.pricingCatalog?.items) &&
+      runtimeConfig.pricingCatalog.items.length > 0
+  )
+}
+
+function hasRuntimeBusinessContext(runtimeConfig = null) {
+  return Boolean(
+    runtimeConfig?.business?.summary ||
+      (Array.isArray(runtimeConfig?.business?.services) && runtimeConfig.business.services.length > 0) ||
+      runtimeConfig?.sales?.cta
+  )
+}
+
+function mergeRuntimePricingCatalog(runtimeConfig = null, pricingCatalog = null) {
+  if (!pricingCatalog?.enabled || !Array.isArray(pricingCatalog?.items) || pricingCatalog.items.length === 0) {
+    return runtimeConfig
+  }
+
+  return {
+    ...(runtimeConfig ?? {}),
+    pricingCatalog: {
+      ...(runtimeConfig?.pricingCatalog ?? {}),
+      ...pricingCatalog,
+    },
+  }
+}
+
+function mergeRuntimeBusinessContext(runtimeConfig = null, businessRuntime = null) {
+  const hasBusinessSummary = Boolean(businessRuntime?.business?.summary)
+  const hasBusinessServices = Array.isArray(businessRuntime?.business?.services) && businessRuntime.business.services.length > 0
+  const hasSalesCta = Boolean(businessRuntime?.sales?.cta)
+
+  if (!hasBusinessSummary && !hasBusinessServices && !hasSalesCta) {
+    return runtimeConfig
+  }
+
+  return {
+    ...(runtimeConfig ?? {}),
+    business: {
+      ...(runtimeConfig?.business ?? {}),
+      ...(hasBusinessSummary ? { summary: businessRuntime.business.summary } : {}),
+      ...(hasBusinessServices ? { services: businessRuntime.business.services } : {}),
+    },
+    sales: {
+      ...(runtimeConfig?.sales ?? {}),
+      ...(hasSalesCta ? { cta: businessRuntime.sales.cta } : {}),
+    },
+  }
+}
+
+function hashText(value = "") {
+  let hash = 2166136261
+  const text = String(value || "")
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index)
+    hash = Math.imul(hash, 16777619)
+  }
+
+  return (hash >>> 0).toString(36)
+}
+
+function buildPricingCatalogCacheKey(agentId = "", agentPromptBase = "") {
+  const safeAgentId = String(agentId || "").trim()
+  const safePrompt = String(agentPromptBase || "").trim()
+  return `${safeAgentId}::${hashText(safePrompt)}`
+}
+
+async function resolveEffectiveRuntimePricingCatalog(input = {}) {
+  const runtimeConfig = input.runtimeConfig ?? null
+  const agentId = String(input.agentId || "").trim()
+  const agentPromptBase = String(input.agentPromptBase || "").trim()
+  const openAiKey = String(input.openAiKey || "").trim()
+  const model = String(input.model || "").trim() || "gpt-4o-mini"
+
+  if (hasRuntimePricingCatalog(runtimeConfig) || !agentPromptBase || !openAiKey) {
+    return runtimeConfig
+  }
+
+  const cache = getPricingCatalogExtractionCache()
+  const cacheKey = buildPricingCatalogCacheKey(agentId, agentPromptBase)
+  const cached = cache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return mergeRuntimePricingCatalog(runtimeConfig, cached.value)
+  }
+
+  const extractedPricingCatalog = await (input.extractSemanticPricingCatalogFromAgentText ?? extractSemanticPricingCatalogFromAgentText)({
+    sourceText: agentPromptBase,
+    context: input.context,
+    openAiKey,
+    model,
+  })
+
+  cache.set(cacheKey, {
+    value: extractedPricingCatalog,
+    expiresAt: Date.now() + PRICING_CATALOG_CACHE_TTL_MS,
+  })
+
+  return mergeRuntimePricingCatalog(runtimeConfig, extractedPricingCatalog)
+}
+
+async function resolveEffectiveRuntimeBusinessContext(input = {}) {
+  const runtimeConfig = input.runtimeConfig ?? null
+  const agentId = String(input.agentId || "").trim()
+  const agentPromptBase = String(input.agentPromptBase || "").trim()
+  const openAiKey = String(input.openAiKey || "").trim()
+  const model = String(input.model || "").trim() || "gpt-4o-mini"
+
+  if (hasRuntimeBusinessContext(runtimeConfig) || !agentPromptBase || !openAiKey) {
+    return runtimeConfig
+  }
+
+  const cache = getPricingCatalogExtractionCache()
+  const cacheKey = `${buildPricingCatalogCacheKey(agentId, agentPromptBase)}::business`
+  const cached = cache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    return mergeRuntimeBusinessContext(runtimeConfig, cached.value)
+  }
+
+  const extractedBusinessRuntime = await (input.extractSemanticBusinessRuntimeFromAgentText ?? extractSemanticBusinessRuntimeFromAgentText)({
+    sourceText: agentPromptBase,
+    context: input.context,
+    openAiKey,
+    model,
+  })
+
+  cache.set(cacheKey, {
+    value: extractedBusinessRuntime,
+    expiresAt: Date.now() + PRICING_CATALOG_CACHE_TTL_MS,
+  })
+
+  return mergeRuntimeBusinessContext(runtimeConfig, extractedBusinessRuntime)
 }
 
 function isSimpleCommercialQuestion(message = "") {
@@ -198,6 +345,31 @@ function mergeCatalogSemanticAndHeuristicDecision(semanticDecision, heuristicDec
   return semanticDecision
 }
 
+function buildBaseRoutingDecision(latestUserMessage, history, context, runtimeApis, focusedApiContext, runtimeConfig) {
+  return resolveChatDomainRoute({
+    latestUserMessage,
+    history,
+    context,
+    project: context?.projeto ?? null,
+    runtimeApis,
+    focusedApiContext,
+    runtimeConfig,
+  })
+}
+
+function hasLockedCatalogProductPricingPriority(routingDecision, context = {}) {
+  if (routingDecision?.domain !== "catalog") {
+    return false
+  }
+
+  if (!context?.catalogo?.produtoAtual?.nome) {
+    return false
+  }
+
+  const mode = String(context?.conversation?.mode || context?.ui?.mode || context?.storefront?.pageKind || "").trim().toLowerCase()
+  return ["product_detail", "product_focus"].includes(mode)
+}
+
 export function buildConversationHistory(conversation, texto) {
   const messages = conversation?.mensagens ?? []
   const history = messages.map((message) => ({
@@ -218,27 +390,81 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const openAiKey = process.env.OPENAI_API_KEY?.trim()
   const model = process.env.OPENAI_CHAT_MODEL?.trim() || "gpt-4o-mini"
   const agentName = context?.agente?.nome?.trim() || ""
+  const agentId = context?.agente?.id?.trim() || ""
   const agentPromptBase = context?.agente?.promptBase?.trim() || context?.agente?.descricao?.trim() || ""
   const latestUserMessage = [...(history ?? [])].reverse().find((item) => item.role === "user")?.content ?? ""
   const runtimeApis = Array.isArray(context?.runtimeApis) ? context.runtimeApis : []
-  const runtimeConfig = getAgentRuntimeConfig(context)
+  const baseRuntimeConfig = getAgentRuntimeConfig(context)
   const structuredResponse = prefersStructuredReply(context)
   const focusedApiContext = buildFocusedApiContext(latestUserMessage, runtimeApis)
-  const baseRoutingDecision = resolveChatDomainRoute({
+  const initialRoutingDecision = buildBaseRoutingDecision(
     latestUserMessage,
     history,
     context,
-    project: context?.projeto ?? null,
     runtimeApis,
     focusedApiContext,
-    runtimeConfig,
-  })
+    baseRuntimeConfig
+  )
+  const hasProductPricingPriority = hasLockedCatalogProductPricingPriority(initialRoutingDecision, context)
+  const shouldResolveBusinessRuntimeFromAgentText =
+    !hasRuntimeBusinessContext(baseRuntimeConfig) &&
+    agentPromptBase &&
+    openAiKey &&
+    !["handoff", "agenda", "catalog", "api_runtime"].includes(initialRoutingDecision?.domain)
+  const shouldResolvePricingCatalogFromAgentText =
+    !hasRuntimePricingCatalog(baseRuntimeConfig) &&
+    agentPromptBase &&
+    openAiKey &&
+    !hasProductPricingPriority &&
+    !["handoff", "agenda", "catalog", "api_runtime"].includes(initialRoutingDecision?.domain)
+  const runtimeConfigWithBusiness =
+    shouldResolveBusinessRuntimeFromAgentText
+      ? await resolveEffectiveRuntimeBusinessContext({
+          runtimeConfig: baseRuntimeConfig,
+          agentId,
+          agentPromptBase,
+          context,
+          openAiKey,
+          model,
+          extractSemanticBusinessRuntimeFromAgentText: options.extractSemanticBusinessRuntimeFromAgentText,
+        })
+      : baseRuntimeConfig
+  const runtimeConfig = shouldResolvePricingCatalogFromAgentText
+    ? await resolveEffectiveRuntimePricingCatalog({
+        runtimeConfig: runtimeConfigWithBusiness,
+        agentId,
+        agentPromptBase,
+        context,
+        openAiKey,
+        model,
+        extractSemanticPricingCatalogFromAgentText: options.extractSemanticPricingCatalogFromAgentText,
+      })
+    : runtimeConfigWithBusiness
+  const runtimeConfigMeta = {
+    pricingCatalogDerived: !hasRuntimePricingCatalog(baseRuntimeConfig) && hasRuntimePricingCatalog(runtimeConfig),
+    businessDerived: !hasRuntimeBusinessContext(baseRuntimeConfig) && hasRuntimeBusinessContext(runtimeConfig),
+  }
+  const effectiveContext =
+    runtimeConfig === baseRuntimeConfig
+      ? context
+      : {
+          ...context,
+          agente: {
+            ...(context?.agente ?? {}),
+            runtimeConfig,
+            runtimeConfigMeta,
+          },
+        }
+  const baseRoutingDecision =
+    effectiveContext === context && runtimeConfig === baseRuntimeConfig
+      ? initialRoutingDecision
+      : buildBaseRoutingDecision(latestUserMessage, history, effectiveContext, runtimeApis, focusedApiContext, runtimeConfig)
   const semanticApiIntent =
     runtimeApis.length
       ? await (options.classifySemanticApiIntentStage ?? classifySemanticApiIntentStage)({
           latestUserMessage,
           runtimeApis,
-          context,
+          context: effectiveContext,
           openAiKey,
           model,
         })
@@ -256,7 +482,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           latestUserMessage,
           currentCatalogProduct: context?.catalogo?.produtoAtual,
           recentProducts: context?.catalogo?.ultimosProdutos,
-          context,
+          context: effectiveContext,
           openAiKey,
           model,
         })
@@ -266,14 +492,11 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     recentProducts: context?.catalogo?.ultimosProdutos,
   })
   const semanticBillingIntent =
-    runtimeConfig?.pricingCatalog?.enabled &&
-    Array.isArray(runtimeConfig?.pricingCatalog?.items) &&
-    runtimeConfig.pricingCatalog.items.length > 0 &&
-    !shouldUseBaseMercadoLivre
+    hasRuntimePricingCatalog(runtimeConfig) && !shouldUseBaseMercadoLivre && !hasProductPricingPriority
       ? await (options.classifySemanticBillingIntentStage ?? classifySemanticBillingIntentStage)({
           latestUserMessage,
           pricingItems: runtimeConfig.pricingCatalog.items,
-          context,
+          context: effectiveContext,
           openAiKey,
           model,
         })
@@ -618,7 +841,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   }
 
   if (typeof options.generateSalesReply === "function") {
-    return options.generateSalesReply(history, context)
+    return options.generateSalesReply(history, effectiveContext)
   }
 
   return generateOpenAiSalesReply({
@@ -626,7 +849,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     model,
     agentName,
     agentPromptBase,
-    context,
+    context: effectiveContext,
     structuredResponse,
     focusedApiContext,
     currentCatalogProduct: shouldUseMercadoLivre ? currentCatalogProduct : null,

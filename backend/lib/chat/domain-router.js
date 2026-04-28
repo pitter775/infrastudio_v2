@@ -169,8 +169,17 @@ function hasShortCatalogQuerySignal(message) {
 }
 
 function hasCatalogFollowUpSignal(message) {
-  return /\b(mais|outras|outros|opcoes|opcao|modelos|esse|essa|desse|dessa|aquele|aquela|daquele|daquela|link|detalhe|detalhes|gostei|quero|manda|mande|envia|envie|mostra|mostre|traz|traga|tiver|qualquer)\b/i.test(
-    String(message || "")
+  const normalized = normalizeText(message)
+
+  if (/\b(esse|essa|desse|dessa|aquele|aquela|daquele|daquela|primeiro|primeira|segundo|segunda|terceiro|terceira|link|detalhe|detalhes|gostei)\b/.test(normalized)) {
+    return true
+  }
+
+  return (
+    /\b(mais\s+(opcoes|opcao|modelos|produtos|itens)|outras\s+(opcoes|opcao|alternativas)|outros\s+(modelos|produtos|itens)|o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/.test(
+      normalized
+    ) ||
+    /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/.test(normalized)
   )
 }
 
@@ -379,6 +388,7 @@ export function resolveChatDomainRoute(input = {}) {
   if (
     activeFocus?.domain === "catalog" &&
     capabilities.mercadoLivre &&
+    (hasRecentCatalogContext(context) || hasStorefrontCatalogContext(context)) &&
     (hasCatalogFollowUpSignal(message) || hasShortCatalogQuerySignal(message))
   ) {
     return {
