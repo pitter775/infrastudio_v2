@@ -162,7 +162,7 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
         break
       }
 
-      currentOffset += limit
+      currentOffset += Number(result.paging?.limit || limit) || limit
     }
 
     const eligibleItems = collectedItems.filter(isSnapshotEligibleItem)

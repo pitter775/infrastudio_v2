@@ -702,10 +702,14 @@ async function listMercadoLivreUserItemIds(userId, accessToken, options = {}, de
   const limit = Math.min(Math.max(Number(options.limit ?? 24) || 24, 1), 50)
   const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
   const fetchImpl = deps.fetchImpl ?? fetch
-  const buildSearchUrl = (includeOrder = false) => {
+  const buildSearchUrl = ({ includeLimit = true, includeOffset = true, includeOrder = false } = {}) => {
     const url = new URL(`${MERCADO_LIVRE_API_BASE}/users/${encodeURIComponent(userId)}/items/search`)
-    url.searchParams.set("limit", String(limit))
-    url.searchParams.set("offset", String(offset))
+    if (includeLimit) {
+      url.searchParams.set("limit", String(limit))
+    }
+    if (includeOffset) {
+      url.searchParams.set("offset", String(offset))
+    }
     if (includeOrder) {
       url.searchParams.set("orders", "last_updated_desc")
     }
@@ -719,13 +723,27 @@ async function listMercadoLivreUserItemIds(userId, accessToken, options = {}, de
     cache: "no-store",
   }
 
-  let searchResponse = await fetchImpl(buildSearchUrl(true), requestConfig)
+  let searchResponse = await fetchImpl(buildSearchUrl({ includeLimit: true, includeOffset: true, includeOrder: true }), requestConfig)
   let searchPayload = await searchResponse.json().catch(() => ({}))
 
   if (!searchResponse.ok) {
     const normalizedMessage = sanitizeString(searchPayload?.message).toLowerCase()
     if (normalizedMessage.includes("invalid limit and offset values")) {
-      searchResponse = await fetchImpl(buildSearchUrl(false), requestConfig)
+      searchResponse = await fetchImpl(
+        buildSearchUrl({ includeLimit: true, includeOffset: true, includeOrder: false }),
+        requestConfig
+      )
+      searchPayload = await searchResponse.json().catch(() => ({}))
+    }
+  }
+
+  if (!searchResponse.ok) {
+    const normalizedMessage = sanitizeString(searchPayload?.message).toLowerCase()
+    if (normalizedMessage.includes("invalid limit and offset values")) {
+      searchResponse = await fetchImpl(
+        buildSearchUrl({ includeLimit: false, includeOffset: false, includeOrder: false }),
+        requestConfig
+      )
       searchPayload = await searchResponse.json().catch(() => ({}))
     }
   }
@@ -741,8 +759,8 @@ async function listMercadoLivreUserItemIds(userId, accessToken, options = {}, de
     itemIds: Array.isArray(searchPayload.results) ? searchPayload.results : [],
     paging: {
       total: Number(searchPayload?.paging?.total ?? 0) || 0,
-      limit,
-      offset,
+      limit: Number(searchPayload?.paging?.limit ?? limit) || limit,
+      offset: Number(searchPayload?.paging?.offset ?? offset) || offset,
     },
     error: null,
   }
@@ -1339,9 +1357,11 @@ export async function listMercadoLivreItemsForProject(project, options = {}, dep
         connector: resolvedConnector,
         paging: {
           total: Number(paging?.total ?? 0) || 0,
-          limit,
-          offset,
-          hasMore: Number(paging?.total ?? 0) > offset + limit,
+          limit: Number(paging?.limit ?? limit) || limit,
+          offset: Number(paging?.offset ?? offset) || offset,
+          hasMore:
+            Number(paging?.total ?? 0) >
+            ((Number(paging?.offset ?? offset) || offset) + (Number(paging?.limit ?? limit) || limit)),
         },
         error: null,
       }
