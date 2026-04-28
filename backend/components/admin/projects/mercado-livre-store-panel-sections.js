@@ -6,8 +6,6 @@ import { Button } from '@/components/ui/button'
 
 import { StorePanelField, StorePanelInput, StorePanelTextarea, StorePanelToggle } from '@/components/admin/projects/mercado-livre-store-panel-fields'
 
-const STORE_COLOR_PRESETS = ['#0ea5e9', '#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6']
-
 export function StoreGeneralSection({
   draft,
   setDraft,
@@ -128,22 +126,6 @@ export function StoreAppearanceSection({ draft, setDraft }) {
     <div className="grid gap-4 md:grid-cols-2">
       <StorePanelField label="Cor predominante">
         <div className="grid gap-3">
-          <div className="flex flex-wrap gap-2">
-            {STORE_COLOR_PRESETS.map((color) => {
-              const active = draft.accentColor === color
-
-              return (
-                <button
-                  key={color}
-                  type="button"
-                  onClick={() => setDraft((current) => ({ ...current, accentColor: color }))}
-                  className={`h-10 w-10 rounded-full border transition ${active ? 'border-white shadow-[0_0_0_3px_rgba(255,255,255,0.08)]' : 'border-white/10'}`}
-                  style={{ backgroundColor: color }}
-                  title={color}
-                />
-              )
-            })}
-          </div>
           <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2">
             <input
               type="color"
@@ -169,6 +151,17 @@ export function StoreAppearanceSection({ draft, setDraft }) {
       >
         Chat widget na loja
       </StorePanelToggle>
+      <StorePanelToggle
+        checked={draft.chatContextFull}
+        onChange={(value) => setDraft((current) => ({ ...current, chatContextFull: value }))}
+        labelOn="Ligado"
+        labelOff="Desligado"
+      >
+        Contexto completo no chat do produto
+      </StorePanelToggle>
+      <div className="md:col-span-2 rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 text-xs leading-6 text-slate-400">
+        Quando ligar, a pagina de detalhe do produto envia a descricao longa completa e uma ficha mais ampla do anuncio para o agente. Desligado, o chat continua no modo resumido atual.
+      </div>
       <div className="md:col-span-2">
         <StorePanelTextarea
           label="Texto do footer"

@@ -56,6 +56,7 @@ function buildInitialDraft(project, store) {
     logoUrl: store?.logoUrl || '',
     chatWidgetActive: store?.chatWidgetActive !== false,
     chatWidgetId: store?.chatWidgetId || project.chatWidgets?.[0]?.id || '',
+    chatContextFull: store?.chatContextFull === true,
     contactEmail: store?.contactEmail || '',
     contactPhone: store?.contactPhone || '',
     contactWhatsApp: store?.contactWhatsApp || '',

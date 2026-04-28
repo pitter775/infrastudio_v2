@@ -84,6 +84,7 @@ import {
   resolveCanonicalWhatsAppExternalIdentifier,
   resolveChatChannel,
   resolveChatContactSnapshot,
+  resolveChatDomainRoute,
   resolveConversationPipelineStageState,
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicState,
@@ -908,6 +909,43 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "whatsapp mantem catalogo em foco quando um produto especifico ja foi selecionado",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "qual o material?",
+        history: [{ role: "assistant", content: "Separei esse produto para voce." }],
+        context: {
+          projeto: {
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            focusMode: "product_focus",
+            produtoAtual: {
+              id: "MLB-FOCO-1",
+              nome: "Jogo de Jantar Ceramica",
+            },
+          },
+          conversation: {
+            mode: "product_focus",
+          },
+        },
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        runtimeApis: [],
+        focusedApiContext: null,
+      });
+
+      assert.equal(decision.domain, "catalog");
+      assert.equal(decision.source, "mercado_livre");
+      assert.equal(decision.reason, "catalog_product_detail_focus");
+    },
+  },
+  {
     name: "mercado livre usa o modelo para detalhe de produto e preserva o asset do anuncio",
     run: async () => {
       const result = await executeSalesOrchestrator(
@@ -998,6 +1036,205 @@ const tests: TestCase[] = [
       assert.equal(result.metadata.provider, "test_openai");
       assert.match(result.reply, /entrega e feita pelo Mercado Livre/i);
       assert.doesNotMatch(result.reply, /escolha forte|pontos confirmados no anuncio|custo-beneficio/i);
+    },
+  },
+  {
+    name: "pagina de produto nao troca detalhe por nova listagem ao perguntar material",
+    run: async () => {
+      const productPageContext = {
+        agente: {
+          id: "agent-mercado-livre-material",
+          nome: "Loja Reliquias",
+          promptBase: "Venda de forma consultiva.",
+        },
+        projeto: {
+          id: "proj-mercado-livre-material",
+          nome: "Projeto teste",
+          slug: "projeto-teste",
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        storefront: {
+          kind: "mercado_livre",
+          pageKind: "product_detail",
+          storeSlug: "reliquias",
+          productSlug: "sopeira-vintage",
+        },
+        conversation: {
+          mode: "product_detail",
+        },
+        ui: {
+          catalogPreferred: true,
+          productDetailPreferred: true,
+        },
+        catalogo: {
+          ultimaBusca: "jogo de sopeira completo",
+          produtoAtual: {
+            id: "MLB2",
+            nome: "Jogo de Sopeira Completo",
+            descricao: "R$ 250,00 - 2 em estoque",
+            descricaoLonga: "Sopeira em ceramica com acabamento amarelo e conjunto para servir.",
+            material: "Ceramica",
+            cor: "Amarelo",
+            atributos: [
+              { id: "MATERIAL", nome: "Material principal", valor: "Ceramica" },
+              { id: "COLOR", nome: "Cor principal", valor: "Amarelo" },
+            ],
+            link: "https://example.com/sopeira",
+            imagem: "https://example.com/sopeira.jpg",
+            sellerId: "seller-1",
+            sellerName: "Mesa Posta",
+            availableQuantity: 2,
+          },
+          ultimosProdutos: [
+            {
+              id: "MLB2",
+              nome: "Jogo de Sopeira Completo",
+              descricao: "R$ 250,00 - 2 em estoque",
+              descricaoLonga: "Sopeira em ceramica com acabamento amarelo e conjunto para servir.",
+              material: "Ceramica",
+              cor: "Amarelo",
+              atributos: [
+                { id: "MATERIAL", nome: "Material principal", valor: "Ceramica" },
+                { id: "COLOR", nome: "Cor principal", valor: "Amarelo" },
+              ],
+            },
+          ],
+        },
+      };
+
+      const flow = resolveMercadoLivreFlowState({
+        latestUserMessage: "qual o material do produto?",
+        context: productPageContext,
+        detectProductSearch: (message: string) => deps.shouldSearchProducts(message),
+        buildProductSearchCandidates: deps.buildProductSearchCandidates,
+        isMercadoLivreListingIntent: () => true,
+      });
+
+      const state = await resolveMercadoLivreHeuristicState({
+        context: productPageContext,
+        project: productPageContext.projeto,
+        latestUserMessage: "qual o material do produto?",
+        productSearchRequested: flow.productSearchRequested,
+        genericMercadoLivreListingRequested: flow.genericMercadoLivreListingRequested,
+        forceNewSearch: flow.forceNewSearch,
+        loadMoreCatalogRequested: flow.loadMoreCatalogRequested,
+        productSearchTerm: flow.productSearchTerm,
+        lastSearchTerm: flow.lastSearchTerm,
+        paginationOffset: flow.paginationOffset,
+        paginationPoolLimit: flow.paginationPoolLimit,
+        catalogComparisonIntent: flow.catalogComparisonIntent,
+        currentCatalogProduct: flow.currentCatalogProduct,
+        recentCatalogProducts: flow.recentCatalogProducts,
+        referencedCatalogProducts: flow.referencedCatalogProducts,
+        resolveMercadoLivreSearch: async () => {
+          throw new Error("nao deveria buscar lista para pergunta de detalhe");
+        },
+        resolveMercadoLivreProductById: async () => ({
+          item: {
+            id: "MLB2",
+            title: "Jogo de Sopeira Completo",
+            price: 250,
+            currencyId: "BRL",
+            availableQuantity: 2,
+            status: "active",
+            permalink: "https://example.com/sopeira",
+            thumbnail: "https://example.com/sopeira.jpg",
+            sellerId: "seller-1",
+            sellerName: "Mesa Posta",
+            freeShipping: true,
+            warranty: "30 dias",
+            attributes: [
+              { id: "MATERIAL", name: "Material principal", valueName: "Ceramica" },
+              { id: "COLOR", name: "Cor principal", valueName: "Amarelo" },
+            ],
+            pictures: ["https://example.com/sopeira-1.jpg"],
+            variations: [],
+            descriptionPlain: "Sopeira em ceramica com acabamento amarelo e conjunto para servir.",
+          },
+          error: null,
+        }),
+        resolveMercadoLivreStoreSettings: async () => ({
+          chatContextFull: false,
+        }),
+      });
+
+      assert.equal(flow.forceNewSearch, false);
+      assert.equal(flow.productSearchRequested, false);
+      assert.equal(flow.genericMercadoLivreListingRequested, false);
+      assert.equal(flow.currentCatalogProduct?.id, "MLB2");
+      assert.match(state.selectedProductSalesReply ?? "", /Material:\s*Ceramica/i);
+      assert.equal(state.mercadoLivreHeuristicReply, null);
+      assert.equal(state.mercadoLivreAssets.length, 1);
+      assert.equal(state.selectedCatalogProduct?.contextoDetalhado, true);
+      assert.equal(state.selectedCatalogProduct?.contextoCompleto, false);
+      assert.match(state.selectedCatalogProduct?.descricaoLonga ?? "", /conjunto para servir/i);
+    },
+  },
+  {
+    name: "mercado livre expande contexto completo do produto em foco quando a loja ativa a opcao",
+    run: async () => {
+      const state = await resolveMercadoLivreHeuristicState({
+        context: {
+          catalogo: {
+            focusMode: "product_focus",
+            produtoAtual: {
+              id: "MLB-COMPLETE-1",
+              nome: "Faqueiro Inox Premium",
+            },
+          },
+          conversation: {
+            mode: "product_focus",
+          },
+        },
+        project: {
+          id: "proj-mercado-livre-complete",
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        latestUserMessage: "me fala mais desse produto",
+        currentCatalogProduct: {
+          id: "MLB-COMPLETE-1",
+          nome: "Faqueiro Inox Premium",
+        },
+        resolveMercadoLivreProductById: async () => ({
+          item: {
+            id: "MLB-COMPLETE-1",
+            title: "Faqueiro Inox Premium",
+            price: 499,
+            currencyId: "BRL",
+            availableQuantity: 3,
+            permalink: "https://example.com/faqueiro",
+            thumbnail: "https://example.com/faqueiro.jpg",
+            sellerId: "seller-1",
+            sellerName: "Mesa Posta",
+            pictures: Array.from({ length: 10 }, (_, index) => `https://example.com/faqueiro-${index + 1}.jpg`),
+            attributes: Array.from({ length: 30 }, (_, index) => ({
+              id: `ATTR-${index + 1}`,
+              name: `Atributo ${index + 1}`,
+              valueName: `Valor ${index + 1}`,
+            })),
+            variations: Array.from({ length: 10 }, (_, index) => ({
+              id: `VAR-${index + 1}`,
+              attributeCombinations: [{ id: "COLOR", name: "Cor", valueName: `Cor ${index + 1}` }],
+            })),
+            descriptionPlain: "X".repeat(2500),
+          },
+          error: null,
+        }),
+        resolveMercadoLivreStoreSettings: async () => ({
+          chatContextFull: true,
+        }),
+      });
+
+      assert.equal(state.selectedCatalogProduct?.contextoDetalhado, true);
+      assert.equal(state.selectedCatalogProduct?.contextoCompleto, true);
+      assert.equal(state.selectedCatalogProduct?.atributos?.length, 30);
+      assert.equal(state.selectedCatalogProduct?.imagens?.length, 8);
+      assert.equal(state.selectedCatalogProduct?.variacoesResumo?.length, 10);
+      assert.equal((state.selectedCatalogProduct?.descricaoLonga ?? "").length, 2500);
     },
   },
   {
@@ -1833,6 +2070,7 @@ const tests: TestCase[] = [
         currentContext: {
           channel: { kind: "web" },
           ui: { compact: true },
+          conversation: { mode: "product_detail" },
           catalogo: {
             ultimaBusca: "busca antiga",
             produtoAtual: { id: "MLB1" },
@@ -1862,6 +2100,7 @@ const tests: TestCase[] = [
       assert.equal(nextContext.qualificacao.pronto_para_whatsapp, false)
       assert.equal(nextContext.catalogo.ultimaBusca, "tem jogo de jantar?")
       assert.equal(Array.isArray(nextContext.catalogo.ultimosProdutos), true)
+      assert.equal(nextContext.conversation.mode, "listing")
       assert.equal(nextContext.widget.slug, "main")
     },
   },
@@ -2357,6 +2596,8 @@ const tests: TestCase[] = [
 
       assert.equal(nextContext.catalogo.ultimosProdutos.length, 1)
       assert.equal(nextContext.catalogo.produtoAtual.id, "MLB1")
+      assert.equal(nextContext.catalogo.focusMode, "product_focus")
+      assert.equal(nextContext.conversation.mode, "product_focus")
       assert.equal(nextContext.catalogo.snapshotTurnId, 7)
       assert.match(nextContext.catalogo.snapshotId, /chat-1:7:/)
     },
@@ -2457,6 +2698,57 @@ const tests: TestCase[] = [
       )
       assert.match(payload.followUpReply, /marcar um horario/i)
       assert.doesNotMatch(payload.followUpReply, /continuar no WhatsApp/i)
+    },
+  },
+  {
+    name: "service nao oferece agenda em contexto de catalogo da loja",
+    run: () => {
+      const payload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: {
+          reply: "Encontrei algumas opcoes para voce.",
+          assets: [{ id: "mercado-livre-1" }],
+        },
+        nextContext: {
+          conversation: {
+            mode: "listing",
+          },
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+          catalogo: {
+            ultimosProdutos: [
+              {
+                id: "MLB1",
+                nome: "Produto 1",
+              },
+            ],
+          },
+          whatsapp: {
+            numero: "5511999999999",
+            ctaEnabled: true,
+          },
+        },
+        agendaSlots: [
+          {
+            id: "slot-1",
+            dataInicio: "2026-04-25T14:00:00.000Z",
+            data: "2026-04-25",
+            dia: "2026-04-25",
+            horaInicio: "14:00",
+            horaFim: "15:00",
+            timezone: "America/Sao_Paulo",
+          },
+        ],
+        normalizedExternalIdentifier: "lead-catalog-1",
+        userMessage: "me mostra as opcoes",
+      })
+
+      assert.equal(Array.isArray(payload.actions), true)
+      assert.equal(payload.actions.length, 1)
+      assert.equal(payload.actions[0]?.type, "whatsapp_link")
+      assert.doesNotMatch(String(payload.followUpReply || ""), /marcar um horario/i)
     },
   },
   {

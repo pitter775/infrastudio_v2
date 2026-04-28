@@ -63,6 +63,10 @@ export default async function LojaPage({ params, searchParams }) {
         title: result.store.widget.title,
         storeSlug: result.store.slug,
         context: {
+          conversation: {
+            mode: "listing",
+            source: "mercado_livre_storefront",
+          },
           storefront: {
             kind: "mercado_livre",
             pageKind: "storefront",

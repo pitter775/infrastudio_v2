@@ -224,10 +224,12 @@ function buildChatProductContext(product, store, categoryLabel = "") {
     return null
   }
 
+  const useFullChatContext = store?.chatContextFull === true
+
   const compactLongDescription = String(product.descriptionLong || product.shortDescription || "")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 600)
+    .slice(0, useFullChatContext ? 4000 : 600)
 
   const normalizedAttributes = Array.isArray(product.attributes)
     ? product.attributes
@@ -237,7 +239,7 @@ function buildChatProductContext(product, store, categoryLabel = "") {
           valor: normalizeAttributeValue(attribute),
         }))
         .filter((attribute) => attribute.nome && attribute.valor)
-        .slice(0, 10)
+        .slice(0, useFullChatContext ? 40 : 10)
     : []
 
   const material =
@@ -246,7 +248,7 @@ function buildChatProductContext(product, store, categoryLabel = "") {
     normalizedAttributes.find((attribute) => /cor|color|estampa|acabamento/i.test(attribute.nome))?.valor || ""
   const variationSummary = Array.isArray(product.variations)
     ? product.variations
-        .slice(0, 4)
+        .slice(0, useFullChatContext ? 12 : 4)
         .map((variation) =>
           Array.isArray(variation?.attributeCombinations)
             ? variation.attributeCombinations
@@ -273,7 +275,7 @@ function buildChatProductContext(product, store, categoryLabel = "") {
     preco: Number(product.price ?? 0) || 0,
     link: product.permalink || "",
     imagem: product.thumbnail || "",
-    imagens: Array.isArray(product.images) ? product.images.filter(Boolean).slice(0, 3) : [],
+    imagens: Array.isArray(product.images) ? product.images.filter(Boolean).slice(0, useFullChatContext ? 8 : 3) : [],
     availableQuantity: Number(product.stock ?? 0) || 0,
     stock: Number(product.stock ?? 0) || 0,
     status: product.status || "",
@@ -285,6 +287,7 @@ function buildChatProductContext(product, store, categoryLabel = "") {
     atributos: normalizedAttributes,
     variacoesResumo: variationSummary,
     descricaoLonga: compactLongDescription,
+    contextoCompleto: useFullChatContext,
     categoriaId: product.categoryId || "",
     categoriaLabel: categoryLabel || product.categoryLabel || "",
     lojaNome: store?.name || "",
@@ -456,6 +459,10 @@ export default async function LojaProdutoPage({ params }) {
         title: result.store.widget.title,
         storeSlug: result.store.slug,
         context: {
+          conversation: {
+            mode: "product_detail",
+            source: "mercado_livre_product_detail",
+          },
           storefront: {
             kind: "mercado_livre",
             pageKind: "product_detail",

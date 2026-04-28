@@ -117,6 +117,36 @@ export function buildWhatsAppContinuationCta(input = {}) {
   }
 }
 
+function isCatalogConversationContext(nextContext = {}) {
+  const mode = String(nextContext?.conversation?.mode || nextContext?.ui?.mode || "").trim().toLowerCase()
+  const focusMode = String(nextContext?.catalogo?.focusMode || "").trim().toLowerCase()
+  if (mode === "listing" || mode === "product_detail" || mode === "product_focus" || mode === "comparison") {
+    return true
+  }
+
+  if (focusMode === "listing" || focusMode === "product_focus" || focusMode === "comparison") {
+    return true
+  }
+
+  if (nextContext?.storefront?.kind === "mercado_livre") {
+    return true
+  }
+
+  if (nextContext?.ui?.catalogPreferred === true || nextContext?.ui?.productDetailPreferred === true) {
+    return true
+  }
+
+  if (nextContext?.focus?.domain === "catalog") {
+    return true
+  }
+
+  if (nextContext?.catalogo?.produtoAtual?.nome) {
+    return true
+  }
+
+  return Array.isArray(nextContext?.catalogo?.ultimosProdutos) && nextContext.catalogo.ultimosProdutos.length > 0
+}
+
 export function buildChatWidgetActions(input = {}) {
   if (input.channelKind === "whatsapp") {
     return []
@@ -124,7 +154,10 @@ export function buildChatWidgetActions(input = {}) {
 
   const actions = []
   const whatsappAction = buildWhatsAppActionPayload(input)
-  const agendaAction = hasConfirmedAgendaReservation(input.nextContext) ? null : buildAgendaActionPayload(input.agendaSlots)
+  const agendaAction =
+    hasConfirmedAgendaReservation(input.nextContext) || isCatalogConversationContext(input.nextContext)
+      ? null
+      : buildAgendaActionPayload(input.agendaSlots)
 
   if (whatsappAction) {
     actions.push(whatsappAction)

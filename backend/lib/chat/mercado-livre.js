@@ -1,4 +1,5 @@
 import { getMercadoLivreProductByIdForProject, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
+import { getMercadoLivreStoreSettingsForProject } from "@/lib/mercado-livre-store"
 import { detectCatalogSearchRefinement, resolveRecentCatalogProductReference } from "@/lib/chat/catalog-follow-up"
 import { buildProductSearchCandidates, isMercadoLivreListingIntent } from "@/lib/chat/sales-heuristics"
 
@@ -76,10 +77,23 @@ function buildMercadoLivreAsset(item, index = 0) {
   }
 }
 
-function buildCatalogProductFromItem(item) {
+function getCatalogFocusMode(context = {}) {
+  const mode = String(context?.catalogo?.focusMode || "").trim().toLowerCase()
+  return mode || null
+}
+
+function buildCatalogProductFromItem(item, options = {}) {
   if (!item) {
     return null
   }
+
+  const detailLevel = String(options?.detailLevel || "compact").trim().toLowerCase()
+  const isFocused = detailLevel === "focused" || detailLevel === "full"
+  const isFull = detailLevel === "full"
+  const attributeLimit = isFull ? 40 : isFocused ? 20 : 10
+  const variationLimit = isFull ? 12 : isFocused ? 8 : 3
+  const imageLimit = isFull ? 8 : isFocused ? 6 : 3
+  const descriptionLimit = isFull ? 4000 : isFocused ? 1600 : 320
 
   const attributes = Array.isArray(item.attributes)
     ? item.attributes
@@ -89,6 +103,7 @@ function buildCatalogProductFromItem(item) {
           valor: sanitizeString(attribute?.valueName),
         }))
         .filter((attribute) => attribute.nome && attribute.valor)
+        .slice(0, attributeLimit)
     : []
   const material =
     attributes.find((attribute) => /material/i.test(attribute.nome))?.valor ||
@@ -107,7 +122,7 @@ function buildCatalogProductFromItem(item) {
   ].filter(Boolean)
   const variationHighlights = Array.isArray(item.variations)
     ? item.variations
-        .slice(0, 3)
+        .slice(0, variationLimit)
         .map((variation) =>
           Array.isArray(variation?.attributeCombinations)
             ? variation.attributeCombinations
@@ -118,7 +133,7 @@ function buildCatalogProductFromItem(item) {
         )
         .filter(Boolean)
     : []
-  const descricaoLonga = sanitizeString(item.descriptionPlain || item.shortDescription)
+  const descricaoLonga = sanitizeString(item.descriptionPlain || item.shortDescription).slice(0, descriptionLimit)
 
   return {
     id: sanitizeString(item.id),
@@ -138,9 +153,11 @@ function buildCatalogProductFromItem(item) {
     material: sanitizeString(material),
     cor: sanitizeString(cor),
     atributos: attributes,
-    imagens: Array.isArray(item.pictures) ? item.pictures.filter(Boolean) : [],
+    imagens: Array.isArray(item.pictures) ? item.pictures.filter(Boolean).slice(0, imageLimit) : [],
     descricaoLonga,
     variacoesResumo: variationHighlights,
+    contextoDetalhado: isFocused,
+    contextoCompleto: isFull,
   }
 }
 
@@ -165,6 +182,26 @@ function normalizeMessage(value) {
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
+}
+
+function getConversationMode(context = {}) {
+  const mode = String(context?.conversation?.mode || context?.ui?.mode || "").trim().toLowerCase()
+  return mode || null
+}
+
+function hasFocusedCatalogProductContext(context = {}) {
+  const focusMode = getCatalogFocusMode(context)
+  if (focusMode === "product_focus" && context?.catalogo?.produtoAtual?.nome) {
+    return true
+  }
+
+  return Boolean(
+    (getConversationMode(context) === "product_detail" ||
+      getConversationMode(context) === "product_focus" ||
+      context?.ui?.productDetailPreferred === true ||
+      context?.storefront?.pageKind === "product_detail") &&
+      context?.catalogo?.produtoAtual?.nome
+  )
 }
 
 function isMercadoLivreDeliveryIntent(message) {
@@ -409,6 +446,38 @@ export function isMercadoLivreDetailIntent(message) {
   )
 }
 
+function hasStrongProductDetailContext(context) {
+  return hasFocusedCatalogProductContext(context)
+}
+
+function shouldStayOnCurrentProduct(message, context, currentProduct) {
+  if (!currentProduct?.nome || !hasStrongProductDetailContext(context)) {
+    return false
+  }
+
+  const normalized = normalizeMessage(message)
+  if (!normalized) {
+    return false
+  }
+
+  if (isMercadoLivreDetailIntent(message) || isMercadoLivrePurchaseIntent(message)) {
+    return true
+  }
+
+  if (/\b(esse produto|este produto|desse produto|desse item|esse item|ele|dele)\b/.test(normalized)) {
+    return true
+  }
+
+  if (
+    /\b(qual|quais|como|quanto|tem|vem|serve|combina|mostra|explica)\b/.test(normalized) &&
+    /\b(produto|item|material|cor|medida|medidas|tamanho|peso|garantia|frete|estoque|acabamento|descricao|detalhe|detalhes)\b/.test(normalized)
+  ) {
+    return true
+  }
+
+  return false
+}
+
 export function resolveMercadoLivreFlowState(input = {}) {
   const inferredRefinementDecision =
     input.catalogFollowUpDecision ??
@@ -424,23 +493,28 @@ export function resolveMercadoLivreFlowState(input = {}) {
   const recentCatalogProducts = normalizeRecentCatalogProducts(input.context)
   const catalogComparisonIntent = detectCatalogComparisonIntent(input.latestUserMessage)
   const forceNewSearch = inferredRefinementDecision?.kind === "catalog_search_refinement"
+  const currentCatalogProduct = forceNewSearch ? null : referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? null
+  const stayOnCurrentProduct = shouldStayOnCurrentProduct(input.latestUserMessage, input.context, currentCatalogProduct)
   const loadMoreCatalogRequested =
     !forceNewSearch &&
+    !stayOnCurrentProduct &&
     !catalogComparisonIntent &&
     (/\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || "")) ||
       /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/i.test(String(input.latestUserMessage || "")) ||
       /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/i.test(String(input.latestUserMessage || "")))
 
   return {
-    productSearchRequested: forceNewSearch || Boolean(input.detectProductSearch?.(input.latestUserMessage)),
-    genericMercadoLivreListingRequested: Boolean(
-      input.isMercadoLivreListingIntent?.(input.latestUserMessage) ?? isMercadoLivreListingIntent(input.latestUserMessage)
-    ),
+    productSearchRequested: stayOnCurrentProduct
+      ? false
+      : forceNewSearch || Boolean(input.detectProductSearch?.(input.latestUserMessage)),
+    genericMercadoLivreListingRequested: stayOnCurrentProduct
+      ? false
+      : Boolean(input.isMercadoLivreListingIntent?.(input.latestUserMessage) ?? isMercadoLivreListingIntent(input.latestUserMessage)),
     forceNewSearch,
     loadMoreCatalogRequested,
     catalogComparisonIntent,
     referencedCatalogProducts,
-    currentCatalogProduct: forceNewSearch ? null : referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? null,
+    currentCatalogProduct,
     recentCatalogProducts,
     catalogFollowUpDecision: inferredRefinementDecision ?? null,
     productSearchTerm: inferredRefinementDecision?.searchCandidates?.[0] ?? productSearchCandidates[0] ?? "",
@@ -461,6 +535,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   const catalogComparisonProduct = selectCatalogProductByComparison(recentCatalogProducts, input.catalogComparisonIntent)
   const catalogComparisonIndexes = resolveCatalogComparisonIndexes(input.latestUserMessage, recentCatalogProducts)
   const projectHasMercadoLivre = hasMercadoLivreConnection(input.project, input.context)
+  const focusedProductContext = hasFocusedCatalogProductContext(input.context)
 
   if (catalogComparisonProduct) {
     return {
@@ -495,15 +570,21 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     Boolean(currentProduct?.id) &&
     Boolean(input.project?.id) &&
     projectHasMercadoLivre &&
-    (isMercadoLivreDetailIntent(input.latestUserMessage) || isMercadoLivrePurchaseIntent(input.latestUserMessage))
+    (focusedProductContext || isMercadoLivreDetailIntent(input.latestUserMessage) || isMercadoLivrePurchaseIntent(input.latestUserMessage))
 
   if (shouldEnrichSelectedProduct) {
+    const storeSettings =
+      typeof input.resolveMercadoLivreStoreSettings === "function"
+        ? await input.resolveMercadoLivreStoreSettings(input.project)
+        : await getMercadoLivreStoreSettingsForProject(input.project)
     const detailedProductResponse = await (input.resolveMercadoLivreProductById ?? getMercadoLivreProductByIdForProject)(
       input.project,
       currentProduct.id
     )
     if (detailedProductResponse?.item) {
-      currentProduct = buildCatalogProductFromItem(detailedProductResponse.item)
+      currentProduct = buildCatalogProductFromItem(detailedProductResponse.item, {
+        detailLevel: storeSettings?.chatContextFull === true ? "full" : "focused",
+      })
     }
   }
 

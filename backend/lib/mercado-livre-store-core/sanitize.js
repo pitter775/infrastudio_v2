@@ -121,6 +121,7 @@ function normalizeStore(row, project = null) {
     active: row?.ativo === true,
     chatWidgetActive: row?.chat_widget_ativo !== false,
     chatWidgetId: row?.chat_widget_id || null,
+    chatContextFull: row?.chat_contexto_completo === true,
     contactEmail: sanitizeText(row?.email_contato, 120),
     contactPhone: sanitizePhone(row?.telefone_contato),
     contactWhatsApp: sanitizePhone(row?.whatsapp_contato),

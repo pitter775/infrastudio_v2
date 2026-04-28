@@ -77,7 +77,25 @@ export function hasRecentCatalogSnapshot(context) {
 }
 
 function productHaystack(product) {
-  return normalizeText([product?.nome, product?.descricao].filter(Boolean).join(" "))
+  const attributeTokens = Array.isArray(product?.atributos)
+    ? product.atributos
+        .flatMap((attribute) => [attribute?.nome, attribute?.valor])
+        .filter(Boolean)
+    : []
+
+  return normalizeText(
+    [
+      product?.nome,
+      product?.descricao,
+      product?.descricaoLonga,
+      product?.material,
+      product?.cor,
+      ...(Array.isArray(product?.variacoesResumo) ? product.variacoesResumo : []),
+      ...attributeTokens,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  )
 }
 
 function normalizeCatalogMessage(message) {

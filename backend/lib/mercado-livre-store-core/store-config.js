@@ -189,6 +189,7 @@ function buildStorePayload(project, input, current = null) {
     ativo: active,
     chat_widget_ativo: fallbackWidgetId ? true : input?.chatWidgetActive !== false,
     chat_widget_id: fallbackWidgetId,
+    chat_contexto_completo: input?.chatContextFull === true,
     email_contato: sanitizeText(input?.contactEmail, 120),
     telefone_contato: sanitizePhone(input?.contactPhone),
     whatsapp_contato: sanitizePhone(input?.contactWhatsApp),
@@ -325,6 +326,7 @@ async function upsertMercadoLivreStoreForProject(project, input = {}, options = 
       dominio_ativo,
       dominio_status,
       dominio_observacoes,
+      chat_contexto_completo,
       ...legacyPayload
     } = basePayload
 
@@ -379,6 +381,7 @@ async function restoreMercadoLivreStoreDefaultsForProject(project, options = {})
     ativo: true,
     chat_widget_ativo: true,
     chat_widget_id: widgetResult.widget.id,
+    chat_contexto_completo: current?.chat_contexto_completo === true,
     email_contato: sanitizeText(current?.email_contato, 120),
     telefone_contato: sanitizePhone(current?.telefone_contato),
     whatsapp_contato: sanitizePhone(current?.whatsapp_contato),
@@ -415,6 +418,7 @@ async function restoreMercadoLivreStoreDefaultsForProject(project, options = {})
       dominio_ativo,
       dominio_status,
       dominio_observacoes,
+      chat_contexto_completo,
       ...legacyPayload
     } = basePayload
 

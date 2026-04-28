@@ -115,6 +115,9 @@ async function main() {
       ui: {
         catalogPreferred: true,
       },
+      conversation: {
+        mode: "listing",
+      },
       storefront: {
         kind: "mercado_livre",
         pageKind: "storefront",
@@ -146,6 +149,9 @@ async function main() {
       ui: {
         catalogPreferred: true,
         productDetailPreferred: true,
+      },
+      conversation: {
+        mode: "product_detail",
       },
       storefront: {
         kind: "mercado_livre",

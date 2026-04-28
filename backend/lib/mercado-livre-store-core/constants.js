@@ -12,6 +12,7 @@ const STORE_BASE_FIELDS = [
   "ativo",
   "chat_widget_ativo",
   "chat_widget_id",
+  "chat_contexto_completo",
   "email_contato",
   "telefone_contato",
   "whatsapp_contato",
@@ -40,5 +41,5 @@ export const STORE_FIELDS_LEGACY = [...STORE_BASE_FIELDS, "destaques"].join(", "
 
 export function isMissingStoreDomainColumnError(error) {
   const message = String(error?.message || error || "")
-  return /dominio_personalizado|dominio_ativo|dominio_status|dominio_observacoes/i.test(message)
+  return /dominio_personalizado|dominio_ativo|dominio_status|dominio_observacoes|chat_contexto_completo/i.test(message)
 }

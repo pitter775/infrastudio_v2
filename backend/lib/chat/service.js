@@ -301,6 +301,14 @@ export function buildNextContext(input) {
           ...enrichedContextRecord.whatsapp,
         }
       : mergedCurrentContext.whatsapp,
+    conversation: isPlainObject(enrichedContextRecord.conversation)
+      ? {
+          ...(isPlainObject(mergedCurrentContext.conversation) ? mergedCurrentContext.conversation : {}),
+          ...enrichedContextRecord.conversation,
+        }
+      : isPlainObject(mergedCurrentContext.conversation)
+        ? { ...mergedCurrentContext.conversation }
+        : {},
     catalogo: isPlainObject(mergedCurrentContext.catalogo) ? { ...mergedCurrentContext.catalogo } : {},
   }
 
@@ -317,6 +325,7 @@ export function buildNextContext(input) {
       ultimaBusca: input.message.trim(),
       produtoAtual: null,
       ultimosProdutos: [],
+      focusMode: "listing",
       paginationOffset: 0,
       paginationNextOffset: 0,
       paginationPoolLimit: 24,
@@ -325,6 +334,11 @@ export function buildNextContext(input) {
       snapshotId: null,
       snapshotCreatedAt: null,
       snapshotTurnId: null,
+    }
+    nextContext.conversation = {
+      ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
+      mode: "listing",
+      updatedAt: new Date().toISOString(),
     }
   }
 
@@ -365,6 +379,7 @@ function extractPromisedCatalogSearchTerm(reply) {
 export function updateContextFromAiResult(input) {
   const nextContext = {
     ...input.nextContext,
+    conversation: isPlainObject(input.nextContext?.conversation) ? { ...input.nextContext.conversation } : {},
     catalogo: isPlainObject(input.nextContext?.catalogo) ? { ...input.nextContext.catalogo } : {},
     agenda: isPlainObject(input.nextContext?.agenda) ? { ...input.nextContext.agenda } : {},
   }
@@ -393,6 +408,7 @@ export function updateContextFromAiResult(input) {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimaBusca: promisedCatalogSearchTerm,
       produtoAtual: null,
+      focusMode: "listing",
       paginationOffset: 0,
       paginationNextOffset: 0,
       paginationPoolLimit: 24,
@@ -407,6 +423,11 @@ export function updateContextFromAiResult(input) {
       expiresAt: new Date(Date.now() + 12 * 60_000).toISOString(),
       updatedAt: new Date().toISOString(),
     }
+    nextContext.conversation = {
+      ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
+      mode: "listing",
+      updatedAt: new Date().toISOString(),
+    }
   }
 
   if (recentMercadoLivreProducts.length) {
@@ -415,6 +436,7 @@ export function updateContextFromAiResult(input) {
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimosProdutos: recentMercadoLivreProducts,
+      focusMode: recentMercadoLivreProducts.length === 1 ? "product_focus" : "listing",
       snapshotId: `${input.chatId}:${snapshotTurnId}:${snapshotCreatedAt}`,
       snapshotCreatedAt,
       snapshotTurnId,
@@ -430,6 +452,13 @@ export function updateContextFromAiResult(input) {
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       produtoAtual: metadataCatalogProduct,
+      focusMode: "product_focus",
+    }
+    const currentMode = String(nextContext?.conversation?.mode || "").trim().toLowerCase()
+    nextContext.conversation = {
+      ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
+      mode: currentMode === "product_detail" ? "product_detail" : "product_focus",
+      updatedAt: new Date().toISOString(),
     }
   }
 
@@ -450,17 +479,31 @@ export function updateContextFromAiResult(input) {
         Number(metadataCatalogSearch.paginationPoolLimit ?? nextContext.catalogo?.paginationPoolLimit ?? 24) || 24,
       paginationHasMore: metadataCatalogSearch.paginationHasMore === true,
       paginationTotal: Number(metadataCatalogSearch.paginationTotal ?? nextContext.catalogo?.paginationTotal ?? 0) || 0,
+      focusMode: isPlainObject(metadataCatalogSearch.produtoAtual) ? "product_focus" : "listing",
     }
 
     if (Array.isArray(metadataCatalogSearch.ultimosProdutos)) {
       nextContext.catalogo.ultimosProdutos = metadataCatalogSearch.ultimosProdutos.filter(
         (product) => isPlainObject(product) && typeof product.nome === "string" && product.nome.trim()
       )
+
+      if (nextContext.catalogo.ultimosProdutos.length > 1) {
+        nextContext.catalogo.focusMode = "listing"
+        nextContext.conversation = {
+          ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
+          mode: "listing",
+          updatedAt: new Date().toISOString(),
+        }
+      }
     }
 
     if (isPlainObject(metadataCatalogSearch.produtoAtual)) {
       nextContext.catalogo.produtoAtual = metadataCatalogSearch.produtoAtual
     }
+  }
+
+  if (isPlainObject(nextContext.catalogo?.produtoAtual) && !String(nextContext.catalogo?.focusMode || "").trim()) {
+    nextContext.catalogo.focusMode = "product_focus"
   }
 
   const agendaReservation = input.ai?.metadata?.agendaReserva

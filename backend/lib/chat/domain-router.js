@@ -27,6 +27,16 @@ function buildExpiresAt(minutes = 12) {
   return new Date(Date.now() + minutes * 60_000).toISOString()
 }
 
+function getConversationMode(context = {}) {
+  const mode = String(context?.conversation?.mode || context?.ui?.mode || "").trim().toLowerCase()
+  return mode || null
+}
+
+function getCatalogFocusMode(context = {}) {
+  const mode = String(context?.catalogo?.focusMode || "").trim().toLowerCase()
+  return mode || null
+}
+
 function hasApiRuntimeSignal(message, focusedApiContext) {
   const normalized = normalizeText(message)
   if (!focusedApiContext?.fields?.length) {
@@ -57,6 +67,7 @@ function hasCatalogSignal(message) {
 
 function hasStorefrontCatalogContext(context) {
   return (
+    getConversationMode(context) === "listing" ||
     context?.ui?.catalogPreferred === true ||
     context?.storefront?.kind === "mercado_livre" ||
     context?.storefront?.pageKind === "storefront" ||
@@ -66,7 +77,11 @@ function hasStorefrontCatalogContext(context) {
 
 function hasProductDetailCatalogContext(context) {
   return Boolean(
-    (context?.ui?.productDetailPreferred === true || context?.storefront?.pageKind === "product_detail") &&
+    (getCatalogFocusMode(context) === "product_focus" ||
+      getConversationMode(context) === "product_focus" ||
+      getConversationMode(context) === "product_detail" ||
+      context?.ui?.productDetailPreferred === true ||
+      context?.storefront?.pageKind === "product_detail") &&
       context?.catalogo?.produtoAtual?.nome
   )
 }
