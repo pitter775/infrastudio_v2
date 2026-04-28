@@ -1,4 +1,6 @@
 import packageJson from "../../package.json"
+import { execSync } from "node:child_process"
+import path from "node:path"
 
 const packageVersion =
   typeof packageJson?.version === "string" && packageJson.version.trim()
@@ -21,6 +23,19 @@ function resolveBuildVersion() {
   if (commitSha) {
     return commitSha.slice(0, 7)
   }
+
+  try {
+    const repoRoot = path.resolve(process.cwd(), "..")
+    const localSha = execSync("git rev-parse --short HEAD", {
+      cwd: repoRoot,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    }).trim()
+
+    if (localSha) {
+      return localSha
+    }
+  } catch {}
 
   return packageVersion
 }

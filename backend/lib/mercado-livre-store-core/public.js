@@ -1,6 +1,6 @@
 import { getAgenteAtivo } from "@/lib/agentes"
 import { getChatWidgetByProjetoAgente } from "@/lib/chat-widgets"
-import { getMercadoLivreLiveProductByProjectId } from "@/lib/mercado-livre-connector"
+import { getMercadoLivreLiveProductByProjectId, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
 import { getSupabaseAdminClient, getSupabaseAdminEnv } from "@/lib/supabase-admin"
 
 import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } from "./constants"
@@ -98,6 +98,42 @@ function buildFeaturedFallbackProduct(featuredProduct = null) {
     descriptionLong: "",
     attributes: [],
   }
+}
+
+function normalizeProductSlugSearchTerm(productSlug = "") {
+  return sanitizeText(productSlug, 180)
+    .replace(/-/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+async function resolveLiveProductBySlug(projectId, productSlug, options = {}) {
+  const normalizedSlug = sanitizeText(productSlug, 180)
+  const searchTerm = normalizeProductSlugSearchTerm(normalizedSlug)
+  if (!projectId || !normalizedSlug || !searchTerm) {
+    return null
+  }
+
+  const liveSearch = await searchMercadoLivreProductsForProject(
+    { id: projectId },
+    {
+      searchTerm,
+      limit: 6,
+      poolLimit: 24,
+      offset: 0,
+    },
+    { supabase: options.supabase }
+  )
+
+  const matchedLiveItem = (Array.isArray(liveSearch?.items) ? liveSearch.items : []).find(
+    (item) => slugifyProduct(item?.title) === normalizedSlug
+  )
+
+  if (!matchedLiveItem?.id) {
+    return null
+  }
+
+  return getMercadoLivreLiveProductByProjectId(projectId, matchedLiveItem.id, { supabase: options.supabase })
 }
 
 async function resolveFeaturedProducts(project, store, options = {}) {
@@ -411,6 +447,38 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
     if (featuredMatch?.id) {
       const liveProduct = await getMercadoLivreLiveProductByProjectId(storeResult.store.projectId, featuredMatch.id, { supabase })
       product = mergeMercadoLivreProductDetails(buildFeaturedFallbackProduct(featuredMatch), liveProduct)
+    }
+  }
+
+  if (!product) {
+    const liveProduct = await resolveLiveProductBySlug(storeResult.store.projectId, productSlug, { supabase })
+    if (liveProduct) {
+      product = mergeMercadoLivreProductDetails(
+        {
+          id: liveProduct.id,
+          itemId: liveProduct.id,
+          title: liveProduct.title,
+          slug: sanitizeText(productSlug, 180) || slugifyProduct(liveProduct.title),
+          price: Number(liveProduct.price ?? 0) || 0,
+          currencyId: liveProduct.currencyId || "BRL",
+          originalPrice: 0,
+          installmentQuantity: 0,
+          installmentAmount: 0,
+          installmentRate: 0,
+          unitPrice: 0,
+          thumbnail: liveProduct.thumbnail || "",
+          images: Array.isArray(liveProduct.pictures) ? liveProduct.pictures.filter(Boolean) : [],
+          permalink: liveProduct.permalink || "",
+          status: liveProduct.status || "active",
+          stock: Number(liveProduct.availableQuantity ?? 0) || 0,
+          categoryId: liveProduct.categoryId || "",
+          categoryLabel: liveProduct.categoryName || "",
+          shortDescription: liveProduct.shortDescription || "",
+          descriptionLong: liveProduct.descriptionPlain || "",
+          attributes: Array.isArray(liveProduct.attributes) ? liveProduct.attributes : [],
+        },
+        liveProduct
+      )
     }
   }
 

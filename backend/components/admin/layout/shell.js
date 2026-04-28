@@ -133,8 +133,9 @@ function SidebarItem({ item, pathname, collapsed, pendingHref, onNavigate, badge
   )
 }
 
-function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavigate, counts, projectUsageSummary = null }) {
+function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavigate, counts, projectUsageSummary = null, buildLabel = '' }) {
   const availableNavItems = navItems.filter((item) => !item.adminOnly || user?.role === "admin")
+  const shouldShowBuildLabel = user?.role === 'admin' && !collapsed && buildLabel
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -182,6 +183,14 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
             {collapsed ? null : <span>Sair</span>}
           </button>
         </div>
+
+        {shouldShowBuildLabel ? (
+          <div className="mt-16 px-3">
+            <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-slate-600">
+              build {buildLabel}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       <div className="border-t border-white/5 px-4 pt-6">
@@ -284,7 +293,7 @@ function SidebarProjectUsageCard({ summary }) {
   )
 }
 
-export function AdminShell({ user, children }) {
+export function AdminShell({ user, children, buildLabel = '' }) {
   const pathname = usePathname()
   const attendanceRoute = pathname.startsWith('/admin/atendimento')
   const projectDetailRoute = pathname.startsWith('/admin/projetos/')
@@ -619,6 +628,7 @@ export function AdminShell({ user, children }) {
                 onNavigate={handleNavigate}
                 counts={notificationCounts}
                 projectUsageSummary={projectUsageSummary}
+                buildLabel={buildLabel}
               />
             </div>
           </motion.aside>
@@ -649,6 +659,7 @@ export function AdminShell({ user, children }) {
                             }}
                             counts={notificationCounts}
                             projectUsageSummary={projectUsageSummary}
+                            buildLabel={buildLabel}
                           />
                         </div>
                       </div>
