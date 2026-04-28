@@ -1062,9 +1062,95 @@ const tests: TestCase[] = [
         }
       );
 
-      assert.equal(result.metadata.provider, "test_openai");
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
       assert.match(result.reply, /entrega e feita pelo Mercado Livre/i);
       assert.doesNotMatch(result.reply, /escolha forte|pontos confirmados no anuncio|custo-beneficio/i);
+    },
+  },
+  {
+    name: "mercado livre responde valor do produto em foco de forma deterministica sem repetir card",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual o valor ?" }] as never,
+        {
+          agente: {
+            id: "agent-mercado-livre-price",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-mercado-livre-price",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "product_detail",
+          },
+          conversation: {
+            mode: "product_detail",
+          },
+          ui: {
+            productDetailPreferred: true,
+          },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB2",
+              nome: "Jogo de Sopeira Completo",
+              preco: 250,
+              descricao: "R$ 250,00 - 2 em estoque",
+              link: "https://example.com/sopeira",
+              imagem: "https://example.com/sopeira.jpg",
+              sellerId: "seller-1",
+              sellerName: "Mesa Posta",
+              availableQuantity: 2,
+            },
+            ultimosProdutos: [
+              {
+                id: "MLB2",
+                nome: "Jogo de Sopeira Completo",
+                descricao: "R$ 250,00 - 2 em estoque",
+              },
+            ],
+          },
+        } as never,
+        {
+          resolveMercadoLivreProductById: async () => ({
+            item: {
+              id: "MLB2",
+              title: "Jogo de Sopeira Completo",
+              price: 250,
+              currencyId: "BRL",
+              availableQuantity: 2,
+              status: "active",
+              permalink: "https://example.com/sopeira",
+              thumbnail: "https://example.com/sopeira.jpg",
+              sellerId: "seller-1",
+              sellerName: "Mesa Posta",
+              freeShipping: true,
+              warranty: "30 dias",
+              attributes: [{ id: "MATERIAL", name: "Material principal", valueName: "Ceramica" }],
+              variations: [],
+              descriptionPlain: "Sopeira em ceramica.",
+            },
+            error: null,
+          }),
+          generateSalesReply: async () => ({
+            reply: "Nao deveria usar o modelo para valor de produto em foco.",
+            assets: [{ id: "mercado-livre-1" }],
+            usage: { inputTokens: 0, outputTokens: 0 },
+            metadata: { provider: "test_openai", model: "fake" },
+          }),
+        }
+      );
+
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
+      assert.match(result.reply, /R\$\s*250,00/i);
+      assert.equal(Array.isArray(result.assets) ? result.assets.length : 0, 0);
+      assert.doesNotMatch(result.reply, /Nao posso informar o valor exato/i);
     },
   },
   {
@@ -1193,9 +1279,9 @@ const tests: TestCase[] = [
       assert.equal(flow.productSearchRequested, false);
       assert.equal(flow.genericMercadoLivreListingRequested, false);
       assert.equal(flow.currentCatalogProduct?.id, "MLB2");
-      assert.match(state.selectedProductSalesReply ?? "", /Material:\s*Ceramica/i);
+      assert.match(state.selectedProductSalesReply ?? "", /material deste produto e Ceramica/i);
       assert.equal(state.mercadoLivreHeuristicReply, null);
-      assert.equal(state.mercadoLivreAssets.length, 1);
+      assert.equal(state.mercadoLivreAssets.length, 0);
       assert.equal(state.selectedCatalogProduct?.contextoDetalhado, true);
       assert.equal(state.selectedCatalogProduct?.contextoCompleto, false);
       assert.match(state.selectedCatalogProduct?.descricaoLonga ?? "", /conjunto para servir/i);
@@ -1296,7 +1382,7 @@ const tests: TestCase[] = [
       assert.equal(flow.productSearchRequested, false);
       assert.equal(flow.genericMercadoLivreListingRequested, false);
       assert.equal(flow.currentCatalogProduct?.id, "MLB-OXFORD-1");
-      assert.match(state.selectedProductSalesReply ?? "", /Material:\s*Ceramica/i);
+      assert.match(state.selectedProductSalesReply ?? "", /material deste produto e Ceramica/i);
       assert.equal(state.mercadoLivreHeuristicReply, null);
     },
   },
@@ -1607,7 +1693,7 @@ const tests: TestCase[] = [
         }
       );
 
-      assert.equal(result.metadata.provider, "test_openai");
+      assert.equal(result.metadata.provider, "mercado_livre_runtime");
       assert.doesNotMatch(result.reply, /escolha forte para seguir agora/i);
       assert.match(result.reply, /Sopeira/i);
     },
@@ -2556,7 +2642,7 @@ const tests: TestCase[] = [
         {
           resolveChatChannel: async () => ({
             projeto: { id: "proj-widget", nome: "Projeto Widget", slug: "proj-widget" },
-            agente: { id: "agent-widget", nome: "Agente Widget" },
+            agente: { id: "agent-widget", nome: "Agente Widget", promptBase: "Atenda com objetividade." },
             widget: null,
             lockedToAgent: true,
             channel: { kind: "external_widget" },
@@ -2566,7 +2652,10 @@ const tests: TestCase[] = [
             status: "ativo",
             projetoId: "proj-widget",
             agenteId: "agent-widget",
-            contexto: {},
+            contexto: {
+              projeto: { id: "proj-widget", nome: "Projeto Widget", slug: "proj-widget" },
+              agente: { id: "agent-widget", nome: "Agente Widget", promptBase: "Atenda com objetividade." },
+            },
             titulo: "Chat existente",
           }),
           createChat: async () => {
@@ -3363,13 +3452,20 @@ const tests: TestCase[] = [
           {
             resolveChatChannel: async () => ({
               projeto: { id: "proj-90", nome: "Projeto 90", slug: "proj-90" },
-              agente: { id: "agent-90", nome: "Agente 90" },
+              agente: { id: "agent-90", nome: "Agente 90", promptBase: "Atenda com objetividade." },
               widget: null,
               lockedToAgent: true,
               channel: { kind: "web" },
             }),
             ensureActiveChatSession: async () => ({
-              chat: { id: "chat-90", projetoId: "proj-90", contexto: {} },
+              chat: {
+                id: "chat-90",
+                projetoId: "proj-90",
+                contexto: {
+                  projeto: { id: "proj-90", nome: "Projeto 90", slug: "proj-90" },
+                  agente: { id: "agent-90", nome: "Agente 90", promptBase: "Atenda com objetividade." },
+                },
+              },
               created: false,
               initialContext: null,
             }),

@@ -218,7 +218,7 @@ export function resolveChatDomainRoute(input = {}) {
     }
   }
 
-  if (hasBillingSignal(message) && !hasCatalogSignal(message)) {
+  if (hasBillingSignal(message) && !hasCatalogSignal(message) && !hasProductDetailCatalogContext(context)) {
     return {
       domain: "billing",
       source: "agent",

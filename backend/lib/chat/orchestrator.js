@@ -7,9 +7,11 @@ import {
 import { buildLeadNameAcknowledgementReply, enrichLeadContext, extractName, isLikelyLeadNameReply } from "@/lib/chat/lead-stage"
 import { resolveChatDomainRoute } from "@/lib/chat/domain-router"
 import {
+  buildFocusedProductFactualReply,
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicReply,
   resolveMercadoLivreHeuristicState,
+  shouldAttachMercadoLivreAssetForMessage,
 } from "@/lib/chat/mercado-livre"
 import { generateOpenAiSalesReply } from "@/lib/chat/openai-sales-reply"
 import { prefersStructuredReply } from "@/lib/chat/prompt-builders"
@@ -93,10 +95,6 @@ export function buildConversationHistory(conversation, texto) {
 }
 
 export async function executeSalesOrchestrator(history, context, options = {}) {
-  if (typeof options.generateSalesReply === "function") {
-    return options.generateSalesReply(history, context)
-  }
-
   const openAiKey = process.env.OPENAI_API_KEY?.trim()
   const model = process.env.OPENAI_CHAT_MODEL?.trim() || "gpt-4o-mini"
   const agentName = context?.agente?.nome?.trim() || ""
@@ -162,6 +160,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     resolveMercadoLivreProductById: options.resolveMercadoLivreProductById,
   })
   const selectedMercadoLivreProductReply = mercadoLivreState?.selectedProductSalesReply ?? null
+  const selectedMercadoLivreProductShouldAttachAsset = mercadoLivreState?.selectedProductShouldAttachAsset === true
   const mercadoLivreReply = resolveMercadoLivreHeuristicReply(mercadoLivreState)
   const apiCatalogSearchState = shouldUseApiRuntime ? buildApiCatalogSearchState(runtimeApis) : null
   const apiCatalogProduct =
@@ -198,6 +197,8 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const leadNameAcknowledgementReply =
     leadNameReplyDetected && extractedLeadName ? buildLeadNameAcknowledgementReply(extractedLeadName, true) : null
   const currentCatalogProduct = mercadoLivreSelectedProduct ?? apiCatalogProduct ?? context?.catalogo?.produtoAtual ?? null
+  const deterministicMercadoLivreFactualReply =
+    shouldUseMercadoLivre && currentCatalogProduct ? buildFocusedProductFactualReply(currentCatalogProduct, latestUserMessage) : null
   const shouldPreferMercadoLivreListing =
     shouldUseMercadoLivre &&
     mercadoLivreAssets.length > 0 &&
@@ -321,9 +322,58 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
+  if (deterministicMercadoLivreFactualReply) {
+    return {
+      ...buildHeuristicReplyResult(deterministicMercadoLivreFactualReply, {
+        ...heuristicMetadata,
+        provider: "mercado_livre_runtime",
+        model: "mercado_livre_connector",
+        heuristicStage: "mercado_livre_product_fact",
+        domainStage: "catalog",
+        catalogoProdutoAtual: currentCatalogProduct ?? null,
+        catalogoBusca: mercadoLivreCatalogSearchState,
+      }),
+      assets: shouldAttachMercadoLivreAssetForMessage(latestUserMessage) ? mercadoLivreAssets : [],
+      metadata: {
+        ...heuristicMetadata,
+        provider: "mercado_livre_runtime",
+        model: "mercado_livre_connector",
+        routeStage: "sales",
+        heuristicStage: "mercado_livre_product_fact",
+        domainStage: "catalog",
+        catalogoProdutoAtual: currentCatalogProduct ?? null,
+        catalogoBusca: mercadoLivreCatalogSearchState,
+      },
+    }
+  }
+
+  if (selectedMercadoLivreProductReply) {
+    return {
+      ...buildHeuristicReplyResult(selectedMercadoLivreProductReply, {
+        ...heuristicMetadata,
+        provider: "mercado_livre_runtime",
+        model: "mercado_livre_connector",
+        heuristicStage: "mercado_livre_product_fact",
+        domainStage: "catalog",
+        catalogoProdutoAtual: currentCatalogProduct ?? null,
+        catalogoBusca: mercadoLivreCatalogSearchState,
+      }),
+      assets: selectedMercadoLivreProductShouldAttachAsset ? mercadoLivreAssets : [],
+      metadata: {
+        ...heuristicMetadata,
+        provider: "mercado_livre_runtime",
+        model: "mercado_livre_connector",
+        routeStage: "sales",
+        heuristicStage: "mercado_livre_product_fact",
+        domainStage: "catalog",
+        catalogoProdutoAtual: currentCatalogProduct ?? null,
+        catalogoBusca: mercadoLivreCatalogSearchState,
+      },
+    }
+  }
+
   if (
     mercadoLivreReply &&
-    !selectedMercadoLivreProductReply &&
     /\b(gostei|esse|essa|detalhe|detalhes|link|garantia|frete|estoque|serve|combina)\b/i.test(latestUserMessage)
   ) {
     return {
@@ -346,7 +396,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     }
   }
 
-  if (mercadoLivreReply && !selectedMercadoLivreProductReply && mercadoLivreAssets.length > 0) {
+  if (mercadoLivreReply && mercadoLivreAssets.length > 0) {
     return {
       ...buildHeuristicReplyResult(mercadoLivreReply, {
         ...heuristicMetadata,
@@ -367,7 +417,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     }
   }
 
-  if (mercadoLivreReply && !selectedMercadoLivreProductReply) {
+  if (mercadoLivreReply) {
     return buildHeuristicReplyResult(mercadoLivreReply, {
       ...heuristicMetadata,
       provider: "mercado_livre_runtime",
@@ -385,6 +435,10 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       heuristicStage: "lead_capture",
       domainStage: pipelineState.conversationDomainStage,
     })
+  }
+
+  if (typeof options.generateSalesReply === "function") {
+    return options.generateSalesReply(history, context)
   }
 
   return generateOpenAiSalesReply({
