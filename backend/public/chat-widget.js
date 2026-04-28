@@ -189,6 +189,104 @@
     }
 
     var widgetContext = parseContext(rawContext);
+    var navigationResetTimer = null;
+    var locationSignature = getLocationSignature();
+
+    function resolveWidgetScriptElement() {
+      if (bootScript && bootScript.isConnected) {
+        return bootScript;
+      }
+
+      var scripts = document.querySelectorAll("script[src]");
+      for (var index = scripts.length - 1; index >= 0; index -= 1) {
+        var candidate = scripts[index];
+        var src = candidate.getAttribute("src") || "";
+        if (src.indexOf("/chat-widget.js") === -1) {
+          continue;
+        }
+
+        var candidateWidgetId = (candidate.getAttribute("data-widget-id") || "").trim();
+        var candidateWidgetSlug = (candidate.getAttribute("data-widget") || "").trim();
+        if ((widgetId && candidateWidgetId === widgetId) || (widgetSlug && candidateWidgetSlug === widgetSlug)) {
+          return candidate;
+        }
+      }
+
+      return null;
+    }
+
+    function syncWidgetContextFromDom() {
+      var currentScript = resolveWidgetScriptElement();
+      if (!currentScript) {
+        return false;
+      }
+
+      rawContext = currentScript.getAttribute("data-context") || "";
+      widgetContext = parseContext(rawContext);
+      return true;
+    }
+
+    function getLocationSignature() {
+      return String(window.location.pathname || "") + String(window.location.search || "");
+    }
+
+    function resolveChatSessionScope(context) {
+      var explicitScope = String(context?.ui?.chatSessionScope || context?.ui?.sessionScope || "").trim().toLowerCase();
+      if (explicitScope) {
+        return explicitScope;
+      }
+
+      return context?.storefront?.kind === "mercado_livre" ? "navigation" : "persistent";
+    }
+
+    function shouldResetChatOnNavigation() {
+      return resolveChatSessionScope(widgetContext) === "navigation";
+    }
+
+    function installUrlChangeObserver() {
+      if (window.__infrastudioChatUrlObserverInstalled === true) {
+        return;
+      }
+
+      window.__infrastudioChatUrlObserverInstalled = true;
+      window.__infrastudioChatLastHref = String(window.location.href || "");
+
+      var emitUrlChange = function () {
+        var nextHref = String(window.location.href || "");
+        var previousHref = String(window.__infrastudioChatLastHref || "");
+        if (nextHref === previousHref) {
+          return;
+        }
+
+        window.__infrastudioChatLastHref = nextHref;
+        window.dispatchEvent(
+          new CustomEvent("infrastudio-chat:urlchange", {
+            detail: {
+              previousHref: previousHref,
+              nextHref: nextHref,
+            },
+          }),
+        );
+      };
+
+      var originalPushState = window.history.pushState;
+      var originalReplaceState = window.history.replaceState;
+
+      window.history.pushState = function () {
+        var result = originalPushState.apply(this, arguments);
+        emitUrlChange();
+        return result;
+      };
+
+      window.history.replaceState = function () {
+        var result = originalReplaceState.apply(this, arguments);
+        emitUrlChange();
+        return result;
+      };
+
+      window.addEventListener("popstate", emitUrlChange);
+      window.addEventListener("hashchange", emitUrlChange);
+    }
     storageKey = "infrastudio-chat:" + instanceKey + ":" + (externalIdentifier || "anon");
     try {
       var savedState = JSON.parse(window.localStorage.getItem(storageKey) || "null");
@@ -1969,9 +2067,16 @@
         lastSyncedMessageAt = null;
         pendingAgendaSelection = null;
         inlineActionState = null;
+        contactBoxOpen = false;
+        input.value = "";
+        attachments = [];
         messages = [];
         updateHumanHandoffState(null);
         persist();
+        renderAttachmentsPreview();
+        autoResizeInput();
+        syncContactBox();
+        updateComposerState();
         renderMessages({ forceScroll: true });
         stack.classList.remove("is-resetting");
         if (onComplete) {
@@ -1992,9 +2097,16 @@
       lastSyncedMessageAt = null;
       pendingAgendaSelection = null;
       inlineActionState = null;
+      contactBoxOpen = false;
+      input.value = "";
+      attachments = [];
       messages = [];
       updateHumanHandoffState(null);
       persist();
+      renderAttachmentsPreview();
+      autoResizeInput();
+      syncContactBox();
+      updateComposerState();
       renderMessages({ forceScroll: true });
       stack.classList.remove("is-resetting");
       if (onComplete) {
@@ -2624,6 +2736,29 @@
       setOpen(false);
     });
 
+    addListener(window, "infrastudio-chat:urlchange", function () {
+      var nextSignature = getLocationSignature();
+      if (nextSignature === locationSignature) {
+        return;
+      }
+
+      locationSignature = nextSignature;
+      if (!shouldResetChatOnNavigation()) {
+        syncWidgetContextFromDom();
+        return;
+      }
+
+      if (navigationResetTimer) {
+        window.clearTimeout(navigationResetTimer);
+      }
+
+      navigationResetTimer = window.setTimeout(function () {
+        navigationResetTimer = null;
+        syncWidgetContextFromDom();
+        resetConversationState({ animated: false });
+      }, 140);
+    });
+
     addListener(window, "popstate", function () {
       if (ignoreNextMobilePopstate) {
         ignoreNextMobilePopstate = false;
@@ -3011,6 +3146,7 @@
     }
 
     scheduleSyncLoop();
+    installUrlChangeObserver();
     addListener(document, "visibilitychange", function () {
       scheduleSyncLoop();
       if (document.visibilityState === "hidden") {
@@ -3026,6 +3162,9 @@
     addCleanup(function () {
       if (syncTimer) {
         window.clearInterval(syncTimer);
+      }
+      if (navigationResetTimer) {
+        window.clearTimeout(navigationResetTimer);
       }
     });
 

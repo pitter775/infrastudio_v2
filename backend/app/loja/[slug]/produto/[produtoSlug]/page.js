@@ -472,6 +472,7 @@ export default async function LojaProdutoPage({ params }) {
           ui: {
             catalogPreferred: true,
             productDetailPreferred: true,
+            chatSessionScope: "navigation",
           },
           focus: chatProductContext
             ? {

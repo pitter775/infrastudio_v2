@@ -74,6 +74,7 @@ export default async function LojaPage({ params, searchParams }) {
           },
           ui: {
             catalogPreferred: true,
+            chatSessionScope: "navigation",
           },
         },
         theme: 'light',
