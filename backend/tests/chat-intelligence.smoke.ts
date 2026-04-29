@@ -5590,6 +5590,7 @@ const tests: TestCase[] = [
       assert.equal(webPayload.leadNameForTitle, "Julia")
       assert.equal(webPayload.actions[0]?.type, "message")
       assert.equal(webPayload.actions[0]?.label, "Ver mais opcoes")
+      assert.equal(webPayload.actions[0]?.skipUserBubble, true)
       assert.equal(webPayload.actions[0]?.extraContext?.ui?.catalogAction, "load_more")
       assert.doesNotMatch(whatsappPayload.primaryReply, /vou verificar|acolhedora/i)
       assert.equal(whatsappPayload.whatsappEmbeddedSequence.length, 3)

@@ -514,3 +514,11 @@ Ainda errado / fragil:
 - continuar reduzindo o intent factual local de `api-runtime.js`, tentando concentrar mais lookup em hints/decisao estruturada antes do matcher residual
 - seguir rebaixando `catalog-follow-up.js` para guardrail residual, principalmente nos casos em que ainda sobra decisao por texto curto sem ancora semantica
 - depois revisar se o merge final no `orchestrator.js` ja pode simplificar mais um passo sem reabrir regressao, idealmente isolando melhor o caso em que o guardrail local ainda pode resolver item unico concreto
+
+## Registro curto
+
+- a busca de catalogo do chat para Mercado Livre agora prioriza o snapshot da loja quando houver termo de busca
+  - isso alinha os resultados do chat com a vitrine publica da loja
+  - `load more` passa a paginar sobre a mesma base filtrada da vitrine, em vez de concluir cedo sobre um recorte curto da conta
+- a acao estruturada `Ver mais opcoes` do widget agora pode seguir sem bolha azul do usuario
+  - isso evita poluicao visual e reduz a sensacao de ordem quebrada nas mensagens quando a continuidade veio de clique controlado

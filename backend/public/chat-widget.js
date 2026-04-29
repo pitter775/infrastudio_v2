@@ -1394,6 +1394,7 @@
           messageButton.addEventListener("click", function () {
             void sendMessage(action.message, {
               userBubbleText: action.userBubbleText || action.label || action.message,
+              skipUserBubble: action.skipUserBubble === true,
               source: action.source || undefined,
               extraContext: action.extraContext && typeof action.extraContext === "object" ? action.extraContext : undefined,
             });
@@ -1481,6 +1482,7 @@
           if (action.message) {
             void sendMessage(action.message, {
               userBubbleText: action.userBubbleText || action.label || action.message,
+              skipUserBubble: action.skipUserBubble === true,
               source: action.source || undefined,
               extraContext: action.extraContext && typeof action.extraContext === "object" ? action.extraContext : undefined,
             });
@@ -1735,6 +1737,7 @@
       button.addEventListener("click", function () {
         void sendMessage(action.message, {
           userBubbleText: action.userBubbleText || action.label || action.message,
+          skipUserBubble: action.skipUserBubble === true,
           source: action.source || undefined,
           extraContext: action.extraContext && typeof action.extraContext === "object" ? action.extraContext : undefined,
         });

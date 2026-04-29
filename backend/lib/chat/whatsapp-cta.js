@@ -174,6 +174,7 @@ function buildCatalogLoadMoreAction(input = {}) {
     icon: "sparkles",
     message: "Ver mais opcoes",
     userBubbleText: "Ver mais opcoes",
+    skipUserBubble: true,
     source: "widget_catalog_load_more",
     extraContext: {
       ui: {

@@ -9,6 +9,7 @@ import {
   mapMercadoLivreQuestion,
   scoreMercadoLivreItem,
 } from "@/lib/mercado-livre/mappers"
+import { listSnapshotProductsByProjectId } from "@/lib/mercado-livre-store-core/snapshot"
 import { resolveMercadoLivreProductInternal } from "@/lib/mercado-livre/resolve-product"
 import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl, resolvePublicAppUrl } from "@/lib/mercado-livre-webhook"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
@@ -46,6 +47,144 @@ function userCanAccessProject(user, projectId) {
 function sanitizeString(value) {
   const normalized = String(value || "").trim()
   return normalized || ""
+}
+
+function sanitizeNumber(value, fallback = 0) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function mapSnapshotAttributesToMercadoLivre(attributes = []) {
+  return Array.isArray(attributes)
+    ? attributes
+        .map((attribute) => ({
+          id: sanitizeString(attribute?.id),
+          name: sanitizeString(attribute?.name || attribute?.nome || attribute?.label),
+          valueId: sanitizeString(attribute?.valueId || attribute?.value_id),
+          valueName: sanitizeString(
+            attribute?.valueName || attribute?.value_name || attribute?.valueLabel || attribute?.value || attribute?.valor
+          ),
+          value: sanitizeString(
+            attribute?.value || attribute?.valor || attribute?.valueName || attribute?.value_name || attribute?.valueLabel
+          ),
+          valueLabel: sanitizeString(
+            attribute?.valueLabel || attribute?.valueName || attribute?.value_name || attribute?.value || attribute?.valor
+          ),
+          valueStruct: attribute?.valueStruct && typeof attribute.valueStruct === "object" ? attribute.valueStruct : null,
+          values: Array.isArray(attribute?.values) ? attribute.values : [],
+          value_list: Array.isArray(attribute?.value_list) ? attribute.value_list : [],
+          attributeGroupName: sanitizeString(attribute?.attributeGroupName || attribute?.attribute_group_name),
+          attribute_group_name: sanitizeString(attribute?.attribute_group_name || attribute?.attributeGroupName),
+        }))
+        .filter((attribute) => attribute.name)
+    : []
+}
+
+function mapSnapshotProductToMercadoLivreItem(product) {
+  if (!product?.itemId && !product?.id) {
+    return null
+  }
+
+  const pictures = Array.isArray(product?.images) ? product.images.map((image) => sanitizeString(image)).filter(Boolean) : []
+
+  return {
+    id: sanitizeString(product?.itemId || product?.id),
+    title: sanitizeString(product?.title),
+    price: sanitizeNumber(product?.price, 0),
+    currencyId: sanitizeString(product?.currencyId || "BRL"),
+    installmentQuantity: sanitizeNumber(product?.installmentQuantity, 0),
+    installmentAmount: sanitizeNumber(product?.installmentAmount, 0),
+    installmentRate: sanitizeNumber(product?.installmentRate, 0),
+    unitPrice: sanitizeNumber(product?.unitPrice, 0),
+    availableQuantity: sanitizeNumber(product?.stock, 0),
+    status: sanitizeString(product?.status || "active"),
+    permalink: sanitizeString(product?.permalink),
+    thumbnail: sanitizeString(product?.thumbnail || pictures[0]),
+    sellerId: "",
+    sellerName: "",
+    condition: "",
+    warranty: "",
+    categoryId: sanitizeString(product?.categoryId),
+    categoryName: sanitizeString(product?.categoryLabel || product?.categoryName),
+    domainId: "",
+    officialStoreId: "",
+    catalogProductId: "",
+    acceptsMercadoPago: false,
+    freeShipping: false,
+    logisticType: "",
+    attributes: mapSnapshotAttributesToMercadoLivre(product?.attributes),
+    pictures,
+    variations: [],
+    descriptionPlain: sanitizeString(product?.descriptionLong || product?.fullDescription),
+    shortDescription: sanitizeString(product?.shortDescription),
+  }
+}
+
+async function searchSnapshotMercadoLivreProductsForProject(projectId, options = {}, deps = {}) {
+  const searchTerm = sanitizeString(options.searchTerm)
+  if (!projectId || !searchTerm) {
+    return null
+  }
+
+  const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 6)
+  const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
+  const excludedItemIds = Array.isArray(options.excludeItemIds)
+    ? options.excludeItemIds.map((itemId) => sanitizeString(itemId)).filter(Boolean)
+    : []
+  const supabase = deps.supabase ?? getSupabaseAdminClient()
+  const seenItemIds = new Set()
+  const collectedItems = []
+  const maxPagesToScan = Math.max(2, Math.ceil(Math.max(Number(options.poolLimit ?? requestedLimit) || requestedLimit, requestedLimit) / requestedLimit))
+  let scanOffset = offset
+  let snapshotHasMore = false
+  let pagesScanned = 0
+
+  while (pagesScanned < maxPagesToScan) {
+    const page = Math.floor(scanOffset / requestedLimit) + 1
+    const listing = await listSnapshotProductsByProjectId(projectId, {
+      supabase,
+      searchTerm,
+      page,
+      limit: requestedLimit,
+      sort: "recent",
+    })
+    const pageItems = Array.isArray(listing?.items) ? listing.items : []
+
+    for (const product of pageItems) {
+      const mappedItem = mapSnapshotProductToMercadoLivreItem(product)
+      const itemId = sanitizeString(mappedItem?.id)
+      if (!itemId || excludedItemIds.includes(itemId) || seenItemIds.has(itemId)) {
+        continue
+      }
+
+      seenItemIds.add(itemId)
+      collectedItems.push(mappedItem)
+      if (collectedItems.length >= requestedLimit) {
+        break
+      }
+    }
+
+    snapshotHasMore = listing?.hasMore === true
+    scanOffset += requestedLimit
+    pagesScanned += 1
+
+    if (collectedItems.length >= requestedLimit || !snapshotHasMore) {
+      break
+    }
+  }
+
+  return {
+    items: collectedItems.slice(0, requestedLimit),
+    paging: {
+      total: 0,
+      offset,
+      poolLimit: requestedLimit,
+      requestedLimit,
+      nextOffset: scanOffset,
+      hasMore: snapshotHasMore,
+    },
+    error: null,
+  }
 }
 
 function getMercadoLivreOAuthErrorDetails(error) {
@@ -1210,11 +1349,6 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
-    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
-    if (!connector?.id) {
-      return { items: [], connector: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
-    }
-
     const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 6)
     const poolLimit = Math.min(Math.max(Number(options.poolLimit ?? 24) || 24, requestedLimit), 50)
     const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
@@ -1222,6 +1356,33 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
     const excludedItemIds = Array.isArray(options.excludeItemIds)
       ? options.excludeItemIds.map((itemId) => sanitizeString(itemId)).filter(Boolean)
       : []
+    const snapshotSearch = await searchSnapshotMercadoLivreProductsForProject(
+      project.id,
+      {
+        searchTerm,
+        limit: requestedLimit,
+        offset,
+        poolLimit,
+        excludeItemIds: excludedItemIds,
+      },
+      { ...deps, supabase }
+    )
+
+    if (snapshotSearch && (snapshotSearch.items.length > 0 || snapshotSearch.paging?.hasMore === true)) {
+      const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+      return {
+        items: snapshotSearch.items,
+        connector,
+        paging: snapshotSearch.paging,
+        error: null,
+      }
+    }
+
+    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+    if (!connector?.id) {
+      return { items: [], connector: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
+    }
+
     return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
       const config = getConnectorConfig(resolvedConnector)
       const userId = sanitizeString(config.oauthUserId)
