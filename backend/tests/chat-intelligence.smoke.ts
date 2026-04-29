@@ -656,6 +656,78 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "catalogo nao abre busca nova quando lista ativa recebe pergunta factual sem item em foco",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem garantia?" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-list-fact-question",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-list-fact-question",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          conversation: { mode: "listing" },
+          storefront: { kind: "mercado_livre", pageKind: "storefront" },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+            ultimaBusca: "inox",
+            listingSession: {
+              id: "sessao-inox-garantia",
+              snapshotId: "snapshot-inox-garantia",
+              searchTerm: "inox",
+              matchedProductIds: ["MLB1", "MLB2", "MLB3"],
+              offset: 0,
+              nextOffset: 3,
+              poolLimit: 24,
+              hasMore: true,
+              total: 3,
+              source: "storefront_snapshot",
+            },
+            ultimosProdutos: [
+              {
+                id: "MLB1",
+                nome: "Conjunto Bules Inox",
+                descricao: "R$ 287,10 - 1 em estoque",
+              },
+              {
+                id: "MLB2",
+                nome: "Conjunto 2 Baldes de Gelo Inox",
+                descricao: "R$ 150,00 - 1 em estoque",
+              },
+              {
+                id: "MLB3",
+                nome: "Conjunto Cha Cafe Inox",
+                descricao: "R$ 630,00 - 1 em estoque",
+              },
+            ],
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => null,
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria abrir busca nova para pergunta factual sobre lista ativa");
+          },
+        }
+      );
+
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(result.reply, /quero confirmar qual voce quis dizer/i);
+      assert.match(result.reply, /1\. Conjunto Bules Inox/i);
+      assert.match(result.reply, /2\. Conjunto 2 Baldes de Gelo Inox/i);
+      assert.match(result.reply, /3\. Conjunto Cha Cafe Inox/i);
+      assert.doesNotMatch(result.reply, /nao achei itens da loja com esse perfil/i);
+    },
+  },
+  {
     name: "catalogo libera nova busca quando o usuario refina a lista com atributo novo",
     run: async () => {
       let receivedSearchTerm = "";
@@ -870,9 +942,32 @@ const tests: TestCase[] = [
         },
         context: catalogContext,
         recentProducts: catalogContext.catalogo?.ultimosProdutos ?? [],
+        currentCatalogProduct: catalogContext.catalogo?.produtoAtual ?? null,
       });
 
       assert.equal(decision?.kind, "non_catalog_message");
+    },
+  },
+  {
+    name: "catalogo semantico transforma pergunta factual sobre lista ativa em desambiguacao sem busca nova",
+    run: () => {
+      const decision = buildCatalogDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "current_product_question",
+          confidence: 0.91,
+          reason: "Cliente perguntou um atributo factual sem indicar qual item da lista.",
+          usedLlm: true,
+        },
+        recentProducts: [
+          { id: "MLB1", nome: "Conjunto Bules Inox" },
+          { id: "MLB2", nome: "Conjunto 2 Baldes de Gelo Inox" },
+          { id: "MLB3", nome: "Conjunto Cha Cafe Inox" },
+        ],
+        currentCatalogProduct: null,
+      });
+
+      assert.equal(decision?.kind, "recent_product_reference_unresolved");
+      assert.equal(decision?.matchedProducts?.length, 3);
     },
   },
   {

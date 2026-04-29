@@ -90,6 +90,10 @@ Ja feito:
   - se a mensagem em detalhe sinaliza busca catalogal real por candidatos estruturados e nao referencia explicitamente o item atual, o runtime sai do item e abre busca nova
   - isso cobre casos como `tem porcelanato?` ou `tem inox?` depois de abrir um produto, sem depender de novo matcher textual amplo
   - follow-up factual do item continua preso no detalhe e `load_more` continua na mesma sessao de listagem
+- lista recente sem item em foco agora tambem ganhou um estado factual deterministico:
+  - pergunta como `tem garantia?`, `qual material?` ou `tem frete?` sobre `listingSession` ativa nao abre busca nova
+  - se houver mais de um item na lista e nenhum foco resolvido, o runtime pede desambiguacao da lista recente
+  - o stage semantico tambem foi alinhado para tratar esse caso como `recent_product_reference_unresolved`, nao como busca nova
 - Mercado Livre em detalhe de produto ganhou contexto forte e reset por navegacao
 - snapshot da loja Mercado Livre ficou mais resiliente no refresh
 - produto em foco do Mercado Livre ja responde varios fatos de forma deterministica

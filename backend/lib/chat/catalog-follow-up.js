@@ -276,6 +276,30 @@ export function isRecentCatalogReferenceAttempt(message) {
   )
 }
 
+function isRecentListingFactQuestionWithoutFocusedItem(message, context = {}) {
+  const products = normalizeRecentCatalogProducts(context)
+  if (products.length < 2) {
+    return false
+  }
+
+  if (context?.catalogo?.produtoAtual?.nome || context?.catalogo?.productFocus?.productId) {
+    return false
+  }
+
+  const hasListingAnchor =
+    Boolean(getCatalogListingSearchTerm(context)) ||
+    context?.catalogo?.listingSession?.hasMore === true ||
+    Number(context?.catalogo?.listingSession?.total ?? 0) > 0
+
+  if (!hasListingAnchor) {
+    return false
+  }
+
+  return /\b(garantia|frete|estoque|detalhes|detalhe|mais informac(?:ao|oes)|descricao|especificac(?:ao|oes)|ficha tecnica|cor|material|serve|combina|link|preco|valor|quanto|medida|medidas|tamanho|peso)\b/i.test(
+    String(message || "")
+  )
+}
+
 function hasStrongRecentCatalogReferenceSignal(message) {
   return /\b(gostei|esse|essa|desse|dessa|aquele|aquela|daquele|daquela|opcao|opcoes|primeiro|primeira|segundo|segunda|terceiro|terceira|1|2|3)\b/i.test(
     String(message || "")
@@ -466,6 +490,17 @@ export function resolveDeterministicCatalogFollowUpDecision(message, context, de
   const refinementDecision = detectCatalogSearchRefinement(message, context, deps)
   if (refinementDecision) {
     return refinementDecision
+  }
+
+  if (isRecentListingFactQuestionWithoutFocusedItem(message, context)) {
+    return {
+      kind: "recent_product_reference_unresolved",
+      confidence: 0.78,
+      reason: "Cliente fez pergunta factual sobre a lista recente sem indicar qual item.",
+      matchedProducts: products.slice(0, 3),
+      usedLlm: false,
+      shouldBlockNewSearch: true,
+    }
   }
 
   return resolveRecentCatalogReferenceDecision(message, context)

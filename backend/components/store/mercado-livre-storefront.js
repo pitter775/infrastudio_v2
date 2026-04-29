@@ -418,42 +418,6 @@ export function MercadoLivreStorefront({
                             </div>
                           ) : null}
                         </div>
-                        <div className="flex items-start justify-between gap-4">
-                          <div className="min-w-0">
-                            <div className="text-[11px] font-semibold uppercase tracking-[0.24em]" style={{ color: palette.accentDark }}>
-                              Em destaque
-                            </div>
-                            <div className="mt-2 line-clamp-2 text-lg leading-tight text-slate-950">
-                              {activeSlide.title}
-                            </div>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Preco</div>
-                            <div className="mt-2 text-lg font-semibold text-slate-950">
-                              {formatStoreCurrency(activeSlide.price, activeSlide.currencyId)}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="mt-4 flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-2">
-                            {activeSlideImages.length > 1
-                              ? activeSlideImages.map((image, index) => (
-                                  <span
-                                    key={`${image}-${index}`}
-                                    className="h-2.5 rounded-full transition-all"
-                                    style={{
-                                      width: index === activeSlideImageIndex ? 28 : 10,
-                                      backgroundColor: index === activeSlideImageIndex ? palette.accentDark : '#cbd5e1',
-                                    }}
-                                  />
-                                ))
-                              : null}
-                          </div>
-                          <span className="inline-flex items-center gap-1 rounded-xl px-3 py-1.5 text-xs font-semibold text-white" style={{ backgroundColor: palette.accentDark }}>
-                            Ver produto
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </span>
-                        </div>
                       </div>
                     </Link>
                   ) : (

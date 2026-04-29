@@ -14,11 +14,23 @@ function extractResponseText(payload) {
 export function buildCatalogDecisionFromSemanticIntent(input) {
   const semanticIntent = input?.semanticIntent
   const recentProducts = Array.isArray(input?.recentProducts) ? input.recentProducts : []
+  const hasCurrentProduct = Boolean(input?.currentCatalogProduct?.nome)
   if (!semanticIntent || semanticIntent.confidence < 0.7) {
     return null
   }
 
   if (["product_question", "current_product_question", "product_detail"].includes(semanticIntent.intent)) {
+    if (!hasCurrentProduct && recentProducts.length > 1) {
+      return {
+        kind: "recent_product_reference_unresolved",
+        confidence: semanticIntent.confidence,
+        reason: semanticIntent.reason ?? "Cliente fez pergunta factual sobre a lista recente sem item unico resolvido.",
+        matchedProducts: recentProducts.slice(0, 3),
+        usedLlm: Boolean(semanticIntent.usedLlm),
+        shouldBlockNewSearch: true,
+      }
+    }
+
     return {
       kind: "non_catalog_message",
       confidence: semanticIntent.confidence,
@@ -456,6 +468,7 @@ export async function classifySemanticIntentStage(input = {}) {
             "Use recent_product_reference quando o cliente estiver se referindo a um item da lista recente e for possivel identificar qual item e.",
             "Use recent_product_reference_ambiguous quando a fala apontar para mais de um item recente de forma plausivel.",
             "Use recent_product_reference_unresolved quando o cliente ainda estiver falando da lista recente, mas sem item unico resolvido.",
+            "Se houver lista recente com mais de um item e o cliente fizer pergunta factual curta como garantia, frete, estoque, material, cor, medidas ou detalhes sem indicar qual item, use recent_product_reference_unresolved.",
             "Quando usar recent_product_reference, preencha referencedProductIds apenas com ids reais da lista recente.",
             "Nao invente targetType. Se nao tiver certeza, retorne other.",
           ].join("\n"),

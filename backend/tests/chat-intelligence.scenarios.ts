@@ -73,6 +73,7 @@ function buildScenarioResults() {
     },
     context: catalogContext,
     recentProducts: catalogContext.catalogo?.ultimosProdutos ?? [],
+    currentCatalogProduct: catalogContext.catalogo?.produtoAtual ?? null,
   });
   scenarios.push({
     category: "catalog",

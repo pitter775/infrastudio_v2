@@ -528,6 +528,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const semanticCatalogDecision = buildCatalogDecisionFromSemanticIntent({
     semanticIntent: semanticCatalogIntent,
     recentProducts: context?.catalogo?.ultimosProdutos,
+    currentCatalogProduct: context?.catalogo?.produtoAtual,
   })
   const semanticBillingIntent =
     hasRuntimePricingCatalog(runtimeConfig) && !hasProductPricingPriority

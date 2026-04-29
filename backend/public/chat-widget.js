@@ -2302,23 +2302,15 @@
         return false;
       }
 
+       if (candidate.id && current.id && candidate.id === current.id) {
+        return true;
+      }
+
       if (candidate.serverId && current.serverId && candidate.serverId === current.serverId) {
         return true;
       }
 
-      var candidateSignature = normalizeMessageSignature(candidate.text);
-      var currentSignature = normalizeMessageSignature(current.text);
-      if (!candidateSignature || !currentSignature || candidateSignature !== currentSignature) {
-        return false;
-      }
-
-      var candidateTime = getMessageTimestamp(candidate);
-      var currentTime = getMessageTimestamp(current);
-      if (!candidateTime || !currentTime) {
-        return true;
-      }
-
-      return Math.abs(candidateTime - currentTime) <= 10 * 60 * 1000;
+      return false;
     }
 
     function isSameUserMessage(candidate, current) {
