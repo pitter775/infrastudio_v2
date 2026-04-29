@@ -452,6 +452,7 @@ export async function classifySemanticIntentStage(input = {}) {
             "Quando usar catalog_search_refinement, extraia targetType curto e literal com o termo novo principal da busca.",
             "Use new_catalog_search quando o cliente iniciar uma nova busca de catalogo, inclusive na vitrine, com um tipo ou termo curto claro, por exemplo saleiro azul, xicara vintage, vaso amarelo.",
             "Use catalog_load_more quando o cliente pedir mais opcoes, mais modelos, outras opcoes, perguntar se tem mais, se sao so aqueles itens ou o que tiver, sem mudar o tipo principal da busca.",
+            "Se existir contexto de busca/listagem recente e a conversa estiver em pagina de detalhe, pedidos como tem mais, so esses, quero ver mais ou me mostra outras opcoes continuam sendo catalog_load_more, nao current_product_question.",
             "Use recent_product_reference quando o cliente estiver se referindo a um item da lista recente e for possivel identificar qual item e.",
             "Use recent_product_reference_ambiguous quando a fala apontar para mais de um item recente de forma plausivel.",
             "Use recent_product_reference_unresolved quando o cliente ainda estiver falando da lista recente, mas sem item unico resolvido.",
@@ -463,6 +464,7 @@ export async function classifySemanticIntentStage(input = {}) {
           role: "user",
           content: JSON.stringify({
             message: latestUserMessage,
+            conversationMode: sanitizeString(input?.context?.conversation?.mode),
             storefrontContext: storefrontContext
               ? {
                   kind: sanitizeString(storefrontContext?.kind),
@@ -487,6 +489,12 @@ export async function classifySemanticIntentStage(input = {}) {
               material: sanitizeString(item?.material),
               cor: sanitizeString(item?.cor),
             })),
+            lastSearchTerm: sanitizeString(input?.context?.catalogo?.ultimaBusca),
+            hasRecentListContext:
+              Boolean(sanitizeString(input?.context?.catalogo?.ultimaBusca)) ||
+              recentProducts.length > 0 ||
+              input?.context?.catalogo?.paginationHasMore === true ||
+              Number(input?.context?.catalogo?.paginationTotal ?? 0) > 0,
           }),
         },
       ],

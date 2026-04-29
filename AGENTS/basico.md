@@ -10,6 +10,9 @@
 - performance e regra obrigatoria em toda evolucao, principalmente em banco, egress e consultas
 - toda query deve ser otimizada: buscar so o necessario, usar `limit` quando fizer sentido e evitar `select *`, N+1, payload grande e refetch/polling desnecessario
 - se houver conflito entre rapidez e padrao do projeto, manter o padrao
+- no cerebro do chat, nao corrigir entendimento do usuario por heuristica textual
+- proibido ampliar regex, listas de frases, `includes` ou excecoes manuais para intent, continuidade e roteamento
+- para linguagem variada do usuario, a solucao obrigatoria e estado + classificacao semantica estruturada + handler deterministico
 
 ## Workspace
 

@@ -138,8 +138,68 @@ function isCatalogLoadMoreMessage(message = "") {
   )
 }
 
-function shouldContinueRecentCatalogListing(inferredDecision, recentCatalogProducts = []) {
-  return inferredDecision?.kind === "catalog_load_more" && Array.isArray(recentCatalogProducts) && recentCatalogProducts.length > 0
+function hasCatalogContinuationAnchor(context = {}, recentCatalogProducts = []) {
+  const lastSearchTerm = sanitizeString(context?.catalogo?.ultimaBusca)
+  const hasRecentProducts = Array.isArray(recentCatalogProducts) && recentCatalogProducts.length > 0
+  const hasPaginationContext =
+    sanitizeNumber(context?.catalogo?.paginationNextOffset, 0) > 0 ||
+    sanitizeNumber(context?.catalogo?.paginationTotal, 0) > 0 ||
+    context?.catalogo?.paginationHasMore === true
+  const hasSnapshotContext = Boolean(sanitizeString(context?.catalogo?.snapshotId))
+
+  return Boolean(lastSearchTerm || hasRecentProducts || hasPaginationContext || hasSnapshotContext)
+}
+
+function resolveExplicitCatalogContinuationDecision(message, context = {}, recentCatalogProducts = []) {
+  const explicitIndexMap = {
+    "1": 0,
+    "2": 1,
+    "3": 2,
+  }
+  const explicitAction = normalizeMessage(context?.ui?.catalogAction || context?.catalogAction || "")
+  if (explicitAction === "load_more" && hasCatalogContinuationAnchor(context, recentCatalogProducts)) {
+    return {
+      kind: "catalog_load_more",
+      confidence: 1,
+      reason: "explicit_catalog_load_more_action",
+      matchedProducts: [],
+      usedLlm: false,
+      shouldBlockNewSearch: false,
+    }
+  }
+
+  const channelKind = String(context?.channel?.kind || context?.canal || "").trim().toLowerCase()
+  const normalizedMessage = normalizeMessage(message)
+  if (channelKind === "whatsapp" && Object.prototype.hasOwnProperty.call(explicitIndexMap, normalizedMessage)) {
+    const selectedProduct = recentCatalogProducts[explicitIndexMap[normalizedMessage]]
+    if (selectedProduct) {
+      return {
+        kind: "recent_product_reference",
+        confidence: 1,
+        reason: "explicit_catalog_item_command",
+        matchedProducts: [selectedProduct],
+        usedLlm: false,
+        shouldBlockNewSearch: true,
+      }
+    }
+  }
+
+  if (channelKind === "whatsapp" && normalizedMessage === "mais" && hasCatalogContinuationAnchor(context, recentCatalogProducts)) {
+    return {
+      kind: "catalog_load_more",
+      confidence: 1,
+      reason: "explicit_catalog_load_more_command",
+      matchedProducts: [],
+      usedLlm: false,
+      shouldBlockNewSearch: false,
+    }
+  }
+
+  return null
+}
+
+function shouldContinueRecentCatalogListing(inferredDecision, context = {}, recentCatalogProducts = []) {
+  return inferredDecision?.kind === "catalog_load_more" && hasCatalogContinuationAnchor(context, recentCatalogProducts)
 }
 
 function formatCurrency(value, currencyId = "BRL") {
@@ -328,7 +388,7 @@ export function resolveCatalogIntentState(input = {}) {
       : []
 
   const shouldContinueListing =
-    shouldContinueRecentCatalogListing(inferredDecision, recentCatalogProducts)
+    shouldContinueRecentCatalogListing(inferredDecision, context, recentCatalogProducts)
 
   const shouldExitCurrentProductContext =
     inferredDecision?.kind === "same_type_search" ||
@@ -393,6 +453,22 @@ export function resolveCatalogIntentState(input = {}) {
 
 export function resolveCatalogDecisionState(input = {}) {
   const context = input.context ?? {}
+  const explicitDecision = resolveExplicitCatalogContinuationDecision(
+    input.latestUserMessage,
+    context,
+    normalizeRecentCatalogProducts(context)
+  )
+  if (explicitDecision) {
+    const catalogReferenceReply = resolveCatalogReferenceHeuristicReply(explicitDecision)
+
+    return {
+      explicitDecision,
+      heuristicDecision: null,
+      catalogDecision: explicitDecision,
+      catalogReferenceReply,
+    }
+  }
+
   const semanticDecision = input.semanticDecision ?? null
   const shouldEvaluateHeuristicCatalogFollowUp =
     (!semanticDecision || semanticDecision.kind === "recent_product_reference_unresolved") &&

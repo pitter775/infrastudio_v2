@@ -90,6 +90,7 @@ import {
   resolveChatContactSnapshot,
   resolveChatDomainRoute,
   resolveConversationPipelineStageState,
+  resolveCatalogDecisionState,
   resolveCatalogIntentState,
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicState,
@@ -854,6 +855,193 @@ const tests: TestCase[] = [
       assert.equal(state.stayOnCurrentProduct, false);
       assert.equal(state.loadMoreCatalogRequested, true);
       assert.equal(state.productSearchRequested, false);
+    },
+  },
+  {
+    name: "catalogo load more sai de product detail quando o usuario pergunta se tem mais itens",
+    run: () => {
+      const state = resolveCatalogIntentState({
+        latestUserMessage: "tem mais ou so esses?",
+        context: {
+          conversation: { mode: "product_detail" },
+          storefront: { pageKind: "product_detail" },
+          ui: { productDetailPreferred: true },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-FOCUS-1",
+              nome: "Bule De Porcelana Renner",
+            },
+            ultimaBusca: "bule porcelana",
+            ultimosProdutos: [
+              { id: "MLB-1", nome: "Bule 1" },
+              { id: "MLB-2", nome: "Bule 2" },
+            ],
+            focusMode: "product_focus",
+          },
+        },
+        catalogDecision: {
+          kind: "catalog_load_more",
+          confidence: 0.92,
+        },
+        detectProductSearch: () => false,
+        buildProductSearchCandidates: () => [],
+        isCatalogListingIntent: () => false,
+      });
+
+      assert.equal(state.currentCatalogProduct, null);
+      assert.equal(state.stayOnCurrentProduct, false);
+      assert.equal(state.forceNewSearch, false);
+      assert.equal(state.loadMoreCatalogRequested, true);
+      assert.equal(state.productSearchRequested, false);
+    },
+  },
+  {
+    name: "catalogo load more semantico sai de product detail com ancora de ultimaBusca mesmo sem lista recente",
+    run: () => {
+      const state = resolveCatalogIntentState({
+        latestUserMessage: "tem mais ou so esses?",
+        context: {
+          conversation: { mode: "product_detail" },
+          storefront: { pageKind: "product_detail" },
+          ui: { productDetailPreferred: true },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-FOCUS-1",
+              nome: "Bule De Porcelana Renner",
+            },
+            ultimaBusca: "bule porcelana",
+            ultimosProdutos: [],
+            focusMode: "product_focus",
+            paginationHasMore: true,
+            paginationNextOffset: 3,
+          },
+        },
+        catalogDecision: {
+          kind: "catalog_load_more",
+          confidence: 0.92,
+        },
+        detectProductSearch: () => false,
+        buildProductSearchCandidates: () => [],
+        isCatalogListingIntent: () => false,
+      });
+
+      assert.equal(state.currentCatalogProduct, null);
+      assert.equal(state.stayOnCurrentProduct, false);
+      assert.equal(state.forceNewSearch, false);
+      assert.equal(state.loadMoreCatalogRequested, true);
+      assert.equal(state.paginationOffset, 3);
+    },
+  },
+  {
+    name: "catalogo aceita acao explicita do widget para ver mais opcoes",
+    run: () => {
+      const context = {
+        conversation: { mode: "product_detail" },
+        storefront: { pageKind: "product_detail" },
+        ui: {
+          productDetailPreferred: true,
+          catalogAction: "load_more",
+        },
+        catalogo: {
+          produtoAtual: {
+            id: "MLB-FOCUS-1",
+            nome: "Bule De Porcelana Renner",
+          },
+          ultimaBusca: "bule porcelana",
+          ultimosProdutos: [],
+          focusMode: "product_focus",
+          paginationHasMore: true,
+          paginationNextOffset: 3,
+        },
+      };
+
+      const decisionState = resolveCatalogDecisionState({
+        latestUserMessage: "Ver mais opcoes",
+        context,
+        shouldUseCatalog: true,
+      });
+      const state = resolveCatalogIntentState({
+        latestUserMessage: "Ver mais opcoes",
+        context,
+        catalogDecision: decisionState.catalogDecision,
+        detectProductSearch: () => false,
+        buildProductSearchCandidates: () => [],
+        isCatalogListingIntent: () => false,
+      });
+
+      assert.equal(state.catalogDecision?.kind, "catalog_load_more");
+      assert.equal(state.catalogDecision?.reason, "explicit_catalog_load_more_action");
+      assert.equal(state.stayOnCurrentProduct, false);
+      assert.equal(state.loadMoreCatalogRequested, true);
+    },
+  },
+  {
+    name: "catalogo aceita comando explicito MAIS no whatsapp para continuar listagem",
+    run: () => {
+      const context = {
+        channel: { kind: "whatsapp" },
+        conversation: { mode: "listing" },
+        catalogo: {
+          ultimaBusca: "bule porcelana",
+          ultimosProdutos: [{ id: "MLB-1", nome: "Bule 1" }],
+          paginationHasMore: true,
+          paginationNextOffset: 3,
+        },
+      };
+
+      const decisionState = resolveCatalogDecisionState({
+        latestUserMessage: "MAIS",
+        context,
+        shouldUseCatalog: true,
+      });
+      const state = resolveCatalogIntentState({
+        latestUserMessage: "MAIS",
+        context,
+        catalogDecision: decisionState.catalogDecision,
+        detectProductSearch: () => false,
+        buildProductSearchCandidates: () => [],
+        isCatalogListingIntent: () => false,
+      });
+
+      assert.equal(state.catalogDecision?.kind, "catalog_load_more");
+      assert.equal(state.catalogDecision?.reason, "explicit_catalog_load_more_command");
+      assert.equal(state.loadMoreCatalogRequested, true);
+    },
+  },
+  {
+    name: "catalogo aceita comando explicito numerico no whatsapp para selecionar item recente",
+    run: () => {
+      const context = {
+        channel: { kind: "whatsapp" },
+        conversation: { mode: "listing" },
+        catalogo: {
+          ultimaBusca: "bule porcelana",
+          ultimosProdutos: [
+            { id: "MLB-1", nome: "Bule 1" },
+            { id: "MLB-2", nome: "Bule 2" },
+            { id: "MLB-3", nome: "Bule 3" },
+          ],
+        },
+      };
+
+      const decisionState = resolveCatalogDecisionState({
+        latestUserMessage: "2",
+        context,
+        shouldUseCatalog: true,
+      });
+      const state = resolveCatalogIntentState({
+        latestUserMessage: "2",
+        context,
+        catalogDecision: decisionState.catalogDecision,
+        detectProductSearch: () => false,
+        buildProductSearchCandidates: () => [],
+        isCatalogListingIntent: () => false,
+      });
+
+      assert.equal(state.catalogDecision?.kind, "recent_product_reference");
+      assert.equal(state.catalogDecision?.reason, "explicit_catalog_item_command");
+      assert.equal(state.currentCatalogProduct?.id, "MLB-2");
+      assert.equal(state.stayOnCurrentProduct, true);
     },
   },
   {
@@ -4463,11 +4651,14 @@ const tests: TestCase[] = [
         ]
       );
 
-      assert.equal(sequence.length, 2);
+      assert.equal(sequence.length, 3);
       assert.equal(sequence[0], "Separei alguns itens da loja para voce ver.");
-      assert.match(sequence[1], /^https:\/\/produto\.mercadolivre\.com\.br\/MLB123/);
+      assert.match(sequence[1], /^\*1\.\s+Aparelho De Jantar Oxford Ceramica\*/i);
+      assert.match(sequence[1], /https:\/\/produto\.mercadolivre\.com\.br\/MLB123/);
       assert.match(sequence[1], /pode combinar com o que voce pediu/i);
       assert.match(sequence[1], /tenho 1 em estoque agora/i);
+      assert.match(sequence[2], /responda MAIS/i);
+      assert.match(sequence[2], /responda 1, 2 ou 3/i);
     },
   },
   {
@@ -4488,11 +4679,14 @@ const tests: TestCase[] = [
         ]
       );
 
-      assert.equal(sequence.length, 2);
+      assert.equal(sequence.length, 3);
       assert.equal(sequence[0], "Separei uma opcao para voce ver.");
-      assert.match(sequence[1], /^https:\/\/catalogo\.exemplo\.local\/produtos\/kit-mesa-posta-premium/);
+      assert.match(sequence[1], /^\*1\.\s+Kit Mesa Posta Premium\*/i);
+      assert.match(sequence[1], /https:\/\/catalogo\.exemplo\.local\/produtos\/kit-mesa-posta-premium/);
       assert.match(sequence[1], /pode combinar com o que voce pediu|parece uma opcao forte para seguir agora/i);
       assert.match(sequence[1], /tenho 7 em estoque agora/i);
+      assert.match(sequence[2], /responda MAIS/i);
+      assert.match(sequence[2], /responda 1, 2 ou 3/i);
     },
   },
   {
@@ -4525,8 +4719,12 @@ const tests: TestCase[] = [
       );
 
       assert.match(singleFocus[1], /parece a melhor opcao para seguir agora/i);
+      assert.match(singleFocus[2], /responda MAIS/i);
+      assert.match(singleFocus[2], /responda 1, 2 ou 3/i);
       assert.match(loadMore[2], /entra como mais uma opcao nessa linha/i);
       assert.match(loadMore[2], /continuo te mandando outras variacoes parecidas/i);
+      assert.match(loadMore[3], /responda MAIS/i);
+      assert.match(loadMore[3], /responda 1, 2 ou 3/i);
     },
   },
   {
@@ -5335,6 +5533,8 @@ const tests: TestCase[] = [
           assets: [
             {
               id: "MLB1",
+              kind: "product",
+              provider: "mercado_livre",
               nome: "Jogo de Jantar Porcelana",
               descricao: "Conjunto floral",
               targetUrl: "https://example.com/jantar",
@@ -5343,6 +5543,21 @@ const tests: TestCase[] = [
         },
         nextContext: {
           lead: { nome: "Julia" },
+          conversation: {
+            mode: "listing",
+          },
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "storefront",
+          },
+          catalogo: {
+            ultimosProdutos: [
+              {
+                id: "MLB1",
+                nome: "Jogo de Jantar Porcelana",
+              },
+            ],
+          },
         },
         normalizedExternalIdentifier: "lead-1",
       })
@@ -5354,6 +5569,8 @@ const tests: TestCase[] = [
           assets: [
             {
               id: "MLB1",
+              kind: "product",
+              provider: "mercado_livre",
               nome: "Jogo de Jantar Porcelana",
               descricao: "Conjunto floral",
               targetUrl: "https://example.com/jantar",
@@ -5371,8 +5588,13 @@ const tests: TestCase[] = [
       assert.match(webPayload.primaryReply, /Encontrei algumas opcoes/i)
       assert.match(webPayload.followUpReply, /me diga se gostou de algum/i)
       assert.equal(webPayload.leadNameForTitle, "Julia")
+      assert.equal(webPayload.actions[0]?.type, "message")
+      assert.equal(webPayload.actions[0]?.label, "Ver mais opcoes")
+      assert.equal(webPayload.actions[0]?.extraContext?.ui?.catalogAction, "load_more")
       assert.doesNotMatch(whatsappPayload.primaryReply, /vou verificar|acolhedora/i)
-      assert.equal(whatsappPayload.whatsappEmbeddedSequence.length, 2)
+      assert.equal(whatsappPayload.whatsappEmbeddedSequence.length, 3)
+      assert.match(whatsappPayload.whatsappEmbeddedSequence[2] || "", /responda MAIS/i)
+      assert.match(whatsappPayload.whatsappEmbeddedSequence[2] || "", /responda 1, 2 ou 3/i)
       assert.equal(whatsappPayload.whatsappContactNameForTitle, "Julia Rodrigues")
       assert.equal(whatsappPayload.contactSnapshot.contatoTelefone, "5511999999999")
     },
@@ -5468,8 +5690,9 @@ const tests: TestCase[] = [
       })
 
       assert.equal(Array.isArray(payload.actions), true)
-      assert.equal(payload.actions.length, 1)
-      assert.equal(payload.actions[0]?.type, "whatsapp_link")
+      assert.equal(payload.actions.length, 2)
+      assert.equal(payload.actions[0]?.type, "message")
+      assert.equal(payload.actions[1]?.type, "whatsapp_link")
       assert.doesNotMatch(String(payload.followUpReply || ""), /marcar um horario/i)
     },
   },

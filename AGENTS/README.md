@@ -16,6 +16,14 @@ Ordem recomendada de leitura:
 6. `melhorias.md` para ideias, backlog e operacao
 7. `../PLANO-LOJA-MERCADO-LIVRE.md` se a tarefa envolver loja publica do Mercado Livre
 
+## Regra critica para o cerebro do chat
+
+- se a tarefa tocar intent, orquestracao, continuidade, catalogo, Mercado Livre, billing, agenda ou API runtime:
+  - nao corrigir por heuristica textual
+  - nao expandir regex, lista de frases, gatilhos por palavras ou excecoes manuais para "entender" o usuario
+  - nao considerar aceitavel resolver variacao de linguagem por `if`, `includes`, regex ou match de frases
+  - a direcao correta e sempre fortalecer estado, intent stage semantico estruturado e handler deterministico
+
 Arquivos:
 
 - [basico.md](C:\Projetos\infrastudio_v2\AGENTS\basico.md): regras base do workspace, stack e limites

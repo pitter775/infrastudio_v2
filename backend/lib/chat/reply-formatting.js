@@ -211,6 +211,18 @@ function isApiProductAsset(asset) {
   )
 }
 
+function hasCatalogProductAssets(assets = []) {
+  return Array.isArray(assets) && assets.some((asset) => isMercadoLivreProductAsset(asset) || isApiProductAsset(asset))
+}
+
+function buildCatalogWhatsAppCommandHint(assets = []) {
+  if (!hasCatalogProductAssets(assets)) {
+    return ""
+  }
+
+  return "Se quiser ver mais opcoes, responda MAIS. Para escolher um item da lista, responda 1, 2 ou 3."
+}
+
 function resolveMercadoLivreWhatsAppTone(reply, followUpReply, assetIndex, totalAssets) {
   const combined = `${String(reply || "")} ${String(followUpReply || "")}`.toLowerCase()
 
@@ -334,6 +346,7 @@ export function buildWhatsAppMessageSequence(reply, assets, followUpReply) {
                 })
 
             return [
+              formatWhatsAppOutboundTextSafe(`*${index + 1}. ${String(asset.nome || "Produto").trim()}*`),
               String(asset.targetUrl || "").trim(),
               salesComment,
             ]
@@ -369,7 +382,10 @@ export function buildWhatsAppMessageSequence(reply, assets, followUpReply) {
     messages.push(formatWhatsAppOutboundTextSafe(followUpReply))
   }
 
-  return [...messages, ...assetMessages]
+  const commandHint = buildCatalogWhatsAppCommandHint(assets)
+  return commandHint
+    ? [...messages, ...assetMessages, formatWhatsAppOutboundTextSafe(commandHint)]
+    : [...messages, ...assetMessages]
 }
 
 export function isCatalogSearchMessage(message) {

@@ -607,6 +607,9 @@
       ".chat-asset-action.ask { border-color: color-mix(in srgb, " + accent + " 40%, transparent); background: color-mix(in srgb, " + accent + " 14%, " + (theme === "light" ? "white" : "rgba(15,23,42,0.48)") + "); color: " + (theme === "light" ? "#0f172a" : "white") + "; }",
       ".chat-asset-action.ask:hover { background: color-mix(in srgb, " + accent + " 20%, " + (theme === "light" ? "white" : "rgba(15,23,42,0.6)") + "); }",
       ".chat-asset-action .chat-icon { width: 14px; height: 14px; }",
+      ".chat-asset-list-footer { margin-top: 10px; display: flex; justify-content: center; }",
+      ".chat-asset-list-more { display: inline-flex; align-items: center; gap: 6px; min-height: 0; padding: 8px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, " + accent + " 28%, rgba(148,163,184,0.24)); background: color-mix(in srgb, " + accent + " 12%, " + (theme === "light" ? "rgba(255,255,255,0.96)" : "rgba(15,23,42,0.56)") + "); color: " + (theme === "light" ? "#0f172a" : "white") + "; font-size: 11px; font-weight: 700; cursor: pointer; transition: transform .18s ease, background-color .18s ease, border-color .18s ease; }",
+      ".chat-asset-list-more:hover { transform: translateY(-1px); background: color-mix(in srgb, " + accent + " 18%, " + (theme === "light" ? "rgba(255,255,255,1)" : "rgba(15,23,42,0.7)") + "); }",
       ".chat-asset-title { font-size: 12px; font-weight: 700; color: inherit; }",
       ".chat-asset-subtitle { margin-top: 4px; font-size: 11px; color: #94a3b8; }",
       ".chat-asset-open { font-size: 11px; font-weight: 700; color: " + accent + "; white-space: nowrap; }",
@@ -1340,6 +1343,16 @@
           return;
         }
 
+        var hideInInlineRail =
+          action.message &&
+          ((String(action.source || "").trim() === "widget_catalog_load_more") ||
+            (action.extraContext && action.extraContext.ui && action.extraContext.ui.catalogAction === "load_more")) &&
+          Array.isArray(message.assets) &&
+          message.assets.some(isCatalogProductAsset);
+        if (hideInInlineRail) {
+          return;
+        }
+
         var isAgenda = action.type === "agenda_schedule";
         var isActive = Boolean(
           isAgenda &&
@@ -1370,6 +1383,22 @@
             }));
           });
           row.appendChild(eventButton);
+          return;
+        }
+
+        if (action.message) {
+          var messageButton = document.createElement("button");
+          messageButton.type = "button";
+          messageButton.className = "chat-inline-action";
+          messageButton.innerHTML = getActionIconMarkup(action) + "<span>" + escapeHtml(action.label || "Continuar") + "</span>";
+          messageButton.addEventListener("click", function () {
+            void sendMessage(action.message, {
+              userBubbleText: action.userBubbleText || action.label || action.message,
+              source: action.source || undefined,
+              extraContext: action.extraContext && typeof action.extraContext === "object" ? action.extraContext : undefined,
+            });
+          });
+          row.appendChild(messageButton);
           return;
         }
 
@@ -1450,7 +1479,11 @@
           }
 
           if (action.message) {
-            void sendMessage(action.message);
+            void sendMessage(action.message, {
+              userBubbleText: action.userBubbleText || action.label || action.message,
+              source: action.source || undefined,
+              extraContext: action.extraContext && typeof action.extraContext === "object" ? action.extraContext : undefined,
+            });
           }
         });
         row.appendChild(button);
@@ -1662,20 +1695,71 @@
       };
     }
 
-    function createAssetGallery(assets) {
+    function isCatalogProductAsset(asset) {
+      return Boolean(asset && (asset.kind === "product" || asset.provider === "mercado_livre" || asset.provider === "api_runtime"));
+    }
+
+    function getCatalogLoadMoreAction(message) {
+      if (!message || !Array.isArray(message.actions)) {
+        return null;
+      }
+
+      for (var index = 0; index < message.actions.length; index += 1) {
+        var action = message.actions[index];
+        if (!action || !action.message) {
+          continue;
+        }
+
+        var actionSource = String(action.source || "").trim();
+        var catalogAction = action.extraContext && action.extraContext.ui ? action.extraContext.ui.catalogAction : null;
+        if (actionSource === "widget_catalog_load_more" || catalogAction === "load_more") {
+          return action;
+        }
+      }
+
+      return null;
+    }
+
+    function createCatalogLoadMoreButton(action) {
+      if (!action || !action.message) {
+        return null;
+      }
+
+      var wrap = document.createElement("div");
+      wrap.className = "chat-asset-list-footer";
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "chat-asset-list-more";
+      button.innerHTML = getActionIconMarkup(action) + "<span>" + escapeHtml(action.label || "Ver mais opcoes") + "</span>";
+      button.addEventListener("click", function () {
+        void sendMessage(action.message, {
+          userBubbleText: action.userBubbleText || action.label || action.message,
+          source: action.source || undefined,
+          extraContext: action.extraContext && typeof action.extraContext === "object" ? action.extraContext : undefined,
+        });
+      });
+      wrap.appendChild(button);
+
+      return wrap;
+    }
+
+    function createAssetGallery(assets, message) {
       if (!Array.isArray(assets) || !assets.length) {
         return null;
       }
 
       var wrap = document.createElement("div");
       wrap.className = "chat-assets";
+      var hasCatalogProducts = false;
 
       assets.slice(0, 3).forEach(function (asset) {
         if (!asset || (!asset.publicUrl && !asset.targetUrl)) {
           return;
         }
 
-        if (asset.kind === "product" || asset.provider === "mercado_livre") {
+        if (isCatalogProductAsset(asset)) {
+          hasCatalogProducts = true;
           wrap.appendChild(createProductAssetCard(asset));
           return;
         }
@@ -1737,6 +1821,13 @@
         card.appendChild(body);
         wrap.appendChild(card);
       });
+
+      if (hasCatalogProducts) {
+        var loadMoreAction = createCatalogLoadMoreButton(getCatalogLoadMoreAction(message));
+        if (loadMoreAction) {
+          wrap.appendChild(loadMoreAction);
+        }
+      }
 
       return wrap;
     }
@@ -2807,7 +2898,7 @@
             bubble.appendChild(handoffButton);
           }
           if (message.isAi && Array.isArray(message.assets) && message.assets.length) {
-            var assetGallery = createAssetGallery(message.assets);
+            var assetGallery = createAssetGallery(message.assets, message);
             if (assetGallery) {
               bubble.appendChild(assetGallery);
             }

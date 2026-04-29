@@ -147,17 +147,58 @@ function isCatalogConversationContext(nextContext = {}) {
   return Array.isArray(nextContext?.catalogo?.ultimosProdutos) && nextContext.catalogo.ultimosProdutos.length > 0
 }
 
+function isCatalogActionAsset(asset) {
+  if (!asset || typeof asset !== "object" || Array.isArray(asset)) {
+    return false
+  }
+
+  if (asset.kind === "product" && (asset.provider === "mercado_livre" || asset.provider === "api_runtime")) {
+    return true
+  }
+
+  return Boolean(
+    (typeof asset.id === "string" && (/^MLB/i.test(asset.id) || asset.id.startsWith("mercado-livre-"))) ||
+      typeof asset.targetUrl === "string"
+  )
+}
+
+function buildCatalogLoadMoreAction(input = {}) {
+  const assets = Array.isArray(input.assets) ? input.assets : []
+  if (!assets.some(isCatalogActionAsset) || !isCatalogConversationContext(input.nextContext)) {
+    return null
+  }
+
+  return {
+    type: "message",
+    label: "Ver mais opcoes",
+    icon: "sparkles",
+    message: "Ver mais opcoes",
+    userBubbleText: "Ver mais opcoes",
+    source: "widget_catalog_load_more",
+    extraContext: {
+      ui: {
+        catalogAction: "load_more",
+      },
+    },
+  }
+}
+
 export function buildChatWidgetActions(input = {}) {
   if (input.channelKind === "whatsapp") {
     return []
   }
 
   const actions = []
+  const catalogLoadMoreAction = buildCatalogLoadMoreAction(input)
   const whatsappAction = buildWhatsAppActionPayload(input)
   const agendaAction =
     hasConfirmedAgendaReservation(input.nextContext) || isCatalogConversationContext(input.nextContext)
       ? null
       : buildAgendaActionPayload(input.agendaSlots)
+
+  if (catalogLoadMoreAction) {
+    actions.push(catalogLoadMoreAction)
+  }
 
   if (whatsappAction) {
     actions.push(whatsappAction)

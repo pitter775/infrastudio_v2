@@ -556,6 +556,9 @@ export function updateContextFromAiResult(input) {
     catalogo: isPlainObject(input.nextContext?.catalogo) ? { ...input.nextContext.catalogo } : {},
     agenda: isPlainObject(input.nextContext?.agenda) ? { ...input.nextContext.agenda } : {},
   }
+  if (isPlainObject(nextContext.ui) && "catalogAction" in nextContext.ui) {
+    delete nextContext.ui.catalogAction
+  }
   const lockedProductDetailContext = hasLockedProductDetailContext(nextContext)
 
   const metadataFocus = isPlainObject(input.ai?.metadata?.focus) ? input.ai.metadata.focus : null
@@ -781,6 +784,7 @@ export function prepareAiReplyPayload(input) {
     followUpReply,
     userMessage: input.userMessage,
     agendaSlots: input.agendaSlots,
+    assets: input.ai.assets ?? [],
   })
   const whatsappCta = buildWhatsAppContinuationCta({
       channelKind: input.channelKind,

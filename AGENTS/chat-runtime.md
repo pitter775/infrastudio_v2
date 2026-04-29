@@ -86,6 +86,9 @@ Saida comum:
 - nao deixar comportamento comercial da InfraStudio vazar para agente de cliente
 - o legado serve como referencia comportamental, nao como arquitetura
 - nao resolver regressao de linguagem com nova heuristica textual espalhada
+- nao resolver regressao de continuidade, follow-up curto, retomada de lista ou variacao de frase com regex ou lista de gatilhos
+- se o usuario fala de formas diferentes, isso e exatamente um caso para intent stage semantico, nao para heuristica
+- se a vontade for "so adicionar mais uma frase no matcher", a resposta correta neste projeto e nao fazer isso
 - heuristica nova so e aceitavel como guardrail minimo e local, nunca como decisor principal de dominio/intencao
 - para billing, catalogo, api runtime e agenda, priorizar:
   - estado/contexto

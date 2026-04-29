@@ -11,6 +11,9 @@ Objetivo:
 ## Regra principal
 
 - nao adicionar nova heuristica textual ampla para resolver variacao de linguagem do usuario
+- nao adicionar heuristica textual curta "pontual" so porque resolve um caso real de frase
+- nao adicionar regex para `tem mais`, `so esses`, `me manda`, `quero`, `gostei`, `mais opcoes` ou qualquer outra variacao como forma de consertar intent
+- nao usar matcher textual como correcao de continuidade de lista, saida de `product_detail`, retomada de item ou mudanca de escopo
 - se o problema for "o usuario falou diferente", a solucao preferida e:
   1. fortalecer contexto/estado
   2. criar ou melhorar classificacao estruturada por LLM
@@ -28,6 +31,8 @@ Heuristica nao pode entrar como:
 - decisor principal de catalogo
 - decisor principal de API runtime
 - decisor principal de agenda
+- corretor de variacao linguistica do usuario
+- atalho para follow-up curto ou continuidade de listagem
 
 ## Arquitetura alvo
 
@@ -447,6 +452,11 @@ Ainda errado / fragil:
   - o handler compartilhado agora usa essa decisao para sair do foco residual de produto e continuar a lista recente sem depender do detector textual local
   - o `updateContextFromAiResult` tambem limpa `produtoAtual` residual quando a resposta da IA traz uma lista real com varios itens e nao ha lock de detalhe
   - isso fecha um vazamento em que a conversa seguia em `listing`, mas um `produtoAtual` velho ainda sequestrava follow-up curto para resposta factual do item
+- widget e WhatsApp agora tambem podem ajudar a continuidade sem abrir heuristica nova
+  - o chat widget pode disparar uma acao explicita `catalogAction=load_more`
+  - o handler compartilhado aceita essa acao estruturada e prioriza `catalog_load_more` de forma deterministica
+  - no WhatsApp, a continuidade de lista tambem pode vir por comando controlado `MAIS`
+  - esse comando e tratado como contrato explicito de UX, nao como heuristica de linguagem livre
 
 ## Ordem de ataque obrigatoria
 
