@@ -317,15 +317,16 @@ function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCa
   }
 }
 
+function isConcreteRecentCatalogReferenceDecision(decision) {
+  return decision?.kind === "recent_product_reference" && Array.isArray(decision?.matchedProducts) && decision.matchedProducts.length === 1
+}
+
 function mergeCatalogSemanticAndHeuristicDecision(semanticDecision, heuristicDecision) {
   if (!semanticDecision) {
     return heuristicDecision ?? null
   }
 
-  if (
-    semanticDecision.kind === "recent_product_reference_unresolved" &&
-    ["recent_product_reference", "recent_product_reference_ambiguous"].includes(heuristicDecision?.kind)
-  ) {
+  if (semanticDecision.kind === "recent_product_reference_unresolved" && isConcreteRecentCatalogReferenceDecision(heuristicDecision)) {
     return heuristicDecision
   }
 

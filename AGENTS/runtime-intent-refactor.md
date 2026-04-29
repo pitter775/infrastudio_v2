@@ -407,6 +407,10 @@ Ainda errado / fragil:
   - follow-up curto e sinal de objeto nao continuam catalogo quando a lista recente ja expirou
   - `ultimosProdutos` antigos deixam de sustentar `aquela floral`, `me manda o link` e afins no roteador
   - isso reduz mais um vazamento por estado velho antes do stage semantico
+- o merge de catalogo no `orchestrator` tambem ficou mais semantico-first:
+  - quando o stage vier `recent_product_reference_unresolved`, o fallback local so pode sobrescrever se resolver um item unico concreto
+  - ambiguidade heuristica deixa de disputar com o `unresolved` semantico
+  - isso reduz mais um caminho em que guardrail local ainda reinterpretava a mesma lista em paralelo
 
 ## Ordem de ataque obrigatoria
 
@@ -457,5 +461,5 @@ Ainda errado / fragil:
 
 - continuar reduzindo o intent factual local de `api-runtime.js`, tentando concentrar mais lookup em hints/decisao estruturada antes do matcher residual
 - seguir rebaixando `catalog-follow-up.js` para guardrail residual, principalmente nos casos em que ainda sobra decisao por texto curto sem ancora semantica
-- depois revisar se o merge final no `orchestrator.js` ja pode simplificar mais um passo sem reabrir regressao
+- depois revisar se o merge final no `orchestrator.js` ja pode simplificar mais um passo sem reabrir regressao, idealmente isolando melhor o caso em que o guardrail local ainda pode resolver item unico concreto
 - se a suite continuar verde, o proximo corte deve mirar `domain-router.js`, principalmente follow-up curto de catalogo que ainda sobe por regex local forte

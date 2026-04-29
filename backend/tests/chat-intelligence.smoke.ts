@@ -1415,6 +1415,53 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador nao deixa ambiguidade heuristica sobrescrever unresolved semantico",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "gostei desse" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-semantic-unresolved",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-semantic-unresolved",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          catalogo: {
+            ...catalogContext.catalogo,
+            produtoAtual: null,
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "recent_product_reference_unresolved",
+            confidence: 0.84,
+            reason: "Cliente segue na lista recente sem item unico resolvido.",
+            referencedProductIds: [],
+            targetType: "",
+            excludeCurrentProduct: true,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar novamente");
+          },
+        }
+      );
+
+      assert.equal(result.metadata.provider, "local_heuristic");
+      assert.equal(result.metadata.domainStage, "catalog");
+      assert.match(result.reply, /Quero confirmar qual voce quis dizer/i);
+      assert.match(result.reply, /Me responde com 1, 2 ou 3/i);
+      assert.doesNotMatch(result.reply, /Encontrei mais de um item com esse perfil/i);
+    },
+  },
+  {
     name: "orquestrador usa stage semantico para refinamento de catalogo sem depender do guardrail local",
     run: async () => {
       let receivedSearchTerm = "";
