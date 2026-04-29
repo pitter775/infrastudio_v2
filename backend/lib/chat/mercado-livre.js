@@ -176,7 +176,7 @@ function buildCatalogProductFromItem(item, options = {}) {
   }
 }
 
-function buildMercadoLivreSearchReply(products, searchTerm, connector, paging) {
+function buildMercadoLivreSearchReply(products, searchTerm, connector, paging, options = {}) {
   if (!Array.isArray(products) || products.length === 0) {
     return searchTerm
       ? "Nao achei itens da loja com esse perfil agora. Se quiser, me diga outro termo e eu tento uma nova busca."
@@ -187,6 +187,14 @@ function buildMercadoLivreSearchReply(products, searchTerm, connector, paging) {
   const visibleCount = products.length
   const countLabel = matchedCount === 1 ? "1 produto" : `${matchedCount} opcoes`
   const hasMore = paging?.hasMore === true
+  const isLoadMore = options?.isLoadMore === true
+
+  if (isLoadMore) {
+    const continuationLabel = visibleCount === 1 ? "1 produto" : `${visibleCount} opcoes`
+    return hasMore
+      ? `Encontrei mais ${continuationLabel} desta busca. Vou te mostrar agora e, se quiser, posso trazer mais depois.`
+      : `Encontrei mais ${continuationLabel} desta busca. Vou te mostrar agora.`
+  }
 
   return hasMore
     ? `Encontrei ${countLabel}. Vou te mostrar ${visibleCount === 1 ? "a principal opcao" : `${visibleCount} opcoes agora`} e posso trazer mais depois.`
@@ -208,7 +216,7 @@ function extractReportedMercadoLivreCount(reply = "") {
   return null
 }
 
-export function enforceMercadoLivreSearchReplyCoherence(reply, products, searchTerm, connector, paging) {
+export function enforceMercadoLivreSearchReplyCoherence(reply, products, searchTerm, connector, paging, options = {}) {
   const actualMatchedCount = Math.max(sanitizeNumber(paging?.total, 0), Array.isArray(products) ? products.length : 0)
   const reportedCount = extractReportedMercadoLivreCount(reply)
 
@@ -216,7 +224,7 @@ export function enforceMercadoLivreSearchReplyCoherence(reply, products, searchT
     return reply
   }
 
-  return buildMercadoLivreSearchReply(products, searchTerm, connector, paging)
+  return buildMercadoLivreSearchReply(products, searchTerm, connector, paging, options)
 }
 
 function normalizeMessage(value) {
@@ -870,11 +878,16 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   return {
     selectedProductSalesReply: null,
     mercadoLivreHeuristicReply: enforceMercadoLivreSearchReplyCoherence(
-      buildMercadoLivreSearchReply(products, searchTerm, connector, paging),
+      buildMercadoLivreSearchReply(products, searchTerm, connector, paging, {
+        isLoadMore: input.loadMoreCatalogRequested,
+      }),
       products,
       searchTerm,
       connector,
-      paging
+      paging,
+      {
+        isLoadMore: input.loadMoreCatalogRequested,
+      }
     ),
     mercadoLivreProducts: products,
     mercadoLivreAssets: assets,

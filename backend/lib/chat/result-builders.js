@@ -59,6 +59,9 @@ export function buildFinalChatResult(input) {
     whatsapp: input.whatsapp ?? null,
     actions: input.channelKind === "whatsapp" ? [] : input.actions ?? [],
     ui: input.channelKind === "whatsapp" ? null : input.ui ?? null,
+    catalogContinuation: input.catalogContinuation === true,
+    catalogMessageMode: typeof input.catalogMessageMode === "string" ? input.catalogMessageMode : null,
+    catalogListingSessionId: typeof input.catalogListingSessionId === "string" ? input.catalogListingSessionId : null,
     handoff: input.handoff ?? null,
   }
 }

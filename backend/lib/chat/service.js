@@ -960,6 +960,25 @@ export function prepareAiReplyPayload(input) {
   const isWhatsAppChannel = input.channelKind === "whatsapp"
   const catalogAwareAssets = decorateCatalogAssetsWithListingSession(input.ai.assets ?? [], input.nextContext)
   const structuredEnvelope = input.channelKind === "whatsapp" ? null : extractStructuredReplyEnvelope(input.ai.reply)
+  const metadataCatalogSearch =
+    isPlainObject(input.ai?.metadata?.catalogoBusca) ? input.ai.metadata.catalogoBusca : null
+  const catalogListingSessionId =
+    sanitizeCatalogString(metadataCatalogSearch?.listingSession?.id) ||
+    sanitizeCatalogString(input.nextContext?.catalogo?.listingSession?.id)
+  const catalogConversationMode = sanitizeCatalogString(input.nextContext?.conversation?.mode).toLowerCase()
+  const catalogFocusMode = sanitizeCatalogString(input.nextContext?.catalogo?.focusMode).toLowerCase()
+  const catalogState = sanitizeCatalogString(input.nextContext?.catalogo?.catalogState).toLowerCase()
+  const hasCatalogListingContext =
+    catalogConversationMode === "listing" ||
+    catalogFocusMode === "listing" ||
+    catalogState === "storefront_listing"
+  const catalogContinuation =
+    input.ai?.metadata?.catalogDiagnostics?.catalogAction === "load_more" ||
+    input.ai?.metadata?.catalogDiagnostics?.catalogDecision?.kind === "catalog_load_more"
+  const catalogMessageMode =
+    (metadataCatalogSearch || hasCatalogListingContext) && Array.isArray(catalogAwareAssets) && catalogAwareAssets.length > 0
+      ? (catalogContinuation ? "replace_listing" : "append_listing")
+      : null
   const splitReply =
     isWhatsAppChannel
       ? null
@@ -1032,6 +1051,9 @@ export function prepareAiReplyPayload(input) {
     assets: catalogAwareAssets,
     actions: isWhatsAppChannel ? [] : actions,
     ui: isWhatsAppChannel ? null : structuredEnvelope?.ui ?? null,
+    catalogContinuation,
+    catalogMessageMode,
+    catalogListingSessionId,
     contactSnapshot: resolveChatContactSnapshot(input.nextContext, input.normalizedExternalIdentifier),
     whatsappContactNameForTitle: getWhatsAppContactNameFromContext(input.nextContext),
     leadNameForTitle:
@@ -1678,6 +1700,9 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
       whatsapp: replyPayload.whatsappCta,
       actions: replyPayload.actions,
       ui: replyPayload.ui,
+      catalogContinuation: replyPayload.catalogContinuation === true,
+      catalogMessageMode: replyPayload.catalogMessageMode ?? null,
+      catalogListingSessionId: replyPayload.catalogListingSessionId ?? null,
       followUpReply: false,
     },
     options
@@ -1721,6 +1746,9 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     whatsapp: replyPayload.whatsappCta,
     actions: replyPayload.actions,
     ui: replyPayload.ui,
+    catalogContinuation: replyPayload.catalogContinuation === true,
+    catalogMessageMode: replyPayload.catalogMessageMode ?? null,
+    catalogListingSessionId: replyPayload.catalogListingSessionId ?? null,
     handoff: aiResult?.handoff ?? null,
   })
 }

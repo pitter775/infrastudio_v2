@@ -86,6 +86,10 @@ Heuristica nao pode entrar como:
 
 Ja feito:
 
+- o lock de `product_detail` no catalogo ganhou uma saida deterministica para busca ampla de loja:
+  - se a mensagem em detalhe sinaliza busca catalogal real por candidatos estruturados e nao referencia explicitamente o item atual, o runtime sai do item e abre busca nova
+  - isso cobre casos como `tem porcelanato?` ou `tem inox?` depois de abrir um produto, sem depender de novo matcher textual amplo
+  - follow-up factual do item continua preso no detalhe e `load_more` continua na mesma sessao de listagem
 - Mercado Livre em detalhe de produto ganhou contexto forte e reset por navegacao
 - snapshot da loja Mercado Livre ficou mais resiliente no refresh
 - produto em foco do Mercado Livre ja responde varios fatos de forma deterministica

@@ -1,6 +1,7 @@
 import {
   detectCatalogSearchRefinement,
   hasRecentCatalogSnapshot,
+  isCatalogLoadMoreIntent,
   normalizeRecentCatalogProducts,
   resolveCatalogReferenceHeuristicReply,
   resolveDeterministicCatalogFollowUpDecision,
@@ -156,6 +157,34 @@ function isImplicitCurrentProductReference(message) {
     isMercadoLivrePurchaseIntent(message) ||
     /\b(esse|essa|desse|dessa|este|esta|dele|dela|aqui|item|produto)\b/.test(normalized)
   )
+}
+
+function shouldTreatMessageAsStorewideCatalogSearch(message, context, productSearchCandidates = [], detectProductSearch = null) {
+  if (!hasFocusedCatalogProductContext(context)) {
+    return false
+  }
+
+  if (normalizeMessage(context?.ui?.catalogAction || context?.catalogAction || "") === "product_detail") {
+    return false
+  }
+
+  if (typeof detectProductSearch === "function" && detectProductSearch(message) !== true) {
+    return false
+  }
+
+  if (!Array.isArray(productSearchCandidates) || productSearchCandidates.length === 0) {
+    return false
+  }
+
+  if (isCatalogLoadMoreIntent(message)) {
+    return false
+  }
+
+  if (isMercadoLivreDetailIntent(message) || isMercadoLivrePurchaseIntent(message) || isImplicitCurrentProductReference(message)) {
+    return false
+  }
+
+  return true
 }
 
 function shouldStayOnCurrentProduct(message, context, currentProduct) {
@@ -499,11 +528,18 @@ export function resolveCatalogIntentState(input = {}) {
     inferredDecision?.kind === "similar_items_search" || inferredDecision?.kind === "same_type_search"
       ? buildCatalogSimilarSearchCandidates(candidateCurrentCatalogProduct, inferredDecision?.searchCandidates?.[0])
       : []
+  const storewideCatalogSearchRequested = shouldTreatMessageAsStorewideCatalogSearch(
+    latestUserMessage,
+    context,
+    [...semanticSearchCandidates, ...productSearchCandidates].filter(Boolean),
+    input.detectProductSearch
+  )
 
   const shouldContinueListing =
     shouldContinueRecentCatalogListing(inferredDecision, context, recentCatalogProducts)
 
   const shouldExitCurrentProductContext =
+    storewideCatalogSearchRequested ||
     (inferredDecision?.kind === "catalog_search_refinement" && inferredDecision?.usedLlm === true) ||
     inferredDecision?.kind === "same_type_search" ||
     inferredDecision?.kind === "similar_items_search" ||
@@ -517,7 +553,8 @@ export function resolveCatalogIntentState(input = {}) {
         shouldStayOnCurrentProduct(latestUserMessage, context, candidateCurrentCatalogProduct)))
 
   const forceNewSearch =
-    (inferredDecision?.kind === "catalog_search_refinement" ||
+    (storewideCatalogSearchRequested ||
+      inferredDecision?.kind === "catalog_search_refinement" ||
       inferredDecision?.kind === "same_type_search" ||
       inferredDecision?.kind === "similar_items_search") &&
     !stayOnCurrentProduct

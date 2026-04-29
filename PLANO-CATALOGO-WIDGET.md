@@ -258,6 +258,34 @@ Criar cobertura para:
 
 1. `inox` -> listar 3 -> `Ver mais opcoes` -> responder sempre
 2. `inox` -> `Saber mais` -> sem bolha azul falsa
+3. `ver mais opcoes` -> manter a mesma bolha de lista, com loading visivel na propria bolha enquanto atualiza
+4. nova busca depois de detalhe/lista, como `tem inox?` -> criar nova bolha de lista e preservar a lista anterior na timeline
+
+### Etapa 10. Contrato de renderizacao da timeline
+
+Objetivo:
+
+- separar claramente atualizacao de lista existente vs nova lista no chat
+
+Fazer:
+
+- backend deve sinalizar modo da mensagem de catalogo:
+  - `replace_listing` para `load_more`
+  - `append_listing` para nova busca/refinamento que gera nova lista
+- widget deve obedecer esse contrato sem dedupe por texto/tempo
+- `replace_listing`:
+  - atualiza a bolha da lista ativa
+  - mostra loading apenas dentro da bolha da lista
+  - reposiciona o scroll para o inicio da bolha atualizada
+- `append_listing`:
+  - cria nova bolha de lista
+  - preserva listas anteriores na timeline
+  - nao sobrescreve lista antiga so porque o texto da reply e parecido
+
+Regra:
+
+- busca nova nunca pode sobrescrever lista antiga
+- so `load_more` pode substituir a bolha da lista atual
 3. detalhe -> `tem balde?` -> busca relevante no snapshot
 4. `load_more` no fim da sessao -> mensagem explicita de fim
 5. reply de quantidade coerente com `matched count` real

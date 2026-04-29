@@ -583,6 +583,8 @@
       ".chat-day-divider::before, .chat-day-divider::after { content: ''; height: 1px; flex: 1; background: " + (theme === "light" ? "rgba(148,163,184,0.1)" : "rgba(148,163,184,0.12)") + "; }",
       ".chat-day-divider-label { display: inline-flex; align-items: center; justify-content: center; border: " + (theme === "light" ? "0" : "1px solid rgba(148,163,184,0.12)") + "; background: " + (theme === "light" ? "transparent" : "rgba(15,23,42,0.24)") + "; border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }",
       ".chat-assets { margin-top: 10px; display: grid; gap: 10px; }",
+      ".chat-catalog-loading { margin-top: 10px; display: inline-flex; width: fit-content; max-width: 100%; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.04)") + "; color: " + (theme === "light" ? "rgba(28,41,59,0.72)" : "rgba(226,232,240,0.74)") + "; font-size: 11px; line-height: 1.3; }",
+      ".chat-catalog-loading .chat-typing-dots span { width: 6px; height: 6px; }",
       ".chat-asset { display: block; overflow: hidden; border-radius: 16px; border: 1px solid " + headerBorder + "; background: color-mix(in srgb, " + panelBackground + " 88%, transparent); color: inherit; text-decoration: none; }",
       ".chat-asset.image, .chat-asset.video, .chat-asset.preview { padding: 0; }",
       ".chat-asset.image img, .chat-asset.video video { display: block; width: 100%; max-height: 210px; object-fit: cover; background: rgba(15,23,42,.35); }",
@@ -2262,8 +2264,41 @@
         .toLowerCase();
     }
 
+    function isCatalogListingMessage(message) {
+      return Boolean(
+        message &&
+        message.isAi &&
+        typeof message.catalogMessageMode === "string" &&
+        (message.catalogMessageMode === "append_listing" || message.catalogMessageMode === "replace_listing")
+      );
+    }
+
+    function findCatalogListingMessageIndexBySessionId(listingSessionId) {
+      var normalizedSessionId = String(listingSessionId || "").trim();
+      if (!normalizedSessionId) {
+        return -1;
+      }
+
+      for (var index = messages.length - 1; index >= 0; index -= 1) {
+        var current = messages[index];
+        if (!isCatalogListingMessage(current)) {
+          continue;
+        }
+
+        if (String(current.catalogListingSessionId || "").trim() === normalizedSessionId) {
+          return index;
+        }
+      }
+
+      return -1;
+    }
+
     function isSameAssistantMessage(candidate, current) {
       if (!candidate || !current || !candidate.isAi || !current.isAi) {
+        return false;
+      }
+
+      if (candidate.catalogMessageMode === "append_listing") {
         return false;
       }
 
@@ -2371,6 +2406,24 @@
         });
       } else {
         messagesWrap.scrollTop = messagesWrap.scrollHeight;
+      }
+      window.requestAnimationFrame(updateScrollBottomButton);
+    }
+
+    function scrollToMessageStart(element, behavior) {
+      if (!messagesWrap || !element) {
+        return;
+      }
+
+      cancelScrollAnimation();
+      var targetTop = Math.max(0, element.offsetTop - 12);
+      if (behavior === "smooth" && typeof messagesWrap.scrollTo === "function") {
+        messagesWrap.scrollTo({
+          top: targetTop,
+          behavior: "smooth",
+        });
+      } else {
+        messagesWrap.scrollTop = targetTop;
       }
       window.requestAnimationFrame(updateScrollBottomButton);
     }
@@ -2848,10 +2901,13 @@
 
     function renderMessages(options) {
       var settings = options && typeof options === "object" ? options : {};
-      var shouldStickToBottom = settings.forceScroll === true || isNearBottom();
+      var preservePosition = settings.preservePosition === true;
+      var shouldStickToBottom = !preservePosition && (settings.forceScroll === true || isNearBottom());
       var previousBottomOffset = shouldStickToBottom
         ? 0
         : Math.max(0, messagesWrap.scrollHeight - messagesWrap.scrollTop);
+      var pendingCatalogContinuationMessage = null;
+      var pendingCatalogContinuationBubble = null;
       cleanupProductGalleries();
       stack.innerHTML = "";
 
@@ -2870,6 +2926,10 @@
 
           var bubble = document.createElement("div");
           bubble.className = "chat-bubble " + (message.isAi ? "ai" : "user");
+          if (message.isAi && message.catalogContinuation === true) {
+            pendingCatalogContinuationMessage = message;
+            pendingCatalogContinuationBubble = bubble;
+          }
           if (message.isAi && message.ui && Array.isArray(message.ui.blocks) && message.ui.blocks.length) {
             var uiBlocks = createUiBlocks(message.ui);
             if (uiBlocks) {
@@ -2918,6 +2978,12 @@
               bubble.appendChild(assetGallery);
             }
           }
+          if (message.isAi && message.catalogLoading === true && isCatalogListingMessage(message)) {
+            var listLoading = document.createElement("div");
+            listLoading.className = "chat-catalog-loading";
+            listLoading.innerHTML = '<span class="chat-typing-dots" aria-hidden="true"><span></span><span></span><span></span></span><span>Atualizando lista...</span>';
+            bubble.appendChild(listLoading);
+          }
           if (!message.isAi && Array.isArray(message.attachments) && message.attachments.length) {
             var sentAttachments = document.createElement("div");
             sentAttachments.className = "chat-assets";
@@ -2941,7 +3007,10 @@
         stack.appendChild(typing);
       }
 
-      if (shouldStickToBottom) {
+      if (pendingCatalogContinuationBubble && pendingCatalogContinuationMessage && shouldStickToBottom) {
+        pendingCatalogContinuationMessage.catalogContinuation = false;
+        scrollToMessageStart(pendingCatalogContinuationBubble, settings.smooth ? "smooth" : "auto");
+      } else if (shouldStickToBottom) {
         scrollToBottom(settings.smooth ? "smooth" : "auto");
       } else {
         messagesWrap.scrollTop = Math.max(0, messagesWrap.scrollHeight - previousBottomOffset);
@@ -3055,9 +3124,9 @@
 
     function mapSyncedMessage(message) {
       var isUser = message.role === "user";
-      return assignMessageOrder({
-        id: "server-" + message.id,
-        serverId: message.id,
+        return assignMessageOrder({
+          id: "server-" + message.id,
+          serverId: message.id,
         text: message.text || "",
         isAi: !isUser,
         assets: Array.isArray(message.assets) ? message.assets : [],
@@ -3065,6 +3134,10 @@
         cta: !isUser && message.whatsapp && message.whatsapp.url ? message.whatsapp : null,
         actions: !isUser && Array.isArray(message.actions) ? message.actions : [],
         ui: !isUser && message.ui && typeof message.ui === "object" ? message.ui : null,
+        catalogContinuation: !isUser && message.catalogContinuation === true,
+        catalogMessageMode: !isUser && typeof message.catalogMessageMode === "string" ? message.catalogMessageMode : null,
+        catalogListingSessionId: !isUser && typeof message.catalogListingSessionId === "string" ? message.catalogListingSessionId : null,
+        catalogLoading: false,
         createdAt: message.createdAt || new Date().toISOString(),
         manual: !isUser && message.manual === true,
       });
@@ -3073,6 +3146,13 @@
     function findStoredMessageIndex(candidate) {
       if (!candidate) {
         return -1;
+      }
+
+      if (candidate.isAi && candidate.catalogMessageMode === "replace_listing") {
+        var catalogListingIndex = findCatalogListingMessageIndexBySessionId(candidate.catalogListingSessionId);
+        if (catalogListingIndex !== -1) {
+          return catalogListingIndex;
+        }
       }
 
       for (var index = messages.length - 1; index >= 0; index -= 1) {
@@ -3229,6 +3309,24 @@
       }
       requestInFlight = true;
 
+      if (
+        settings.extraContext &&
+        typeof settings.extraContext === "object" &&
+        settings.extraContext.ui &&
+        typeof settings.extraContext.ui === "object" &&
+        settings.extraContext.ui.catalogAction === "load_more"
+      ) {
+        var targetListingIndex = findCatalogListingMessageIndexBySessionId(settings.extraContext.ui.listingSessionId);
+        if (targetListingIndex !== -1) {
+          messages[targetListingIndex] = {
+            ...messages[targetListingIndex],
+            catalogLoading: true,
+          };
+          persist();
+          renderMessages({ preservePosition: true });
+        }
+      }
+
       if (!shouldSkipUserBubble(settings)) {
         messages.push(assignMessageOrder({
           id: "user-" + Date.now(),
@@ -3292,6 +3390,10 @@
             cta: payload.whatsapp && payload.whatsapp.url ? payload.whatsapp : null,
             actions: Array.isArray(payload.actions) ? payload.actions : [],
             ui: payload.ui && typeof payload.ui === "object" ? payload.ui : null,
+            catalogContinuation: payload.catalogContinuation === true,
+            catalogMessageMode: typeof payload.catalogMessageMode === "string" ? payload.catalogMessageMode : null,
+            catalogListingSessionId: typeof payload.catalogListingSessionId === "string" ? payload.catalogListingSessionId : null,
+            catalogLoading: false,
             handoffAction: createHumanHandoffAction(payload.handoff),
             assets: Array.isArray(payload.assets) ? payload.assets : [],
           });
