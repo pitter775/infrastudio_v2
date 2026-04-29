@@ -26,6 +26,7 @@ import {
   buildFeedbackRecord,
   buildFinalChatResult,
   buildFallbackChatTitle,
+  buildFocusedProductFactualReply,
   buildInitialChatContext,
   buildIsolatedChatResult,
   buildCoreChatRequest,
@@ -976,6 +977,44 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "catalogo aceita acao explicita do widget para detalhe do produto sem texto livre",
+    run: () => {
+      const context = {
+        conversation: { mode: "listing" },
+        ui: {
+          catalogAction: "product_detail",
+          catalogProductId: "MLB-2",
+        },
+        catalogo: {
+          ultimosProdutos: [
+            { id: "MLB-1", nome: "Bule 1" },
+            { id: "MLB-2", nome: "Bule 2", preco: 120 },
+          ],
+        },
+      };
+
+      const decisionState = resolveCatalogDecisionState({
+        latestUserMessage: "Saber mais",
+        context,
+        shouldUseCatalog: true,
+      });
+      const state = resolveCatalogIntentState({
+        latestUserMessage: "Saber mais",
+        context,
+        catalogDecision: decisionState.catalogDecision,
+        detectProductSearch: () => false,
+        buildProductSearchCandidates: () => [],
+        isCatalogListingIntent: () => false,
+      });
+
+      assert.equal(state.catalogDecision?.kind, "recent_product_reference");
+      assert.equal(state.catalogDecision?.reason, "explicit_catalog_product_detail_action");
+      assert.equal(state.currentCatalogProduct?.id, "MLB-2");
+      assert.equal(state.stayOnCurrentProduct, true);
+      assert.equal(state.loadMoreCatalogRequested, false);
+    },
+  },
+  {
     name: "catalogo aceita comando explicito MAIS no whatsapp para continuar listagem",
     run: () => {
       const context = {
@@ -1006,6 +1045,25 @@ const tests: TestCase[] = [
       assert.equal(state.catalogDecision?.kind, "catalog_load_more");
       assert.equal(state.catalogDecision?.reason, "explicit_catalog_load_more_command");
       assert.equal(state.loadMoreCatalogRequested, true);
+    },
+  },
+  {
+    name: "mercado livre responde medidas do produto atual de forma deterministica",
+    run: () => {
+      const reply = buildFocusedProductFactualReply(
+        {
+          id: "MLB-77",
+          nome: "Balde Inox",
+          atributos: [
+            { nome: "Altura", valor: "21 cm" },
+            { nome: "Largura", valor: "18 cm" },
+          ],
+        },
+        "vc tem as dimensoes dele?"
+      );
+
+      assert.match(String(reply || ""), /Altura: 21 cm/i);
+      assert.match(String(reply || ""), /Largura: 18 cm/i);
     },
   },
   {

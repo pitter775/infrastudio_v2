@@ -457,6 +457,10 @@ Ainda errado / fragil:
   - o handler compartilhado aceita essa acao estruturada e prioriza `catalog_load_more` de forma deterministica
   - no WhatsApp, a continuidade de lista tambem pode vir por comando controlado `MAIS`
   - esse comando e tratado como contrato explicito de UX, nao como heuristica de linguagem livre
+- `Saber mais` do widget nao deve simular frase digitada pelo usuario
+  - o CTA agora deve usar acao estruturada de `product_detail` com `catalogProductId`
+  - o handler compartilhado deve resolver esse clique de forma deterministica para o item alvo
+  - perguntas factuais seguintes sobre o item atual, como medidas e dimensoes, devem responder por handler deterministico ou dizer explicitamente que o anuncio nao trouxe esse dado
 
 ## Ordem de ataque obrigatoria
 

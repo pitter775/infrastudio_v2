@@ -2198,13 +2198,21 @@
       action.className = "chat-asset-action ask";
       action.textContent = "Saber mais";
       addListener(action, "click", function () {
-        var subject = String(asset.nome || "").trim();
-        if (!subject) {
+        var productId =
+          (typeof asset.id === "string" ? asset.id.trim() : "") ||
+          (asset.metadata && typeof asset.metadata.productId === "string" ? asset.metadata.productId.trim() : "");
+        if (!productId) {
           return;
         }
-        void sendMessage("Quero saber mais sobre " + subject + ".", {
-          userBubbleText: "Saber mais",
-          source: "widget_product_asset",
+        void sendMessage("Saber mais", {
+          skipUserBubble: true,
+          source: "widget_product_detail",
+          extraContext: {
+            ui: {
+              catalogAction: "product_detail",
+              catalogProductId: productId,
+            },
+          },
         });
       });
       return action;
@@ -3194,12 +3202,17 @@
         return true;
       }
 
+      if (String(settings.source || "").trim() === "widget_product_detail") {
+        return true;
+      }
+
       return Boolean(
         settings.extraContext &&
         typeof settings.extraContext === "object" &&
         settings.extraContext.ui &&
         typeof settings.extraContext.ui === "object" &&
-        settings.extraContext.ui.catalogAction === "load_more"
+        (settings.extraContext.ui.catalogAction === "load_more" ||
+          settings.extraContext.ui.catalogAction === "product_detail")
       );
     }
 

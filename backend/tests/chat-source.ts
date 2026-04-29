@@ -33,6 +33,7 @@ export { resolveConversationPipelineStageState } from "@/lib/chat/pipeline-stage
 export { resolveChatDomainRoute } from "@/lib/chat/domain-router";
 
 export {
+  buildFocusedProductFactualReply,
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicState,
 } from "@/lib/chat/mercado-livre";

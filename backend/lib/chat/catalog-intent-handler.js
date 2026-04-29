@@ -157,6 +157,7 @@ function resolveExplicitCatalogContinuationDecision(message, context = {}, recen
     "3": 2,
   }
   const explicitAction = normalizeMessage(context?.ui?.catalogAction || context?.catalogAction || "")
+  const explicitProductId = sanitizeString(context?.ui?.catalogProductId || context?.catalogProductId)
   if (explicitAction === "load_more" && hasCatalogContinuationAnchor(context, recentCatalogProducts)) {
     return {
       kind: "catalog_load_more",
@@ -165,6 +166,24 @@ function resolveExplicitCatalogContinuationDecision(message, context = {}, recen
       matchedProducts: [],
       usedLlm: false,
       shouldBlockNewSearch: false,
+    }
+  }
+
+  if (explicitAction === "product_detail" && explicitProductId) {
+    const candidateProducts = [
+      ...recentCatalogProducts,
+      context?.catalogo?.produtoAtual,
+    ].filter(Boolean)
+    const selectedProduct = candidateProducts.find((item) => sanitizeString(item?.id) === explicitProductId)
+    if (selectedProduct) {
+      return {
+        kind: "recent_product_reference",
+        confidence: 1,
+        reason: "explicit_catalog_product_detail_action",
+        matchedProducts: [selectedProduct],
+        usedLlm: false,
+        shouldBlockNewSearch: true,
+      }
     }
   }
 

@@ -234,6 +234,12 @@ function isMercadoLivreLinkIntent(message) {
   return /\b(link|anuncio|pagina de compra|comprar agora)\b/i.test(String(message || ""))
 }
 
+function isMercadoLivreDimensionIntent(message) {
+  return /\b(dimens(?:ao|oes)|medida|medidas|tamanho|altura|largura|comprimento|profundidade|diametro|peso|capacidade)\b/i.test(
+    String(message || "")
+  )
+}
+
 function isMercadoLivreFactualIntent(message) {
   return (
     isMercadoLivrePriceIntent(message) ||
@@ -242,8 +248,24 @@ function isMercadoLivreFactualIntent(message) {
     isMercadoLivreStockIntent(message) ||
     isMercadoLivreWarrantyIntent(message) ||
     isMercadoLivreLinkIntent(message) ||
+    isMercadoLivreDimensionIntent(message) ||
     isMercadoLivreDeliveryIntent(message)
   )
+}
+
+function extractMercadoLivreDimensionAttributes(product) {
+  return (Array.isArray(product?.atributos) ? product.atributos : [])
+    .filter((attribute) => {
+      const normalizedName = normalizeMessage(attribute?.nome)
+      return (
+        normalizedName &&
+        /\b(dimens(?:ao|oes)|medida|medidas|tamanho|altura|largura|comprimento|profundidade|diametro|peso|capacidade)\b/.test(
+          normalizedName
+        )
+      )
+    })
+    .map((attribute) => `${attribute.nome}: ${attribute.valor}`)
+    .filter(Boolean)
 }
 
 function pushUniqueSentence(target, sentence) {
@@ -396,6 +418,15 @@ export function buildFocusedProductFactualReply(product, userMessage = "") {
       pieces.push(`Se quiser, eu mando o link direto do anuncio: ${product.link}`)
     } else {
       pieces.push("Nao encontrei o link direto deste anuncio no momento.")
+    }
+  }
+
+  if (isMercadoLivreDimensionIntent(userMessage)) {
+    const dimensionAttributes = extractMercadoLivreDimensionAttributes(product)
+    if (dimensionAttributes.length) {
+      pieces.push(`As medidas e especificacoes de tamanho que encontrei foram: ${dimensionAttributes.join(", ")}.`)
+    } else {
+      pieces.push("Nao encontrei medidas ou dimensoes informadas neste anuncio no momento.")
     }
   }
 
