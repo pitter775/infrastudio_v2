@@ -90,6 +90,7 @@ import {
   resolveChatContactSnapshot,
   resolveChatDomainRoute,
   resolveConversationPipelineStageState,
+  resolveCatalogIntentState,
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicState,
   resolveRecentCatalogProductReference,
@@ -588,7 +589,7 @@ const tests: TestCase[] = [
       assert.equal(result.metadata.domainStage, "catalog");
       assert.doesNotMatch(result.reply, /quero confirmar qual voce quis dizer/i);
       assert.match(result.reply, /encontrei 1 produto/i);
-      assert.match(result.reply, /loja Mesa Posta/i);
+      assert.doesNotMatch(result.reply, /loja Mesa Posta/i);
       assert.match(receivedSearchTerm, /inox/i);
     },
   },
@@ -817,8 +818,42 @@ const tests: TestCase[] = [
         recentProducts: catalogContext.catalogo?.ultimosProdutos ?? [],
       });
 
-      assert.equal(decision?.kind, "catalog_search");
+      assert.equal(decision?.kind, "catalog_load_more");
       assert.equal(decision?.shouldBlockNewSearch, false);
+    },
+  },
+  {
+    name: "catalogo load more semantico sai do produto atual e continua a lista recente",
+    run: () => {
+      const state = resolveCatalogIntentState({
+        latestUserMessage: "tem mais ou so esses?",
+        context: {
+          conversation: { mode: "listing" },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-STALE-1",
+              nome: "Bule De Porcelana",
+            },
+            ultimaBusca: "bule porcelana",
+            ultimosProdutos: [
+              { id: "MLB-1", nome: "Bule 1" },
+              { id: "MLB-2", nome: "Bule 2" },
+            ],
+          },
+        },
+        catalogDecision: {
+          kind: "catalog_load_more",
+          confidence: 0.92,
+        },
+        detectProductSearch: () => false,
+        buildProductSearchCandidates: () => [],
+        isCatalogListingIntent: () => false,
+      });
+
+      assert.equal(state.currentCatalogProduct, null);
+      assert.equal(state.stayOnCurrentProduct, false);
+      assert.equal(state.loadMoreCatalogRequested, true);
+      assert.equal(state.productSearchRequested, false);
     },
   },
   {
@@ -2545,7 +2580,7 @@ const tests: TestCase[] = [
       assert.equal(receivedSearchTerm, "saleiro")
       assert.deepEqual(receivedExcludeItemIds, ["MLB-SALEIRO-ATUAL"])
       assert.match(result.reply, /encontrei 1 produto/i)
-      assert.match(result.reply, /loja Mesa Posta/i)
+      assert.doesNotMatch(result.reply, /loja Mesa Posta/i)
     },
   },
   {
@@ -3402,7 +3437,8 @@ const tests: TestCase[] = [
       assert.equal(result.metadata.provider, "mercado_livre_runtime");
       assert.equal(result.metadata.domainStage, "catalog");
       assert.equal(result.assets.length, 1);
-      assert.match(result.reply, /encontrei 1 produto da loja pitter774/i);
+      assert.match(result.reply, /encontrei 1 produto/i);
+      assert.doesNotMatch(result.reply, /da loja pitter774/i);
       assert.match(result.assets[0]?.nome ?? "", /Aparelho De Jantar Oxford Ceramica/i);
     },
   },
@@ -4599,6 +4635,7 @@ const tests: TestCase[] = [
           descricao: "R$ 2.990,00",
           targetUrl: "https://example.com/jantar",
           publicUrl: "https://example.com/jantar.jpg",
+          images: ["https://example.com/jantar.jpg", "https://example.com/jantar-2.jpg"],
         },
         {
           id: "mercado-livre-2",
@@ -4618,6 +4655,7 @@ const tests: TestCase[] = [
       assert.equal(products.length, 2)
       assert.equal(products[0]?.preco, 2990)
       assert.equal(products[1]?.preco, 250)
+      assert.equal(products[0]?.imagens?.length, 2)
     },
   },
   {
@@ -4743,6 +4781,45 @@ const tests: TestCase[] = [
       assert.equal(updatedContext.catalogo.catalogState, "product_locked")
       assert.equal(updatedContext.catalogo.produtoAtual.id, "MLB-LOCKED-1")
       assert.equal(updatedContext.catalogo.focusMode, "product_focus")
+      assert.equal(updatedContext.catalogo.ultimosProdutos.length, 2)
+    },
+  },
+  {
+    name: "service limpa produto atual residual quando a ia devolve lista com varios itens",
+    run: () => {
+      const updatedContext = updateContextFromAiResult({
+        nextContext: {
+          conversation: { mode: "product_focus" },
+          storefront: { pageKind: "storefront" },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-OLD-1",
+              nome: "Bule Antigo",
+            },
+            focusMode: "product_focus",
+          },
+        },
+        ai: {
+          reply: "Encontrei algumas opcoes.",
+          assets: [],
+          metadata: {
+            catalogoBusca: {
+              ultimaBusca: "bules",
+              ultimosProdutos: [
+                { id: "MLB1", nome: "Opcao 1" },
+                { id: "MLB2", nome: "Opcao 2" },
+              ],
+            },
+          },
+        },
+        chatId: "chat-listing-reset",
+        historyLengthSource: 4,
+      })
+
+      assert.equal(updatedContext.conversation.mode, "listing")
+      assert.equal(updatedContext.catalogo.focusMode, "listing")
+      assert.equal(updatedContext.catalogo.catalogState, "storefront_listing")
+      assert.equal(updatedContext.catalogo.produtoAtual, null)
       assert.equal(updatedContext.catalogo.ultimosProdutos.length, 2)
     },
   },

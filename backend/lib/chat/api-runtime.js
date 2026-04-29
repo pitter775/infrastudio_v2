@@ -1,5 +1,9 @@
 import { buildSearchTokens, normalizeText, singularizeToken } from "@/lib/chat/text-utils"
-import { resolveRecentCatalogProductReference } from "@/lib/chat/catalog-follow-up"
+import {
+  normalizeCatalogComparisonIntent,
+  resolveCatalogComparisonDecisionState,
+  resolveCatalogExecutionState,
+} from "@/lib/chat/catalog-intent-handler"
 
 const ANALYTICAL_QUERY_SIGNALS = [
   "vale a pena",
@@ -192,13 +196,6 @@ function sanitizeNumber(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-function normalizeComparisonMessage(message) {
-  return String(message || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-}
-
 function normalizeApiFieldName(name, deps) {
   return deps.normalizeText(String(name || "").replace(/\./g, "_"))
 }
@@ -311,106 +308,8 @@ export function buildApiCatalogSearchState(apis = [], customDeps = {}) {
   }
 }
 
-function detectApiCatalogComparisonIntent(message) {
-  const normalized = normalizeComparisonMessage(message)
-  if (/\b(vale mais a pena|qual e melhor|qual melhor|melhor opcao|compensa mais|qual voce indica|qual voce recomenda)\b/.test(normalized)) {
-    return "best_choice"
-  }
-  if (/\b(mais caro|maior preco|maior valor|produto mais caro)\b/.test(normalized)) {
-    return "highest_price"
-  }
-  if (/\b(mais barato|menor preco|menor valor|produto mais barato)\b/.test(normalized)) {
-    return "lowest_price"
-  }
-  return null
-}
-
-function normalizeApiComparisonMode(value) {
-  return ["best_choice", "highest_price", "lowest_price"].includes(String(value || "")) ? String(value) : null
-}
-
-function isPriceRankingComparisonMode(value) {
-  return value === "highest_price" || value === "lowest_price"
-}
-
-function resolveApiCatalogComparisonIndexes(message, products) {
-  const normalized = normalizeComparisonMessage(message)
-  const patterns = [
-    { pattern: /\b1\b|\bum\b|\bprimeiro\b|\bprimeira\b/, index: 0 },
-    { pattern: /\b2\b|\bsegundo\b|\bsegunda\b/, index: 1 },
-    { pattern: /\b3\b|\bterceiro\b|\bterceira\b/, index: 2 },
-  ]
-  return [...new Set(patterns.filter((item) => item.pattern.test(normalized)).map((item) => item.index))].filter((index) => products[index])
-}
-
 function hasRecentApiListContext(contextProducts, products) {
   return (Array.isArray(contextProducts) && contextProducts.length > 1) || (Array.isArray(products) && products.length > 1)
-}
-
-function hasTextualApiComparisonAnchor(message, contextProducts, products) {
-  const explicitIndexes = resolveApiCatalogComparisonIndexes(message, products)
-  if (explicitIndexes.length >= 2) {
-    return true
-  }
-
-  return hasRecentApiListContext(contextProducts, products)
-}
-
-function resolveApiCatalogSemanticComparisonIndexes(indexes, products) {
-  return [...new Set((Array.isArray(indexes) ? indexes : []).map((item) => Number(item) - 1))]
-    .filter((index) => Number.isInteger(index) && index >= 0 && products[index])
-}
-
-function buildApiCatalogAdvantageLines(product) {
-  const lines = []
-  if (product?.freeShipping) lines.push("frete gratis")
-  if (product?.warranty) lines.push(`garantia ${product.warranty}`)
-  if (product?.preco != null) lines.push(`preco ${formatCurrencyValue(product.preco)}`)
-  if (sanitizeNumber(product?.availableQuantity, 0) > 0) lines.push(`${sanitizeNumber(product.availableQuantity, 0)} em estoque`)
-  if (product?.material) lines.push(product.material)
-  if (product?.cor) lines.push(product.cor)
-  return lines
-}
-
-function buildApiCatalogComparisonReply(products, comparisonIntent, indexes) {
-  if (!Array.isArray(products) || !products.length || !comparisonIntent) {
-    return null
-  }
-
-  if (comparisonIntent === "highest_price" || comparisonIntent === "lowest_price") {
-    const pricedProducts = products.filter((item) => Number.isFinite(Number(item?.preco)))
-    if (!pricedProducts.length) return null
-    const selected = pricedProducts.reduce((winner, item) => {
-      if (!winner) return item
-      return comparisonIntent === "lowest_price"
-        ? Number(item.preco) < Number(winner.preco) ? item : winner
-        : Number(item.preco) > Number(winner.preco) ? item : winner
-    }, null)
-    const intro = comparisonIntent === "lowest_price" ? "Dos itens que te mostrei, o mais barato e" : "Dos itens que te mostrei, o mais caro e"
-    return `${intro} ${selected.nome}: ${formatCurrencyValue(selected.preco)}.`
-  }
-
-  if (comparisonIntent === "best_choice" && indexes.length >= 2) {
-    const compared = indexes.map((index) => products[index]).filter(Boolean)
-    const scored = [...compared].sort((left, right) => {
-      const score = (item) =>
-        (item?.freeShipping ? 3 : 0) +
-        (item?.warranty ? 2 : 0) +
-        (sanitizeNumber(item?.availableQuantity, 0) > 0 ? 4 : 0) +
-        (Number.isFinite(Number(item?.preco)) ? Math.max(0, 1000 - Number(item.preco)) / 100 : 0)
-      return score(right) - score(left)
-    })
-    const winner = scored[0]
-    const runnerUp = scored[1]
-    if (!winner?.nome || !runnerUp?.nome) return null
-    return [
-      `Entre ${winner.nome} e ${runnerUp.nome}, eu iria em ${winner.nome}.`,
-      `Ele sai na frente por ${buildApiCatalogAdvantageLines(winner).slice(0, 3).join(", ")}.`,
-      `Se quiser, eu tambem posso te dizer qual dos dois faz mais sentido pelo estilo ou pela faixa de preco.`,
-    ].join(" ")
-  }
-
-  return null
 }
 
 function buildApiSelectedCatalogReply(product) {
@@ -438,37 +337,47 @@ export function resolveApiCatalogReply(message, context = {}, apis = [], customD
   }
 
   const semanticApiDecision = customDeps?.semanticApiDecision
-  const semanticComparisonMode = normalizeApiComparisonMode(semanticApiDecision?.comparisonMode)
-  const textualComparisonIntent = detectApiCatalogComparisonIntent(message)
+  const semanticComparisonMode = normalizeCatalogComparisonIntent(semanticApiDecision?.comparisonMode)
+  const executionState = resolveCatalogExecutionState({
+    latestUserMessage: message,
+    context: {
+      ...context,
+      catalogo: {
+        ...(context?.catalogo && typeof context.catalogo === "object" ? context.catalogo : {}),
+        produtoAtual:
+          context?.catalogo?.produtoAtual && typeof context.catalogo.produtoAtual === "object"
+            ? context.catalogo.produtoAtual
+            : products.length === 1
+              ? products[0]
+              : null,
+        ultimosProdutos: products,
+      },
+    },
+    products,
+    detectProductSearch: () => false,
+    buildProductSearchCandidates: () => [],
+    isCatalogListingIntent: () => false,
+  })
+  const textualComparisonIntent = executionState.comparisonState.comparisonIntent
   const comparisonIntent = semanticComparisonMode ?? textualComparisonIntent
   if (comparisonIntent) {
-    const semanticIndexes = resolveApiCatalogSemanticComparisonIndexes(semanticApiDecision?.referencedProductIndexes, products)
-    if (!semanticComparisonMode) {
-      const textualIndexes = resolveApiCatalogComparisonIndexes(message, products)
-      const hasExplicitIndexes = textualIndexes.length >= 2
-      const hasRecentListAnchor = Array.isArray(contextProducts) && contextProducts.length > 1
-      const allowTextualComparison = isPriceRankingComparisonMode(comparisonIntent)
-        ? hasExplicitIndexes || hasRecentListAnchor
-        : hasExplicitIndexes
-      if (!allowTextualComparison || !hasTextualApiComparisonAnchor(message, contextProducts, products)) {
-        return null
-      }
-    }
-
-    const indexes = semanticIndexes.length ? semanticIndexes : resolveApiCatalogComparisonIndexes(message, products)
-    return buildApiCatalogComparisonReply(products, comparisonIntent, indexes)
+    const comparisonState = resolveCatalogComparisonDecisionState({
+      latestUserMessage: message,
+      products,
+      comparisonIntent,
+      referencedProductIndexes: semanticApiDecision?.referencedProductIndexes,
+      isSemanticComparison: Boolean(semanticComparisonMode),
+      hasRecentListContext: hasRecentApiListContext(contextProducts, products),
+    })
+    return comparisonState.comparisonReply
   }
 
-  const reference = resolveRecentCatalogProductReference(message, {
-    ...context,
-    catalogo: {
-      ...(context?.catalogo && typeof context.catalogo === "object" ? context.catalogo : {}),
-      ultimosProdutos: products,
-    },
-  })
+  if (hasApiExplicitLookupSignal(message, deps) || ["api_fact_query", "api_status_query"].includes(String(semanticApiDecision?.kind || ""))) {
+    return null
+  }
 
-  if (reference.length === 1) {
-    return buildApiSelectedCatalogReply(reference[0])
+  if (!executionState.intentState.forceNewSearch && executionState.currentCatalogProduct?.nome) {
+    return buildApiSelectedCatalogReply(executionState.currentCatalogProduct)
   }
 
   return null

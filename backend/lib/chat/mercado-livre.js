@@ -1,8 +1,6 @@
 import { getMercadoLivreProductByIdForProject, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
 import { getMercadoLivreStoreSettingsForProject } from "@/lib/mercado-livre-store"
-import { detectCatalogSearchRefinement, resolveRecentCatalogProductReference } from "@/lib/chat/catalog-follow-up"
-import { buildCatalogSimilarSearchCandidates } from "@/lib/chat/catalog-state"
-import { buildProductSearchCandidates, isMercadoLivreListingIntent } from "@/lib/chat/sales-heuristics"
+import { resolveCatalogExecutionState } from "@/lib/chat/catalog-intent-handler"
 
 function sanitizeString(value) {
   const normalized = String(value || "").trim()
@@ -50,6 +48,7 @@ function buildMercadoLivreAsset(item, index = 0) {
   const stockQuantity = sanitizeNumber(item?.availableQuantity, 0)
   const stockLabel = stockQuantity > 0 ? `${stockQuantity} em estoque` : ""
   const productSlug = sanitizeString(item?.slug) || slugifyProduct(item?.title)
+  const images = [...new Set([sanitizeString(item?.thumbnail), ...(Array.isArray(item?.pictures) ? item.pictures : [])].filter(Boolean))].slice(0, 6)
 
   return {
     id: sanitizeString(item?.id || `mercado-livre-${index + 1}`),
@@ -61,7 +60,8 @@ function buildMercadoLivreAsset(item, index = 0) {
     descricao: [priceLabel, stockLabel].filter(Boolean).join(" - "),
     priceLabel,
     targetUrl: sanitizeString(item?.permalink),
-    publicUrl: sanitizeString(item?.thumbnail),
+    publicUrl: images[0] ?? "",
+    images,
     whatsappText: [priceLabel, stockLabel].filter(Boolean).join("\n"),
     metadata: {
       sellerId: sanitizeString(item?.sellerId),
@@ -170,13 +170,12 @@ function buildMercadoLivreSearchReply(products, searchTerm, connector, paging) {
       : "Posso te mostrar produtos da loja. Me diga o que voce procura e eu busco aqui."
   }
 
-  const storeSuffix = connector?.config?.oauthNickname ? ` da loja ${connector.config.oauthNickname}` : " da loja"
   const countLabel = products.length === 1 ? "1 produto" : `${products.length} opcoes`
   const hasMore = paging?.hasMore === true
 
   return hasMore
-    ? `Encontrei ${countLabel}${storeSuffix}. Vou te mostrar as principais opcoes agora e posso trazer mais depois.`
-    : `Encontrei ${countLabel}${storeSuffix}. Vou te mostrar as opcoes disponiveis agora.`
+    ? `Encontrei ${countLabel}. Vou te mostrar as principais opcoes agora e posso trazer mais depois.`
+    : `Encontrei ${countLabel}. Vou te mostrar as opcoes disponiveis agora.`
 }
 
 function normalizeMessage(value) {
@@ -425,127 +424,6 @@ function normalizeRecentCatalogProducts(context) {
   return Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos.filter(Boolean) : []
 }
 
-function normalizeComparisonMessage(message) {
-  return String(message || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-}
-
-function detectCatalogComparisonIntent(message) {
-  const normalized = normalizeComparisonMessage(message)
-
-  if (/\b(vale mais a pena|qual e melhor|qual melhor|melhor opcao|compensa mais|qual voce indica|qual voce recomenda)\b/.test(normalized)) {
-    return "best_choice"
-  }
-
-  if (/\b(mais caro|maior preco|maior valor|produto mais caro)\b/.test(normalized)) {
-    return "highest_price"
-  }
-
-  if (/\b(mais barato|menor preco|menor valor|produto mais barato)\b/.test(normalized)) {
-    return "lowest_price"
-  }
-
-  return null
-}
-
-function resolveCatalogComparisonIndexes(message, products) {
-  const normalized = normalizeComparisonMessage(message)
-  const patterns = [
-    { pattern: /\b1\b|\bum\b|\bprimeiro\b|\bprimeira\b/, index: 0 },
-    { pattern: /\b2\b|\bsegundo\b|\bsegunda\b/, index: 1 },
-    { pattern: /\b3\b|\bterceiro\b|\bterceira\b/, index: 2 },
-  ]
-  const matchedIndexes = patterns.filter((item) => item.pattern.test(normalized)).map((item) => item.index)
-  const uniqueIndexes = [...new Set(matchedIndexes)].filter((index) => products[index])
-  return uniqueIndexes
-}
-
-function buildCatalogAdvantageLines(product) {
-  const lines = []
-  if (product?.freeShipping) lines.push("frete gratis")
-  if (product?.warranty) lines.push(`garantia ${product.warranty}`)
-  if (product?.preco != null) lines.push(`preco ${formatCurrency(product.preco)}`)
-  if (sanitizeNumber(product?.availableQuantity, 0) > 0) lines.push(`${sanitizeNumber(product.availableQuantity, 0)} em estoque`)
-  if (product?.material) lines.push(product.material)
-  if (product?.cor) lines.push(product.cor)
-  return lines
-}
-
-function scoreCatalogBestChoiceProduct(product) {
-  let score = 0
-  if (Number.isFinite(Number(product?.preco))) score += Math.max(0, 1000 - Number(product.preco)) / 100
-  if (sanitizeNumber(product?.availableQuantity, 0) > 0) score += 4
-  if (product?.freeShipping) score += 3
-  if (product?.warranty) score += 2
-  if (product?.material) score += 1
-  if (product?.cor) score += 1
-  return score
-}
-
-function buildCatalogBestChoiceReply(products, selectedIndexes) {
-  const comparedProducts = selectedIndexes.map((index) => products[index]).filter(Boolean)
-  if (comparedProducts.length < 2) {
-    return null
-  }
-
-  const ranked = [...comparedProducts].sort((left, right) => scoreCatalogBestChoiceProduct(right) - scoreCatalogBestChoiceProduct(left))
-  const winner = ranked[0]
-  const runnerUp = ranked[1]
-  if (!winner?.nome || !runnerUp?.nome) {
-    return null
-  }
-
-  const winnerReasons = buildCatalogAdvantageLines(winner).slice(0, 3)
-  const runnerReasons = buildCatalogAdvantageLines(runnerUp).slice(0, 2)
-
-  return [
-    `Entre ${winner.nome} e ${runnerUp.nome}, eu iria em ${winner.nome}.`,
-    winnerReasons.length ? `Ele sai na frente por ${winnerReasons.join(", ")}.` : "",
-    runnerReasons.length ? `${runnerUp.nome} ainda pode fazer sentido se o seu foco for ${runnerReasons.join(", ")}.` : "",
-    "Se quiser, eu tambem posso te dizer qual dos dois faz mais sentido pelo estilo ou pela faixa de preco.",
-  ]
-    .filter(Boolean)
-    .join(" ")
-}
-
-function selectCatalogProductByComparison(products, comparisonIntent) {
-  const pricedProducts = (Array.isArray(products) ? products : []).filter((item) => Number.isFinite(Number(item?.preco)))
-  if (!pricedProducts.length || !comparisonIntent || !["highest_price", "lowest_price"].includes(comparisonIntent)) {
-    return null
-  }
-
-  return pricedProducts.reduce((selected, item) => {
-    if (!selected) {
-      return item
-    }
-
-    return comparisonIntent === "lowest_price"
-      ? Number(item.preco) < Number(selected.preco)
-        ? item
-        : selected
-      : Number(item.preco) > Number(selected.preco)
-        ? item
-        : selected
-  }, null)
-}
-
-function buildCatalogComparisonReply(product, comparisonIntent, totalProducts) {
-  if (!product?.nome || product?.preco == null || !comparisonIntent) {
-    return null
-  }
-
-  const intro =
-    comparisonIntent === "lowest_price"
-      ? "Dos itens que te mostrei, o mais barato e"
-      : "Dos itens que te mostrei, o mais caro e"
-  const price = formatCurrency(product.preco)
-  const detail = totalProducts > 1 ? ` entre ${totalProducts} opcoes recentes` : ""
-
-  return `${intro} ${product.nome}${detail}: ${price}.`
-}
-
 export function isMercadoLivrePurchaseIntent(message) {
   return /\b(gostei|quero|comprar|manda o link|vou querer)\b/i.test(String(message || ""))
 }
@@ -630,121 +508,57 @@ function shouldStayOnCurrentProduct(message, context, currentProduct) {
 }
 
 export function resolveMercadoLivreFlowState(input = {}) {
-  const inferredRefinementDecision =
-    input.catalogFollowUpDecision ??
-    detectCatalogSearchRefinement(input.latestUserMessage, input.context, {
-      buildProductSearchCandidates: input.buildProductSearchCandidates,
-      shouldSearchProducts: input.detectProductSearch,
-    })
-  const referencedCatalogProducts =
-    inferredRefinementDecision?.matchedProducts ??
-    (input.resolveRecentCatalogProductReference ?? resolveRecentCatalogProductReference)(input.latestUserMessage, input.context)
-  const productSearchCandidates = (input.buildProductSearchCandidates ?? buildProductSearchCandidates)(input.latestUserMessage)
-  const contextCatalog = input.context?.catalogo ?? {}
-  const recentCatalogProducts = normalizeRecentCatalogProducts(input.context)
-  const catalogComparisonIntent = detectCatalogComparisonIntent(input.latestUserMessage)
-  const implicitSingleRecentProduct =
-    !referencedCatalogProducts?.length &&
-    !contextCatalog.produtoAtual &&
-    recentCatalogProducts.length === 1 &&
-    isImplicitCurrentProductReference(input.latestUserMessage)
-      ? recentCatalogProducts[0]
-      : null
-  const candidateCurrentCatalogProduct =
-    referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? implicitSingleRecentProduct ?? null
-  const semanticSearchCandidates =
-    inferredRefinementDecision?.kind === "similar_items_search" || inferredRefinementDecision?.kind === "same_type_search"
-      ? buildCatalogSimilarSearchCandidates(candidateCurrentCatalogProduct, inferredRefinementDecision?.searchCandidates?.[0])
-      : []
-  const shouldExitCurrentProductContext =
-    inferredRefinementDecision?.kind === "same_type_search" ||
-    inferredRefinementDecision?.kind === "similar_items_search"
-  const stayOnCurrentProduct =
-    Boolean(implicitSingleRecentProduct) ||
-    (referencedCatalogProducts?.length === 1 && !shouldExitCurrentProductContext) ||
-    (!shouldExitCurrentProductContext &&
-      shouldStayOnCurrentProduct(input.latestUserMessage, input.context, candidateCurrentCatalogProduct))
-  const forceNewSearch =
-    (inferredRefinementDecision?.kind === "catalog_search_refinement" || shouldExitCurrentProductContext) && !stayOnCurrentProduct
-  const currentCatalogProduct = forceNewSearch ? null : candidateCurrentCatalogProduct
-  const loadMoreCatalogRequested =
-    !forceNewSearch &&
-    !stayOnCurrentProduct &&
-    !catalogComparisonIntent &&
-    (/\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(input.latestUserMessage || "")) ||
-      /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/i.test(String(input.latestUserMessage || "")) ||
-      /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/i.test(String(input.latestUserMessage || "")))
+  const executionState = resolveCatalogExecutionState({
+    latestUserMessage: input.latestUserMessage,
+    context: input.context,
+    products: Array.isArray(input.context?.catalogo?.ultimosProdutos) ? input.context.catalogo.ultimosProdutos : [],
+    catalogDecision: input.catalogFollowUpDecision,
+    detectProductSearch: input.detectProductSearch,
+    buildProductSearchCandidates: input.buildProductSearchCandidates,
+    isCatalogListingIntent: input.isMercadoLivreListingIntent,
+  })
 
   return {
-    productSearchRequested: stayOnCurrentProduct
-      ? false
-      : forceNewSearch || Boolean(input.detectProductSearch?.(input.latestUserMessage)),
-    genericMercadoLivreListingRequested: stayOnCurrentProduct
-      ? false
-      : Boolean(input.isMercadoLivreListingIntent?.(input.latestUserMessage) ?? isMercadoLivreListingIntent(input.latestUserMessage)),
-    forceNewSearch,
-    loadMoreCatalogRequested,
-    catalogComparisonIntent,
-    referencedCatalogProducts,
-    currentCatalogProduct,
-    recentCatalogProducts,
-    catalogFollowUpDecision: inferredRefinementDecision ?? null,
-    productSearchTerm:
-      loadMoreCatalogRequested && inferredRefinementDecision?.kind !== "catalog_search_refinement"
-        ? ""
-        :
-      semanticSearchCandidates[0] ??
-      inferredRefinementDecision?.uncoveredTokens?.[0] ??
-      inferredRefinementDecision?.searchCandidates?.[0] ??
-      productSearchCandidates[0] ??
-      "",
-    excludeCurrentProductFromSearch: inferredRefinementDecision?.excludeCurrentProduct === true,
-    lastSearchTerm: sanitizeString(contextCatalog.ultimaBusca),
-    paginationOffset: forceNewSearch
-      ? 0
-      : loadMoreCatalogRequested
-      ? sanitizeNumber(contextCatalog.paginationNextOffset, sanitizeNumber(contextCatalog.paginationOffset, 0))
-      : 0,
-    paginationPoolLimit: sanitizeNumber(contextCatalog.paginationPoolLimit, 24),
-    hasMoreFromContext: contextCatalog.paginationHasMore === true,
+    ...executionState.intentState,
+    catalogComparisonIntent: executionState.comparisonState.comparisonIntent,
+    genericMercadoLivreListingRequested: executionState.intentState.genericCatalogListingRequested,
+    catalogFollowUpDecision: executionState.intentState.catalogDecision,
+    catalogExecutionAction: executionState.action,
   }
 }
 
 export async function resolveMercadoLivreHeuristicState(input = {}) {
   let currentProduct = input.currentCatalogProduct ?? input.referencedCatalogProducts?.[0] ?? input.context?.catalogo?.produtoAtual
   const recentCatalogProducts = Array.isArray(input.recentCatalogProducts) ? input.recentCatalogProducts : normalizeRecentCatalogProducts(input.context)
-  const catalogComparisonProduct = selectCatalogProductByComparison(recentCatalogProducts, input.catalogComparisonIntent)
-  const catalogComparisonIndexes = resolveCatalogComparisonIndexes(input.latestUserMessage, recentCatalogProducts)
+  const executionState = resolveCatalogExecutionState({
+    latestUserMessage: input.latestUserMessage,
+    context: input.context,
+    products: recentCatalogProducts,
+    comparisonIntent: input.catalogComparisonIntent,
+  })
   const projectHasMercadoLivre = hasMercadoLivreConnection(input.project, input.context)
   const focusedProductContext = hasFocusedCatalogProductContext(input.context)
 
-  if (catalogComparisonProduct) {
+  if (executionState.comparisonState.selectedProduct && executionState.comparisonState.comparisonReply) {
     return {
       selectedProductSalesReply: null,
-      mercadoLivreHeuristicReply: buildCatalogComparisonReply(
-        catalogComparisonProduct,
-        input.catalogComparisonIntent,
-        recentCatalogProducts.length
-      ),
+      mercadoLivreHeuristicReply: executionState.comparisonState.comparisonReply,
       mercadoLivreProducts: [],
       mercadoLivreAssets: [],
       catalogSearchState: null,
-      selectedCatalogProduct: catalogComparisonProduct,
+      selectedCatalogProduct: executionState.comparisonState.selectedProduct,
     }
   }
 
-  if (input.catalogComparisonIntent === "best_choice") {
-    const comparisonReply = buildCatalogBestChoiceReply(recentCatalogProducts, catalogComparisonIndexes)
-    if (comparisonReply) {
+  if (executionState.comparisonState.comparisonIntent === "best_choice" && executionState.comparisonState.comparisonReply) {
       return {
         selectedProductSalesReply: null,
-        mercadoLivreHeuristicReply: comparisonReply,
+        mercadoLivreHeuristicReply: executionState.comparisonState.comparisonReply,
         mercadoLivreProducts: [],
         mercadoLivreAssets: [],
         catalogSearchState: null,
         selectedCatalogProduct: null,
       }
-    }
   }
 
   const shouldEnrichSelectedProduct =

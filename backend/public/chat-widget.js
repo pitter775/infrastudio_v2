@@ -126,6 +126,7 @@
     var scrollAnimationFrame = null;
     var contextTeaserTimer = null;
     var contextIdleTimer = null;
+    var activeProductGalleryCleanups = [];
     var contextScrollShown = false;
     var contextIdleShown = false;
     var lastInteractionAt = Date.now();
@@ -407,6 +408,7 @@
     });
 
     function destroy() {
+      cleanupProductGalleries();
       cleanup.slice().reverse().forEach(function (dispose) {
         try {
           dispose();
@@ -584,6 +586,11 @@
       ".chat-asset { display: block; overflow: hidden; border-radius: 16px; border: 1px solid " + headerBorder + "; background: color-mix(in srgb, " + panelBackground + " 88%, transparent); color: inherit; text-decoration: none; }",
       ".chat-asset.image, .chat-asset.video, .chat-asset.preview { padding: 0; }",
       ".chat-asset.image img, .chat-asset.video video { display: block; width: 100%; max-height: 210px; object-fit: cover; background: rgba(15,23,42,.35); }",
+      ".chat-product-media { position: relative; overflow: hidden; background: rgba(15,23,42,.18); touch-action: pan-y; }",
+      ".chat-product-media img { display: block; width: 100%; max-height: 210px; object-fit: cover; background: rgba(15,23,42,.35); user-select: none; -webkit-user-drag: none; }",
+      ".chat-product-gallery-dots { position: absolute; left: 50%; bottom: 10px; z-index: 1; display: inline-flex; gap: 6px; transform: translateX(-50%); padding: 6px 8px; border-radius: 999px; background: rgba(15,23,42,0.26); backdrop-filter: blur(6px); }",
+      ".chat-product-gallery-dot { width: 6px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.42); transition: transform .18s ease, background-color .18s ease; }",
+      ".chat-product-gallery-dot.is-active { background: rgba(255,255,255,0.96); transform: scale(1.15); }",
       ".chat-asset-preview { display: flex; align-items: center; justify-content: center; min-height: 138px; padding: 18px; background: linear-gradient(135deg, color-mix(in srgb, " + accent + " 22%, #0f172a 78%), rgba(15,23,42,.94)); }",
       ".chat-asset-preview-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 72px; padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.08); color: white; font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }",
       ".chat-asset.file { padding: 12px; }",
@@ -593,10 +600,13 @@
       ".chat-asset-action { display: inline-flex; align-items: center; justify-content: center; min-width: 78px; padding: 8px 12px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: rgba(255,255,255,0.05); color: inherit; font-size: 11px; font-weight: 700; text-decoration: none; transition: transform .18s ease, background-color .18s ease; }",
       ".chat-asset-action:hover { transform: translateY(-1px); background: rgba(255,255,255,0.09); }",
       ".chat-asset-action.primary { border-color: color-mix(in srgb, " + accent + " 40%, transparent); background: color-mix(in srgb, " + accent + " 18%, transparent); color: white; }",
-      ".chat-asset-action.mercado-livre { border-color: rgba(250,204,21,0.48); background: linear-gradient(180deg, rgba(250,204,21,0.96), rgba(234,179,8,0.96)); color: #1f2937; box-shadow: 0 8px 16px -14px rgba(234,179,8,0.9); }",
+      ".chat-asset-action.mercado-livre { min-width: 0; width: 38px; padding: 8px 0; border-color: rgba(250,204,21,0.48); background: linear-gradient(180deg, rgba(250,204,21,0.96), rgba(234,179,8,0.96)); color: #1f2937; box-shadow: 0 8px 16px -14px rgba(234,179,8,0.9); }",
       ".chat-asset-action.mercado-livre:hover { background: linear-gradient(180deg, rgba(253,224,71,0.98), rgba(250,204,21,0.98)); }",
       ".chat-asset-action.detail { border-color: color-mix(in srgb, " + accent + " 28%, rgba(148,163,184,0.2)); background: " + (theme === "light" ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0.06)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.92)") + "; }",
       ".chat-asset-action.detail:hover { background: " + (theme === "light" ? "rgba(248,250,252,1)" : "rgba(255,255,255,0.1)") + "; }",
+      ".chat-asset-action.ask { border-color: color-mix(in srgb, " + accent + " 40%, transparent); background: color-mix(in srgb, " + accent + " 14%, " + (theme === "light" ? "white" : "rgba(15,23,42,0.48)") + "); color: " + (theme === "light" ? "#0f172a" : "white") + "; }",
+      ".chat-asset-action.ask:hover { background: color-mix(in srgb, " + accent + " 20%, " + (theme === "light" ? "white" : "rgba(15,23,42,0.6)") + "); }",
+      ".chat-asset-action .chat-icon { width: 14px; height: 14px; }",
       ".chat-asset-title { font-size: 12px; font-weight: 700; color: inherit; }",
       ".chat-asset-subtitle { margin-top: 4px; font-size: 11px; color: #94a3b8; }",
       ".chat-asset-open { font-size: 11px; font-weight: 700; color: " + accent + "; white-space: nowrap; }",
@@ -664,7 +674,7 @@
       ".chat-credit-logo.color { opacity: 0; transform: scale(.96); }",
       ".chat-credit-link:hover .chat-credit-logo.default { opacity: 0; transform: scale(1.04); }",
       ".chat-credit-link:hover .chat-credit-logo.color { opacity: 1; transform: scale(1); }",
-      "@media (max-width: 640px) { .chat-wrap { right: 8px; left: auto; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 4px); width: 60px; height: 60px; } .chat-wrap.open { top: 0; right: 0; bottom: 0; left: 0; width: 100vw; height: 100dvh; transform: none !important; } .chat-wrap.is-expanded .chat-panel { width: 100%; height: 100%; bottom: 0; } .chat-panel { width: 100%; max-width: 100%; height: calc(100% - 56px); right: 0; bottom: 52px; border-radius: 14px; transform-origin: calc(100% - 30px) calc(100% + 34px); } .chat-wrap.open .chat-panel, .chat-wrap.open.is-expanded .chat-panel, .chat-panel.open { width: 100%; max-width: none; height: 100%; right: 0; bottom: 0; border-radius: 0; } .chat-button { right: 0; bottom: 0; } .chat-launcher-teaser { right: 0; bottom: 70px; max-width: min(250px, calc(100vw - 24px)); } .chat-wrap.open .chat-button { opacity: 0; pointer-events: none; } .chat-maximize { display: none !important; } .chat-close { display: inline-flex !important; } .chat-header { padding: 10px 12px; cursor: default; } .chat-bubble { max-width: 92%; padding: 10px 11px; font-size: 13px; line-height: 1.5; } .chat-bubble.user { max-width: 82%; } .chat-rich p + p, .chat-rich p + ul, .chat-rich p + ol, .chat-rich ul + p, .chat-rich ol + p, .chat-rich ul + ul, .chat-rich ol + ol { margin-top: 8px; } .chat-assets { gap: 8px; } .chat-asset.image img, .chat-asset.video video { max-height: 176px; } .chat-asset-body { padding: 10px; } .chat-messages { padding-bottom: 12px; } .chat-input { padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 4px); } .chat-credit { padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 4px); } .chat-scroll-bottom { bottom: 92px; } .chat-composer { border-radius: 14px; padding: 10px 10px 8px; } }",
+      "@media (max-width: 640px) { .chat-wrap { right: 8px; left: auto; top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 4px); width: 60px; height: 60px; } .chat-wrap.open { top: 0; right: 0; bottom: 0; left: 0; width: 100vw; height: 100dvh; transform: none !important; } .chat-wrap.is-expanded .chat-panel { width: 100%; height: 100%; bottom: 0; } .chat-panel { width: 100%; max-width: 100%; height: calc(100% - 56px); right: 0; bottom: 52px; border-radius: 14px; transform-origin: calc(100% - 30px) calc(100% + 34px); } .chat-wrap.open .chat-panel, .chat-wrap.open.is-expanded .chat-panel, .chat-panel.open { width: 100%; max-width: none; height: 100%; right: 0; bottom: 0; border-radius: 0; } .chat-button { right: 0; bottom: 0; } .chat-launcher-teaser { right: 0; bottom: 70px; max-width: min(250px, calc(100vw - 24px)); } .chat-wrap.open .chat-button { opacity: 0; pointer-events: none; } .chat-maximize { display: none !important; } .chat-close { display: inline-flex !important; } .chat-header { padding: 10px 12px; cursor: default; } .chat-bubble { max-width: 92%; padding: 10px 11px; font-size: 13px; line-height: 1.5; } .chat-bubble.user { max-width: 82%; } .chat-rich p + p, .chat-rich p + ul, .chat-rich p + ol, .chat-rich ul + p, .chat-rich ol + p, .chat-rich ul + ul, .chat-rich ol + ol { margin-top: 8px; } .chat-assets { gap: 8px; } .chat-asset.image img, .chat-asset.video video, .chat-product-media img { max-height: 176px; } .chat-asset-body { padding: 10px; } .chat-messages { padding-bottom: 12px; } .chat-input { padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 4px); } .chat-credit { padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 4px); } .chat-scroll-bottom { bottom: 92px; } .chat-composer { border-radius: 14px; padding: 10px 10px 8px; } }",
     ].join("");
     shadow.appendChild(style);
 
@@ -962,6 +972,10 @@
 
     function createCalendarIcon() {
       return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M7 3.5v3M17 3.5v3M4.75 8.5h14.5M6.5 5.5h11a1.75 1.75 0 0 1 1.75 1.75v10.25A1.75 1.75 0 0 1 17.5 19.25h-11A1.75 1.75 0 0 1 4.75 17.5V7.25A1.75 1.75 0 0 1 6.5 5.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
+    }
+
+    function createExternalLinkIcon() {
+      return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M14 5h5v5M10 14 19 5M19 13v4.25A1.75 1.75 0 0 1 17.25 19H6.75A1.75 1.75 0 0 1 5 17.25V6.75A1.75 1.75 0 0 1 6.75 5H11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>';
     }
 
     function getAvailableEmojis() {
@@ -1731,14 +1745,7 @@
       var card = document.createElement("div");
       card.className = "chat-asset image";
 
-      if (asset.publicUrl) {
-        var image = document.createElement("img");
-        image.src = asset.publicUrl;
-        image.alt = asset.nome || "Produto";
-        card.appendChild(image);
-      } else {
-        card.appendChild(createAssetPreviewBadge({ arquivoNome: "PROD", mimeType: "", categoria: "preview" }));
-      }
+      card.appendChild(createProductAssetMedia(asset));
 
       var body = document.createElement("div");
       body.className = "chat-asset-body";
@@ -1775,10 +1782,178 @@
       if (detailAction) {
         actions.appendChild(detailAction);
       }
+      var askAction = createProductAskAction(asset);
+      if (askAction) {
+        actions.appendChild(askAction);
+      }
       body.appendChild(actions);
 
       card.appendChild(body);
       return card;
+    }
+
+    function cleanupProductGalleries() {
+      activeProductGalleryCleanups.forEach(function (cleanupFn) {
+        if (typeof cleanupFn === "function") {
+          cleanupFn();
+        }
+      });
+      activeProductGalleryCleanups = [];
+    }
+
+    function normalizeProductImages(asset) {
+      var images = [];
+      if (asset && Array.isArray(asset.images)) {
+        asset.images.forEach(function (image) {
+          var value = typeof image === "string"
+            ? image
+            : image && typeof image === "object"
+              ? (image.publicUrl || image.url || image.src || "")
+              : "";
+          if (typeof value === "string" && value.trim()) {
+            images.push(value.trim());
+          }
+        });
+      }
+
+      if (asset && typeof asset.publicUrl === "string" && asset.publicUrl.trim()) {
+        images.unshift(asset.publicUrl.trim());
+      }
+
+      return images.filter(function (value, index) {
+        return value && images.indexOf(value) === index;
+      }).slice(0, 6);
+    }
+
+    function createProductAssetMedia(asset) {
+      var images = normalizeProductImages(asset);
+      if (!images.length) {
+        return createAssetPreviewBadge({ arquivoNome: "PROD", mimeType: "", categoria: "preview" });
+      }
+
+      var media = document.createElement("div");
+      media.className = "chat-product-media";
+
+      var image = document.createElement("img");
+      image.src = images[0];
+      image.alt = asset.nome || "Produto";
+      image.loading = "lazy";
+      media.appendChild(image);
+
+      if (images.length <= 1) {
+        return media;
+      }
+
+      var dots = document.createElement("div");
+      dots.className = "chat-product-gallery-dots";
+      var activeIndex = 0;
+      var visible = false;
+      var hovering = false;
+      var autoplayTimer = null;
+      var touchStartX = 0;
+      var touchStartY = 0;
+      var touchDeltaX = 0;
+      var touchDeltaY = 0;
+      var dotNodes = images.map(function (_value, index) {
+        var dot = document.createElement("span");
+        dot.className = "chat-product-gallery-dot" + (index === 0 ? " is-active" : "");
+        dots.appendChild(dot);
+        return dot;
+      });
+      media.appendChild(dots);
+
+      function renderGalleryImage(nextIndex) {
+        activeIndex = ((nextIndex % images.length) + images.length) % images.length;
+        image.src = images[activeIndex];
+        dotNodes.forEach(function (dot, index) {
+          dot.classList.toggle("is-active", index === activeIndex);
+        });
+      }
+
+      function canAutoplay() {
+        return open && document.visibilityState === "visible" && visible && !hovering && media.isConnected;
+      }
+
+      function syncAutoplay() {
+        if (autoplayTimer) {
+          window.clearInterval(autoplayTimer);
+          autoplayTimer = null;
+        }
+
+        if (!canAutoplay()) {
+          return;
+        }
+
+        autoplayTimer = window.setInterval(function () {
+          if (!canAutoplay()) {
+            syncAutoplay();
+            return;
+          }
+          renderGalleryImage(activeIndex + 1);
+        }, 7000);
+      }
+
+      var observer = typeof IntersectionObserver === "function"
+        ? new IntersectionObserver(function (entries) {
+            visible = entries.some(function (entry) {
+              return entry.isIntersecting && entry.intersectionRatio >= 0.55;
+            });
+            syncAutoplay();
+          }, { threshold: [0.55] })
+        : null;
+
+      if (observer) {
+        observer.observe(media);
+      } else {
+        visible = true;
+      }
+
+      addListener(media, "mouseenter", function () {
+        hovering = true;
+        syncAutoplay();
+      });
+      addListener(media, "mouseleave", function () {
+        hovering = false;
+        syncAutoplay();
+      });
+      addListener(media, "touchstart", function (event) {
+        var touch = event.touches && event.touches[0];
+        if (!touch) {
+          return;
+        }
+        touchStartX = touch.clientX;
+        touchStartY = touch.clientY;
+        touchDeltaX = 0;
+        touchDeltaY = 0;
+      }, { passive: true });
+      addListener(media, "touchmove", function (event) {
+        var touch = event.touches && event.touches[0];
+        if (!touch) {
+          return;
+        }
+        touchDeltaX = touch.clientX - touchStartX;
+        touchDeltaY = touch.clientY - touchStartY;
+      }, { passive: true });
+      addListener(media, "touchend", function () {
+        if (Math.abs(touchDeltaX) > 36 && Math.abs(touchDeltaX) > Math.abs(touchDeltaY)) {
+          renderGalleryImage(activeIndex + (touchDeltaX < 0 ? 1 : -1));
+        }
+        touchDeltaX = 0;
+        touchDeltaY = 0;
+        syncAutoplay();
+      });
+
+      activeProductGalleryCleanups.push(function () {
+        if (autoplayTimer) {
+          window.clearInterval(autoplayTimer);
+        }
+        if (observer) {
+          observer.disconnect();
+        }
+      });
+      syncAutoplay();
+
+      return media;
     }
 
     function getAssetExtension(asset) {
@@ -1859,7 +2034,9 @@
       action.href = asset.targetUrl || asset.publicUrl || "#";
       action.target = "_blank";
       action.rel = "noreferrer noopener";
-      action.textContent = "Ir no Mercado Livre";
+      action.setAttribute("aria-label", "Abrir no Mercado Livre");
+      action.setAttribute("title", "Abrir no Mercado Livre");
+      action.innerHTML = createExternalLinkIcon();
       return action;
     }
 
@@ -1914,6 +2091,28 @@
       action.target = "_blank";
       action.rel = "noreferrer noopener";
       action.textContent = "Detalhe";
+      return action;
+    }
+
+    function createProductAskAction(asset) {
+      if (!asset || !asset.nome) {
+        return null;
+      }
+
+      var action = document.createElement("button");
+      action.type = "button";
+      action.className = "chat-asset-action ask";
+      action.textContent = "Saber mais";
+      addListener(action, "click", function () {
+        var subject = String(asset.nome || "").trim();
+        if (!subject) {
+          return;
+        }
+        void sendMessage("Quero saber mais sobre " + subject + ".", {
+          userBubbleText: "Saber mais",
+          source: "widget_product_asset",
+        });
+      });
       return action;
     }
 
@@ -2547,6 +2746,7 @@
       var previousBottomOffset = shouldStickToBottom
         ? 0
         : Math.max(0, messagesWrap.scrollHeight - messagesWrap.scrollTop);
+      cleanupProductGalleries();
       stack.innerHTML = "";
 
       if (!messages.length) {

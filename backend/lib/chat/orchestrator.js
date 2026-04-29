@@ -1,9 +1,6 @@
 import { buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReply } from "@/lib/chat/api-runtime"
-import {
-  hasRecentCatalogSnapshot,
-  resolveDeterministicCatalogFollowUpDecision,
-  resolveCatalogReferenceHeuristicReply,
-} from "@/lib/chat/catalog-follow-up"
+import { hasRecentCatalogSnapshot } from "@/lib/chat/catalog-follow-up"
+import { resolveCatalogDecisionState } from "@/lib/chat/catalog-intent-handler"
 import { buildLeadNameAcknowledgementReply, enrichLeadContext, extractName, isLikelyLeadNameReply } from "@/lib/chat/lead-stage"
 import { resolveChatDomainRoute } from "@/lib/chat/domain-router"
 import {
@@ -317,22 +314,6 @@ function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCa
   }
 }
 
-function isConcreteRecentCatalogReferenceDecision(decision) {
-  return decision?.kind === "recent_product_reference" && Array.isArray(decision?.matchedProducts) && decision.matchedProducts.length === 1
-}
-
-function mergeCatalogSemanticAndHeuristicDecision(semanticDecision, heuristicDecision) {
-  if (!semanticDecision) {
-    return heuristicDecision ?? null
-  }
-
-  if (semanticDecision.kind === "recent_product_reference_unresolved" && isConcreteRecentCatalogReferenceDecision(heuristicDecision)) {
-    return heuristicDecision
-  }
-
-  return semanticDecision
-}
-
 function buildBaseRoutingDecision(latestUserMessage, history, context, runtimeApis, focusedApiContext, runtimeConfig) {
   return resolveChatDomainRoute({
     latestUserMessage,
@@ -518,18 +499,14 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const shouldUseApiRuntime = routingDecision.domain === "api_runtime" && routingDecision.shouldUseTool === true
   const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
   const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
-  const shouldEvaluateHeuristicCatalogFollowUp =
-    (!semanticCatalogDecision || semanticCatalogDecision.kind === "recent_product_reference_unresolved") &&
-    (shouldUseMercadoLivre || hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual) &&
-    (hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual)
-  const heuristicCatalogFollowUpDecision = shouldEvaluateHeuristicCatalogFollowUp
-    ? resolveDeterministicCatalogFollowUpDecision(latestUserMessage, context, {
-        buildProductSearchCandidates,
-        shouldSearchProducts,
-      })
-    : null
-  const catalogFollowUpDecision = mergeCatalogSemanticAndHeuristicDecision(semanticCatalogDecision, heuristicCatalogFollowUpDecision)
-  const catalogReferenceReply = resolveCatalogReferenceHeuristicReply(catalogFollowUpDecision)
+  const { catalogDecision: catalogFollowUpDecision, catalogReferenceReply } = resolveCatalogDecisionState({
+    latestUserMessage,
+    context,
+    semanticDecision: semanticCatalogDecision,
+    shouldUseCatalog: shouldUseMercadoLivre,
+    buildProductSearchCandidates,
+    shouldSearchProducts,
+  })
   const mercadoLivreFlowState = resolveMercadoLivreFlowState({
     latestUserMessage,
     context,

@@ -18,6 +18,10 @@ import {
   resolveCanonicalWhatsAppExternalIdentifier,
   resolveChatDomainRoute,
   resolveConversationPipelineStageState,
+  resolveCatalogIntentState,
+  resolveCatalogDecisionState,
+  resolveCatalogExecutionState,
+  resolveCatalogComparisonDecisionState,
   resolveRecentCatalogReferenceDecision,
   resolveRecentCatalogProductReference,
 } from "@/tests/chat-source"
@@ -242,6 +246,128 @@ async function main() {
   assert.equal(productDetailRoute.domain, "catalog")
   assert.equal(productDetailRoute.reason, "catalog_product_detail_focus")
 
+  const sharedCatalogIntent = resolveCatalogIntentState({
+    latestUserMessage: "voce tem outro produto similar a esse?",
+    context: {
+      catalogo: {
+        produtoAtual: {
+          id: "MLB-1",
+          nome: "Saleiro De Porcelana",
+          categoriaLabel: "Saleiros",
+          atributos: [{ nome: "Material", valor: "Porcelana" }],
+        },
+        ultimosProdutos: [],
+      },
+      conversation: { mode: "product_detail" },
+      storefront: { pageKind: "product_detail" },
+      ui: { productDetailPreferred: true },
+    },
+    catalogDecision: {
+      kind: "similar_items_search",
+      searchCandidates: [],
+      excludeCurrentProduct: true,
+    },
+    detectProductSearch: () => false,
+    buildProductSearchCandidates: () => [],
+    isCatalogListingIntent: () => false,
+  })
+  assert.equal(sharedCatalogIntent.forceNewSearch, true)
+  assert.equal(sharedCatalogIntent.productSearchRequested, true)
+  assert.equal(sharedCatalogIntent.currentCatalogProduct, null)
+  assert.equal(sharedCatalogIntent.productSearchTerm, "Saleiros")
+
+  const sharedCatalogDecision = resolveCatalogDecisionState({
+    latestUserMessage: "gostei desse",
+    context: {
+      catalogo: {
+        ultimaBusca: "sopeira",
+        ultimosProdutos: [catalogContext.catalogo?.ultimosProdutos?.[0]].filter(Boolean),
+      },
+    },
+    semanticDecision: {
+      kind: "recent_product_reference_unresolved",
+      confidence: 0.9,
+      matchedProducts: [catalogContext.catalogo?.ultimosProdutos?.[0]].filter(Boolean),
+    },
+    shouldUseCatalog: true,
+    buildProductSearchCandidates: deps.buildProductSearchCandidates,
+    shouldSearchProducts: deps.shouldSearchProducts,
+  })
+  assert.equal(sharedCatalogDecision.catalogDecision?.kind, "recent_product_reference")
+  assert.equal(sharedCatalogDecision.catalogReferenceReply, null)
+
+  const sharedCatalogExecution = resolveCatalogExecutionState({
+    latestUserMessage: "qual vale mais a pena entre o 1 e o 2?",
+    context: {
+      catalogo: {
+        ultimosProdutos: [
+          {
+            id: "MLB-1",
+            nome: "Saleiro Azul",
+            preco: 120,
+            availableQuantity: 1,
+            freeShipping: true,
+          },
+          {
+            id: "MLB-2",
+            nome: "Saleiro Branco",
+            preco: 180,
+            availableQuantity: 1,
+            freeShipping: false,
+          },
+        ],
+      },
+    },
+    products: [
+      {
+        id: "MLB-1",
+        nome: "Saleiro Azul",
+        preco: 120,
+        availableQuantity: 1,
+        freeShipping: true,
+      },
+      {
+        id: "MLB-2",
+        nome: "Saleiro Branco",
+        preco: 180,
+        availableQuantity: 1,
+        freeShipping: false,
+      },
+    ],
+    detectProductSearch: () => false,
+    buildProductSearchCandidates: () => [],
+    isCatalogListingIntent: () => false,
+  })
+  assert.equal(sharedCatalogExecution.action, "comparison")
+  assert.equal(sharedCatalogExecution.comparisonState.comparisonIntent, "best_choice")
+  assert.match(sharedCatalogExecution.comparisonState.comparisonReply ?? "", /Entre Saleiro Azul e Saleiro Branco/i)
+
+  const sharedApiComparison = resolveCatalogComparisonDecisionState({
+    latestUserMessage: "qual vale mais a pena?",
+    products: [
+      {
+        id: "api-1",
+        nome: "Imovel Centro",
+        preco: 210000,
+        availableQuantity: 1,
+        freeShipping: false,
+      },
+      {
+        id: "api-2",
+        nome: "Imovel Jardim",
+        preco: 195000,
+        availableQuantity: 1,
+        freeShipping: false,
+      },
+    ],
+    comparisonIntent: "best_choice",
+    referencedProductIndexes: [1, 2],
+    isSemanticComparison: true,
+    hasRecentListContext: true,
+  })
+  assert.equal(sharedApiComparison.comparisonIntent, "best_choice")
+  assert.match(sharedApiComparison.comparisonReply ?? "", /Entre Imovel Centro e Imovel Jardim/i)
+
   const prompt = buildSystemPrompt(
     {
       id: "agent-1",
@@ -314,7 +440,7 @@ async function main() {
   assert.equal(sequence.length, 4)
   assert.match(sequence[0] ?? "", /mais opcoes/i)
 
-  console.log("14 domain regression checks passed.")
+  console.log("15 domain regression checks passed.")
 }
 
 main().catch((error) => {

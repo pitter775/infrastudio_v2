@@ -682,6 +682,7 @@ export function updateContextFromAiResult(input) {
       )
 
       if (nextContext.catalogo.ultimosProdutos.length > 1 && !shouldKeepLockedProduct) {
+        nextContext.catalogo.produtoAtual = null
         nextContext.catalogo.focusMode = "listing"
         nextContext.conversation = {
           ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),

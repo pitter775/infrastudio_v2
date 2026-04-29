@@ -280,12 +280,15 @@ Ainda errado / fragil:
 - `sales-heuristics` ainda concentra regra de negocio demais
 - `sales-heuristics` ainda concentra regra de negocio demais, mas ja ficou menos acoplado a pricing/billing
 - regressao em um dominio ainda pode contaminar outro
- - `api_runtime` ainda depende bastante de matching textual em `api-runtime.js`, apesar de agora usar melhor os hints estruturados do stage semantico
- - `api-runtime.js` ainda concentra a escolha interna de campos por matching textual quando faltam hints estruturados
-- `api-runtime.js` ainda precisa empurrar mais comparacao, resumo e selecao de grupos para dados estruturados em vez de matching local
-- `api-runtime.js` ainda usa matching textual para detectar comparacao entre itens e para agrupar suporte contextual de campos
+- `api_runtime` ainda depende bastante de matching textual em `api-runtime.js`, apesar de agora usar melhor os hints estruturados do stage semantico
+- `api-runtime.js` ainda concentra a escolha interna de campos por matching textual quando faltam hints estruturados
+- `api-runtime.js` ainda precisa empurrar mais resumo, reply factual e selecao de grupos para dados estruturados em vez de matching local
+- a comparacao ja saiu mais do arquivo, mas o caminho factual direto ainda esta mais acoplado do que o ideal
 - `api-runtime.js` ainda usa matching textual como fallback quando o stage semantico nao devolver hints suficientes
 - principalmente em deteccao aberta de intent e em busca livre por campos
+- follow-up curto de escopo de lista ainda depende de o stage semantico rodar bem
+  - o estado residual de `produtoAtual` foi fechado no merge de contexto
+  - mas a qualidade de `tem mais?` e `so esses?` continua melhor quando o classificador semantico sobe isso como `catalog_load_more`
 - a parte mais ampla agora esta menor, mas `findMatchingApiFields` e `getApiKeywordGroups` ainda concentram matching local residual
 - o fallback ainda existe, mas ficou mais contido e menos propenso a “adivinhar” contexto de API em frase aberta
 - a busca livre por campo continua existindo, mas agora bem mais amarrada ao vocabulario conhecido de API
@@ -420,6 +423,30 @@ Ainda errado / fragil:
 - o flow state do Mercado Livre agora trata `same_type_search` e `similar_items_search` como busca nova deterministica
   - a query pode vir do intent semantico ou ser derivada do item atual pelo contrato estruturado
   - `excludeCurrentProduct` segue respeitado para nao reciclar o mesmo item
+- a continuidade de catalogo agora tem um handler compartilhado em `backend/lib/chat/catalog-intent-handler.js`
+  - ele concentra selecao de item atual, saida do lock de `product_detail`, derivacao de busca nova, load more e retomada de lista
+  - o fluxo Mercado Livre passou a consumir esse estado compartilhado em vez de carregar a maior parte da decisao localmente
+  - o caminho de API runtime tambem ja reutiliza esse handler para retomada de item/lista, mas continua fail-closed para lookup factual
+- isso reduz um ponto central de fragilidade do arquivo:
+  - a continuacao de catalogo deixa de ficar espalhada entre `orchestrator`, `mercado-livre` e fallback local
+  - ainda nao esta 100% centralizada, mas a parte de decisao de estado ja saiu do provider principal
+- o orquestrador tambem perdeu mais um pedaco de decisao de catalogo
+  - merge entre decisao semantica e fallback local agora sai do `orchestrator.js` e entra no handler compartilhado
+  - a construcao de `catalogReferenceReply` tambem deixou de ser coordenada diretamente no orquestrador
+  - isso rebaixa mais o orquestrador para coordenador, nao decisor paralelo de continuidade catalogal
+- comparacao e ranking de catalogo tambem comecaram a sair dos providers
+  - `best_choice`, `highest_price` e `lowest_price` agora tem resolucao compartilhada no `catalog-intent-handler.js`
+  - Mercado Livre e API runtime passaram a consumir a mesma base de comparacao em vez de manter logica paralela separada
+  - isso reduz drift entre respostas do widget, WhatsApp e APIs quando a pergunta e "qual vale mais a pena?" ou "qual e o mais barato?"
+- a comparacao residual da API tambem foi puxada mais para o handler compartilhado
+  - gating de comparacao textual vs comparacao semantica agora tambem passa por `catalog-intent-handler.js`
+  - `referencedProductIndexes` semanticos de API deixam de ser resolvidos dentro de `api-runtime.js`
+  - isso reduz mais um pedaco de logica paralela de comparacao fora do fluxo compartilhado de catalogo
+- a continuidade de lista para perguntas como `tem mais?` ou `so esses?` ficou mais semantica
+  - `catalog_load_more` deixou de ser colapsado em `catalog_search` generico e virou decisao estruturada propria no runtime
+  - o handler compartilhado agora usa essa decisao para sair do foco residual de produto e continuar a lista recente sem depender do detector textual local
+  - o `updateContextFromAiResult` tambem limpa `produtoAtual` residual quando a resposta da IA traz uma lista real com varios itens e nao ha lock de detalhe
+  - isso fecha um vazamento em que a conversa seguia em `listing`, mas um `produtoAtual` velho ainda sequestrava follow-up curto para resposta factual do item
 
 ## Ordem de ataque obrigatoria
 
@@ -469,6 +496,11 @@ Ainda errado / fragil:
 ## Proximo passo recomendado agora
 
 - consolidar a mesma resolucao de `similar_items_search` no caminho de API quando existir provider que suporte nova busca por item/tipo
+- continuar movendo comparacao e selecao de lista para o handler compartilhado de catalogo, reduzindo o que ainda esta dentro de `mercado-livre.js` e `api-runtime.js`
+- mover comparacao/ranking de lista (`mais caro`, `mais barato`, `vale mais a pena`) para o handler compartilhado de catalogo, evitando duplicidade entre Mercado Livre e API
+- continuar removendo codigo residual dos providers, deixando `mercado-livre.js` e `api-runtime.js` apenas como executores/adapters
+- avaliar se o proximo corte ja permite introduzir um `catalog handler reply contract` unico para selecao, comparacao e busca, reduzindo ainda mais os caminhos paralelos do orquestrador
+- avaliar se `resolveDeterministicCatalogFollowUpDecision` ja pode ser rebaixado mais, deixando `catalog-intent-handler` como entrada principal da continuidade catalogal
 - continuar reduzindo o intent factual local de `api-runtime.js`, tentando concentrar mais lookup em hints/decisao estruturada antes do matcher residual
 - seguir rebaixando `catalog-follow-up.js` para guardrail residual, principalmente nos casos em que ainda sobra decisao por texto curto sem ancora semantica
 - depois revisar se o merge final no `orchestrator.js` ja pode simplificar mais um passo sem reabrir regressao, idealmente isolando melhor o caso em que o guardrail local ainda pode resolver item unico concreto

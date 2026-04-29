@@ -136,7 +136,7 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
 
   if (semanticIntent.intent === "catalog_load_more") {
     return {
-      kind: "catalog_search",
+      kind: "catalog_load_more",
       confidence: semanticIntent.confidence,
       reason: semanticIntent.reason ?? "Cliente pediu mais opcoes da busca recente.",
       matchedProducts: [],
@@ -451,7 +451,7 @@ export async function classifySemanticIntentStage(input = {}) {
             "Use catalog_search_refinement quando o cliente refinar a ultima lista com um atributo novo ou filtro novo, por exemplo inox, azul, madeira, vintage, grande.",
             "Quando usar catalog_search_refinement, extraia targetType curto e literal com o termo novo principal da busca.",
             "Use new_catalog_search quando o cliente iniciar uma nova busca de catalogo, inclusive na vitrine, com um tipo ou termo curto claro, por exemplo saleiro azul, xicara vintage, vaso amarelo.",
-            "Use catalog_load_more quando o cliente pedir mais opcoes, mais modelos, outras opcoes ou o que tiver, sem mudar o tipo principal da busca.",
+            "Use catalog_load_more quando o cliente pedir mais opcoes, mais modelos, outras opcoes, perguntar se tem mais, se sao so aqueles itens ou o que tiver, sem mudar o tipo principal da busca.",
             "Use recent_product_reference quando o cliente estiver se referindo a um item da lista recente e for possivel identificar qual item e.",
             "Use recent_product_reference_ambiguous quando a fala apontar para mais de um item recente de forma plausivel.",
             "Use recent_product_reference_unresolved quando o cliente ainda estiver falando da lista recente, mas sem item unico resolvido.",

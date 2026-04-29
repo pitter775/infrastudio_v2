@@ -37,6 +37,11 @@ export {
   resolveMercadoLivreHeuristicState,
 } from "@/lib/chat/mercado-livre";
 
+export { resolveCatalogIntentState } from "@/lib/chat/catalog-intent-handler";
+export { resolveCatalogDecisionState } from "@/lib/chat/catalog-intent-handler";
+export { resolveCatalogExecutionState } from "@/lib/chat/catalog-intent-handler";
+export { resolveCatalogComparisonDecisionState } from "@/lib/chat/catalog-intent-handler";
+
 export {
   buildProductSearchCandidates,
   isGreetingOrAckMessage,

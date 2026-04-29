@@ -31,6 +31,9 @@ export function extractRecentMercadoLivreProductsFromAssets(assets) {
       preco: parseAssetPrice(asset.priceLabel || asset.descricao),
       link: typeof asset.targetUrl === "string" ? asset.targetUrl : null,
       imagem: typeof asset.publicUrl === "string" ? asset.publicUrl : null,
+      imagens: Array.isArray(asset.images)
+        ? asset.images.filter((item) => typeof item === "string" && item.trim()).slice(0, 6)
+        : [],
       sellerId: typeof asset.metadata?.sellerId === "string" ? asset.metadata.sellerId : null,
       sellerName: typeof asset.metadata?.sellerName === "string" ? asset.metadata.sellerName : null,
       availableQuantity:
