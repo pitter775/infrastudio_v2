@@ -19,6 +19,10 @@ function sanitizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function sanitizeStringArray(values = []) {
+  return [...new Set((Array.isArray(values) ? values : []).map((item) => sanitizeString(item)).filter(Boolean))]
+}
+
 function normalizeMessage(value) {
   return String(value || "")
     .normalize("NFD")
@@ -34,6 +38,62 @@ function getConversationMode(context = {}) {
 function getCatalogFocusMode(context = {}) {
   const mode = String(context?.catalogo?.focusMode || "").trim().toLowerCase()
   return mode || null
+}
+
+function getCatalogListingSession(context = {}) {
+  const session = context?.catalogo?.listingSession
+  if (session && typeof session === "object" && !Array.isArray(session)) {
+    const matchedProductIds = sanitizeStringArray(session.matchedProductIds)
+    const searchTerm = sanitizeString(session.searchTerm)
+    const hasSessionIdentity = sanitizeString(session.id) || searchTerm || matchedProductIds.length
+    if (hasSessionIdentity) {
+      return {
+        id: sanitizeString(session.id),
+        snapshotId: sanitizeString(session.snapshotId),
+        searchTerm,
+        matchedProductIds,
+        offset: sanitizeNumber(session.offset, 0),
+        nextOffset: sanitizeNumber(session.nextOffset, 0),
+        poolLimit: sanitizeNumber(session.poolLimit, 24),
+        hasMore: session.hasMore === true,
+        total: sanitizeNumber(session.total, matchedProductIds.length),
+        source: sanitizeString(session.source) || "storefront_snapshot",
+      }
+    }
+  }
+
+  const fallbackSearchTerm = sanitizeString(context?.catalogo?.ultimaBusca)
+  const fallbackProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
+  const matchedProductIds = sanitizeStringArray(fallbackProducts.map((item) => item?.id))
+  const hasLegacySession =
+    fallbackSearchTerm ||
+    matchedProductIds.length ||
+    sanitizeNumber(context?.catalogo?.paginationNextOffset, 0) > 0 ||
+    sanitizeNumber(context?.catalogo?.paginationTotal, 0) > 0 ||
+    context?.catalogo?.paginationHasMore === true ||
+    sanitizeString(context?.catalogo?.snapshotId)
+
+  if (!hasLegacySession) {
+    return null
+  }
+
+  return {
+    id: "",
+    snapshotId: sanitizeString(context?.catalogo?.snapshotId),
+    searchTerm: fallbackSearchTerm,
+    matchedProductIds,
+    offset: sanitizeNumber(context?.catalogo?.paginationOffset, 0),
+    nextOffset: sanitizeNumber(context?.catalogo?.paginationNextOffset, 0),
+    poolLimit: sanitizeNumber(context?.catalogo?.paginationPoolLimit, 24),
+    hasMore: context?.catalogo?.paginationHasMore === true,
+    total: sanitizeNumber(context?.catalogo?.paginationTotal, matchedProductIds.length),
+    source: "storefront_snapshot",
+  }
+}
+
+function isStructuredCatalogAction(context = {}) {
+  const action = normalizeMessage(context?.ui?.catalogAction || context?.catalogAction || "")
+  return action === "load_more" || action === "product_detail"
 }
 
 function hasFocusedCatalogProductContext(context = {}) {
@@ -130,22 +190,16 @@ function shouldStayOnCurrentProduct(message, context, currentProduct) {
   return false
 }
 
-function isCatalogLoadMoreMessage(message = "") {
-  return (
-    /\b(mais|outras|outros|opcoes|modelos)\b/i.test(String(message || "")) ||
-    /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/i.test(String(message || "")) ||
-    /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/i.test(String(message || ""))
-  )
-}
-
 function hasCatalogContinuationAnchor(context = {}, recentCatalogProducts = []) {
-  const lastSearchTerm = sanitizeString(context?.catalogo?.ultimaBusca)
+  const listingSession = getCatalogListingSession(context)
+  const lastSearchTerm = sanitizeString(listingSession?.searchTerm || context?.catalogo?.ultimaBusca)
   const hasRecentProducts = Array.isArray(recentCatalogProducts) && recentCatalogProducts.length > 0
   const hasPaginationContext =
-    sanitizeNumber(context?.catalogo?.paginationNextOffset, 0) > 0 ||
-    sanitizeNumber(context?.catalogo?.paginationTotal, 0) > 0 ||
+    sanitizeNumber(listingSession?.nextOffset, sanitizeNumber(context?.catalogo?.paginationNextOffset, 0)) > 0 ||
+    sanitizeNumber(listingSession?.total, sanitizeNumber(context?.catalogo?.paginationTotal, 0)) > 0 ||
+    listingSession?.hasMore === true ||
     context?.catalogo?.paginationHasMore === true
-  const hasSnapshotContext = Boolean(sanitizeString(context?.catalogo?.snapshotId))
+  const hasSnapshotContext = Boolean(sanitizeString(listingSession?.snapshotId || context?.catalogo?.snapshotId))
 
   return Boolean(lastSearchTerm || hasRecentProducts || hasPaginationContext || hasSnapshotContext)
 }
@@ -158,7 +212,14 @@ function resolveExplicitCatalogContinuationDecision(message, context = {}, recen
   }
   const explicitAction = normalizeMessage(context?.ui?.catalogAction || context?.catalogAction || "")
   const explicitProductId = sanitizeString(context?.ui?.catalogProductId || context?.catalogProductId)
-  if (explicitAction === "load_more" && hasCatalogContinuationAnchor(context, recentCatalogProducts)) {
+  const explicitListingSessionId = sanitizeString(context?.ui?.listingSessionId || context?.listingSessionId)
+  const listingSession = getCatalogListingSession(context)
+  const matchesListingSession =
+    !explicitListingSessionId ||
+    !sanitizeString(listingSession?.id) ||
+    sanitizeString(listingSession?.id) === explicitListingSessionId
+
+  if (explicitAction === "load_more" && hasCatalogContinuationAnchor(context, recentCatalogProducts) && matchesListingSession) {
     return {
       kind: "catalog_load_more",
       confidence: 1,
@@ -169,12 +230,33 @@ function resolveExplicitCatalogContinuationDecision(message, context = {}, recen
     }
   }
 
+  if (explicitAction === "load_more") {
+    return {
+      kind: "explicit_cannot_continue_listing",
+      confidence: 1,
+      reason: "explicit_catalog_load_more_without_valid_session",
+      matchedProducts: [],
+      usedLlm: false,
+      shouldBlockNewSearch: true,
+    }
+  }
+
   if (explicitAction === "product_detail" && explicitProductId) {
     const candidateProducts = [
       ...recentCatalogProducts,
       context?.catalogo?.produtoAtual,
     ].filter(Boolean)
-    const selectedProduct = candidateProducts.find((item) => sanitizeString(item?.id) === explicitProductId)
+    const selectedProduct = candidateProducts.find((item) => {
+      if (sanitizeString(item?.id) !== explicitProductId) {
+        return false
+      }
+
+      if (!explicitListingSessionId || !sanitizeString(listingSession?.id)) {
+        return true
+      }
+
+      return sanitizeString(listingSession.id) === explicitListingSessionId
+    })
     if (selectedProduct) {
       return {
         kind: "recent_product_reference",
@@ -184,6 +266,17 @@ function resolveExplicitCatalogContinuationDecision(message, context = {}, recen
         usedLlm: false,
         shouldBlockNewSearch: true,
       }
+    }
+  }
+
+  if (explicitAction === "product_detail") {
+    return {
+      kind: "explicit_product_detail_unresolved",
+      confidence: 1,
+      reason: "explicit_catalog_product_detail_unresolved",
+      matchedProducts: [],
+      usedLlm: false,
+      shouldBlockNewSearch: true,
     }
   }
 
@@ -374,6 +467,7 @@ export function resolveCatalogIntentState(input = {}) {
   const latestUserMessage = input.latestUserMessage
   const context = input.context ?? {}
   const contextCatalog = context?.catalogo ?? {}
+  const listingSession = getCatalogListingSession(context)
   const recentCatalogProducts = Array.isArray(input.recentCatalogProducts)
     ? input.recentCatalogProducts
     : normalizeRecentCatalogProducts(context)
@@ -410,6 +504,7 @@ export function resolveCatalogIntentState(input = {}) {
     shouldContinueRecentCatalogListing(inferredDecision, context, recentCatalogProducts)
 
   const shouldExitCurrentProductContext =
+    (inferredDecision?.kind === "catalog_search_refinement" && inferredDecision?.usedLlm === true) ||
     inferredDecision?.kind === "same_type_search" ||
     inferredDecision?.kind === "similar_items_search" ||
     shouldContinueListing
@@ -436,7 +531,7 @@ export function resolveCatalogIntentState(input = {}) {
     !forceNewSearch &&
     !stayOnCurrentProduct &&
     !input.catalogComparisonIntent &&
-    (inferredDecision?.kind === "catalog_load_more" || isCatalogLoadMoreMessage(latestUserMessage))
+    inferredDecision?.kind === "catalog_load_more"
 
   return {
     catalogDecision: inferredDecision ?? null,
@@ -459,23 +554,27 @@ export function resolveCatalogIntentState(input = {}) {
           productSearchCandidates[0] ??
           "",
     excludeCurrentProductFromSearch: inferredDecision?.excludeCurrentProduct === true,
-    lastSearchTerm: sanitizeString(contextCatalog.ultimaBusca),
+    lastSearchTerm: sanitizeString(listingSession?.searchTerm || contextCatalog.ultimaBusca),
     paginationOffset: forceNewSearch
       ? 0
       : loadMoreCatalogRequested
-        ? sanitizeNumber(contextCatalog.paginationNextOffset, sanitizeNumber(contextCatalog.paginationOffset, 0))
+        ? sanitizeNumber(listingSession?.nextOffset, sanitizeNumber(contextCatalog.paginationNextOffset, sanitizeNumber(contextCatalog.paginationOffset, 0)))
         : 0,
-    paginationPoolLimit: sanitizeNumber(contextCatalog.paginationPoolLimit, 24),
-    hasMoreFromContext: contextCatalog.paginationHasMore === true,
+    paginationPoolLimit: sanitizeNumber(listingSession?.poolLimit, sanitizeNumber(contextCatalog.paginationPoolLimit, 24)),
+    hasMoreFromContext: listingSession?.hasMore === true || contextCatalog.paginationHasMore === true,
+    listingSession,
+    hasStructuredCatalogAction: isStructuredCatalogAction(context),
   }
 }
 
 export function resolveCatalogDecisionState(input = {}) {
   const context = input.context ?? {}
+  const recentCatalogProducts = normalizeRecentCatalogProducts(context)
+  const hasCatalogContinuationState = hasCatalogContinuationAnchor(context, recentCatalogProducts)
   const explicitDecision = resolveExplicitCatalogContinuationDecision(
     input.latestUserMessage,
     context,
-    normalizeRecentCatalogProducts(context)
+    recentCatalogProducts
   )
   if (explicitDecision) {
     const catalogReferenceReply = resolveCatalogReferenceHeuristicReply(explicitDecision)
@@ -491,8 +590,8 @@ export function resolveCatalogDecisionState(input = {}) {
   const semanticDecision = input.semanticDecision ?? null
   const shouldEvaluateHeuristicCatalogFollowUp =
     (!semanticDecision || semanticDecision.kind === "recent_product_reference_unresolved") &&
-    (input.shouldUseCatalog || hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual) &&
-    (hasRecentCatalogSnapshot(context) || context?.catalogo?.produtoAtual)
+    (input.shouldUseCatalog || hasCatalogContinuationState || context?.catalogo?.produtoAtual) &&
+    (hasCatalogContinuationState || context?.catalogo?.produtoAtual)
 
   const heuristicDecision = shouldEvaluateHeuristicCatalogFollowUp
     ? resolveDeterministicCatalogFollowUpDecision(input.latestUserMessage, context, {

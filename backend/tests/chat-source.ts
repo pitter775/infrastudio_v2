@@ -34,6 +34,7 @@ export { resolveChatDomainRoute } from "@/lib/chat/domain-router";
 
 export {
   buildFocusedProductFactualReply,
+  enforceMercadoLivreSearchReplyCoherence,
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicState,
 } from "@/lib/chat/mercado-livre";

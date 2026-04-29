@@ -227,9 +227,24 @@ function buildHeuristicReplyResult(reply, metadata = {}) {
       catalogoProdutoAtual: metadata.catalogoProdutoAtual ?? null,
       catalogoBusca: metadata.catalogoBusca ?? null,
       semanticIntent: metadata.semanticIntent ?? null,
+      catalogDiagnostics: metadata.catalogDiagnostics ?? null,
       routingDecision: metadata.routingDecision ?? null,
       focus: metadata.focus ?? null,
     },
+  }
+}
+
+function buildCatalogDiagnosticsPayload(input = {}) {
+  const listingSession = input.context?.catalogo?.listingSession ?? null
+  return {
+    contextCatalogo: input.context?.catalogo ?? null,
+    catalogAction: input.context?.ui?.catalogAction ?? input.context?.catalogAction ?? null,
+    catalogDecision: input.catalogFollowUpDecision ?? null,
+    productSearchTerm: input.productSearchTerm ?? "",
+    paginationOffset: input.paginationOffset ?? 0,
+    paginationNextOffset: listingSession?.nextOffset ?? input.paginationNextOffset ?? 0,
+    matchedCount: input.matchedCount ?? 0,
+    replyAssetsCount: input.replyAssetsCount ?? 0,
   }
 }
 
@@ -310,6 +325,38 @@ function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCa
       source: "mercado_livre",
       subject: context?.catalogo?.produtoAtual?.nome || latestUserMessage,
       confidence: semanticCatalogDecision.confidence ?? 0.9,
+    },
+  }
+}
+
+function buildExplicitCatalogActionRoutingOverride(baseDecision, latestUserMessage, context = {}) {
+  const explicitAction = String(context?.ui?.catalogAction || context?.catalogAction || "").trim().toLowerCase()
+  if (!["load_more", "product_detail"].includes(explicitAction)) {
+    return baseDecision
+  }
+
+  if (["handoff", "agenda", "api_runtime", "billing"].includes(baseDecision?.domain)) {
+    return baseDecision
+  }
+
+  const hasMercadoLivreCapability =
+    Number(baseDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0
+  if (!hasMercadoLivreCapability) {
+    return baseDecision
+  }
+
+  return {
+    ...(baseDecision ?? {}),
+    domain: "catalog",
+    source: "mercado_livre",
+    confidence: 1,
+    reason: `explicit_catalog_action_${explicitAction}`,
+    shouldUseTool: true,
+    focus: {
+      domain: "catalog",
+      source: "mercado_livre",
+      subject: context?.catalogo?.produtoAtual?.nome || latestUserMessage,
+      confidence: 1,
     },
   }
 }
@@ -495,7 +542,17 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const semanticBillingDecision = buildBillingDecisionFromSemanticIntent({ semanticIntent: semanticBillingIntent })
   const apiRoutingDecision = buildApiRoutingOverride(baseRoutingDecision, latestUserMessage, semanticApiDecision)
   const billingRoutingDecision = buildBillingRoutingOverride(apiRoutingDecision, latestUserMessage, semanticBillingDecision)
-  const routingDecision = buildCatalogRoutingOverride(billingRoutingDecision, latestUserMessage, semanticCatalogDecision, context)
+  const explicitCatalogActionRoutingDecision = buildExplicitCatalogActionRoutingOverride(
+    billingRoutingDecision,
+    latestUserMessage,
+    context
+  )
+  const routingDecision = buildCatalogRoutingOverride(
+    explicitCatalogActionRoutingDecision,
+    latestUserMessage,
+    semanticCatalogDecision,
+    context
+  )
   const shouldUseApiRuntime = routingDecision.domain === "api_runtime" && routingDecision.shouldUseTool === true
   const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
   const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
@@ -634,6 +691,21 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     routingDecision,
     focus: routingDecision.focus ?? null,
     semanticIntent: semanticBillingIntent ?? semanticCatalogIntent ?? semanticApiIntent,
+    catalogDiagnostics: buildCatalogDiagnosticsPayload({
+      context,
+      catalogFollowUpDecision,
+      productSearchTerm: mercadoLivreFlowState.productSearchTerm,
+      paginationOffset: mercadoLivreFlowState.paginationOffset,
+      paginationNextOffset: context?.catalogo?.paginationNextOffset ?? 0,
+      matchedCount:
+        mercadoLivreCatalogSearchState?.listingSession?.total ??
+        mercadoLivreCatalogSearchState?.paginationTotal ??
+        mercadoLivreState?.mercadoLivreProducts?.length ??
+        context?.catalogo?.listingSession?.total ??
+        context?.catalogo?.paginationTotal ??
+        0,
+      replyAssetsCount: mercadoLivreAssets.length,
+    }),
   }
 
   if (!context?.agente?.id || !agentName || !agentPromptBase) {
@@ -852,6 +924,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       heuristicStage: pipelineState.heuristicIntentStage ?? null,
       domainStage: pipelineState.conversationDomainStage ?? "general",
       catalogoProdutoAtual: (shouldUseMercadoLivre || shouldUseApiRuntime) ? currentCatalogProduct ?? null : null,
+      catalogDiagnostics: heuristicMetadata.catalogDiagnostics ?? null,
       routingDecision,
       focus: routingDecision.focus ?? null,
     },

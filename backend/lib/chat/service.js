@@ -118,6 +118,119 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+function sanitizeCatalogString(value) {
+  const normalized = String(value || "").trim()
+  return normalized || ""
+}
+
+function sanitizeCatalogNumber(value, fallback = 0) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function sanitizeCatalogStringArray(values = []) {
+  return [...new Set((Array.isArray(values) ? values : []).map((item) => sanitizeCatalogString(item)).filter(Boolean))]
+}
+
+function buildCatalogListingSessionState(input = {}) {
+  const searchTerm = sanitizeCatalogString(input.searchTerm)
+  const matchedProductIds = sanitizeCatalogStringArray(input.matchedProductIds)
+  const sessionId = sanitizeCatalogString(input.id)
+  const snapshotId = sanitizeCatalogString(input.snapshotId)
+  const hasSession =
+    sessionId ||
+    searchTerm ||
+    matchedProductIds.length ||
+    snapshotId ||
+    sanitizeCatalogNumber(input.total, 0) > 0 ||
+    input.hasMore === true
+
+  if (!hasSession) {
+    return null
+  }
+
+  return {
+    id: sessionId,
+    snapshotId,
+    searchTerm,
+    matchedProductIds,
+    offset: sanitizeCatalogNumber(input.offset, 0),
+    nextOffset: sanitizeCatalogNumber(input.nextOffset, 0),
+    poolLimit: sanitizeCatalogNumber(input.poolLimit, 24),
+    hasMore: input.hasMore === true,
+    total: sanitizeCatalogNumber(input.total, matchedProductIds.length),
+    source: sanitizeCatalogString(input.source) || "storefront_snapshot",
+  }
+}
+
+function deriveCatalogListingSession(context = {}) {
+  if (isPlainObject(context?.catalogo?.listingSession)) {
+    return buildCatalogListingSessionState(context.catalogo.listingSession)
+  }
+
+  return buildCatalogListingSessionState({
+    id: "",
+    snapshotId: context?.catalogo?.snapshotId,
+    searchTerm: context?.catalogo?.ultimaBusca,
+    matchedProductIds: Array.isArray(context?.catalogo?.ultimosProdutos)
+      ? context.catalogo.ultimosProdutos.map((item) => item?.id)
+      : [],
+    offset: context?.catalogo?.paginationOffset,
+    nextOffset: context?.catalogo?.paginationNextOffset,
+    poolLimit: context?.catalogo?.paginationPoolLimit,
+    hasMore: context?.catalogo?.paginationHasMore,
+    total: context?.catalogo?.paginationTotal,
+    source: "storefront_snapshot",
+  })
+}
+
+function buildCatalogProductFocusState(input = {}) {
+  const productId = sanitizeCatalogString(input.productId)
+  if (!productId) {
+    return null
+  }
+
+  return {
+    productId,
+    sourceListingSessionId: sanitizeCatalogString(input.sourceListingSessionId),
+    detailLevel: sanitizeCatalogString(input.detailLevel) || "focused",
+  }
+}
+
+function decorateCatalogAssetsWithListingSession(assets = [], nextContext = {}) {
+  const listingSessionId = sanitizeCatalogString(nextContext?.catalogo?.listingSession?.id)
+  if (!listingSessionId || !Array.isArray(assets) || assets.length === 0) {
+    return Array.isArray(assets) ? assets : []
+  }
+
+  return assets.map((asset) => {
+    if (!isPlainObject(asset)) {
+      return asset
+    }
+
+    const isCatalogAsset =
+      asset.kind === "product" ||
+      asset.provider === "mercado_livre" ||
+      asset.provider === "api_runtime" ||
+      /^MLB/i.test(sanitizeCatalogString(asset.id))
+
+    if (!isCatalogAsset) {
+      return asset
+    }
+
+    return {
+      ...asset,
+      metadata: {
+        ...(isPlainObject(asset.metadata) ? asset.metadata : {}),
+        productId:
+          sanitizeCatalogString(asset?.metadata?.productId) ||
+          sanitizeCatalogString(asset?.id),
+        listingSessionId,
+      },
+    }
+  })
+}
+
 function normalizeUiBlockItem(value) {
   const text = String(value || "").trim()
   return text || null
@@ -492,6 +605,18 @@ export function buildNextContext(input) {
 
   const lockedProductDetailContext = hasLockedProductDetailContext(mergedCurrentContext)
   if (isCatalogSearchMessage(input.message) && (!lockedProductDetailContext || isExplicitProductDetailExitMessage(input.message))) {
+    const listingSession = buildCatalogListingSessionState({
+      id: "",
+      snapshotId: null,
+      searchTerm: input.message.trim(),
+      matchedProductIds: [],
+      offset: 0,
+      nextOffset: 0,
+      poolLimit: 24,
+      hasMore: false,
+      total: 0,
+      source: "storefront_snapshot",
+    })
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimaBusca: input.message.trim(),
@@ -507,6 +632,8 @@ export function buildNextContext(input) {
       snapshotId: null,
       snapshotCreatedAt: null,
       snapshotTurnId: null,
+      listingSession,
+      productFocus: null,
     }
     nextContext.conversation = {
       ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
@@ -552,6 +679,7 @@ function extractPromisedCatalogSearchTerm(reply) {
 export function updateContextFromAiResult(input) {
   const nextContext = {
     ...input.nextContext,
+    ui: isPlainObject(input.nextContext?.ui) ? { ...input.nextContext.ui } : input.nextContext?.ui,
     conversation: isPlainObject(input.nextContext?.conversation) ? { ...input.nextContext.conversation } : {},
     catalogo: isPlainObject(input.nextContext?.catalogo) ? { ...input.nextContext.catalogo } : {},
     agenda: isPlainObject(input.nextContext?.agenda) ? { ...input.nextContext.agenda } : {},
@@ -559,6 +687,16 @@ export function updateContextFromAiResult(input) {
   if (isPlainObject(nextContext.ui) && "catalogAction" in nextContext.ui) {
     delete nextContext.ui.catalogAction
   }
+  if (isPlainObject(nextContext.ui) && "catalogProductId" in nextContext.ui) {
+    delete nextContext.ui.catalogProductId
+  }
+  if (isPlainObject(nextContext.ui) && "listingSessionId" in nextContext.ui) {
+    delete nextContext.ui.listingSessionId
+  }
+  nextContext.catalogo.listingSession = deriveCatalogListingSession(nextContext)
+  nextContext.catalogo.productFocus = isPlainObject(nextContext.catalogo?.productFocus)
+    ? buildCatalogProductFocusState(nextContext.catalogo.productFocus)
+    : null
   const lockedProductDetailContext = hasLockedProductDetailContext(nextContext)
 
   const metadataFocus = isPlainObject(input.ai?.metadata?.focus) ? input.ai.metadata.focus : null
@@ -581,6 +719,16 @@ export function updateContextFromAiResult(input) {
     : ""
 
   if (promisedCatalogSearchTerm && !lockedProductDetailContext) {
+    nextContext.catalogo.listingSession = buildCatalogListingSessionState({
+      ...(nextContext.catalogo.listingSession ?? {}),
+      searchTerm: promisedCatalogSearchTerm,
+      matchedProductIds: [],
+      offset: 0,
+      nextOffset: 0,
+      poolLimit: 24,
+      hasMore: false,
+      total: 0,
+    })
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimaBusca: promisedCatalogSearchTerm,
@@ -592,6 +740,7 @@ export function updateContextFromAiResult(input) {
       paginationPoolLimit: 24,
       paginationHasMore: false,
       paginationTotal: 0,
+      productFocus: null,
     }
     nextContext.focus = {
       domain: "catalog",
@@ -611,14 +760,29 @@ export function updateContextFromAiResult(input) {
   if (recentMercadoLivreProducts.length) {
     const snapshotCreatedAt = new Date().toISOString()
     const snapshotTurnId = Number(input.historyLengthSource ?? 0)
+    const snapshotId = `${input.chatId}:${snapshotTurnId}:${snapshotCreatedAt}`
+    const listingSession = buildCatalogListingSessionState({
+      ...(nextContext.catalogo.listingSession ?? {}),
+      id: sanitizeCatalogString(nextContext.catalogo.listingSession?.id) || snapshotId,
+      snapshotId,
+      searchTerm: nextContext.catalogo?.ultimaBusca ?? nextContext.catalogo?.listingSession?.searchTerm ?? "",
+      matchedProductIds: recentMercadoLivreProducts.map((product) => product?.id),
+      offset: nextContext.catalogo?.paginationOffset ?? 0,
+      nextOffset: nextContext.catalogo?.paginationNextOffset ?? 0,
+      poolLimit: nextContext.catalogo?.paginationPoolLimit ?? 24,
+      hasMore: nextContext.catalogo?.paginationHasMore === true,
+      total: nextContext.catalogo?.paginationTotal ?? recentMercadoLivreProducts.length,
+      source: "storefront_snapshot",
+    })
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       ultimosProdutos: recentMercadoLivreProducts,
       focusMode: recentMercadoLivreProducts.length === 1 ? "product_focus" : "listing",
       catalogState: recentMercadoLivreProducts.length === 1 ? "product_focus" : "storefront_listing",
-      snapshotId: `${input.chatId}:${snapshotTurnId}:${snapshotCreatedAt}`,
+      snapshotId,
       snapshotCreatedAt,
       snapshotTurnId,
+      listingSession,
     }
   }
 
@@ -628,11 +792,19 @@ export function updateContextFromAiResult(input) {
       : null
 
   if (isPlainObject(metadataCatalogProduct)) {
+    const sourceListingSessionId =
+      sanitizeCatalogString(nextContext.catalogo?.listingSession?.id) ||
+      sanitizeCatalogString(nextContext.catalogo?.productFocus?.sourceListingSessionId)
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
       produtoAtual: metadataCatalogProduct,
       focusMode: "product_focus",
       selectedItemId: typeof metadataCatalogProduct.id === "string" ? metadataCatalogProduct.id : nextContext.catalogo?.selectedItemId ?? null,
+      productFocus: buildCatalogProductFocusState({
+        productId: metadataCatalogProduct.id,
+        sourceListingSessionId,
+        detailLevel: "focused",
+      }),
       catalogState:
         String(nextContext?.conversation?.mode || "").trim().toLowerCase() === "product_detail" ? "product_locked" : "product_focus",
     }
@@ -653,6 +825,25 @@ export function updateContextFromAiResult(input) {
       !isPlainObject(metadataCatalogSearch.produtoAtual) &&
       Array.isArray(metadataCatalogSearch.ultimosProdutos) &&
       metadataCatalogSearch.ultimosProdutos.length > 1
+
+    const nextListingSession = buildCatalogListingSessionState({
+      ...(nextContext.catalogo.listingSession ?? {}),
+      ...(isPlainObject(metadataCatalogSearch.listingSession) ? metadataCatalogSearch.listingSession : {}),
+      snapshotId: metadataCatalogSearch.snapshotId ?? nextContext.catalogo?.snapshotId ?? nextContext.catalogo?.listingSession?.snapshotId,
+      searchTerm:
+        typeof metadataCatalogSearch.ultimaBusca === "string" && metadataCatalogSearch.ultimaBusca.trim()
+          ? metadataCatalogSearch.ultimaBusca.trim()
+          : nextContext.catalogo?.listingSession?.searchTerm ?? nextContext.catalogo?.ultimaBusca ?? null,
+      matchedProductIds: Array.isArray(metadataCatalogSearch.ultimosProdutos)
+        ? metadataCatalogSearch.ultimosProdutos.map((product) => product?.id)
+        : nextContext.catalogo?.listingSession?.matchedProductIds ?? [],
+      offset: metadataCatalogSearch.paginationOffset ?? nextContext.catalogo?.paginationOffset ?? 0,
+      nextOffset: metadataCatalogSearch.paginationNextOffset ?? nextContext.catalogo?.paginationNextOffset ?? 0,
+      poolLimit: metadataCatalogSearch.paginationPoolLimit ?? nextContext.catalogo?.paginationPoolLimit ?? 24,
+      hasMore: metadataCatalogSearch.paginationHasMore === true,
+      total: metadataCatalogSearch.paginationTotal ?? nextContext.catalogo?.paginationTotal ?? 0,
+      source: metadataCatalogSearch.listingSession?.source ?? "storefront_snapshot",
+    })
 
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),
@@ -677,6 +868,7 @@ export function updateContextFromAiResult(input) {
         : isPlainObject(metadataCatalogSearch.produtoAtual)
         ? "product_focus"
         : "storefront_listing",
+      listingSession: nextListingSession,
     }
 
     if (Array.isArray(metadataCatalogSearch.ultimosProdutos)) {
@@ -685,18 +877,25 @@ export function updateContextFromAiResult(input) {
       )
 
       if (nextContext.catalogo.ultimosProdutos.length > 1 && !shouldKeepLockedProduct) {
-        nextContext.catalogo.produtoAtual = null
-        nextContext.catalogo.focusMode = "listing"
-        nextContext.conversation = {
-          ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
-          mode: "listing",
-          updatedAt: new Date().toISOString(),
+        if (!isPlainObject(nextContext.catalogo.productFocus)) {
+          nextContext.catalogo.produtoAtual = null
+          nextContext.catalogo.focusMode = "listing"
+          nextContext.conversation = {
+            ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
+            mode: "listing",
+            updatedAt: new Date().toISOString(),
+          }
         }
       }
     }
 
     if (isPlainObject(metadataCatalogSearch.produtoAtual)) {
       nextContext.catalogo.produtoAtual = metadataCatalogSearch.produtoAtual
+      nextContext.catalogo.productFocus = buildCatalogProductFocusState({
+        productId: metadataCatalogSearch.produtoAtual.id,
+        sourceListingSessionId: nextListingSession?.id,
+        detailLevel: "focused",
+      })
     }
   }
 
@@ -707,11 +906,22 @@ export function updateContextFromAiResult(input) {
   if (hasLockedProductDetailContext(nextContext)) {
     nextContext.catalogo.focusMode = "product_focus"
     nextContext.catalogo.catalogState = "product_locked"
+    nextContext.catalogo.productFocus = buildCatalogProductFocusState({
+      productId: nextContext.catalogo?.produtoAtual?.id,
+      sourceListingSessionId:
+        sanitizeCatalogString(nextContext.catalogo?.productFocus?.sourceListingSessionId) ||
+        sanitizeCatalogString(nextContext.catalogo?.listingSession?.id),
+      detailLevel: "focused",
+    })
     nextContext.conversation = {
       ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
       mode: "product_detail",
       updatedAt: new Date().toISOString(),
     }
+  }
+
+  if (!isPlainObject(nextContext.catalogo?.produtoAtual)) {
+    nextContext.catalogo.productFocus = null
   }
 
   const agendaReservation = input.ai?.metadata?.agendaReserva
@@ -748,13 +958,14 @@ export function updateContextFromAiResult(input) {
 
 export function prepareAiReplyPayload(input) {
   const isWhatsAppChannel = input.channelKind === "whatsapp"
+  const catalogAwareAssets = decorateCatalogAssetsWithListingSession(input.ai.assets ?? [], input.nextContext)
   const structuredEnvelope = input.channelKind === "whatsapp" ? null : extractStructuredReplyEnvelope(input.ai.reply)
   const splitReply =
     isWhatsAppChannel
       ? null
       : splitCatalogReplyForWhatsApp(
           structuredEnvelope?.reply || input.ai.reply,
-          Array.isArray(input.ai.assets) && input.ai.assets.length > 0
+          Array.isArray(catalogAwareAssets) && catalogAwareAssets.length > 0
         )
 
   const primaryReplyRaw = splitReply?.mainReply || structuredEnvelope?.reply || input.ai.reply
@@ -784,7 +995,7 @@ export function prepareAiReplyPayload(input) {
     followUpReply,
     userMessage: input.userMessage,
     agendaSlots: input.agendaSlots,
-    assets: input.ai.assets ?? [],
+    assets: catalogAwareAssets,
   })
   const whatsappCta = buildWhatsAppContinuationCta({
       channelKind: input.channelKind,
@@ -810,7 +1021,7 @@ export function prepareAiReplyPayload(input) {
           forceWhatsAppSuggestion: shouldMentionWhatsAppInText,
         })
   const whatsappEmbeddedSequence =
-    isWhatsAppChannel ? buildWhatsAppMessageSequence(normalizedPrimaryReply, input.ai.assets ?? [], null) : []
+    isWhatsAppChannel ? buildWhatsAppMessageSequence(normalizedPrimaryReply, catalogAwareAssets, null) : []
 
   return {
     primaryReply: normalizedPrimaryReply,
@@ -818,6 +1029,7 @@ export function prepareAiReplyPayload(input) {
     whatsappEmbeddedSequence,
     whatsappEmbeddedMessage: whatsappEmbeddedSequence[0] ?? "",
     whatsappCta,
+    assets: catalogAwareAssets,
     actions: isWhatsAppChannel ? [] : actions,
     ui: isWhatsAppChannel ? null : structuredEnvelope?.ui ?? null,
     contactSnapshot: resolveChatContactSnapshot(input.nextContext, input.normalizedExternalIdentifier),
@@ -1462,7 +1674,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
       custo: usagePayload.estimatedCostUsd,
       aiMetadata: aiResult?.metadata ?? {},
       usageTelemetry: usagePayload.usageTelemetry,
-      assets: aiResult?.assets ?? [],
+      assets: replyPayload.assets ?? [],
       whatsapp: replyPayload.whatsappCta,
       actions: replyPayload.actions,
       ui: replyPayload.ui,
@@ -1505,7 +1717,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
         : assistantMessage.conteudo ?? replyPayload.primaryReply,
     followUpReply: replyPayload.followUpReply,
     messageSequence: replyPayload.whatsappEmbeddedSequence,
-    assets: runtimeState.prelude.channelKind === "whatsapp" ? [] : aiResult?.assets ?? [],
+    assets: runtimeState.prelude.channelKind === "whatsapp" ? [] : replyPayload.assets ?? [],
     whatsapp: replyPayload.whatsappCta,
     actions: replyPayload.actions,
     ui: replyPayload.ui,
@@ -2048,6 +2260,7 @@ export async function processChatRequest(body, options = {}) {
         routeStage: effectiveAiResult?.metadata?.routeStage ?? null,
         heuristicStage: effectiveAiResult?.metadata?.heuristicStage ?? null,
         domainStage: effectiveAiResult?.metadata?.domainStage ?? null,
+        catalogDiagnostics: effectiveAiResult?.metadata?.catalogDiagnostics ?? null,
         inputTokens: effectiveAiResult?.usage?.inputTokens ?? 0,
         outputTokens: effectiveAiResult?.usage?.outputTokens ?? 0,
         handoffDecision: escalationState?.handoffDecision?.decision ?? null,

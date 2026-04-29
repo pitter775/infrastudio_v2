@@ -461,6 +461,40 @@ Ainda errado / fragil:
   - o CTA agora deve usar acao estruturada de `product_detail` com `catalogProductId`
   - o handler compartilhado deve resolver esse clique de forma deterministica para o item alvo
   - perguntas factuais seguintes sobre o item atual, como medidas e dimensoes, devem responder por handler deterministico ou dizer explicitamente que o anuncio nao trouxe esse dado
+- catalogo do widget agora ganhou separacao estrutural entre lista e foco
+  - `context.catalogo.listingSession` passa a carregar termo, ids, offsets, total, origem e `snapshotId`
+  - `context.catalogo.productFocus` passa a carregar `productId`, `sourceListingSessionId` e `detailLevel`
+  - a sessao de lista continua viva mesmo quando o detalhe de produto entra em foco
+- `Ver mais opcoes` e `Saber mais` agora carregam `listingSessionId` quando existir
+  - o widget passa a reenviar esse id nas acoes estruturadas
+  - os assets de catalogo agora tambem saem do backend decorados com `metadata.listingSessionId`
+  - isso reduz drift entre a lista mostrada e o clique seguinte no mesmo turno
+- a continuidade estruturada agora falha fechado com reply explicita
+  - `load_more` sem sessao valida responde erro controlado em vez de cair em silencio
+  - `product_detail` sem item resolvido responde erro controlado em vez de depender do texto livre
+- `catalogAction` do widget agora tambem força o roteamento para `catalog`
+  - isso evita cair no modelo geral quando `Ver mais opcoes` ou `Saber mais` chegam sem texto suficiente para o roteador base
+  - a acao estruturada volta a ser a fonte primaria do fluxo, como contrato deterministico
+- a resposta de listagem do Mercado Livre agora usa a contagem real da base filtrada
+  - o reply deixa de falar `Encontrei 1 produto` quando o snapshot/paging real indica mais itens
+  - a listagem fica mais coerente com a vitrine da loja
+- o runtime agora publica diagnostico catalogal por turno em `metadata.catalogDiagnostics`
+  - inclui `context.catalogo`, `catalogAction`, `catalogDecision`, `productSearchTerm`, offsets, `matchedCount` e `replyAssetsCount`
+  - isso ajuda a reproduzir perda de contexto sem espalhar log ad-hoc
+- o lock de `product_detail` agora respeita `catalog_search_refinement` vindo do stage semantico
+  - busca curta nova como `tem balde?` sai do item atual quando o stage marcou busca nova
+  - refinamento heuristico local continua sem romper o detalhe sozinho, para nao regredir perguntas factuais do item aberto
+- `resolveCatalogIntentState` deixou de ter fallback textual bruto para `load_more`
+  - o fluxo nao sobe mais paginacao so porque a frase parece `mais`
+  - agora `load_more` depende de `catalogDecision` estruturada, seja por acao explicita, stage semantico ou guardrail deterministico local
+- o guardrail local de paginacao tambem foi alinhado com o contrato novo
+  - `resolveCatalogLoadMoreDecision` agora devolve `catalog_load_more`, nao `catalog_search`
+  - isso evita reinterpretar texto livre mais tarde so para redescobrir que o usuario queria continuar a mesma lista
+  - `resolveDeterministicCatalogFollowUpDecision` tambem deixou `load_more` passar mesmo sem `ultimosProdutos` frescos, desde que exista ancora real de continuidade
+  - assim a paginacao continua pela sessao/lista ativa e nao cai de volta em busca livre pelo texto bruto
+- consumidores auxiliares do runtime agora tambem priorizam o estado novo
+  - `catalog-follow-up`, `domain-router`, `prompt-builders` e `openai-sales-reply` passaram a ler `listingSession.searchTerm` e `productFocus` antes do legado
+  - `ultimaBusca`, `ultimosProdutos` e `produtoAtual` continuam como fallback de compatibilidade, nao como fonte primaria
 
 ## Ordem de ataque obrigatoria
 
@@ -518,6 +552,8 @@ Ainda errado / fragil:
 - continuar reduzindo o intent factual local de `api-runtime.js`, tentando concentrar mais lookup em hints/decisao estruturada antes do matcher residual
 - seguir rebaixando `catalog-follow-up.js` para guardrail residual, principalmente nos casos em que ainda sobra decisao por texto curto sem ancora semantica
 - depois revisar se o merge final no `orchestrator.js` ja pode simplificar mais um passo sem reabrir regressao, idealmente isolando melhor o caso em que o guardrail local ainda pode resolver item unico concreto
+- continuar migrando consumidores legados de `ultimaBusca`, `ultimosProdutos` e `produtoAtual` para ler `listingSession` e `productFocus` como fonte primaria
+- validar a sequencia real `inox -> Ver mais opcoes -> Saber mais -> tem balde?` contra a loja de teste com log diagnostico habilitado
 
 ## Registro curto
 

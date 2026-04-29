@@ -149,10 +149,31 @@ function hasMercadoLivreConnection(context = {}) {
   return Number(directConnections?.mercadoLivre ?? 0) > 0
 }
 
+function getCatalogCurrentProductName(context = {}) {
+  const currentProductName = String(context?.catalogo?.produtoAtual?.nome || "").trim()
+  if (currentProductName) {
+    return currentProductName
+  }
+
+  const focusedProductId = String(context?.catalogo?.productFocus?.productId || "").trim()
+  if (!focusedProductId) {
+    return ""
+  }
+
+  const recentProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
+  return String(recentProducts.find((item) => String(item?.id || "").trim() === focusedProductId)?.nome || "").trim()
+}
+
+function hasCatalogListingSession(context = {}) {
+  return Boolean(String(context?.catalogo?.listingSession?.searchTerm || "").trim())
+}
+
 function hasMercadoLivreCatalogContext(context = {}) {
   return Boolean(
     hasMercadoLivreConnection(context) &&
-      (context?.catalogo?.produtoAtual ||
+      (context?.catalogo?.productFocus ||
+        context?.catalogo?.produtoAtual ||
+        hasCatalogListingSession(context) ||
         (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 0))
   )
 }
@@ -163,7 +184,7 @@ function buildMercadoLivreSalesTechniqueInstructions(context = {}) {
   }
 
   const lockedProductDetailContext = Boolean(
-    context?.catalogo?.produtoAtual?.nome &&
+    getCatalogCurrentProductName(context) &&
       (String(context?.conversation?.mode || "").trim().toLowerCase() === "product_detail" ||
         context?.ui?.productDetailPreferred === true ||
         context?.storefront?.pageKind === "product_detail")
@@ -179,7 +200,7 @@ function buildMercadoLivreSalesTechniqueInstructions(context = {}) {
     "- So revele atributo, medida, material, garantia, frete, estoque, descricao ou variacao quando a pergunta do cliente pedir isso direta ou indiretamente.",
     "- Se o cliente fizer pergunta curta como 'tem garantia?', 'qual material?', 'serve?', responda objetivamente com base no produto em foco.",
     lockedProductDetailContext
-      ? `- Contexto travado: o cliente esta na pagina de detalhe do produto ${context.catalogo.produtoAtual.nome}. Considere este item como produto em foco por padrao.`
+      ? `- Contexto travado: o cliente esta na pagina de detalhe do produto ${getCatalogCurrentProductName(context)}. Considere este item como produto em foco por padrao.`
       : "",
     lockedProductDetailContext
       ? "- Nunca diga que nao conseguiu identificar o produto e nunca peca para o cliente informar qual item esta vendo, a menos que ele peça explicitamente outra opcao."

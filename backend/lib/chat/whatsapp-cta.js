@@ -168,6 +168,11 @@ function buildCatalogLoadMoreAction(input = {}) {
     return null
   }
 
+  const listingSessionId =
+    typeof input.nextContext?.catalogo?.listingSession?.id === "string" && input.nextContext.catalogo.listingSession.id.trim()
+      ? input.nextContext.catalogo.listingSession.id.trim()
+      : undefined
+
   return {
     type: "message",
     label: "Ver mais opcoes",
@@ -179,6 +184,7 @@ function buildCatalogLoadMoreAction(input = {}) {
     extraContext: {
       ui: {
         catalogAction: "load_more",
+        listingSessionId,
       },
     },
   }

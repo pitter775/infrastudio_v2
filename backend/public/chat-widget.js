@@ -2201,6 +2201,9 @@
         var productId =
           (typeof asset.id === "string" ? asset.id.trim() : "") ||
           (asset.metadata && typeof asset.metadata.productId === "string" ? asset.metadata.productId.trim() : "");
+        var listingSessionId =
+          (asset.metadata && typeof asset.metadata.listingSessionId === "string" ? asset.metadata.listingSessionId.trim() : "") ||
+          "";
         if (!productId) {
           return;
         }
@@ -2211,6 +2214,7 @@
             ui: {
               catalogAction: "product_detail",
               catalogProductId: productId,
+              listingSessionId: listingSessionId || undefined,
             },
           },
         });

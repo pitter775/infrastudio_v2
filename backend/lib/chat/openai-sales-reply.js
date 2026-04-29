@@ -11,8 +11,20 @@ function buildConversationMemory(context = {}) {
   const snippets = []
   const resumo = String(context?.memoria?.resumo || "").trim()
   const historicoIdentificado = String(context?.memoria?.historicoIdentificado || "").trim()
-  const currentProduct = context?.catalogo?.produtoAtual?.nome
-  const latestSearch = context?.catalogo?.ultimaBusca
+  const currentProduct =
+    String(context?.catalogo?.produtoAtual?.nome || "").trim() ||
+    (() => {
+      const focusedProductId = String(context?.catalogo?.productFocus?.productId || "").trim()
+      if (!focusedProductId) {
+        return ""
+      }
+
+      const recentProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
+      return String(recentProducts.find((item) => String(item?.id || "").trim() === focusedProductId)?.nome || "").trim()
+    })()
+  const latestSearch =
+    String(context?.catalogo?.listingSession?.searchTerm || "").trim() ||
+    String(context?.catalogo?.ultimaBusca || "").trim()
 
   if (resumo) snippets.push(`Resumo de continuidade: ${resumo}`)
   if (historicoIdentificado) snippets.push(`Historico importado do usuario identificado:\n${historicoIdentificado}`)

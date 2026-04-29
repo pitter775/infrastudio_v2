@@ -12,6 +12,19 @@ function sanitizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function buildListingSessionId(searchTerm, paging, products) {
+  const seed = [
+    sanitizeString(searchTerm),
+    sanitizeString(paging?.offset),
+    sanitizeString(paging?.total),
+    ...(Array.isArray(products) ? products.map((item) => sanitizeString(item?.id)).filter(Boolean).slice(0, 6) : []),
+  ]
+    .filter(Boolean)
+    .join(":")
+
+  return seed ? `ml:${Buffer.from(seed).toString("base64url").slice(0, 32)}` : ""
+}
+
 function slugifyProduct(value) {
   return String(value || "")
     .normalize("NFD")
@@ -170,12 +183,40 @@ function buildMercadoLivreSearchReply(products, searchTerm, connector, paging) {
       : "Posso te mostrar produtos da loja. Me diga o que voce procura e eu busco aqui."
   }
 
-  const countLabel = products.length === 1 ? "1 produto" : `${products.length} opcoes`
+  const matchedCount = Math.max(sanitizeNumber(paging?.total, 0), products.length)
+  const visibleCount = products.length
+  const countLabel = matchedCount === 1 ? "1 produto" : `${matchedCount} opcoes`
   const hasMore = paging?.hasMore === true
 
   return hasMore
-    ? `Encontrei ${countLabel}. Vou te mostrar as principais opcoes agora e posso trazer mais depois.`
+    ? `Encontrei ${countLabel}. Vou te mostrar ${visibleCount === 1 ? "a principal opcao" : `${visibleCount} opcoes agora`} e posso trazer mais depois.`
     : `Encontrei ${countLabel}. Vou te mostrar as opcoes disponiveis agora.`
+}
+
+function extractReportedMercadoLivreCount(reply = "") {
+  const normalized = String(reply || "")
+  const singularMatch = normalized.match(/\bencontrei\s+1\s+produto\b/i)
+  if (singularMatch) {
+    return 1
+  }
+
+  const pluralMatch = normalized.match(/\bencontrei\s+(\d+)\s+opc(?:ao|oes)\b/i)
+  if (pluralMatch) {
+    return sanitizeNumber(pluralMatch[1], 0)
+  }
+
+  return null
+}
+
+export function enforceMercadoLivreSearchReplyCoherence(reply, products, searchTerm, connector, paging) {
+  const actualMatchedCount = Math.max(sanitizeNumber(paging?.total, 0), Array.isArray(products) ? products.length : 0)
+  const reportedCount = extractReportedMercadoLivreCount(reply)
+
+  if (reportedCount == null || reportedCount === actualMatchedCount) {
+    return reply
+  }
+
+  return buildMercadoLivreSearchReply(products, searchTerm, connector, paging)
 }
 
 function normalizeMessage(value) {
@@ -437,8 +478,10 @@ export function shouldAttachMercadoLivreAssetForMessage(message = "") {
   return isMercadoLivreLinkIntent(message) || isMercadoLivrePurchaseIntent(message)
 }
 
-function buildCatalogSearchState({ searchTerm, paging, products }) {
+function buildCatalogSearchState({ searchTerm, paging, products, currentListingSessionId }) {
   const safeProducts = Array.isArray(products) ? products.map(buildCatalogProductFromItem).filter(Boolean) : []
+  const listingSessionId = sanitizeString(currentListingSessionId) || buildListingSessionId(searchTerm, paging, safeProducts)
+  const snapshotId = listingSessionId ? `${listingSessionId}:snapshot` : ""
   return {
     ultimaBusca: sanitizeString(searchTerm),
     paginationOffset: sanitizeNumber(paging?.offset, 0),
@@ -448,6 +491,25 @@ function buildCatalogSearchState({ searchTerm, paging, products }) {
     paginationTotal: sanitizeNumber(paging?.total, 0),
     produtoAtual: safeProducts.length === 1 ? safeProducts[0] : null,
     ultimosProdutos: safeProducts,
+    listingSession: {
+      id: listingSessionId,
+      snapshotId,
+      searchTerm: sanitizeString(searchTerm),
+      matchedProductIds: safeProducts.map((item) => sanitizeString(item?.id)).filter(Boolean),
+      offset: sanitizeNumber(paging?.offset, 0),
+      nextOffset: sanitizeNumber(paging?.nextOffset, 0),
+      poolLimit: sanitizeNumber(paging?.poolLimit, 24),
+      hasMore: paging?.hasMore === true,
+      total: sanitizeNumber(paging?.total, safeProducts.length),
+      source: "storefront_snapshot",
+    },
+    productFocus: safeProducts.length === 1
+      ? {
+          productId: sanitizeString(safeProducts[0]?.id),
+          sourceListingSessionId: listingSessionId,
+          detailLevel: "focused",
+        }
+      : null,
   }
 }
 
@@ -569,6 +631,32 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   })
   const projectHasMercadoLivre = hasMercadoLivreConnection(input.project, input.context)
   const focusedProductContext = hasFocusedCatalogProductContext(input.context)
+  const structuredCatalogAction = String(input.context?.ui?.catalogAction || input.context?.catalogAction || "").trim().toLowerCase()
+  const listingSession = input.context?.catalogo?.listingSession ?? null
+
+  if (structuredCatalogAction === "load_more" && !sanitizeString(listingSession?.searchTerm)) {
+    return {
+      selectedProductSalesReply: null,
+      mercadoLivreHeuristicReply:
+        "Nao consegui continuar essa lista agora. Me passe outro termo e eu faco uma nova busca.",
+      mercadoLivreProducts: [],
+      mercadoLivreAssets: [],
+      catalogSearchState: null,
+      selectedCatalogProduct: null,
+    }
+  }
+
+  if (structuredCatalogAction === "product_detail" && !currentProduct?.id) {
+    return {
+      selectedProductSalesReply: null,
+      mercadoLivreHeuristicReply:
+        "Nao consegui localizar esse item na lista atual. Se quiser, eu faco uma nova busca para voce.",
+      mercadoLivreProducts: [],
+      mercadoLivreAssets: [],
+      catalogSearchState: null,
+      selectedCatalogProduct: null,
+    }
+  }
 
   if (executionState.comparisonState.selectedProduct && executionState.comparisonState.comparisonReply) {
     return {
@@ -756,17 +844,24 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     searchTerm,
     paging,
     products,
+    currentListingSessionId: input.loadMoreCatalogRequested ? sanitizeString(listingSession?.id) : "",
   })
 
   if (!products.length && input.loadMoreCatalogRequested) {
     return {
       selectedProductSalesReply: null,
-      mercadoLivreHeuristicReply: "Nao encontrei mais itens nessa faixa da loja. Se quiser, me passe outro termo e eu faço uma nova busca.",
+      mercadoLivreHeuristicReply: "Nao encontrei mais itens nessa busca no momento. Se quiser, me passe outro termo e eu faco uma nova busca.",
       mercadoLivreProducts: [],
       mercadoLivreAssets: [],
       catalogSearchState: {
         ...catalogSearchState,
         paginationHasMore: false,
+        listingSession: catalogSearchState?.listingSession
+          ? {
+              ...catalogSearchState.listingSession,
+              hasMore: false,
+            }
+          : null,
       },
       selectedCatalogProduct: null,
     }
@@ -774,7 +869,13 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
 
   return {
     selectedProductSalesReply: null,
-    mercadoLivreHeuristicReply: buildMercadoLivreSearchReply(products, searchTerm, connector, paging),
+    mercadoLivreHeuristicReply: enforceMercadoLivreSearchReplyCoherence(
+      buildMercadoLivreSearchReply(products, searchTerm, connector, paging),
+      products,
+      searchTerm,
+      connector,
+      paging
+    ),
     mercadoLivreProducts: products,
     mercadoLivreAssets: assets,
     catalogSearchState,

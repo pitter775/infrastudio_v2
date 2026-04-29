@@ -135,6 +135,30 @@ function normalizeCatalogMessage(message) {
   return normalizeText(message).replace(/\bdopeira\b/g, "sopeira").replace(/\bsoperia\b/g, "sopeira")
 }
 
+function getCatalogListingSearchTerm(context = {}) {
+  const listingSearchTerm = String(context?.catalogo?.listingSession?.searchTerm || "").trim()
+  if (listingSearchTerm) {
+    return listingSearchTerm
+  }
+
+  return String(context?.catalogo?.ultimaBusca || "").trim()
+}
+
+function getCatalogCurrentProductName(context = {}) {
+  const currentProductName = String(context?.catalogo?.produtoAtual?.nome || "").trim()
+  if (currentProductName) {
+    return currentProductName
+  }
+
+  const focusedProductId = String(context?.catalogo?.productFocus?.productId || "").trim()
+  if (!focusedProductId) {
+    return ""
+  }
+
+  const recentProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
+  return String(recentProducts.find((item) => String(item?.id || "").trim() === focusedProductId)?.nome || "").trim()
+}
+
 function extractCatalogMessageTokens(message) {
   return normalizeCatalogMessage(message)
     .split(/\s+/)
@@ -147,10 +171,10 @@ function extractCatalogRefinementHintTokens(tokens = []) {
 }
 
 function extractAnchorTokensFromCatalogContext(context = {}) {
-  const lastSearchTokens = buildProductSearchCandidates(context?.catalogo?.ultimaBusca ?? "")
+  const lastSearchTokens = buildProductSearchCandidates(getCatalogListingSearchTerm(context))
     .flatMap((candidate) => normalizeCatalogMessage(candidate).split(/\s+/))
     .filter((token) => token.length >= 3)
-  const currentProductTokens = normalizeCatalogMessage(context?.catalogo?.produtoAtual?.nome ?? "")
+  const currentProductTokens = normalizeCatalogMessage(getCatalogCurrentProductName(context))
     .split(/\s+/)
     .filter((token) => token.length >= 4)
 
@@ -159,9 +183,9 @@ function extractAnchorTokensFromCatalogContext(context = {}) {
 
 function hasCatalogListAnchor(context = {}) {
   return (
-    Boolean(String(context?.catalogo?.ultimaBusca || "").trim()) ||
+    Boolean(getCatalogListingSearchTerm(context)) ||
     (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 1) ||
-    Boolean(context?.catalogo?.produtoAtual?.nome)
+    Boolean(getCatalogCurrentProductName(context))
   )
 }
 
@@ -333,7 +357,7 @@ export function resolveCatalogLoadMoreDecision(message, context = {}) {
   }
 
   const hasRecentListAnchor =
-    Boolean(String(context?.catalogo?.ultimaBusca || "").trim()) ||
+    Boolean(getCatalogListingSearchTerm(context)) ||
     (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 1)
 
   if (!hasExplicitCatalogLoadMorePhrase(message) && !hasRecentListAnchor) {
@@ -341,9 +365,9 @@ export function resolveCatalogLoadMoreDecision(message, context = {}) {
   }
 
   return {
-    kind: "catalog_search",
+    kind: "catalog_load_more",
     confidence: 0.7,
-    reason: "Mensagem pede nova busca ou mais opcoes de catalogo.",
+    reason: "Mensagem pede continuidade da lista atual do catalogo.",
     matchedProducts: [],
     usedLlm: false,
     shouldBlockNewSearch: false,
@@ -429,6 +453,11 @@ export function decideCatalogFollowUpHeuristically(message, context, deps = {}) 
 }
 
 export function resolveDeterministicCatalogFollowUpDecision(message, context, deps = {}) {
+  const loadMoreDecision = resolveCatalogLoadMoreDecision(message, context)
+  if (loadMoreDecision) {
+    return loadMoreDecision
+  }
+
   const products = normalizeRecentCatalogProducts(context)
   if (!products.length) {
     return null
@@ -437,11 +466,6 @@ export function resolveDeterministicCatalogFollowUpDecision(message, context, de
   const refinementDecision = detectCatalogSearchRefinement(message, context, deps)
   if (refinementDecision) {
     return refinementDecision
-  }
-
-  const loadMoreDecision = resolveCatalogLoadMoreDecision(message, context)
-  if (loadMoreDecision) {
-    return loadMoreDecision
   }
 
   return resolveRecentCatalogReferenceDecision(message, context)

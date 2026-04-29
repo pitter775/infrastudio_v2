@@ -160,6 +160,30 @@ function hasStorefrontCatalogContext(context) {
   )
 }
 
+function getCatalogCurrentProductName(context = {}) {
+  const currentProductName = String(context?.catalogo?.produtoAtual?.nome || "").trim()
+  if (currentProductName) {
+    return currentProductName
+  }
+
+  const focusedProductId = String(context?.catalogo?.productFocus?.productId || "").trim()
+  if (!focusedProductId) {
+    return ""
+  }
+
+  const recentProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
+  return String(recentProducts.find((item) => String(item?.id || "").trim() === focusedProductId)?.nome || "").trim()
+}
+
+function getCatalogListingSearchTerm(context = {}) {
+  const listingSearchTerm = String(context?.catalogo?.listingSession?.searchTerm || "").trim()
+  if (listingSearchTerm) {
+    return listingSearchTerm
+  }
+
+  return String(context?.catalogo?.ultimaBusca || "").trim()
+}
+
 function hasProductDetailCatalogContext(context) {
   return Boolean(
     (getCatalogFocusMode(context) === "product_focus" ||
@@ -167,7 +191,7 @@ function hasProductDetailCatalogContext(context) {
       getConversationMode(context) === "product_detail" ||
       context?.ui?.productDetailPreferred === true ||
       context?.storefront?.pageKind === "product_detail") &&
-      context?.catalogo?.produtoAtual?.nome
+      getCatalogCurrentProductName(context)
   )
 }
 
@@ -202,7 +226,7 @@ function isCatalogSnapshotFresh(context = {}) {
 
 function hasRecentCatalogContext(context = {}) {
   return (
-    Boolean(context?.catalogo?.produtoAtual?.nome) ||
+    Boolean(getCatalogCurrentProductName(context)) ||
     (isCatalogSnapshotFresh(context) &&
       Array.isArray(context?.catalogo?.ultimosProdutos) &&
       context.catalogo.ultimosProdutos.length > 0)
@@ -215,7 +239,7 @@ function hasRecentCatalogListContext(context = {}) {
   }
 
   return (
-    Boolean(String(context?.catalogo?.ultimaBusca || "").trim()) ||
+    Boolean(getCatalogListingSearchTerm(context)) ||
     (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 0)
   )
 }

@@ -27,6 +27,7 @@ import {
   buildFinalChatResult,
   buildFallbackChatTitle,
   buildFocusedProductFactualReply,
+  enforceMercadoLivreSearchReplyCoherence,
   buildInitialChatContext,
   buildIsolatedChatResult,
   buildCoreChatRequest,
@@ -81,8 +82,8 @@ import {
   parseAssetPrice,
   persistAssistantTurn,
   persistUsageRecord,
-  processChatRequest,
   prepareAiReplyPayload,
+  processChatRequest,
   prepareChatPrelude,
   persistUserTurn,
   persistAssistantState,
@@ -434,9 +435,9 @@ const tests: TestCase[] = [
       const resolvedByOrder = resolveRecentCatalogProductReference("quero o segundo", catalogContext as never);
       const resolvedUniqueAmongMany = resolveRecentCatalogProductReference("quero o floral", catalogContext as never);
 
-      assert.equal(loadMore?.kind, "catalog_search");
+      assert.equal(loadMore?.kind, "catalog_load_more");
       assert.equal(broadLoadMoreWithoutList, null);
-      assert.equal(broadLoadMoreWithList?.kind, "catalog_search");
+      assert.equal(broadLoadMoreWithList?.kind, "catalog_load_more");
       assert.equal(notLoadMore, null);
       assert.equal(reference?.kind, "recent_product_reference");
       assert.equal(ambiguous?.kind, "recent_product_reference_unresolved");
@@ -452,6 +453,152 @@ const tests: TestCase[] = [
       assert.equal(resolvedByOrder[0]?.id, "MLB2");
       assert.equal(resolvedUniqueAmongMany.length, 1);
       assert.equal(resolvedUniqueAmongMany[0]?.id, "MLB3");
+    },
+  },
+  {
+    name: "catalogo explicito falha fechado sem listingSession valida",
+    run: () => {
+      const decision = resolveCatalogDecisionState({
+        latestUserMessage: "Ver mais opcoes",
+        context: {
+          ui: {
+            catalogAction: "load_more",
+            listingSessionId: "sessao-antiga",
+          },
+          catalogo: {
+            ultimaBusca: "",
+            ultimosProdutos: [],
+          },
+        },
+        semanticDecision: null,
+        shouldUseCatalog: true,
+        buildProductSearchCandidates: deps.buildProductSearchCandidates,
+        shouldSearchProducts: deps.shouldSearchProducts,
+      })
+
+      assert.equal(decision.catalogDecision?.kind, "explicit_cannot_continue_listing")
+      assert.equal(decision.catalogReferenceReply, null)
+    },
+  },
+  {
+    name: "service propaga listingSession e productFocus no contexto e nos assets",
+    run: () => {
+      const updatedContext = updateContextFromAiResult({
+        nextContext: {
+          conversation: {
+            mode: "listing",
+          },
+          catalogo: {
+            ultimaBusca: "inox",
+            paginationOffset: 0,
+            paginationNextOffset: 3,
+            paginationPoolLimit: 24,
+            paginationHasMore: true,
+            paginationTotal: 6,
+          },
+        },
+        chatId: "chat-1",
+        historyLengthSource: 4,
+        ai: {
+          reply: "Encontrei 6 opcoes. Vou te mostrar 3 agora.",
+          assets: [
+            {
+              id: "MLB1",
+              kind: "product",
+              provider: "mercado_livre",
+              nome: "Balde Inox",
+            },
+          ],
+          metadata: {
+            catalogoBusca: {
+              ultimaBusca: "inox",
+              paginationOffset: 0,
+              paginationNextOffset: 3,
+              paginationPoolLimit: 24,
+              paginationHasMore: true,
+              paginationTotal: 6,
+              ultimosProdutos: [
+                { id: "MLB1", nome: "Balde Inox" },
+                { id: "MLB2", nome: "Saleiro Inox" },
+                { id: "MLB3", nome: "Conjunto Inox" },
+              ],
+            },
+            catalogoProdutoAtual: {
+              id: "MLB1",
+              nome: "Balde Inox",
+            },
+          },
+        },
+      })
+
+      const payload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: {
+          reply: "Encontrei 6 opcoes. Vou te mostrar 3 agora.",
+          assets: [
+            {
+              id: "MLB1",
+              kind: "product",
+              provider: "mercado_livre",
+              nome: "Balde Inox",
+            },
+          ],
+        },
+        nextContext: updatedContext,
+        normalizedExternalIdentifier: "lead-1",
+        userMessage: "tem inox?",
+        agendaSlots: [],
+      })
+
+      assert.equal(updatedContext.catalogo?.listingSession?.searchTerm, "inox")
+      assert.equal(updatedContext.catalogo?.listingSession?.nextOffset, 3)
+      assert.deepEqual(updatedContext.catalogo?.listingSession?.matchedProductIds, ["MLB1", "MLB2", "MLB3"])
+      assert.equal(updatedContext.catalogo?.productFocus?.productId, "MLB1")
+      assert.equal(payload.assets[0]?.metadata?.listingSessionId, updatedContext.catalogo?.listingSession?.id)
+      assert.equal(
+        payload.actions.find((action: any) => action?.extraContext?.ui?.catalogAction === "load_more")?.extraContext?.ui?.listingSessionId,
+        updatedContext.catalogo?.listingSession?.id
+      )
+    },
+  },
+  {
+    name: "orquestrador responde explicitamente quando load_more chega sem sessao valida",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "Ver mais opcoes" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-explicit-load-more",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-explicit-load-more",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          ui: {
+            catalogAction: "load_more",
+            listingSessionId: "sessao-expirada",
+          },
+          catalogo: {
+            ultimaBusca: "",
+            ultimosProdutos: [],
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => null,
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar sem sessao valida")
+          },
+        }
+      )
+
+      assert.match(result.reply, /nao consegui continuar essa lista agora/i)
+      assert.equal(result.assets.length, 0)
     },
   },
   {
@@ -1100,6 +1247,427 @@ const tests: TestCase[] = [
       assert.equal(state.catalogDecision?.reason, "explicit_catalog_item_command");
       assert.equal(state.currentCatalogProduct?.id, "MLB-2");
       assert.equal(state.stayOnCurrentProduct, true);
+    },
+  },
+  {
+    name: "catalogo em detalhe usa new_catalog_search para sair do item atual e buscar outro termo curto",
+    run: async () => {
+      let receivedSearchTerm = "";
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem balde?" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-detail-new-search",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-detail-new-search",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          conversation: { mode: "product_detail" },
+          storefront: { kind: "mercado_livre", pageKind: "product_detail" },
+          ui: { productDetailPreferred: true },
+          catalogo: {
+            ultimaBusca: "inox",
+            produtoAtual: {
+              id: "MLB-INOX-1",
+              nome: "Balde Inox Vintage",
+              descricao: "Balde em inox",
+              preco: 420,
+            },
+            ultimosProdutos: [
+              {
+                id: "MLB-INOX-1",
+                nome: "Balde Inox Vintage",
+                descricao: "Balde em inox",
+                preco: 420,
+              },
+            ],
+            listingSession: {
+              id: "sessao-inox",
+              snapshotId: "snapshot-inox",
+              searchTerm: "inox",
+              matchedProductIds: ["MLB-INOX-1"],
+              offset: 0,
+              nextOffset: 3,
+              poolLimit: 24,
+              hasMore: true,
+              total: 1,
+              source: "storefront_snapshot",
+            },
+            productFocus: {
+              productId: "MLB-INOX-1",
+              sourceListingSessionId: "sessao-inox",
+              detailLevel: "focused",
+            },
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "new_catalog_search",
+            confidence: 0.93,
+            reason: "Cliente saiu do detalhe e iniciou uma nova busca curta.",
+            targetType: "balde",
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            receivedSearchTerm = String(options.searchTerm || "");
+            return {
+              items: [
+                {
+                  id: "MLB-BALDE-1",
+                  title: "Balde Esmaltado Azul",
+                  price: 180,
+                  currencyId: "BRL",
+                  availableQuantity: 2,
+                  permalink: "https://example.com/balde",
+                  thumbnail: "https://example.com/balde.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "TIPO", name: "Tipo", valueName: "Balde" }],
+                  freeShipping: false,
+                },
+              ],
+              connector: { config: { oauthNickname: "Mesa Posta" } },
+              paging: { total: 1, offset: 0, nextOffset: 24, poolLimit: 24, hasMore: false },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.equal(receivedSearchTerm, "balde");
+      assert.equal(result.metadata.semanticIntent?.intent, "new_catalog_search");
+      assert.match(result.reply, /encontrei 1 produto/i);
+      assert.doesNotMatch(result.reply, /valor atual deste produto/i);
+    },
+  },
+  {
+    name: "catalogo responde fim explicito quando load_more chega ao fim da sessao",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "Ver mais opcoes" }] as never,
+        {
+          agente: {
+            id: "agent-catalog-end-of-session",
+            nome: "Loja Mesa Posta",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-catalog-end-of-session",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          ui: {
+            catalogAction: "load_more",
+            listingSessionId: "sessao-inox",
+          },
+          catalogo: {
+            ultimaBusca: "inox",
+            ultimosProdutos: [
+              { id: "MLB1", nome: "Jarra Inox", descricao: "R$ 100,00" },
+              { id: "MLB2", nome: "Balde Inox", descricao: "R$ 120,00" },
+            ],
+            listingSession: {
+              id: "sessao-inox",
+              snapshotId: "snapshot-inox",
+              searchTerm: "inox",
+              matchedProductIds: ["MLB1", "MLB2"],
+              offset: 0,
+              nextOffset: 3,
+              poolLimit: 24,
+              hasMore: true,
+              total: 2,
+              source: "storefront_snapshot",
+            },
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => null,
+          resolveMercadoLivreSearch: async () => ({
+            items: [],
+            connector: { config: { oauthNickname: "Mesa Posta" } },
+            paging: { total: 2, offset: 3, nextOffset: 3, poolLimit: 24, hasMore: false },
+            error: null,
+          }),
+        }
+      );
+
+      assert.match(result.reply, /nao encontrei mais itens nessa busca no momento/i);
+      assert.equal(result.assets.length, 0);
+    },
+  },
+  {
+    name: "catalogo recompõe reply incoerente quando a contagem real diverge da contagem textual",
+    run: () => {
+      const reply = enforceMercadoLivreSearchReplyCoherence(
+        "Encontrei 1 produto. Vou te mostrar as opcoes disponiveis agora.",
+        [
+          { id: "MLB1", title: "Jarra Inox" },
+          { id: "MLB2", title: "Balde Inox" },
+        ],
+        "inox",
+        {},
+        { total: 2, offset: 0, nextOffset: 3, poolLimit: 24, hasMore: false }
+      );
+
+      assert.match(reply, /encontrei 2 opcoes/i);
+      assert.doesNotMatch(reply, /encontrei 1 produto/i);
+    },
+  },
+  {
+    name: "catalogo preserva a sessao na sequencia inox load_more detail e nova busca curta",
+    run: async () => {
+      const baseContext = {
+        agente: {
+          id: "agent-catalog-sequence",
+          nome: "Loja Mesa Posta",
+          promptBase: "Venda de forma consultiva.",
+        },
+        projeto: {
+          id: "proj-catalog-sequence",
+          nome: "Projeto teste",
+          slug: "projeto-teste",
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        storefront: {
+          kind: "mercado_livre",
+          pageKind: "storefront",
+        },
+        ui: {
+          catalogPreferred: true,
+        },
+      };
+
+      let searchCalls: string[] = [];
+
+      const firstTurn = await executeSalesOrchestrator(
+        [{ role: "user", content: "inox" }] as never,
+        baseContext as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "new_catalog_search",
+            confidence: 0.95,
+            reason: "Cliente iniciou a busca por inox.",
+            targetType: "inox",
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            searchCalls.push(String(options.searchTerm || ""));
+            return {
+              items: [
+                {
+                  id: "MLB1",
+                  title: "Jarra Inox",
+                  price: 100,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/jarra-inox",
+                  thumbnail: "https://example.com/jarra-inox.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "MATERIAL", name: "Material", valueName: "Inox" }],
+                },
+                {
+                  id: "MLB2",
+                  title: "Balde Inox",
+                  price: 120,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/balde-inox",
+                  thumbnail: "https://example.com/balde-inox.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "MATERIAL", name: "Material", valueName: "Inox" }],
+                },
+                {
+                  id: "MLB3",
+                  title: "Conjunto Inox",
+                  price: 200,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/conjunto-inox",
+                  thumbnail: "https://example.com/conjunto-inox.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "MATERIAL", name: "Material", valueName: "Inox" }],
+                },
+              ],
+              connector: { config: { oauthNickname: "Mesa Posta" } },
+              paging: { total: 6, offset: 0, nextOffset: 3, poolLimit: 24, hasMore: true },
+              error: null,
+            };
+          },
+        }
+      );
+
+      const listedContext = updateContextFromAiResult({
+        nextContext: {
+          ...baseContext,
+          conversation: { mode: "listing" },
+          catalogo: {},
+        },
+        ai: firstTurn,
+        chatId: "chat-sequence",
+        historyLengthSource: 1,
+      });
+      const listedPayload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: firstTurn,
+        nextContext: listedContext,
+        normalizedExternalIdentifier: "lead-sequence",
+        userMessage: "inox",
+        agendaSlots: [],
+      });
+      const loadMoreAction = listedPayload.actions.find((action: any) => action?.extraContext?.ui?.catalogAction === "load_more");
+      const productAsset = listedPayload.assets.find((asset: any) => asset?.id === "MLB2");
+
+      const secondTurn = await executeSalesOrchestrator(
+        [{ role: "user", content: "Ver mais opcoes" }] as never,
+        {
+          ...listedContext,
+          ui: loadMoreAction?.extraContext?.ui,
+        } as never,
+        {
+          classifySemanticIntentStage: async () => null,
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            searchCalls.push(String(options.searchTerm || ""));
+            return {
+              items: [
+                {
+                  id: "MLB4",
+                  title: "Saleiro Inox",
+                  price: 90,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/saleiro-inox",
+                  thumbnail: "https://example.com/saleiro-inox.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "MATERIAL", name: "Material", valueName: "Inox" }],
+                },
+              ],
+              connector: { config: { oauthNickname: "Mesa Posta" } },
+              paging: { total: 6, offset: 3, nextOffset: 6, poolLimit: 24, hasMore: false },
+              error: null,
+            };
+          },
+        }
+      );
+
+      const afterLoadMoreContext = updateContextFromAiResult({
+        nextContext: {
+          ...listedContext,
+          ui: loadMoreAction?.extraContext?.ui,
+        },
+        ai: secondTurn,
+        chatId: "chat-sequence",
+        historyLengthSource: 2,
+      });
+
+      const thirdTurn = await executeSalesOrchestrator(
+        [{ role: "user", content: "Saber mais" }] as never,
+        {
+          ...afterLoadMoreContext,
+          ui: {
+            catalogAction: "product_detail",
+            catalogProductId: productAsset?.id,
+            listingSessionId: productAsset?.metadata?.listingSessionId,
+            productDetailPreferred: true,
+          },
+          conversation: { mode: "product_detail" },
+          storefront: { kind: "mercado_livre", pageKind: "product_detail" },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => null,
+          resolveMercadoLivreProductById: async () => ({
+            item: {
+              id: "MLB2",
+              title: "Balde Inox",
+              price: 120,
+              currencyId: "BRL",
+              availableQuantity: 1,
+              permalink: "https://example.com/balde-inox",
+              thumbnail: "https://example.com/balde-inox.jpg",
+              sellerId: "seller-1",
+              sellerName: "Mesa Posta",
+              attributes: [{ id: "MATERIAL", name: "Material", valueName: "Inox" }],
+              descriptionPlain: "Balde em inox vintage.",
+            },
+            error: null,
+          }),
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar no detalhe estruturado");
+          },
+        }
+      );
+
+      const detailContext = updateContextFromAiResult({
+        nextContext: {
+          ...afterLoadMoreContext,
+          conversation: { mode: "product_detail" },
+          storefront: { kind: "mercado_livre", pageKind: "product_detail" },
+          ui: { productDetailPreferred: true },
+        },
+        ai: thirdTurn,
+        chatId: "chat-sequence",
+        historyLengthSource: 3,
+      });
+
+      const fourthTurn = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem balde?" }] as never,
+        detailContext as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "new_catalog_search",
+            confidence: 0.94,
+            reason: "Cliente iniciou nova busca curta a partir do detalhe.",
+            targetType: "balde",
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            searchCalls.push(String(options.searchTerm || ""));
+            return {
+              items: [
+                {
+                  id: "MLB-BALDE-NEW",
+                  title: "Balde Esmaltado Azul",
+                  price: 180,
+                  currencyId: "BRL",
+                  availableQuantity: 2,
+                  permalink: "https://example.com/balde-novo",
+                  thumbnail: "https://example.com/balde-novo.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Mesa Posta",
+                  attributes: [{ id: "TIPO", name: "Tipo", valueName: "Balde" }],
+                },
+              ],
+              connector: { config: { oauthNickname: "Mesa Posta" } },
+              paging: { total: 1, offset: 0, nextOffset: 24, poolLimit: 24, hasMore: false },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.equal(listedContext.catalogo?.listingSession?.searchTerm, "inox");
+      assert.equal(loadMoreAction?.extraContext?.ui?.listingSessionId, listedContext.catalogo?.listingSession?.id);
+      assert.equal(productAsset?.metadata?.listingSessionId, listedContext.catalogo?.listingSession?.id);
+      assert.equal(detailContext.catalogo?.productFocus?.productId, "MLB2");
+      assert.equal(detailContext.catalogo?.productFocus?.sourceListingSessionId, listedContext.catalogo?.listingSession?.id);
+      assert.deepEqual(searchCalls, ["inox", "inox", "balde"]);
+      assert.equal(fourthTurn.metadata.semanticIntent?.intent, "new_catalog_search");
+      assert.match(fourthTurn.reply, /encontrei 1 produto/i);
     },
   },
   {
@@ -1894,7 +2462,7 @@ const tests: TestCase[] = [
       assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
       assert.equal(result.metadata.domainStage, "catalog");
       assert.equal(receivedSearchTerm, "jogo de jantar");
-      assert.match(result.reply, /encontrei 1 produto/i);
+      assert.match(result.reply, /encontrei 2 opcoes/i);
     },
   },
   {
