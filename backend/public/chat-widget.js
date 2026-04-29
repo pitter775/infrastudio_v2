@@ -535,11 +535,15 @@
       ".chat-ui-text.is-body { font-size: 13px; line-height: 1.58; color: inherit; }",
       ".chat-ui-badges { display: flex; flex-wrap: wrap; gap: 6px; }",
       ".chat-ui-badge { display: inline-flex; align-items: center; min-height: 0; padding: 5px 9px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: " + subtleBg + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.9)") + "; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: .03em; }",
-      ".chat-ui-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }",
-      ".chat-ui-list-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; color: inherit; }",
+      ".chat-ui-rail { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; -ms-overflow-style: none; cursor: grab; -webkit-overflow-scrolling: touch; touch-action: pan-x; scroll-snap-type: x proximity; }",
+      ".chat-ui-rail::-webkit-scrollbar { display: none; }",
+      ".chat-ui-rail.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }",
+      ".chat-ui-list { margin: 0; padding: 0; list-style: none; }",
+      ".chat-ui-list-item { flex: 0 0 min(220px, 72%); display: flex; align-items: flex-start; gap: 8px; padding: 10px 11px; border-radius: 14px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.04)") + "; font-size: 12px; line-height: 1.45; color: inherit; scroll-snap-align: start; }",
       ".chat-ui-list-item::before { content: ''; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: color-mix(in srgb, " + accent + " 74%, white 26%); flex: 0 0 6px; }",
-      ".chat-ui-cards { display: grid; gap: 8px; }",
+      ".chat-ui-cards { }",
       ".chat-ui-card { display: grid; gap: 4px; border-radius: 14px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.76)" : "rgba(255,255,255,0.04)") + "; padding: 10px 11px; }",
+      ".chat-ui-cards .chat-ui-card { flex: 0 0 min(240px, 78%); scroll-snap-align: start; }",
       ".chat-ui-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }",
       ".chat-ui-card-title { font-size: 12px; font-weight: 700; color: inherit; }",
       ".chat-ui-card-badge { display: inline-flex; align-items: center; min-height: 0; padding: 4px 8px; border-radius: 999px; background: color-mix(in srgb, " + accent + " 14%, transparent); color: " + accent + "; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }",
@@ -1441,6 +1445,73 @@
       return row.childNodes.length ? wrap : null;
     }
 
+    function enableHorizontalDragScroll(element) {
+      if (!element || element.__dragScrollBound) {
+        return;
+      }
+
+      element.__dragScrollBound = true;
+      var state = {
+        pointerId: null,
+        startX: 0,
+        startScrollLeft: 0,
+        dragging: false,
+      };
+
+      element.addEventListener("pointerdown", function (event) {
+        if (event.pointerType === "mouse" && event.button !== 0) {
+          return;
+        }
+
+        state.pointerId = event.pointerId;
+        state.startX = event.clientX;
+        state.startScrollLeft = element.scrollLeft;
+        state.dragging = false;
+      });
+
+      element.addEventListener("pointermove", function (event) {
+        if (state.pointerId !== event.pointerId) {
+          return;
+        }
+
+        var delta = event.clientX - state.startX;
+        if (!state.dragging && Math.abs(delta) > 6) {
+          state.dragging = true;
+          element.classList.add("is-dragging");
+          if (typeof element.setPointerCapture === "function") {
+            try {
+              element.setPointerCapture(event.pointerId);
+            } catch (error) {}
+          }
+        }
+
+        if (!state.dragging) {
+          return;
+        }
+
+        element.scrollLeft = state.startScrollLeft - delta;
+        event.preventDefault();
+      });
+
+      function releaseDrag(event) {
+        if (state.pointerId !== event.pointerId) {
+          return;
+        }
+
+        state.pointerId = null;
+        state.dragging = false;
+        element.classList.remove("is-dragging");
+      }
+
+      element.addEventListener("pointerup", releaseDrag);
+      element.addEventListener("pointercancel", releaseDrag);
+      element.addEventListener("lostpointercapture", function () {
+        state.pointerId = null;
+        state.dragging = false;
+        element.classList.remove("is-dragging");
+      });
+    }
+
     function createUiBlocks(ui) {
       if (!ui || !Array.isArray(ui.blocks) || !ui.blocks.length) {
         return null;
@@ -1482,7 +1553,7 @@
 
         if (block.type === "list" && Array.isArray(block.items) && block.items.length) {
           var list = document.createElement("ul");
-          list.className = "chat-ui-list";
+          list.className = "chat-ui-list chat-ui-rail";
           block.items.forEach(function (item) {
             if (!item) {
               return;
@@ -1493,6 +1564,7 @@
             list.appendChild(listItem);
           });
           if (list.childNodes.length) {
+            enableHorizontalDragScroll(list);
             wrap.appendChild(list);
           }
           return;
@@ -1500,7 +1572,7 @@
 
         if (block.type === "cards" && Array.isArray(block.items) && block.items.length) {
           var cards = document.createElement("div");
-          cards.className = "chat-ui-cards";
+          cards.className = "chat-ui-cards chat-ui-rail";
           block.items.forEach(function (item) {
             if (!item) {
               return;
@@ -1539,6 +1611,7 @@
             cards.appendChild(card);
           });
           if (cards.childNodes.length) {
+            enableHorizontalDragScroll(cards);
             wrap.appendChild(cards);
           }
           return;

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { FileText, Info } from "lucide-react"
 
 import { cn } from "@/lib/utils"
@@ -102,6 +102,90 @@ function ChatUiBlocks({ ui }) {
     return null
   }
 
+  function bindDragScroll(element) {
+    if (!element || element.dataset.dragScrollBound === "true") {
+      return
+    }
+
+    element.dataset.dragScrollBound = "true"
+
+    let pointerId = null
+    let startX = 0
+    let startScrollLeft = 0
+    let dragging = false
+
+    element.addEventListener("pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) {
+        return
+      }
+
+      pointerId = event.pointerId
+      startX = event.clientX
+      startScrollLeft = element.scrollLeft
+      dragging = false
+    })
+
+    element.addEventListener("pointermove", (event) => {
+      if (pointerId !== event.pointerId) {
+        return
+      }
+
+      const delta = event.clientX - startX
+      if (!dragging && Math.abs(delta) > 6) {
+        dragging = true
+        element.classList.add("is-dragging")
+        try {
+          element.setPointerCapture(event.pointerId)
+        } catch {}
+      }
+
+      if (!dragging) {
+        return
+      }
+
+      element.scrollLeft = startScrollLeft - delta
+      event.preventDefault()
+    })
+
+    const release = (event) => {
+      if (pointerId !== event.pointerId) {
+        return
+      }
+
+      pointerId = null
+      dragging = false
+      element.classList.remove("is-dragging")
+    }
+
+    element.addEventListener("pointerup", release)
+    element.addEventListener("pointercancel", release)
+    element.addEventListener("lostpointercapture", () => {
+      pointerId = null
+      dragging = false
+      element.classList.remove("is-dragging")
+    })
+  }
+
+  function HorizontalRail({ as: Component = "div", children, className }) {
+    const railRef = useRef(null)
+
+    return (
+      <Component
+        ref={(node) => {
+          railRef.current = node
+          bindDragScroll(node)
+        }}
+        className={cn(
+          "flex gap-2 overflow-x-auto overflow-y-hidden px-0.5 pb-1.5 scrollbar-none [-ms-overflow-style:none] [scrollbar-width:none] [touch-action:pan-x] [scroll-snap-type:x_proximity] cursor-grab [&::-webkit-scrollbar]:hidden",
+          "[&.is-dragging]:cursor-grabbing [&.is-dragging]:[scroll-snap-type:none]",
+          className
+        )}
+      >
+        {children}
+      </Component>
+    )
+  }
+
   return (
     <div className="mb-3 grid gap-2.5">
       {blocks.map((block, index) => {
@@ -141,22 +225,25 @@ function ChatUiBlocks({ ui }) {
 
         if (block.type === "list" && Array.isArray(block.items)) {
           return (
-            <ul key={`list-${index}`} className="grid gap-2">
+            <HorizontalRail key={`list-${index}`} as="ul" className="list-none">
               {block.items.map((item, itemIndex) => (
-                <li key={`item-${itemIndex}`} className="flex items-start gap-2 text-sm leading-5 text-slate-200">
+                <li
+                  key={`item-${itemIndex}`}
+                  className="flex min-w-[180px] max-w-[220px] shrink-0 snap-start items-start gap-2 rounded-2xl border border-white/10 bg-white/[0.04] px-3 py-2.5 text-sm leading-5 text-slate-200"
+                >
                   <span className="mt-2 h-1.5 w-1.5 rounded-full bg-sky-300" />
                   <span>{item}</span>
                 </li>
               ))}
-            </ul>
+            </HorizontalRail>
           )
         }
 
         if (block.type === "cards" && Array.isArray(block.items)) {
           return (
-            <div key={`cards-${index}`} className="grid gap-2">
+            <HorizontalRail key={`cards-${index}`}>
               {block.items.map((item, itemIndex) => (
-                <div key={`card-${itemIndex}`} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                <div key={`card-${itemIndex}`} className="min-w-[200px] max-w-[240px] shrink-0 snap-start rounded-2xl border border-white/10 bg-white/[0.04] p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-white">{item.title}</div>
                     {item.badge ? (
@@ -169,7 +256,7 @@ function ChatUiBlocks({ ui }) {
                   {item.meta ? <div className="mt-2 text-xs font-semibold text-white">{item.meta}</div> : null}
                 </div>
               ))}
-            </div>
+            </HorizontalRail>
           )
         }
 
