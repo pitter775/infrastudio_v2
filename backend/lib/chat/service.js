@@ -118,6 +118,140 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+function normalizeUiBlockItem(value) {
+  const text = String(value || "").trim()
+  return text || null
+}
+
+function normalizeUiActionItem(item) {
+  if (!isPlainObject(item)) {
+    return null
+  }
+
+  const label = String(item.label || "").trim()
+  const type = String(item.type || "").trim()
+  if (!label || !type) {
+    return null
+  }
+
+  return {
+    label,
+    type,
+    url: typeof item.url === "string" && item.url.trim() ? item.url.trim() : undefined,
+    message: typeof item.message === "string" && item.message.trim() ? item.message.trim() : undefined,
+    eventName: typeof item.eventName === "string" && item.eventName.trim() ? item.eventName.trim() : undefined,
+  }
+}
+
+function normalizeUiCardItem(item) {
+  if (!isPlainObject(item)) {
+    return null
+  }
+
+  const title = String(item.title || "").trim()
+  const description = String(item.description || "").trim()
+  const meta = String(item.meta || item.value || "").trim()
+  const badge = String(item.badge || "").trim()
+
+  if (!title && !description && !meta && !badge) {
+    return null
+  }
+
+  return {
+    title: title || undefined,
+    description: description || undefined,
+    meta: meta || undefined,
+    badge: badge || undefined,
+  }
+}
+
+function normalizeUiBlock(block) {
+  if (!isPlainObject(block)) {
+    return null
+  }
+
+  const type = String(block.type || "").trim().toLowerCase()
+  if (!type) {
+    return null
+  }
+
+  if (type === "text") {
+    const text = String(block.text || "").trim()
+    if (!text) {
+      return null
+    }
+
+    return {
+      type,
+      variant: String(block.variant || "body").trim().toLowerCase(),
+      text,
+    }
+  }
+
+  if (type === "badges" || type === "list") {
+    const items = Array.isArray(block.items) ? block.items.map(normalizeUiBlockItem).filter(Boolean).slice(0, 8) : []
+    return items.length ? { type, items } : null
+  }
+
+  if (type === "actions") {
+    const items = Array.isArray(block.items) ? block.items.map(normalizeUiActionItem).filter(Boolean).slice(0, 4) : []
+    return items.length ? { type, items } : null
+  }
+
+  if (type === "cards") {
+    const items = Array.isArray(block.items) ? block.items.map(normalizeUiCardItem).filter(Boolean).slice(0, 4) : []
+    return items.length ? { type, items } : null
+  }
+
+  if (type === "notice") {
+    const text = String(block.text || "").trim()
+    return text
+      ? {
+          type,
+          tone: String(block.tone || "info").trim().toLowerCase(),
+          text,
+        }
+      : null
+  }
+
+  return null
+}
+
+function normalizeUiPayload(ui) {
+  if (!isPlainObject(ui) || !Array.isArray(ui.blocks)) {
+    return null
+  }
+
+  const blocks = ui.blocks.map(normalizeUiBlock).filter(Boolean)
+  return blocks.length ? { blocks } : null
+}
+
+function extractStructuredReplyEnvelope(rawReply) {
+  const text = String(rawReply || "").trim()
+  if (!text || !/^\{[\s\S]*\}$/.test(text)) {
+    return null
+  }
+
+  try {
+    const parsed = JSON.parse(text)
+    if (!isPlainObject(parsed)) {
+      return null
+    }
+
+    const reply = typeof parsed.reply === "string" ? parsed.reply.trim() : ""
+    const followUpReply = typeof parsed.followUpReply === "string" ? parsed.followUpReply.trim() : ""
+    const ui = normalizeUiPayload(parsed.ui)
+
+    if (!reply && !followUpReply && !ui) {
+      return null
+    }
+
+    return { reply, followUpReply, ui }
+  } catch {
+    return null
+  }
+}
+
 function hasLockedProductDetailContext(context) {
   return Boolean(
     isPlainObject(context?.catalogo?.produtoAtual) &&
@@ -316,6 +450,11 @@ export function buildNextContext(input) {
             structured_response: false,
             allow_icons: true,
           }
+        : input.channelKind === "external_widget" || enrichedContextRecord.widget || mergedCurrentContext.widget
+          ? {
+              structured_response: true,
+              allow_icons: false,
+            }
         : {}),
     },
     sdk: isPlainObject(enrichedContextRecord.sdk)
@@ -604,13 +743,18 @@ export function updateContextFromAiResult(input) {
 }
 
 export function prepareAiReplyPayload(input) {
+  const structuredEnvelope = input.channelKind === "whatsapp" ? null : extractStructuredReplyEnvelope(input.ai.reply)
   const splitReply =
     input.channelKind === "whatsapp"
       ? null
-      : splitCatalogReplyForWhatsApp(input.ai.reply, Array.isArray(input.ai.assets) && input.ai.assets.length > 0)
+      : splitCatalogReplyForWhatsApp(
+          structuredEnvelope?.reply || input.ai.reply,
+          Array.isArray(input.ai.assets) && input.ai.assets.length > 0
+        )
 
-  const primaryReplyRaw = splitReply?.mainReply || input.ai.reply
-  const followUpReplyRaw = input.channelKind === "whatsapp" ? "" : splitReply?.followUpReply || ""
+  const primaryReplyRaw = splitReply?.mainReply || structuredEnvelope?.reply || input.ai.reply
+  const followUpReplyRaw =
+    input.channelKind === "whatsapp" ? "" : splitReply?.followUpReply || structuredEnvelope?.followUpReply || ""
   const primaryReplyBase = stripAssistantMetaReply(primaryReplyRaw, input.channelKind)
   const followUpReplyBase = stripAssistantMetaReply(followUpReplyRaw, input.channelKind)
   const normalizedPrimaryReplyBase = normalizeStructuredCustomerReply(primaryReplyBase)
@@ -669,6 +813,7 @@ export function prepareAiReplyPayload(input) {
     whatsappEmbeddedMessage: whatsappEmbeddedSequence[0] ?? "",
     whatsappCta,
     actions,
+    ui: structuredEnvelope?.ui ?? null,
     contactSnapshot: resolveChatContactSnapshot(input.nextContext, input.normalizedExternalIdentifier),
     whatsappContactNameForTitle: getWhatsAppContactNameFromContext(input.nextContext),
     leadNameForTitle:
@@ -842,6 +987,9 @@ export function buildCoreChatRequest(body, resolvedProjectAgent) {
 
 export function buildInitialChatContext(input) {
   const whatsappChannel = isPlainObject(input.resolved?.whatsappChannel) ? input.resolved.whatsappChannel : null
+  const baseUi = isPlainObject(input.extraContext?.ui) ? input.extraContext.ui : {}
+  const shouldPreferStructuredUi =
+    input.channelKind === "external_widget" || input.channelKind === "admin_agent_test" || Boolean(input.resolved?.widget)
 
   return {
     ...(isPlainObject(input.extraContext) ? input.extraContext : {}),
@@ -891,6 +1039,15 @@ export function buildInitialChatContext(input) {
       ...(isPlainObject(input.resolved?.channel) ? input.resolved.channel : {}),
       kind: input.channelKind,
       external_id: input.normalizedExternalIdentifier,
+    },
+    ui: {
+      ...baseUi,
+      ...(shouldPreferStructuredUi
+        ? {
+            structured_response: true,
+            allow_icons: false,
+          }
+        : {}),
     },
     canal: input.channelKind,
   }
@@ -1302,6 +1459,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
       assets: aiResult?.assets ?? [],
       whatsapp: replyPayload.whatsappCta,
       actions: replyPayload.actions,
+      ui: replyPayload.ui,
       followUpReply: false,
     },
     options
@@ -1344,6 +1502,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     assets: aiResult?.assets ?? [],
     whatsapp: replyPayload.whatsappCta,
     actions: replyPayload.actions,
+    ui: replyPayload.ui,
     handoff: aiResult?.handoff ?? null,
   })
 }
@@ -1643,6 +1802,7 @@ async function finalizeScriptedAssistantTurn(runtimeState, scriptedPayload, opti
       assets: [],
       whatsapp: null,
       actions: Array.isArray(scriptedPayload.actions) ? scriptedPayload.actions : [],
+      ui: null,
       followUpReply: false,
     },
     options
@@ -1672,6 +1832,7 @@ async function finalizeScriptedAssistantTurn(runtimeState, scriptedPayload, opti
     assets: [],
     whatsapp: null,
     actions: scriptedPayload.actions,
+    ui: null,
     handoff: null,
   })
 }

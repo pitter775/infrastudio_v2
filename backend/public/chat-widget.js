@@ -529,6 +529,23 @@
       ".chat-rich li + li { margin-top: 6px; }",
       ".chat-rich strong { font-weight: 700; color: " + (theme === "light" ? "#0f172a" : "rgba(255,255,255,0.94)") + "; }",
       ".chat-bubble.user .chat-rich strong { color: inherit; }",
+      ".chat-ui { display: flex; flex-direction: column; gap: 10px; }",
+      ".chat-ui-text.is-title { font-size: 13px; line-height: 1.35; font-weight: 700; letter-spacing: .01em; color: " + (theme === "light" ? "#0f172a" : "rgba(255,255,255,0.96)") + "; }",
+      ".chat-ui-text.is-subtitle { font-size: 11px; line-height: 1.45; color: " + (theme === "light" ? "#475569" : "rgba(148,163,184,0.9)") + "; }",
+      ".chat-ui-text.is-body { font-size: 13px; line-height: 1.58; color: inherit; }",
+      ".chat-ui-badges { display: flex; flex-wrap: wrap; gap: 6px; }",
+      ".chat-ui-badge { display: inline-flex; align-items: center; min-height: 0; padding: 5px 9px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: " + subtleBg + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.9)") + "; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: .03em; }",
+      ".chat-ui-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }",
+      ".chat-ui-list-item { display: flex; align-items: flex-start; gap: 8px; font-size: 12px; line-height: 1.45; color: inherit; }",
+      ".chat-ui-list-item::before { content: ''; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: color-mix(in srgb, " + accent + " 74%, white 26%); flex: 0 0 6px; }",
+      ".chat-ui-cards { display: grid; gap: 8px; }",
+      ".chat-ui-card { display: grid; gap: 4px; border-radius: 14px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.76)" : "rgba(255,255,255,0.04)") + "; padding: 10px 11px; }",
+      ".chat-ui-card-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }",
+      ".chat-ui-card-title { font-size: 12px; font-weight: 700; color: inherit; }",
+      ".chat-ui-card-badge { display: inline-flex; align-items: center; min-height: 0; padding: 4px 8px; border-radius: 999px; background: color-mix(in srgb, " + accent + " 14%, transparent); color: " + accent + "; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }",
+      ".chat-ui-card-description { font-size: 11px; line-height: 1.45; color: " + (theme === "light" ? "#475569" : "rgba(203,213,225,0.86)") + "; }",
+      ".chat-ui-card-meta { font-size: 11px; font-weight: 700; color: " + (theme === "light" ? "#0f172a" : "rgba(255,255,255,0.94)") + "; }",
+      ".chat-ui-notice { border-radius: 12px; padding: 9px 10px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(248,250,252,0.9)" : "rgba(15,23,42,0.34)") + "; font-size: 11px; line-height: 1.45; color: " + (theme === "light" ? "#475569" : "rgba(203,213,225,0.88)") + "; }",
       ".chat-rich .chat-line-tag { display: inline-flex; align-items: center; gap: 6px; margin: 0 8px 6px 0; padding: 4px 9px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: " + subtleBg + "; color: " + (theme === "light" ? "#334155" : "rgba(203,213,225,0.88)") + "; font-size: 11px; font-weight: 700; letter-spacing: .01em; vertical-align: middle; }",
       ".chat-rich .chat-line-tag-icon { display: inline-flex; align-items: center; justify-content: center; width: 14px; height: 14px; font-size: 12px; }",
       ".chat-cta { margin-top: 14px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 999px; padding: 12px 16px; font-size: 13px; font-weight: 700; letter-spacing: 0.02em; color: white; text-decoration: none; background: linear-gradient(135deg, " + accent + ", color-mix(in srgb, " + accent + " 60%, #000)); border: 1px solid color-mix(in srgb, " + accent + " 40%, transparent); box-shadow: 0 6px 20px color-mix(in srgb, " + accent + " 35%, transparent), inset 0 1px 0 rgba(255,255,255,0.15); transition: all .25s ease; }",
@@ -1374,6 +1391,176 @@
       }
 
       return wrap;
+    }
+
+    function createUiActionGroup(items) {
+      if (!Array.isArray(items) || !items.length) {
+        return null;
+      }
+
+      var wrap = document.createElement("div");
+      wrap.className = "chat-inline-actions";
+
+      var row = document.createElement("div");
+      row.className = "chat-inline-action-row";
+      wrap.appendChild(row);
+
+      items.forEach(function (action) {
+        if (!action || !action.type || !action.label) {
+          return;
+        }
+
+        if (action.type === "whatsapp_link" && action.url) {
+          var link = document.createElement("a");
+          link.className = "chat-inline-action is-whatsapp";
+          link.href = action.url;
+          link.target = "_blank";
+          link.rel = "noreferrer noopener";
+          link.textContent = action.label;
+          row.appendChild(link);
+          return;
+        }
+
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "chat-inline-action";
+        button.textContent = action.label;
+        button.addEventListener("click", function () {
+          if (action.type === "event" && action.eventName) {
+            window.dispatchEvent(new CustomEvent(action.eventName, { detail: {} }));
+            return;
+          }
+
+          if (action.message) {
+            void sendMessage(action.message);
+          }
+        });
+        row.appendChild(button);
+      });
+
+      return row.childNodes.length ? wrap : null;
+    }
+
+    function createUiBlocks(ui) {
+      if (!ui || !Array.isArray(ui.blocks) || !ui.blocks.length) {
+        return null;
+      }
+
+      var wrap = document.createElement("div");
+      wrap.className = "chat-ui";
+
+      ui.blocks.forEach(function (block) {
+        if (!block || !block.type) {
+          return;
+        }
+
+        if (block.type === "text" && block.text) {
+          var textNode = document.createElement("div");
+          textNode.className = "chat-ui-text is-" + String(block.variant || "body");
+          textNode.textContent = block.text;
+          wrap.appendChild(textNode);
+          return;
+        }
+
+        if (block.type === "badges" && Array.isArray(block.items) && block.items.length) {
+          var badges = document.createElement("div");
+          badges.className = "chat-ui-badges";
+          block.items.forEach(function (item) {
+            if (!item) {
+              return;
+            }
+            var badge = document.createElement("span");
+            badge.className = "chat-ui-badge";
+            badge.textContent = item;
+            badges.appendChild(badge);
+          });
+          if (badges.childNodes.length) {
+            wrap.appendChild(badges);
+          }
+          return;
+        }
+
+        if (block.type === "list" && Array.isArray(block.items) && block.items.length) {
+          var list = document.createElement("ul");
+          list.className = "chat-ui-list";
+          block.items.forEach(function (item) {
+            if (!item) {
+              return;
+            }
+            var listItem = document.createElement("li");
+            listItem.className = "chat-ui-list-item";
+            listItem.textContent = item;
+            list.appendChild(listItem);
+          });
+          if (list.childNodes.length) {
+            wrap.appendChild(list);
+          }
+          return;
+        }
+
+        if (block.type === "cards" && Array.isArray(block.items) && block.items.length) {
+          var cards = document.createElement("div");
+          cards.className = "chat-ui-cards";
+          block.items.forEach(function (item) {
+            if (!item) {
+              return;
+            }
+            var card = document.createElement("div");
+            card.className = "chat-ui-card";
+            if (item.title || item.badge) {
+              var top = document.createElement("div");
+              top.className = "chat-ui-card-top";
+              if (item.title) {
+                var title = document.createElement("div");
+                title.className = "chat-ui-card-title";
+                title.textContent = item.title;
+                top.appendChild(title);
+              }
+              if (item.badge) {
+                var cardBadge = document.createElement("span");
+                cardBadge.className = "chat-ui-card-badge";
+                cardBadge.textContent = item.badge;
+                top.appendChild(cardBadge);
+              }
+              card.appendChild(top);
+            }
+            if (item.description) {
+              var description = document.createElement("div");
+              description.className = "chat-ui-card-description";
+              description.textContent = item.description;
+              card.appendChild(description);
+            }
+            if (item.meta) {
+              var meta = document.createElement("div");
+              meta.className = "chat-ui-card-meta";
+              meta.textContent = item.meta;
+              card.appendChild(meta);
+            }
+            cards.appendChild(card);
+          });
+          if (cards.childNodes.length) {
+            wrap.appendChild(cards);
+          }
+          return;
+        }
+
+        if (block.type === "notice" && block.text) {
+          var notice = document.createElement("div");
+          notice.className = "chat-ui-notice";
+          notice.textContent = block.text;
+          wrap.appendChild(notice);
+          return;
+        }
+
+        if (block.type === "actions" && Array.isArray(block.items) && block.items.length) {
+          var actionGroup = createUiActionGroup(block.items);
+          if (actionGroup) {
+            wrap.appendChild(actionGroup);
+          }
+        }
+      });
+
+      return wrap.childNodes.length ? wrap : null;
     }
 
     function createHumanHandoffAction(handoff) {
@@ -2304,7 +2491,20 @@
 
           var bubble = document.createElement("div");
           bubble.className = "chat-bubble " + (message.isAi ? "ai" : "user");
-          bubble.innerHTML = '<div class="chat-rich">' + formatRichText(message.text) + "</div>";
+          if (message.isAi && message.ui && Array.isArray(message.ui.blocks) && message.ui.blocks.length) {
+            var uiBlocks = createUiBlocks(message.ui);
+            if (uiBlocks) {
+              bubble.appendChild(uiBlocks);
+            }
+            if (message.text) {
+              var richText = document.createElement("div");
+              richText.className = "chat-rich";
+              richText.innerHTML = formatRichText(message.text);
+              bubble.appendChild(richText);
+            }
+          } else {
+            bubble.innerHTML = '<div class="chat-rich">' + formatRichText(message.text) + "</div>";
+          }
           var meta = document.createElement("div");
           meta.className = "chat-message-meta";
           meta.innerHTML = createClockIcon() + "<span>" + escapeHtml(formatMessageTime(message)) + "</span>";
@@ -2485,6 +2685,7 @@
         attachments: Array.isArray(message.attachments) ? message.attachments : [],
         cta: !isUser && message.whatsapp && message.whatsapp.url ? message.whatsapp : null,
         actions: !isUser && Array.isArray(message.actions) ? message.actions : [],
+        ui: !isUser && message.ui && typeof message.ui === "object" ? message.ui : null,
         createdAt: message.createdAt || new Date().toISOString(),
         manual: !isUser && message.manual === true,
       });
@@ -2675,7 +2876,7 @@
 
         updateHumanHandoffState(payload.handoff);
 
-        if (payload.reply || payload.error || (Array.isArray(payload.assets) && payload.assets.length)) {
+        if (payload.reply || payload.error || (Array.isArray(payload.assets) && payload.assets.length) || payload.ui) {
           upsertAssistantMessage({
             id: "ai-" + Date.now(),
             serverId: payload.messageId || null,
@@ -2684,6 +2885,7 @@
             createdAt: payload.createdAt || new Date().toISOString(),
             cta: payload.whatsapp && payload.whatsapp.url ? payload.whatsapp : null,
             actions: Array.isArray(payload.actions) ? payload.actions : [],
+            ui: payload.ui && typeof payload.ui === "object" ? payload.ui : null,
             handoffAction: createHumanHandoffAction(payload.handoff),
             assets: Array.isArray(payload.assets) ? payload.assets : [],
           });

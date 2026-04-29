@@ -348,8 +348,10 @@ export function buildChannelReplyInstruction(channelKind) {
 
 export function buildStructuredReplyInstruction() {
   return [
-    "Organize a resposta em blocos curtos.",
-    "Quando fizer sentido, use listas curtas ou rotulos simples como Resposta, Motivos e Proximo passo.",
+    "Quando fizer sentido, responda em JSON valido.",
+    'Use o formato: {"reply":"texto curto","followUpReply":"","ui":{"blocks":[{"type":"text","variant":"title","text":"titulo discreto"},{"type":"badges","items":["tag 1","tag 2"]},{"type":"list","items":["item 1","item 2"]},{"type":"actions","items":[{"label":"Continuar","type":"message","message":"Quero continuar"}]}]}}.',
+    "Se nao precisar de bloco visual, ainda assim mantenha reply curto e organizado.",
+    "Nao use markdown, nao use crase e nao devolva texto antes ou depois do JSON.",
   ].join("\n")
 }
 

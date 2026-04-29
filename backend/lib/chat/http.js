@@ -59,6 +59,7 @@ export function formatPublicChatResult(result) {
     assets: Array.isArray(result?.assets) ? result.assets : [],
     whatsapp: result?.whatsapp ?? null,
     actions: Array.isArray(result?.actions) ? result.actions : [],
+    ui: result?.ui && typeof result.ui === "object" && !Array.isArray(result.ui) ? result.ui : null,
     handoff: result?.handoff ?? null,
   }
 }

@@ -4,6 +4,10 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+function normalizeUiPayload(value) {
+  return isPlainObject(value) && Array.isArray(value.blocks) ? value : null
+}
+
 export function buildUserMessageMetadata(input) {
   return {
     source: input.source?.trim() || (input.channelKind === "whatsapp" ? "whatsapp_bridge" : "site_widget"),
@@ -18,6 +22,7 @@ export function buildAssistantMessageMetadata(input) {
     assets: Array.isArray(input.assets) ? input.assets : [],
     whatsappCta: isPlainObject(input.whatsapp) ? input.whatsapp : null,
     actions: Array.isArray(input.actions) ? input.actions : [],
+    ui: normalizeUiPayload(input.ui),
     ...(input.followUpReply ? { followUpReply: true } : {}),
   }
 }
@@ -66,6 +71,7 @@ export async function persistAssistantTurn(input, deps = {}) {
       assets: input.assets,
       whatsapp: input.whatsapp,
       actions: input.actions,
+      ui: input.ui,
       followUpReply: input.followUpReply,
     }),
   })

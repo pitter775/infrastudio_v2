@@ -492,6 +492,7 @@ function mapPublicChatMessage(message) {
     attachments: Array.isArray(message.metadata?.attachments) ? message.metadata.attachments : [],
     whatsapp: message.metadata?.whatsappCta ?? null,
     actions: Array.isArray(message.metadata?.actions) ? message.metadata.actions : [],
+    ui: message.metadata?.ui ?? null,
     manual: message.metadata?.manual === true,
   }
 }

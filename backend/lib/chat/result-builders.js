@@ -7,6 +7,7 @@ export function buildSilentChatResult(chatId) {
     assets: [],
     whatsapp: null,
     actions: [],
+    ui: null,
   }
 }
 
@@ -19,6 +20,7 @@ export function buildBillingBlockedResult(chatId, message) {
     assets: [],
     whatsapp: null,
     actions: [],
+    ui: null,
   }
 }
 
@@ -41,6 +43,7 @@ export function buildIsolatedChatResult(body, message) {
     assets: [],
     whatsapp: null,
     actions: [],
+    ui: null,
   }
 }
 
@@ -55,6 +58,7 @@ export function buildFinalChatResult(input) {
     assets: input.channelKind === "whatsapp" ? [] : input.assets ?? [],
     whatsapp: input.whatsapp ?? null,
     actions: input.channelKind === "whatsapp" ? [] : input.actions ?? [],
+    ui: input.channelKind === "whatsapp" ? null : input.ui ?? null,
     handoff: input.handoff ?? null,
   }
 }

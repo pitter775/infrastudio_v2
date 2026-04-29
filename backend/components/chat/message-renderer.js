@@ -96,6 +96,97 @@ export function ProductAssetCards({ assets, className }) {
   )
 }
 
+function ChatUiBlocks({ ui }) {
+  const blocks = Array.isArray(ui?.blocks) ? ui.blocks : []
+  if (!blocks.length) {
+    return null
+  }
+
+  return (
+    <div className="mb-3 grid gap-2.5">
+      {blocks.map((block, index) => {
+        if (!block?.type) {
+          return null
+        }
+
+        if (block.type === "text" && block.text) {
+          return (
+            <div
+              key={`text-${index}`}
+              className={cn(
+                block.variant === "title" && "text-[13px] font-semibold leading-5 text-white",
+                block.variant === "subtitle" && "text-[11px] leading-5 text-slate-400",
+                (!block.variant || block.variant === "body") && "text-sm leading-6 text-slate-200"
+              )}
+            >
+              {block.text}
+            </div>
+          )
+        }
+
+        if (block.type === "badges" && Array.isArray(block.items)) {
+          return (
+            <div key={`badges-${index}`} className="flex flex-wrap gap-2">
+              {block.items.map((item, itemIndex) => (
+                <span
+                  key={`badge-${itemIndex}`}
+                  className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-200"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          )
+        }
+
+        if (block.type === "list" && Array.isArray(block.items)) {
+          return (
+            <ul key={`list-${index}`} className="grid gap-2">
+              {block.items.map((item, itemIndex) => (
+                <li key={`item-${itemIndex}`} className="flex items-start gap-2 text-sm leading-5 text-slate-200">
+                  <span className="mt-2 h-1.5 w-1.5 rounded-full bg-sky-300" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          )
+        }
+
+        if (block.type === "cards" && Array.isArray(block.items)) {
+          return (
+            <div key={`cards-${index}`} className="grid gap-2">
+              {block.items.map((item, itemIndex) => (
+                <div key={`card-${itemIndex}`} className="rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-sm font-semibold text-white">{item.title}</div>
+                    {item.badge ? (
+                      <span className="rounded-full bg-sky-500/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-sky-300">
+                        {item.badge}
+                      </span>
+                    ) : null}
+                  </div>
+                  {item.description ? <div className="mt-2 text-xs leading-5 text-slate-300">{item.description}</div> : null}
+                  {item.meta ? <div className="mt-2 text-xs font-semibold text-white">{item.meta}</div> : null}
+                </div>
+              ))}
+            </div>
+          )
+        }
+
+        if (block.type === "notice" && block.text) {
+          return (
+            <div key={`notice-${index}`} className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs leading-5 text-slate-300">
+              {block.text}
+            </div>
+          )
+        }
+
+        return null
+      })}
+    </div>
+  )
+}
+
 export function AttachmentCards({ messageId, attachments }) {
   const items = Array.isArray(attachments) ? attachments : []
   if (!items.length) {
@@ -202,13 +293,16 @@ export function AiTraceBlock({ trace, compact = false }) {
   )
 }
 
-export function ChatMessageRenderer({ text, assets, attachments, trace, messageId, compactTrace = false, className }) {
+export function ChatMessageRenderer({ text, ui, assets, attachments, trace, messageId, compactTrace = false, className }) {
   return (
     <div className={className}>
-      <div
-        className="leading-6 [&_a]:text-sky-300 [&_code]:font-mono [&_em]:italic [&_li]:ml-4 [&_li]:list-disc [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-white"
-        dangerouslySetInnerHTML={{ __html: renderChatMessageHtml(text) }}
-      />
+      <ChatUiBlocks ui={ui} />
+      {text ? (
+        <div
+          className="leading-6 [&_a]:text-sky-300 [&_code]:font-mono [&_em]:italic [&_li]:ml-4 [&_li]:list-disc [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-white"
+          dangerouslySetInnerHTML={{ __html: renderChatMessageHtml(text) }}
+        />
+      ) : null}
       <ProductAssetCards assets={assets} />
       <AttachmentCards messageId={messageId} attachments={attachments} />
       <AiTraceBlock trace={trace} compact={compactTrace} />

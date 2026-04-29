@@ -84,6 +84,7 @@ export function mapAdminConversationMessage(message) {
     assets: Array.isArray(message.metadata?.assets) ? message.metadata.assets : [],
     actions: Array.isArray(message.metadata?.actions) ? message.metadata.actions : [],
     whatsapp: message.metadata?.whatsappCta ?? null,
+    ui: message.metadata?.ui ?? null,
     observability,
   }
 }

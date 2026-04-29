@@ -43,7 +43,7 @@ function AgentTestMessage({ message }) {
             : "border-sky-500/30 bg-sky-500/15 text-sky-50",
         )}
       >
-        <ChatMessageRenderer text={message.content} assets={message.assets} trace={message.trace} compactTrace />
+        <ChatMessageRenderer text={message.content} ui={message.ui} assets={message.assets} trace={message.trace} compactTrace />
       </div>
     </div>
   )
@@ -134,6 +134,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
           id: `assistant-${Date.now()}`,
           role: "assistant",
           content: data.reply || "Sem resposta.",
+          ui: data.ui || null,
           trace: buildSimulatorTrace(data.diagnostics),
           assets: Array.isArray(data.assets) ? data.assets : [],
         },
