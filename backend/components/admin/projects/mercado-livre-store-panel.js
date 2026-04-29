@@ -115,8 +115,9 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       canSave: true,
       saving,
       activeTab: activeSubTab,
+      publicUrl,
     })
-  }, [activeSubTab, onFooterStateChange, saving])
+  }, [activeSubTab, onFooterStateChange, publicUrl, saving])
 
   useEffect(() => {
     let activeRequest = true

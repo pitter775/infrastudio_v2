@@ -743,9 +743,10 @@ export function updateContextFromAiResult(input) {
 }
 
 export function prepareAiReplyPayload(input) {
+  const isWhatsAppChannel = input.channelKind === "whatsapp"
   const structuredEnvelope = input.channelKind === "whatsapp" ? null : extractStructuredReplyEnvelope(input.ai.reply)
   const splitReply =
-    input.channelKind === "whatsapp"
+    isWhatsAppChannel
       ? null
       : splitCatalogReplyForWhatsApp(
           structuredEnvelope?.reply || input.ai.reply,
@@ -754,17 +755,17 @@ export function prepareAiReplyPayload(input) {
 
   const primaryReplyRaw = splitReply?.mainReply || structuredEnvelope?.reply || input.ai.reply
   const followUpReplyRaw =
-    input.channelKind === "whatsapp" ? "" : splitReply?.followUpReply || structuredEnvelope?.followUpReply || ""
+    isWhatsAppChannel ? "" : splitReply?.followUpReply || structuredEnvelope?.followUpReply || ""
   const primaryReplyBase = stripAssistantMetaReply(primaryReplyRaw, input.channelKind)
   const followUpReplyBase = stripAssistantMetaReply(followUpReplyRaw, input.channelKind)
   const normalizedPrimaryReplyBase = normalizeStructuredCustomerReply(primaryReplyBase)
   const normalizedFollowUpReplyBase = normalizeStructuredCustomerReply(followUpReplyBase)
   const primaryReply =
-    input.channelKind === "whatsapp"
+    isWhatsAppChannel
       ? sanitizeWhatsAppCustomerFacingReply(normalizedPrimaryReplyBase)
       : normalizedPrimaryReplyBase
   const followUpReply =
-    input.channelKind === "whatsapp"
+    isWhatsAppChannel
       ? sanitizeWhatsAppCustomerFacingReply(normalizedFollowUpReplyBase)
       : normalizedFollowUpReplyBase
   const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(input.nextContext)
@@ -798,13 +799,13 @@ export function prepareAiReplyPayload(input) {
       ? sanitizeReplyWithoutWhatsAppCta(followUpReply)
       : followUpReply
   const actionAwareFollowUpReply =
-    input.channelKind === "whatsapp"
+    isWhatsAppChannel
       ? normalizedFollowUpReply
       : buildActionSuggestionReply(actions, normalizedFollowUpReply, {
           forceWhatsAppSuggestion: shouldMentionWhatsAppInText,
         })
   const whatsappEmbeddedSequence =
-    input.channelKind === "whatsapp" ? buildWhatsAppMessageSequence(normalizedPrimaryReply, input.ai.assets ?? [], null) : []
+    isWhatsAppChannel ? buildWhatsAppMessageSequence(normalizedPrimaryReply, input.ai.assets ?? [], null) : []
 
   return {
     primaryReply: normalizedPrimaryReply,
@@ -812,8 +813,8 @@ export function prepareAiReplyPayload(input) {
     whatsappEmbeddedSequence,
     whatsappEmbeddedMessage: whatsappEmbeddedSequence[0] ?? "",
     whatsappCta,
-    actions,
-    ui: structuredEnvelope?.ui ?? null,
+    actions: isWhatsAppChannel ? [] : actions,
+    ui: isWhatsAppChannel ? null : structuredEnvelope?.ui ?? null,
     contactSnapshot: resolveChatContactSnapshot(input.nextContext, input.normalizedExternalIdentifier),
     whatsappContactNameForTitle: getWhatsAppContactNameFromContext(input.nextContext),
     leadNameForTitle:
@@ -1499,7 +1500,7 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
         : assistantMessage.conteudo ?? replyPayload.primaryReply,
     followUpReply: replyPayload.followUpReply,
     messageSequence: replyPayload.whatsappEmbeddedSequence,
-    assets: aiResult?.assets ?? [],
+    assets: runtimeState.prelude.channelKind === "whatsapp" ? [] : aiResult?.assets ?? [],
     whatsapp: replyPayload.whatsappCta,
     actions: replyPayload.actions,
     ui: replyPayload.ui,

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, BookOpen, Check, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
+import { ArrowRight, BookOpen, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
 
 import { ApiSheetManager } from '@/components/app/apis/api-sheet-manager'
 import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
@@ -210,6 +210,19 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
             >
               Voltar para lista
             </Button>
+          ) : null
+        }
+        rightAction={
+          panel.id === 'mercado-livre' && activeTab === 'store' && mercadoFooter.publicUrl ? (
+            <a
+              href={mercadoFooter.publicUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="hidden h-9 items-center gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 hover:bg-sky-500/15 sm:inline-flex"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Abrir loja
+            </a>
           ) : null
         }
         onCancel={onCloseSheet}

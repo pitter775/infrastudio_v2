@@ -342,6 +342,17 @@ function buildPersistableSnapshotPatch(snapshot) {
   return Object.keys(patch).length ? patch : null
 }
 
+function buildRuntimeVerificationFallback(channel) {
+  if (!channel?.id) {
+    return null
+  }
+
+  return {
+    status: "desconectado",
+    notes: "Nao foi possivel confirmar uma sessao ativa do WhatsApp no worker nesta verificacao.",
+  }
+}
+
 async function reconcileChannelWithWorkerSnapshot(channel, snapshot) {
   if (shouldAttemptAutoReconnect(channel, snapshot)) {
     const reconnectAttempt = Number(channel.reconnectAttempt || channel.sessionData?.reconnectAttempt || 0) + 1
@@ -488,6 +499,16 @@ export async function listWhatsAppChannelsForUser(project, user, options = {}) {
     }
 
     const workerSnapshot = await loadWorkerSnapshot(mappedChannel.id)
+    if (!workerSnapshot) {
+      const fallbackSnapshot = buildRuntimeVerificationFallback(mappedChannel)
+      if (!fallbackSnapshot) {
+        return [mappedChannel]
+      }
+
+      const refreshedChannel = await updateWhatsAppChannelSession(mappedChannel.id, fallbackSnapshot)
+      return [refreshedChannel ?? mergeRuntimeSnapshotIntoChannel(mappedChannel, fallbackSnapshot)]
+    }
+
     return [await reconcileChannelWithWorkerSnapshot(mappedChannel, workerSnapshot)]
   } catch (error) {
     console.error("[whatsapp] failed to list channels", error)

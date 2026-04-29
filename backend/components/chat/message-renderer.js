@@ -243,7 +243,7 @@ function ChatUiBlocks({ ui }) {
           return (
             <HorizontalRail key={`cards-${index}`}>
               {block.items.map((item, itemIndex) => (
-                <div key={`card-${itemIndex}`} className="min-w-[200px] max-w-[240px] shrink-0 snap-start rounded-2xl border border-white/10 bg-white/[0.04] p-3">
+                <div key={`card-${itemIndex}`} className="min-w-[184px] max-w-[214px] shrink-0 snap-start rounded-[10px] border border-white/10 bg-white/[0.04] px-2.5 py-2.5">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-white">{item.title}</div>
                     {item.badge ? (

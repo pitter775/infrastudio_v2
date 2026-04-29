@@ -196,9 +196,16 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
   }, [contactsEndpoint])
 
   useEffect(() => {
-    void loadChannels()
     void loadContacts()
-  }, [loadChannels, loadContacts])
+  }, [loadContacts])
+
+  useEffect(() => {
+    if (currentTab !== "connect") {
+      return
+    }
+
+    void loadChannels({ refreshRuntime: true })
+  }, [currentTab, loadChannels])
 
   const finalizePendingConnectionCheck = useCallback(async (channelId) => {
     if (!channelId) {

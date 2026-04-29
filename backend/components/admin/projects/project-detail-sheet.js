@@ -15,6 +15,7 @@ export function SheetPanelHeader({
   colorClassName = null,
   enabled = true,
   leftAction = null,
+  rightAction = null,
   onCancel = null,
 }) {
   const statusClasses = colorClassName
@@ -38,8 +39,9 @@ export function SheetPanelHeader({
 
               <div className="flex flex-wrap items-center gap-2">
                 {leftAction ? <div className="flex items-center">{leftAction}</div> : null}
+                {rightAction ? <div className="flex items-center">{rightAction}</div> : null}
 
-                {!leftAction && statusLabel ? (
+                {!leftAction && !rightAction && statusLabel ? (
                   <div className="flex items-center gap-3">
                     <span className={cn('text-xs font-semibold uppercase tracking-[0.18em]', statusClasses.text)}>
                       {enabled ? 'Desativar' : 'Ativar'}
