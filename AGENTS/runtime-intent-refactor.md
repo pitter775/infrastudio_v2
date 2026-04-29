@@ -411,6 +411,15 @@ Ainda errado / fragil:
   - quando o stage vier `recent_product_reference_unresolved`, o fallback local so pode sobrescrever se resolver um item unico concreto
   - ambiguidade heuristica deixa de disputar com o `unresolved` semantico
   - isso reduz mais um caminho em que guardrail local ainda reinterpretava a mesma lista em paralelo
+- o stage semantico de catalogo agora tambem cobre `similar_items_search`
+  - isso separa melhor "pergunta sobre o item atual" de "quero algo parecido com esse"
+  - o runtime nao precisa mais depender de `targetType` obrigatorio na frase para sair do lock de `product_detail`
+- Mercado Livre e API runtime agora compartilham melhor a identidade estruturada do item
+  - `categoriaLabel` passou a entrar no contrato interno do produto quando disponivel
+  - isso prepara o handler de similares/do mesmo tipo para funcionar por estado compartilhado e nao por regex de canal/provider
+- o flow state do Mercado Livre agora trata `same_type_search` e `similar_items_search` como busca nova deterministica
+  - a query pode vir do intent semantico ou ser derivada do item atual pelo contrato estruturado
+  - `excludeCurrentProduct` segue respeitado para nao reciclar o mesmo item
 
 ## Ordem de ataque obrigatoria
 
@@ -459,7 +468,7 @@ Ainda errado / fragil:
 
 ## Proximo passo recomendado agora
 
+- consolidar a mesma resolucao de `similar_items_search` no caminho de API quando existir provider que suporte nova busca por item/tipo
 - continuar reduzindo o intent factual local de `api-runtime.js`, tentando concentrar mais lookup em hints/decisao estruturada antes do matcher residual
 - seguir rebaixando `catalog-follow-up.js` para guardrail residual, principalmente nos casos em que ainda sobra decisao por texto curto sem ancora semantica
 - depois revisar se o merge final no `orchestrator.js` ja pode simplificar mais um passo sem reabrir regressao, idealmente isolando melhor o caso em que o guardrail local ainda pode resolver item unico concreto
-- se a suite continuar verde, o proximo corte deve mirar `domain-router.js`, principalmente follow-up curto de catalogo que ainda sobe por regex local forte

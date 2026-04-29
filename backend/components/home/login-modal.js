@@ -84,7 +84,7 @@ function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
 
   return (
     <div className="space-y-3">
-      <p className="text-sm font-medium text-slate-600 dark:text-slate-300">Continuar com</p>
+      
       <div className="grid grid-cols-2 gap-3">
         {providers.map((provider) => {
           const Icon = provider.icon

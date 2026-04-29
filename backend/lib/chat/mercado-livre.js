@@ -1,6 +1,7 @@
 import { getMercadoLivreProductByIdForProject, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
 import { getMercadoLivreStoreSettingsForProject } from "@/lib/mercado-livre-store"
 import { detectCatalogSearchRefinement, resolveRecentCatalogProductReference } from "@/lib/chat/catalog-follow-up"
+import { buildCatalogSimilarSearchCandidates } from "@/lib/chat/catalog-state"
 import { buildProductSearchCandidates, isMercadoLivreListingIntent } from "@/lib/chat/sales-heuristics"
 
 function sanitizeString(value) {
@@ -139,6 +140,7 @@ function buildCatalogProductFromItem(item, options = {}) {
     id: sanitizeString(item.id),
     slug: sanitizeString(item.slug) || slugifyProduct(item.title),
     nome: sanitizeString(item.title),
+    categoriaLabel: sanitizeString(item.categoryName || item.categoryLabel || item.categoryId),
     descricao: primaryHighlights.join(" - "),
     preco: sanitizeNumber(item.price, null),
     link: sanitizeString(item.permalink),
@@ -650,11 +652,20 @@ export function resolveMercadoLivreFlowState(input = {}) {
       : null
   const candidateCurrentCatalogProduct =
     referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? implicitSingleRecentProduct ?? null
+  const semanticSearchCandidates =
+    inferredRefinementDecision?.kind === "similar_items_search" || inferredRefinementDecision?.kind === "same_type_search"
+      ? buildCatalogSimilarSearchCandidates(candidateCurrentCatalogProduct, inferredRefinementDecision?.searchCandidates?.[0])
+      : []
+  const shouldExitCurrentProductContext =
+    inferredRefinementDecision?.kind === "same_type_search" ||
+    inferredRefinementDecision?.kind === "similar_items_search"
   const stayOnCurrentProduct =
     Boolean(implicitSingleRecentProduct) ||
-    (referencedCatalogProducts?.length === 1 && inferredRefinementDecision?.kind !== "catalog_search_refinement") ||
-    shouldStayOnCurrentProduct(input.latestUserMessage, input.context, candidateCurrentCatalogProduct)
-  const forceNewSearch = inferredRefinementDecision?.kind === "catalog_search_refinement" && !stayOnCurrentProduct
+    (referencedCatalogProducts?.length === 1 && !shouldExitCurrentProductContext) ||
+    (!shouldExitCurrentProductContext &&
+      shouldStayOnCurrentProduct(input.latestUserMessage, input.context, candidateCurrentCatalogProduct))
+  const forceNewSearch =
+    (inferredRefinementDecision?.kind === "catalog_search_refinement" || shouldExitCurrentProductContext) && !stayOnCurrentProduct
   const currentCatalogProduct = forceNewSearch ? null : candidateCurrentCatalogProduct
   const loadMoreCatalogRequested =
     !forceNewSearch &&
@@ -682,6 +693,7 @@ export function resolveMercadoLivreFlowState(input = {}) {
       loadMoreCatalogRequested && inferredRefinementDecision?.kind !== "catalog_search_refinement"
         ? ""
         :
+      semanticSearchCandidates[0] ??
       inferredRefinementDecision?.uncoveredTokens?.[0] ??
       inferredRefinementDecision?.searchCandidates?.[0] ??
       productSearchCandidates[0] ??

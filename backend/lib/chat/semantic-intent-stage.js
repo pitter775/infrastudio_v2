@@ -82,13 +82,26 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
 
   if (semanticIntent.intent === "same_type_search" && sanitizeString(semanticIntent.targetType)) {
     return {
-      kind: "catalog_search_refinement",
+      kind: "same_type_search",
       confidence: semanticIntent.confidence,
       reason: semanticIntent.reason ?? "Cliente pediu outro item do mesmo tipo.",
       matchedProducts: [],
       usedLlm: Boolean(semanticIntent.usedLlm),
       shouldBlockNewSearch: false,
       searchCandidates: [sanitizeString(semanticIntent.targetType)],
+      excludeCurrentProduct: semanticIntent.excludeCurrentProduct !== false,
+    }
+  }
+
+  if (semanticIntent.intent === "similar_items_search") {
+    return {
+      kind: "similar_items_search",
+      confidence: semanticIntent.confidence,
+      reason: semanticIntent.reason ?? "Cliente pediu itens parecidos com o produto atual.",
+      matchedProducts: [],
+      usedLlm: Boolean(semanticIntent.usedLlm),
+      shouldBlockNewSearch: false,
+      searchCandidates: sanitizeString(semanticIntent.targetType) ? [sanitizeString(semanticIntent.targetType)] : [],
       excludeCurrentProduct: semanticIntent.excludeCurrentProduct !== false,
     }
   }
@@ -430,9 +443,11 @@ export async function classifySemanticIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de catalogo Mercado Livre.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"current_product_question|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|catalog_search_refinement|new_catalog_search|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false}.',
+            'Schema: {"intent":"current_product_question|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_search_refinement|new_catalog_search|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false}.',
             "Use same_type_search apenas quando o cliente pedir outro item do mesmo tipo ou da mesma classe do produto atual.",
             "Quando usar same_type_search, extraia targetType curto e literal, por exemplo saleiro, jarra, xicara, prato.",
+            "Use similar_items_search quando o cliente pedir algo parecido, similar, semelhante ou na mesma linha do produto atual, mesmo sem citar o tipo explicitamente.",
+            "Em similar_items_search, targetType pode vir vazio quando o tipo precisara ser derivado do proprio produto atual.",
             "Use catalog_search_refinement quando o cliente refinar a ultima lista com um atributo novo ou filtro novo, por exemplo inox, azul, madeira, vintage, grande.",
             "Quando usar catalog_search_refinement, extraia targetType curto e literal com o termo novo principal da busca.",
             "Use new_catalog_search quando o cliente iniciar uma nova busca de catalogo, inclusive na vitrine, com um tipo ou termo curto claro, por exemplo saleiro azul, xicara vintage, vaso amarelo.",
@@ -491,6 +506,7 @@ export async function classifySemanticIntentStage(input = {}) {
                   "recent_product_reference_ambiguous",
                   "recent_product_reference_unresolved",
                   "same_type_search",
+                  "similar_items_search",
                   "catalog_search_refinement",
                   "new_catalog_search",
                   "catalog_load_more",

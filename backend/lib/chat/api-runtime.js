@@ -236,6 +236,9 @@ function groupApiFieldsAsCatalogItem(api, deps) {
     sanitizeString(readField("status")) ||
     (availableQuantity > 0 ? "disponivel" : "")
   const warranty = sanitizeString(readField("garantia", "warranty"))
+  const categoriaLabel =
+    sanitizeString(readField("categoria", "category", "categoria_nome", "tipo", "type")) ||
+    sanitizeString(api?.categoriaLabel)
   const material = sanitizeString(readField("material"))
   const cor = sanitizeString(readField("cor", "color"))
   const link = sanitizeString(readField("link", "url", "permalink"))
@@ -263,6 +266,7 @@ function groupApiFieldsAsCatalogItem(api, deps) {
   return {
     id,
     nome,
+    categoriaLabel,
     descricao,
     preco,
     link,
