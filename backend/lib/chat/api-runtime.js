@@ -1,4 +1,5 @@
 import { buildSearchTokens, normalizeText, singularizeToken } from "@/lib/chat/text-utils"
+import { buildCatalogProductFacts, buildFocusedCatalogProductFactualResolution, normalizeCatalogFactHints } from "@/lib/chat/catalog-product-facts"
 import {
   normalizeCatalogComparisonIntent,
   resolveCatalogComparisonDecisionState,
@@ -260,7 +261,7 @@ function groupApiFieldsAsCatalogItem(api, deps) {
     return null
   }
 
-  return {
+  const product = {
     id,
     nome,
     categoriaLabel,
@@ -282,6 +283,11 @@ function groupApiFieldsAsCatalogItem(api, deps) {
     source: "api_runtime",
     apiId: sanitizeString(api?.apiId),
     apiNome: sanitizeString(api?.nome),
+  }
+
+  return {
+    ...product,
+    facts: buildCatalogProductFacts(product),
   }
 }
 
@@ -328,7 +334,24 @@ function buildApiSelectedCatalogReply(product) {
     .join(" ")
 }
 
-export function resolveApiCatalogReply(message, context = {}, apis = [], customDeps = {}) {
+function buildApiCatalogFactualResolution(message, product, context = {}, semanticApiDecision = null) {
+  if (!product?.nome) {
+    return null
+  }
+
+  const targetFactHints = normalizeCatalogFactHints(semanticApiDecision?.targetFieldHints)
+  return buildFocusedCatalogProductFactualResolution(product, message, {
+    semanticIntent: targetFactHints.length
+      ? {
+          targetFactHints,
+          factScope: "",
+        }
+      : null,
+    previousFactContext: context?.catalogo?.productFocus?.factualContext ?? null,
+  })
+}
+
+export function resolveApiCatalogReplyResolution(message, context = {}, apis = [], customDeps = {}) {
   const deps = getDeps(customDeps)
   const contextProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos.filter(Boolean) : []
   const products = contextProducts.length ? contextProducts : extractApiCatalogProducts(apis, deps)
@@ -370,6 +393,23 @@ export function resolveApiCatalogReply(message, context = {}, apis = [], customD
       hasRecentListContext: hasRecentApiListContext(contextProducts, products),
     })
     return comparisonState.comparisonReply
+      ? {
+          reply: comparisonState.comparisonReply,
+          currentCatalogProduct: executionState.currentCatalogProduct ?? null,
+          factContext: null,
+        }
+      : null
+  }
+
+  if (!executionState.intentState.forceNewSearch && executionState.currentCatalogProduct?.nome) {
+    const factualResolution = buildApiCatalogFactualResolution(message, executionState.currentCatalogProduct, context, semanticApiDecision)
+    if (factualResolution?.reply) {
+      return {
+        reply: factualResolution.reply,
+        currentCatalogProduct: executionState.currentCatalogProduct,
+        factContext: factualResolution.factContext ?? null,
+      }
+    }
   }
 
   if (hasApiExplicitLookupSignal(message, deps) || ["api_fact_query", "api_status_query"].includes(String(semanticApiDecision?.kind || ""))) {
@@ -377,10 +417,18 @@ export function resolveApiCatalogReply(message, context = {}, apis = [], customD
   }
 
   if (!executionState.intentState.forceNewSearch && executionState.currentCatalogProduct?.nome) {
-    return buildApiSelectedCatalogReply(executionState.currentCatalogProduct)
+    return {
+      reply: buildApiSelectedCatalogReply(executionState.currentCatalogProduct),
+      currentCatalogProduct: executionState.currentCatalogProduct,
+      factContext: null,
+    }
   }
 
   return null
+}
+
+export function resolveApiCatalogReply(message, context = {}, apis = [], customDeps = {}) {
+  return resolveApiCatalogReplyResolution(message, context, apis, customDeps)?.reply ?? null
 }
 
 function formatApiDateValue(value) {

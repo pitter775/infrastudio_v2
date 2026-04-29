@@ -565,6 +565,30 @@ Ainda errado / fragil:
 
 ## Registro curto
 
+- o fluxo factual de produto no catalogo ganhou camada canonica compartilhada
+  - novo normalizador `catalog-product-facts.js` separa `dimensions.product`, `dimensions.package`, `weight.product`, `weight.package`, alem de `material`, `cor`, `garantia`, `estoque`, `frete` e `link`
+  - `buildFocusedProductFactualReply` agora responde por slot factual e nao despeja o bloco cru de atributos
+  - perguntas como `tem peso?` deixam de responder `altura`
+  - perguntas amplas como `qual tamanho?` passam a priorizar medidas do produto e so caem para embalagem com aviso explicito
+- o mesmo contrato factual agora tambem atende o caminho de `api-runtime.js`
+  - `resolveApiCatalogReply` passou a reutilizar a resolucao canonica quando houver produto de catalogo em foco
+  - `catalogFactContext` tambem sobe no metadata de API para manter continuidade uniforme entre providers
+- `factualContext` agora tambem orienta follow-up curto de dimensao/peso
+  - quando o turno anterior estava em `package`, perguntas curtas como `e o peso?` mantem o mesmo escopo sem cair para `product`
+  - isso vale tanto para Mercado Livre quanto para API runtime
+- follow-up factual curto da mesma familia agora responde em formato compacto
+  - se o mesmo item ja estava em `dimensions`, uma pergunta curta como `qual tamanho?` responde so `Altura: ... , Largura: ...`
+  - isso reduz repeticao de abertura longa em microinteracoes sobre o mesmo produto
+- micro-resposta factual de catalogo no web nao injeta CTA de WhatsApp
+  - quando a resposta e curta e factual (`catalogFactContext` ativo), o widget nao recebe CTA nem acao `whatsapp_link`
+  - isso reduz ruido visual em sequencias de detalhe tecnico do produto
+- micro-resposta factual curta tambem limpa acoes residuais
+  - no detalhe factual curto sem continuidade real, o payload nao expõe acoes extras
+  - a excecao continua sendo `load_more` quando houver continuacao autentica de listagem
+- o stage semantico de catalogo agora pode carregar `targetFactHints` e `factScope`
+  - isso permite direcionar resposta factual por campo sem espalhar branch textual pelo widget
+- `productFocus` agora persiste `factualContext`
+  - o contexto factual fica no backend e pode ser reaproveitado por widget, WhatsApp e outros canais sem acoplar a UI
 - a busca de catalogo do chat para Mercado Livre agora prioriza o snapshot da loja quando houver termo de busca
   - isso alinha os resultados do chat com a vitrine publica da loja
   - `load more` passa a paginar sobre a mesma base filtrada da vitrine, em vez de concluir cedo sobre um recorte curto da conta

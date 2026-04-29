@@ -26,6 +26,10 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
         confidence: semanticIntent.confidence,
         reason: semanticIntent.reason ?? "Cliente fez pergunta factual sobre a lista recente sem item unico resolvido.",
         matchedProducts: recentProducts.slice(0, 3),
+        targetFactHints: Array.isArray(semanticIntent.targetFactHints)
+          ? semanticIntent.targetFactHints.map((item) => sanitizeString(item)).filter(Boolean)
+          : [],
+        factScope: sanitizeString(semanticIntent.factScope),
         usedLlm: Boolean(semanticIntent.usedLlm),
         shouldBlockNewSearch: true,
       }
@@ -36,6 +40,10 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
       confidence: semanticIntent.confidence,
       reason: semanticIntent.reason ?? "Pergunta sobre produto em foco.",
       matchedProducts: [],
+      targetFactHints: Array.isArray(semanticIntent.targetFactHints)
+        ? semanticIntent.targetFactHints.map((item) => sanitizeString(item)).filter(Boolean)
+        : [],
+      factScope: sanitizeString(semanticIntent.factScope),
       usedLlm: Boolean(semanticIntent.usedLlm),
       shouldBlockNewSearch: true,
     }
@@ -87,6 +95,10 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
       confidence: semanticIntent.confidence,
       reason: semanticIntent.reason ?? "Cliente segue na lista recente sem item unico resolvido.",
       matchedProducts: recentProducts.slice(0, 3),
+      targetFactHints: Array.isArray(semanticIntent.targetFactHints)
+        ? semanticIntent.targetFactHints.map((item) => sanitizeString(item)).filter(Boolean)
+        : [],
+      factScope: sanitizeString(semanticIntent.factScope),
       usedLlm: Boolean(semanticIntent.usedLlm),
       shouldBlockNewSearch: true,
     }
@@ -455,7 +467,7 @@ export async function classifySemanticIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de catalogo Mercado Livre.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"current_product_question|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_search_refinement|new_catalog_search|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false}.',
+            'Schema: {"intent":"current_product_question|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_search_refinement|new_catalog_search|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false,"targetFactHints":["string"],"factScope":"product|package|shipping|commercial|general|"}.',
             "Use same_type_search apenas quando o cliente pedir outro item do mesmo tipo ou da mesma classe do produto atual.",
             "Quando usar same_type_search, extraia targetType curto e literal, por exemplo saleiro, jarra, xicara, prato.",
             "Use similar_items_search quando o cliente pedir algo parecido, similar, semelhante ou na mesma linha do produto atual, mesmo sem citar o tipo explicitamente.",
@@ -469,6 +481,9 @@ export async function classifySemanticIntentStage(input = {}) {
             "Use recent_product_reference_ambiguous quando a fala apontar para mais de um item recente de forma plausivel.",
             "Use recent_product_reference_unresolved quando o cliente ainda estiver falando da lista recente, mas sem item unico resolvido.",
             "Se houver lista recente com mais de um item e o cliente fizer pergunta factual curta como garantia, frete, estoque, material, cor, medidas ou detalhes sem indicar qual item, use recent_product_reference_unresolved.",
+            "Quando a pergunta for factual sobre atributos do produto, preencha targetFactHints com literais curtos como preco, material, cor, garantia, estoque, frete, link, dimensoes, altura, largura, comprimento, profundidade, diametro, peso, capacidade ou detalhes.",
+            "Use factScope=package apenas quando o cliente pedir embalagem ou medidas/peso de envio. Para atributos fisicos normais prefira factScope=product.",
+            "Em pedidos amplos como qual tamanho, use targetFactHints=['dimensoes'] em vez de explodir todos os campos.",
             "Quando usar recent_product_reference, preencha referencedProductIds apenas com ids reais da lista recente.",
             "Nao invente targetType. Se nao tiver certeza, retorne other.",
           ].join("\n"),
@@ -554,8 +569,27 @@ export async function classifySemanticIntentStage(input = {}) {
               excludeCurrentProduct: {
                 type: "boolean",
               },
+              targetFactHints: {
+                type: "array",
+                items: {
+                  type: "string",
+                },
+              },
+              factScope: {
+                type: "string",
+                enum: ["", "product", "package", "shipping", "commercial", "general"],
+              },
             },
-            required: ["intent", "confidence", "reason", "targetType", "referencedProductIds", "excludeCurrentProduct"],
+            required: [
+              "intent",
+              "confidence",
+              "reason",
+              "targetType",
+              "referencedProductIds",
+              "excludeCurrentProduct",
+              "targetFactHints",
+              "factScope",
+            ],
           },
         },
       },
@@ -583,6 +617,10 @@ export async function classifySemanticIntentStage(input = {}) {
       ? parsed.referencedProductIds.map((item) => sanitizeString(item)).filter(Boolean)
       : [],
     excludeCurrentProduct: parsed?.excludeCurrentProduct !== false,
+    targetFactHints: Array.isArray(parsed?.targetFactHints)
+      ? parsed.targetFactHints.map((item) => sanitizeString(item)).filter(Boolean)
+      : [],
+    factScope: sanitizeString(parsed?.factScope),
     usedLlm: true,
   }
 }

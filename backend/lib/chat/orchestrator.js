@@ -1,10 +1,10 @@
-import { buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReply } from "@/lib/chat/api-runtime"
+import { buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReplyResolution } from "@/lib/chat/api-runtime"
 import { hasRecentCatalogSnapshot } from "@/lib/chat/catalog-follow-up"
 import { resolveCatalogDecisionState } from "@/lib/chat/catalog-intent-handler"
 import { buildLeadNameAcknowledgementReply, enrichLeadContext, extractName, isLikelyLeadNameReply } from "@/lib/chat/lead-stage"
 import { resolveChatDomainRoute } from "@/lib/chat/domain-router"
 import {
-  buildFocusedProductFactualReply,
+  buildFocusedProductFactualResolution,
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicReply,
   resolveMercadoLivreHeuristicState,
@@ -613,7 +613,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       : null)
   const apiCatalogReply =
     shouldUseApiRuntime
-      ? resolveApiCatalogReply(latestUserMessage, context, runtimeApis, {
+      ? resolveApiCatalogReplyResolution(latestUserMessage, context, runtimeApis, {
           semanticApiDecision,
         })
       : null
@@ -643,8 +643,14 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const leadNameAcknowledgementReply =
     leadNameReplyDetected && extractedLeadName ? buildLeadNameAcknowledgementReply(extractedLeadName, true) : null
   const currentCatalogProduct = mercadoLivreSelectedProduct ?? apiCatalogProduct ?? context?.catalogo?.produtoAtual ?? null
-  const deterministicMercadoLivreFactualReply =
-    shouldUseMercadoLivre && currentCatalogProduct ? buildFocusedProductFactualReply(currentCatalogProduct, latestUserMessage) : null
+  const deterministicMercadoLivreFactualResolution =
+    shouldUseMercadoLivre && currentCatalogProduct
+      ? buildFocusedProductFactualResolution(currentCatalogProduct, latestUserMessage, {
+          semanticIntent: semanticCatalogIntent,
+          previousFactContext: context?.catalogo?.productFocus?.factualContext ?? null,
+        })
+      : null
+  const deterministicMercadoLivreFactualReply = deterministicMercadoLivreFactualResolution?.reply ?? null
   const shouldPreferMercadoLivreListing =
     shouldUseMercadoLivre &&
     mercadoLivreAssets.length > 0 &&
@@ -727,26 +733,29 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         targetFieldHints: semanticApiDecision?.targetFieldHints,
         supportFieldHints: semanticApiDecision?.supportFieldHints,
       })
-    if (apiReply) {
-      return buildHeuristicReplyResult(apiReply, {
+    const apiReplyText = typeof apiReply === "string" ? apiReply : apiReply?.reply
+    if (apiReplyText) {
+      return buildHeuristicReplyResult(apiReplyText, {
         ...heuristicMetadata,
         heuristicStage: "api_runtime",
         domainStage: "api_runtime",
         provider: "api_runtime",
-        catalogoProdutoAtual: apiCatalogProduct ?? currentCatalogProduct ?? null,
+        catalogoProdutoAtual: apiReply?.currentCatalogProduct ?? apiCatalogProduct ?? currentCatalogProduct ?? null,
         catalogoBusca: apiCatalogSearchState,
+        catalogFactContext: apiReply?.factContext ?? null,
       })
     }
   }
 
-  if (apiCatalogReply) {
-    return buildHeuristicReplyResult(apiCatalogReply, {
+  if (apiCatalogReply?.reply) {
+    return buildHeuristicReplyResult(apiCatalogReply.reply, {
       ...heuristicMetadata,
       heuristicStage: "api_catalog_runtime",
       domainStage: "api_runtime",
       provider: "api_runtime",
-      catalogoProdutoAtual: apiCatalogProduct ?? currentCatalogProduct ?? null,
+      catalogoProdutoAtual: apiCatalogReply.currentCatalogProduct ?? apiCatalogProduct ?? currentCatalogProduct ?? null,
       catalogoBusca: apiCatalogSearchState,
+      catalogFactContext: apiCatalogReply.factContext ?? null,
     })
   }
 
@@ -797,6 +806,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         domainStage: "catalog",
         catalogoProdutoAtual: currentCatalogProduct ?? null,
         catalogoBusca: mercadoLivreCatalogSearchState,
+        catalogFactContext: deterministicMercadoLivreFactualResolution?.factContext ?? null,
       }),
       assets: shouldAttachMercadoLivreAssetForMessage(latestUserMessage) ? mercadoLivreAssets : [],
       metadata: {
@@ -808,6 +818,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         domainStage: "catalog",
         catalogoProdutoAtual: currentCatalogProduct ?? null,
         catalogoBusca: mercadoLivreCatalogSearchState,
+        catalogFactContext: deterministicMercadoLivreFactualResolution?.factContext ?? null,
       },
     }
   }

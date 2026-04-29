@@ -938,6 +938,8 @@ const tests: TestCase[] = [
           intent: "product_question",
           confidence: 0.91,
           reason: "pergunta sobre o produto atual",
+          targetFactHints: ["peso"],
+          factScope: "product",
           usedLlm: true,
         },
         context: catalogContext,
@@ -946,6 +948,8 @@ const tests: TestCase[] = [
       });
 
       assert.equal(decision?.kind, "non_catalog_message");
+      assert.deepEqual(decision?.targetFactHints, ["peso"]);
+      assert.equal(decision?.factScope, "product");
     },
   },
   {
@@ -1308,6 +1312,95 @@ const tests: TestCase[] = [
 
       assert.match(String(reply || ""), /Altura: 21 cm/i);
       assert.match(String(reply || ""), /Largura: 18 cm/i);
+    },
+  },
+  {
+    name: "mercado livre responde peso sem misturar altura quando a pergunta e factual e curta",
+    run: () => {
+      const reply = buildFocusedProductFactualReply(
+        {
+          id: "MLB-78",
+          nome: "Quadro Decorativo",
+          atributos: [
+            { nome: "Altura", valor: "81 cm" },
+            { nome: "Peso da embalagem do vendedor", valor: "6500 g" },
+          ],
+        },
+        "tem peso?"
+      );
+
+      assert.match(String(reply || ""), /Peso da embalagem: 6500 g/i);
+      assert.doesNotMatch(String(reply || ""), /Altura: 81 cm/i);
+    },
+  },
+  {
+    name: "mercado livre informa quando so existem medidas de embalagem no anuncio",
+    run: () => {
+      const reply = buildFocusedProductFactualReply(
+        {
+          id: "MLB-79",
+          nome: "Quadro Decorativo",
+          atributos: [
+            { nome: "Altura da embalagem do vendedor", valor: "75 cm" },
+            { nome: "Largura da embalagem do vendedor", valor: "95 cm" },
+          ],
+        },
+        "qual tamanho?"
+      );
+
+      assert.match(String(reply || ""), /Nao encontrei medidas do produto/i);
+      assert.match(String(reply || ""), /medidas da embalagem/i);
+    },
+  },
+  {
+    name: "mercado livre reutiliza escopo de embalagem em follow-up factual curto",
+    run: () => {
+      const reply = buildFocusedProductFactualReply(
+        {
+          id: "MLB-80",
+          nome: "Quadro Decorativo",
+          atributos: [
+            { nome: "Altura da embalagem do vendedor", valor: "75 cm" },
+            { nome: "Peso da embalagem do vendedor", valor: "6500 g" },
+          ],
+        },
+        "e o peso?",
+        {
+          previousFactContext: {
+            fields: ["dimensions"],
+            scope: "package",
+            productId: "MLB-80",
+          },
+        }
+      );
+
+      assert.match(String(reply || ""), /Peso da embalagem: 6500 g/i);
+      assert.doesNotMatch(String(reply || ""), /Nao encontrei o peso do produto/i);
+    },
+  },
+  {
+    name: "mercado livre compacta follow-up curto quando repete a mesma familia factual",
+    run: () => {
+      const reply = buildFocusedProductFactualReply(
+        {
+          id: "MLB-81",
+          nome: "Balde Inox",
+          atributos: [
+            { nome: "Altura", valor: "21 cm" },
+            { nome: "Largura", valor: "18 cm" },
+          ],
+        },
+        "qual tamanho?",
+        {
+          previousFactContext: {
+            fields: ["dimensions"],
+            scope: "product",
+            productId: "MLB-81",
+          },
+        }
+      );
+
+      assert.equal(String(reply || ""), "Altura: 21 cm, Largura: 18 cm.");
     },
   },
   {
@@ -2215,6 +2308,141 @@ const tests: TestCase[] = [
       assert.match(result.reply, /eu iria em Kit Mesa Posta Premium/i)
       assert.match(result.reply, /frete gratis/i)
       assert.match(result.reply, /garantia 30 dias/i)
+    },
+  },
+  {
+    name: "api runtime responde fato canonico de produto sem misturar campos irrelevantes",
+    run: () => {
+      const reply = resolveApiCatalogReply(
+        "tem peso?",
+        {
+          catalogo: {
+            produtoAtual: {
+              id: "KIT-03",
+              nome: "Kit Mesa Posta",
+              atributos: [
+                { nome: "Altura", valor: "81 cm" },
+                { nome: "Peso da embalagem do vendedor", valor: "6500 g" },
+              ],
+            },
+            ultimosProdutos: [
+              {
+                id: "KIT-03",
+                nome: "Kit Mesa Posta",
+                atributos: [
+                  { nome: "Altura", valor: "81 cm" },
+                  { nome: "Peso da embalagem do vendedor", valor: "6500 g" },
+                ],
+              },
+            ],
+          },
+        } as never,
+        [],
+        {
+          semanticApiDecision: {
+            kind: "api_fact_query",
+            targetFieldHints: ["peso"],
+          },
+        } as never
+      );
+
+      assert.match(String(reply || ""), /Peso da embalagem: 6500 g/i);
+      assert.doesNotMatch(String(reply || ""), /Altura: 81 cm/i);
+    },
+  },
+  {
+    name: "api runtime reutiliza escopo factual anterior em follow-up curto",
+    run: () => {
+      const reply = resolveApiCatalogReply(
+        "e o peso?",
+        {
+          catalogo: {
+            produtoAtual: {
+              id: "KIT-04",
+              nome: "Kit Mesa Posta",
+              atributos: [
+                { nome: "Altura da embalagem do vendedor", valor: "75 cm" },
+                { nome: "Peso da embalagem do vendedor", valor: "6500 g" },
+              ],
+            },
+            productFocus: {
+              productId: "KIT-04",
+              factualContext: {
+                fields: ["dimensions"],
+                scope: "package",
+                productId: "KIT-04",
+              },
+            },
+            ultimosProdutos: [
+              {
+                id: "KIT-04",
+                nome: "Kit Mesa Posta",
+                atributos: [
+                  { nome: "Altura da embalagem do vendedor", valor: "75 cm" },
+                  { nome: "Peso da embalagem do vendedor", valor: "6500 g" },
+                ],
+              },
+            ],
+          },
+        } as never,
+        [],
+        {
+          semanticApiDecision: {
+            kind: "api_fact_query",
+            targetFieldHints: ["peso"],
+          },
+        } as never
+      );
+
+      assert.match(String(reply || ""), /Peso da embalagem: 6500 g/i);
+      assert.doesNotMatch(String(reply || ""), /Nao encontrei o peso do produto/i);
+    },
+  },
+  {
+    name: "api runtime compacta follow-up curto quando repete a mesma familia factual",
+    run: () => {
+      const reply = resolveApiCatalogReply(
+        "qual tamanho?",
+        {
+          catalogo: {
+            produtoAtual: {
+              id: "KIT-05",
+              nome: "Kit Mesa Posta",
+              atributos: [
+                { nome: "Altura", valor: "81 cm" },
+                { nome: "Largura", valor: "95 cm" },
+              ],
+            },
+            productFocus: {
+              productId: "KIT-05",
+              factualContext: {
+                fields: ["dimensions"],
+                scope: "product",
+                productId: "KIT-05",
+              },
+            },
+            ultimosProdutos: [
+              {
+                id: "KIT-05",
+                nome: "Kit Mesa Posta",
+                atributos: [
+                  { nome: "Altura", valor: "81 cm" },
+                  { nome: "Largura", valor: "95 cm" },
+                ],
+              },
+            ],
+          },
+        } as never,
+        [],
+        {
+          semanticApiDecision: {
+            kind: "api_fact_query",
+            targetFieldHints: ["dimensoes"],
+          },
+        } as never
+      );
+
+      assert.equal(String(reply || ""), "Altura: 81 cm, Largura: 95 cm.");
     },
   },
   {
@@ -6706,6 +6934,47 @@ const tests: TestCase[] = [
       )
       assert.match(payload.followUpReply, /marcar um horario/i)
       assert.doesNotMatch(payload.followUpReply, /continuar no WhatsApp/i)
+    },
+  },
+  {
+    name: "service nao injeta CTA de WhatsApp em micro-resposta factual do catalogo",
+    run: () => {
+      const payload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: {
+          reply: "Altura: 81 cm.",
+          assets: [],
+          metadata: {
+            heuristicStage: "mercado_livre_product_fact",
+            catalogFactContext: {
+              fields: ["height"],
+              scope: "product",
+              productId: "MLB-81",
+            },
+          },
+        },
+        nextContext: {
+          whatsapp: {
+            numero: "5511999999999",
+            ctaEnabled: true,
+          },
+          conversation: {
+            mode: "product_focus",
+          },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-81",
+              nome: "Quadro Decorativo",
+            },
+          },
+        },
+        normalizedExternalIdentifier: "lead-3",
+        userMessage: "altura?",
+      })
+
+      assert.equal(payload.whatsappCta, null)
+      assert.equal(payload.actions.some((action) => action?.type === "whatsapp_link"), false)
+      assert.equal(payload.actions.length, 0)
     },
   },
   {

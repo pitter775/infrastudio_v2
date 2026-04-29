@@ -1,5 +1,6 @@
 import { getMercadoLivreProductByIdForProject, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
 import { getMercadoLivreStoreSettingsForProject } from "@/lib/mercado-livre-store"
+import { buildCatalogProductFacts, buildFocusedCatalogProductFactualResolution } from "@/lib/chat/catalog-product-facts"
 import { resolveCatalogExecutionState } from "@/lib/chat/catalog-intent-handler"
 
 function sanitizeString(value) {
@@ -149,7 +150,7 @@ function buildCatalogProductFromItem(item, options = {}) {
     : []
   const descricaoLonga = sanitizeString(item.descriptionPlain || item.shortDescription).slice(0, descriptionLimit)
 
-  return {
+  const product = {
     id: sanitizeString(item.id),
     slug: sanitizeString(item.slug) || slugifyProduct(item.title),
     nome: sanitizeString(item.title),
@@ -173,6 +174,11 @@ function buildCatalogProductFromItem(item, options = {}) {
     variacoesResumo: variationHighlights,
     contextoDetalhado: isFocused,
     contextoCompleto: isFull,
+  }
+
+  return {
+    ...product,
+    facts: buildCatalogProductFacts(product),
   }
 }
 
@@ -302,21 +308,6 @@ function isMercadoLivreFactualIntent(message) {
   )
 }
 
-function extractMercadoLivreDimensionAttributes(product) {
-  return (Array.isArray(product?.atributos) ? product.atributos : [])
-    .filter((attribute) => {
-      const normalizedName = normalizeMessage(attribute?.nome)
-      return (
-        normalizedName &&
-        /\b(dimens(?:ao|oes)|medida|medidas|tamanho|altura|largura|comprimento|profundidade|diametro|peso|capacidade)\b/.test(
-          normalizedName
-        )
-      )
-    })
-    .map((attribute) => `${attribute.nome}: ${attribute.valor}`)
-    .filter(Boolean)
-}
-
 function pushUniqueSentence(target, sentence) {
   const normalizedSentence = sanitizeString(sentence)
   if (!normalizedSentence) {
@@ -405,81 +396,12 @@ function buildSelectedProductReply(product, userMessage = "") {
   return pieces.join(" ")
 }
 
-export function buildFocusedProductFactualReply(product, userMessage = "") {
-  if (!product?.nome) {
-    return null
-  }
+export function buildFocusedProductFactualReply(product, userMessage = "", options = {}) {
+  return buildFocusedProductFactualResolution(product, userMessage, options)?.reply ?? null
+}
 
-  const pieces = []
-
-  if (isMercadoLivrePriceIntent(userMessage)) {
-    if (product.preco != null) {
-      pieces.push(`O valor atual deste produto e ${formatCurrency(product.preco)}.`)
-    } else {
-      pieces.push("Nao encontrei o valor exato deste produto no momento.")
-    }
-  }
-
-  if (isMercadoLivreMaterialIntent(userMessage)) {
-    if (product.material) {
-      pieces.push(`O material deste produto e ${product.material}.`)
-    } else {
-      pieces.push("Nao encontrei o material informado deste produto no momento.")
-    }
-  }
-
-  if (isMercadoLivreColorIntent(userMessage)) {
-    if (product.cor) {
-      pieces.push(`A cor ou acabamento informado e ${product.cor}.`)
-    } else {
-      pieces.push("Nao encontrei a cor ou acabamento informado deste produto no momento.")
-    }
-  }
-
-  if (isMercadoLivreStockIntent(userMessage)) {
-    if (sanitizeNumber(product.availableQuantity, 0) > 0) {
-      pieces.push(
-        `No momento eu vejo ${sanitizeNumber(product.availableQuantity, 0)} unidade${sanitizeNumber(product.availableQuantity, 0) > 1 ? "s" : ""} em estoque.`
-      )
-    } else {
-      pieces.push("Nao encontrei estoque disponivel para este item no momento.")
-    }
-  }
-
-  if (isMercadoLivreWarrantyIntent(userMessage)) {
-    if (product.warranty && !/^sem garantia$/i.test(product.warranty)) {
-      pieces.push(`A garantia informada no anuncio e ${product.warranty}.`)
-    } else {
-      pieces.push("Nao encontrei garantia informada neste anuncio.")
-    }
-  }
-
-  if (isMercadoLivreDeliveryIntent(userMessage)) {
-    pieces.push(
-      product.freeShipping
-        ? "A entrega e feita pelo Mercado Livre e este anuncio indica frete gratis."
-        : "A entrega e feita pelo Mercado Livre e o frete aparece no checkout conforme o seu CEP."
-    )
-  }
-
-  if (isMercadoLivreLinkIntent(userMessage)) {
-    if (product.link) {
-      pieces.push(`Se quiser, eu mando o link direto do anuncio: ${product.link}`)
-    } else {
-      pieces.push("Nao encontrei o link direto deste anuncio no momento.")
-    }
-  }
-
-  if (isMercadoLivreDimensionIntent(userMessage)) {
-    const dimensionAttributes = extractMercadoLivreDimensionAttributes(product)
-    if (dimensionAttributes.length) {
-      pieces.push(`As medidas e especificacoes de tamanho que encontrei foram: ${dimensionAttributes.join(", ")}.`)
-    } else {
-      pieces.push("Nao encontrei medidas ou dimensoes informadas neste anuncio no momento.")
-    }
-  }
-
-  return pieces.length ? pieces.join(" ") : null
+export function buildFocusedProductFactualResolution(product, userMessage = "", options = {}) {
+  return buildFocusedCatalogProductFactualResolution(product, userMessage, options)
 }
 
 export function shouldAttachMercadoLivreAssetForMessage(message = "") {

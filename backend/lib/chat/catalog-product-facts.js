@@ -1,0 +1,540 @@
+function sanitizeString(value) {
+  const normalized = String(value ?? "").trim()
+  return normalized || ""
+}
+
+function sanitizeNumber(value, fallback = null) {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : fallback
+}
+
+function normalizeToken(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+}
+
+const FACT_HINT_ALIASES = new Map([
+  ["preco", "price"],
+  ["valor", "price"],
+  ["material", "material"],
+  ["cor", "color"],
+  ["acabamento", "color"],
+  ["garantia", "warranty"],
+  ["estoque", "stock"],
+  ["disponibilidade", "stock"],
+  ["frete", "shipping"],
+  ["entrega", "shipping"],
+  ["link", "link"],
+  ["anuncio", "link"],
+  ["detalhes", "details"],
+  ["detalhe", "details"],
+  ["descricao", "details"],
+  ["dimensoes", "dimensions"],
+  ["dimensao", "dimensions"],
+  ["medidas", "dimensions"],
+  ["medida", "dimensions"],
+  ["tamanho", "dimensions"],
+  ["altura", "height"],
+  ["largura", "width"],
+  ["comprimento", "length"],
+  ["profundidade", "depth"],
+  ["diametro", "diameter"],
+  ["peso", "weight"],
+  ["capacidade", "capacity"],
+  ["peso_embalagem", "weight"],
+  ["peso embalagem", "weight"],
+  ["medidas_embalagem", "dimensions"],
+  ["medidas embalagem", "dimensions"],
+])
+
+const FACT_SCOPE_ALIASES = new Map([
+  ["product", "product"],
+  ["produto", "product"],
+  ["package", "package"],
+  ["embalagem", "package"],
+  ["shipping", "shipping"],
+  ["envio", "shipping"],
+  ["commercial", "commercial"],
+  ["comercial", "commercial"],
+  ["general", "general"],
+  ["geral", "general"],
+])
+
+const DIMENSION_FIELD_ORDER = ["height", "width", "length", "depth", "diameter", "capacity"]
+
+function createDimensionBucket() {
+  return {
+    height: "",
+    width: "",
+    length: "",
+    depth: "",
+    diameter: "",
+    capacity: "",
+    raw: [],
+  }
+}
+
+function pushUnique(target, value) {
+  const text = sanitizeString(value)
+  if (!text) {
+    return
+  }
+
+  const key = normalizeToken(text)
+  if (!target.some((item) => normalizeToken(item) === key)) {
+    target.push(text)
+  }
+}
+
+function normalizeFactHint(value) {
+  const normalized = normalizeToken(value).replace(/[_-]+/g, " ")
+  return FACT_HINT_ALIASES.get(normalized) || ""
+}
+
+export function normalizeCatalogFactHints(values = []) {
+  return [...new Set((Array.isArray(values) ? values : []).map((item) => normalizeFactHint(item)).filter(Boolean))]
+}
+
+export function normalizeCatalogFactScope(value) {
+  const normalized = normalizeToken(value)
+  return FACT_SCOPE_ALIASES.get(normalized) || ""
+}
+
+function resolveAttributeScope(attributeName) {
+  const normalizedName = normalizeToken(attributeName)
+  return /\b(embalagem|pacote|caixa|vendor)\b/.test(normalizedName) ? "package" : "product"
+}
+
+function resolveAttributeDimensionField(attributeName) {
+  const normalizedName = normalizeToken(attributeName)
+  if (!normalizedName) {
+    return ""
+  }
+
+  if (/\baltura\b/.test(normalizedName)) return "height"
+  if (/\blargura\b/.test(normalizedName)) return "width"
+  if (/\bcomprimento\b/.test(normalizedName)) return "length"
+  if (/\bprofundidade\b/.test(normalizedName)) return "depth"
+  if (/\bdiametro\b/.test(normalizedName)) return "diameter"
+  if (/\bcapacidade\b/.test(normalizedName)) return "capacity"
+  if (/\b(dimensao|dimensoes|medida|medidas|tamanho)\b/.test(normalizedName)) return "dimensions"
+  if (/\bpeso\b/.test(normalizedName)) return "weight"
+  return ""
+}
+
+function formatCurrency(value, currencyId = "BRL") {
+  const parsed = Number(value ?? 0)
+  if (!Number.isFinite(parsed)) {
+    return ""
+  }
+
+  try {
+    return new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: currencyId || "BRL",
+    }).format(parsed)
+  } catch {
+    return `R$ ${parsed.toFixed(2).replace(".", ",")}`
+  }
+}
+
+function assignAttributeFact(facts, attribute) {
+  const name = sanitizeString(attribute?.nome)
+  const value = sanitizeString(attribute?.valor)
+  const normalizedName = normalizeToken(name)
+  if (!name || !value || !normalizedName) {
+    return
+  }
+
+  if (!facts.material && /\bmaterial\b/.test(normalizedName)) {
+    facts.material = value
+    return
+  }
+
+  if (!facts.color && /\b(cor|color|acabamento|estampa)\b/.test(normalizedName)) {
+    facts.color = value
+    return
+  }
+
+  if (!facts.warranty && /\bgarantia\b/.test(normalizedName)) {
+    facts.warranty = value
+    return
+  }
+
+  const scope = resolveAttributeScope(name)
+  const field = resolveAttributeDimensionField(name)
+  if (!field) {
+    pushUnique(facts.details, `${name}: ${value}`)
+    return
+  }
+
+  if (field === "weight") {
+    facts.weight[scope] = facts.weight[scope] || value
+    return
+  }
+
+  if (field === "dimensions") {
+    pushUnique(facts.dimensions[scope].raw, `${name}: ${value}`)
+    return
+  }
+
+  facts.dimensions[scope][field] = facts.dimensions[scope][field] || value
+}
+
+export function buildCatalogProductFacts(product = {}) {
+  if (!product || typeof product !== "object") {
+    return null
+  }
+
+  if (product.facts && typeof product.facts === "object") {
+    return product.facts
+  }
+
+  const facts = {
+    productId: sanitizeString(product.id),
+    price: sanitizeNumber(product.preco, null),
+    priceLabel: sanitizeNumber(product.preco, null) != null ? formatCurrency(product.preco, product.currencyId || "BRL") : "",
+    material: sanitizeString(product.material),
+    color: sanitizeString(product.cor),
+    warranty: sanitizeString(product.warranty),
+    availableQuantity: sanitizeNumber(product.availableQuantity, 0),
+    freeShipping: product.freeShipping === true,
+    link: sanitizeString(product.link),
+    dimensions: {
+      product: createDimensionBucket(),
+      package: createDimensionBucket(),
+    },
+    weight: {
+      product: "",
+      package: "",
+    },
+    details: [],
+  }
+
+  const attributes = Array.isArray(product.atributos) ? product.atributos : []
+  attributes.forEach((attribute) => assignAttributeFact(facts, attribute))
+
+  return facts
+}
+
+function hasDimensionValues(bucket) {
+  if (!bucket || typeof bucket !== "object") {
+    return false
+  }
+
+  return DIMENSION_FIELD_ORDER.some((field) => sanitizeString(bucket[field])) || (Array.isArray(bucket.raw) && bucket.raw.length > 0)
+}
+
+function formatDimensionFieldLabel(field) {
+  if (field === "height") return "Altura"
+  if (field === "width") return "Largura"
+  if (field === "length") return "Comprimento"
+  if (field === "depth") return "Profundidade"
+  if (field === "diameter") return "Diametro"
+  if (field === "capacity") return "Capacidade"
+  return ""
+}
+
+function formatDimensionField(bucket, field) {
+  const value = sanitizeString(bucket?.[field])
+  if (!value) {
+    return ""
+  }
+
+  const label = formatDimensionFieldLabel(field)
+  return label ? `${label}: ${value}` : value
+}
+
+function collectDimensionLines(bucket) {
+  const lines = DIMENSION_FIELD_ORDER.map((field) => formatDimensionField(bucket, field)).filter(Boolean)
+  if (Array.isArray(bucket?.raw)) {
+    bucket.raw.forEach((entry) => pushUnique(lines, entry))
+  }
+  return lines
+}
+
+function inferFactHintsFromMessage(message = "") {
+  const normalized = normalizeToken(message)
+  const hints = []
+
+  if (/\b(preco|valor|custa|quanto)\b/.test(normalized)) hints.push("price")
+  if (/\bmaterial\b/.test(normalized)) hints.push("material")
+  if (/\b(cor|acabamento|estampa)\b/.test(normalized)) hints.push("color")
+  if (/\b(estoque|disponivel|disponibilidade|quantas unidades)\b/.test(normalized)) hints.push("stock")
+  if (/\bgarantia\b/.test(normalized)) hints.push("warranty")
+  if (/\b(link|anuncio|comprar agora|pagina de compra)\b/.test(normalized)) hints.push("link")
+  if (/\b(entrega|envio|frete|prazo|retirada)\b/.test(normalized)) hints.push("shipping")
+  if (/\baltura\b/.test(normalized)) hints.push("height")
+  if (/\blargura\b/.test(normalized)) hints.push("width")
+  if (/\bcomprimento\b/.test(normalized)) hints.push("length")
+  if (/\bprofundidade\b/.test(normalized)) hints.push("depth")
+  if (/\bdiametro\b/.test(normalized)) hints.push("diameter")
+  if (/\bpeso\b/.test(normalized)) hints.push("weight")
+  if (/\bcapacidade\b/.test(normalized)) hints.push("capacity")
+  if (/\b(dimensao|dimensoes|medida|medidas|tamanho)\b/.test(normalized)) hints.push("dimensions")
+
+  return [...new Set(hints)]
+}
+
+function isDimensionOrWeightHint(hint) {
+  return ["dimensions", "height", "width", "length", "depth", "diameter", "capacity", "weight"].includes(hint)
+}
+
+function shouldReusePreviousScope(factHints = [], previousFactContext = null) {
+  if (!previousFactContext || typeof previousFactContext !== "object") {
+    return false
+  }
+
+  const previousScope = normalizeCatalogFactScope(previousFactContext.scope)
+  if (!previousScope || previousScope === "product") {
+    return false
+  }
+
+  if (!Array.isArray(factHints) || !factHints.length) {
+    return false
+  }
+
+  return factHints.every((hint) => isDimensionOrWeightHint(hint))
+}
+
+function normalizeFactFieldSet(values = []) {
+  return [...new Set((Array.isArray(values) ? values : []).map((item) => sanitizeString(item)).filter(Boolean))].sort()
+}
+
+function areSameFactSets(left = [], right = []) {
+  const leftSet = normalizeFactFieldSet(left)
+  const rightSet = normalizeFactFieldSet(right)
+  if (leftSet.length !== rightSet.length) {
+    return false
+  }
+
+  return leftSet.every((item, index) => item === rightSet[index])
+}
+
+function countMessageTokens(message = "") {
+  return normalizeToken(message)
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean).length
+}
+
+function shouldPreferCompactReply(factHints = [], productId = "", message = "", previousFactContext = null) {
+  if (!previousFactContext || typeof previousFactContext !== "object") {
+    return false
+  }
+
+  const previousProductId = sanitizeString(previousFactContext.productId)
+  if (!previousProductId || !productId || previousProductId !== productId) {
+    return false
+  }
+
+  if (!areSameFactSets(factHints, previousFactContext.fields)) {
+    return false
+  }
+
+  return countMessageTokens(message) <= 4
+}
+
+function resolveFactHints(input = {}) {
+  const semanticHints = Array.isArray(input?.semanticIntent?.targetFactHints)
+    ? normalizeCatalogFactHints(input.semanticIntent.targetFactHints)
+    : []
+  if (semanticHints.length) {
+    return semanticHints
+  }
+
+  return inferFactHintsFromMessage(input?.message)
+}
+
+function resolveFactScope(input = {}) {
+  const previousFactContext = input?.previousFactContext && typeof input.previousFactContext === "object" ? input.previousFactContext : null
+  const semanticScope = normalizeCatalogFactScope(input?.semanticIntent?.factScope)
+  if (semanticScope) {
+    return semanticScope
+  }
+
+  const normalized = normalizeToken(input?.message)
+  if (/\bembalagem\b/.test(normalized)) {
+    return "package"
+  }
+
+  if (shouldReusePreviousScope(input?.factHints, previousFactContext)) {
+    return normalizeCatalogFactScope(previousFactContext.scope) || "product"
+  }
+  return "product"
+}
+
+function buildDimensionsReply(facts, scope, options = {}) {
+  const selectedScope = scope === "package" ? "package" : "product"
+  const primaryLines = collectDimensionLines(facts?.dimensions?.[selectedScope])
+  if (primaryLines.length) {
+    if (options.compact === true) {
+      return `${primaryLines.join(", ")}.`
+    }
+    return selectedScope === "package"
+      ? `As medidas da embalagem que encontrei foram: ${primaryLines.join(", ")}.`
+      : `As medidas do produto que encontrei foram: ${primaryLines.join(", ")}.`
+  }
+
+  if (selectedScope === "product") {
+    const packageLines = collectDimensionLines(facts?.dimensions?.package)
+    if (packageLines.length) {
+      return `Nao encontrei medidas do produto. O anuncio so informa medidas da embalagem: ${packageLines.join(", ")}.`
+    }
+  }
+
+  return selectedScope === "package"
+    ? "Nao encontrei medidas de embalagem informadas neste anuncio."
+    : "Nao encontrei medidas do produto informadas neste anuncio."
+}
+
+function buildSingleDimensionReply(facts, field, scope, options = {}) {
+  const selectedScope = scope === "package" ? "package" : "product"
+  const primaryValue = sanitizeString(facts?.dimensions?.[selectedScope]?.[field])
+  if (primaryValue) {
+    return `${formatDimensionFieldLabel(field)}${selectedScope === "package" ? " da embalagem" : ""}: ${primaryValue}.`
+  }
+
+  if (selectedScope === "product") {
+    const packageValue = sanitizeString(facts?.dimensions?.package?.[field])
+    if (packageValue) {
+      return `Nao encontrei ${formatDimensionFieldLabel(field).toLowerCase()} do produto. O anuncio so informa ${formatDimensionFieldLabel(field).toLowerCase()} da embalagem: ${packageValue}.`
+    }
+  }
+
+  return `Nao encontrei ${formatDimensionFieldLabel(field).toLowerCase()} informada${field === "capacity" ? "" : ""} neste anuncio.`
+}
+
+function buildWeightReply(facts, scope, options = {}) {
+  const selectedScope = scope === "package" ? "package" : "product"
+  const primaryValue = sanitizeString(facts?.weight?.[selectedScope])
+  if (primaryValue) {
+    return selectedScope === "package" ? `Peso da embalagem: ${primaryValue}.` : `Peso do produto: ${primaryValue}.`
+  }
+
+  if (selectedScope === "product") {
+    const packageValue = sanitizeString(facts?.weight?.package)
+    if (packageValue) {
+      return `Nao encontrei o peso do produto. O anuncio so informa o peso da embalagem: ${packageValue}.`
+    }
+  }
+
+  return selectedScope === "package"
+    ? "Nao encontrei peso da embalagem informado neste anuncio."
+    : "Nao encontrei peso do produto informado neste anuncio."
+}
+
+export function buildFocusedCatalogProductFactualResolution(product, message = "", options = {}) {
+  if (!product?.nome) {
+    return null
+  }
+
+  const facts = buildCatalogProductFacts(product)
+  if (!facts) {
+    return null
+  }
+
+  const factHints = resolveFactHints({
+    message,
+    semanticIntent: options.semanticIntent,
+  })
+  if (!factHints.length) {
+    return null
+  }
+
+  const factScope = resolveFactScope({
+    message,
+    semanticIntent: options.semanticIntent,
+    factHints,
+    previousFactContext: options.previousFactContext,
+  })
+  const compactReply = shouldPreferCompactReply(factHints, facts.productId || sanitizeString(product?.id), message, options.previousFactContext)
+  const pieces = []
+
+  factHints.forEach((hint) => {
+    if (hint === "price") {
+      pieces.push(facts.priceLabel ? `O valor atual deste produto e ${facts.priceLabel}.` : "Nao encontrei o valor exato deste produto no momento.")
+      return
+    }
+
+    if (hint === "material") {
+      pieces.push(facts.material ? `O material deste produto e ${facts.material}.` : "Nao encontrei o material informado deste produto no momento.")
+      return
+    }
+
+    if (hint === "color") {
+      pieces.push(facts.color ? `A cor ou acabamento informado e ${facts.color}.` : "Nao encontrei a cor ou acabamento informado deste produto no momento.")
+      return
+    }
+
+    if (hint === "stock") {
+      pieces.push(
+        facts.availableQuantity > 0
+          ? `No momento eu vejo ${facts.availableQuantity} unidade${facts.availableQuantity > 1 ? "s" : ""} em estoque.`
+          : "Nao encontrei estoque disponivel para este item no momento."
+      )
+      return
+    }
+
+    if (hint === "warranty") {
+      pieces.push(
+        facts.warranty && !/^sem garantia$/i.test(facts.warranty)
+          ? `A garantia informada no anuncio e ${facts.warranty}.`
+          : "Nao encontrei garantia informada neste anuncio."
+      )
+      return
+    }
+
+    if (hint === "shipping") {
+      pieces.push(
+        facts.freeShipping
+          ? "A entrega e feita pelo Mercado Livre e este anuncio indica frete gratis."
+          : "A entrega e feita pelo Mercado Livre e o frete aparece no checkout conforme o seu CEP."
+      )
+      return
+    }
+
+    if (hint === "link") {
+      pieces.push(facts.link ? `Se quiser, eu mando o link direto do anuncio: ${facts.link}` : "Nao encontrei o link direto deste anuncio no momento.")
+      return
+    }
+
+    if (hint === "details") {
+      pieces.push(facts.details.length ? `Os principais detalhes que encontrei foram: ${facts.details.slice(0, 4).join(", ")}.` : "Nao encontrei detalhes adicionais relevantes neste anuncio.")
+      return
+    }
+
+    if (hint === "dimensions") {
+      pieces.push(buildDimensionsReply(facts, factScope, { compact: compactReply }))
+      return
+    }
+
+    if (["height", "width", "length", "depth", "diameter", "capacity"].includes(hint)) {
+      pieces.push(buildSingleDimensionReply(facts, hint, factScope, { compact: compactReply }))
+      return
+    }
+
+    if (hint === "weight") {
+      pieces.push(buildWeightReply(facts, factScope, { compact: compactReply }))
+    }
+  })
+
+  const replyPieces = [...new Set(pieces.map((item) => sanitizeString(item)).filter(Boolean))]
+  if (!replyPieces.length) {
+    return null
+  }
+
+  return {
+    reply: replyPieces.join(" "),
+    factContext: {
+      fields: factHints,
+      scope: factScope,
+      productId: facts.productId || sanitizeString(product?.id),
+      source: Array.isArray(options?.semanticIntent?.targetFactHints) && options.semanticIntent.targetFactHints.length ? "semantic" : "fallback",
+    },
+    facts,
+  }
+}

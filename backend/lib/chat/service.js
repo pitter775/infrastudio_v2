@@ -132,6 +132,25 @@ function sanitizeCatalogStringArray(values = []) {
   return [...new Set((Array.isArray(values) ? values : []).map((item) => sanitizeCatalogString(item)).filter(Boolean))]
 }
 
+function buildCatalogProductFactualContextState(input = {}) {
+  const source = input && typeof input === "object" ? input : {}
+  const fields = sanitizeCatalogStringArray(source.fields)
+  const scope = sanitizeCatalogString(source.scope)
+  const productId = sanitizeCatalogString(source.productId)
+
+  if (!fields.length && !scope && !productId) {
+    return null
+  }
+
+  return {
+    fields,
+    scope,
+    productId,
+    source: sanitizeCatalogString(source.source),
+    updatedAt: sanitizeCatalogString(source.updatedAt) || new Date().toISOString(),
+  }
+}
+
 function buildCatalogListingSessionState(input = {}) {
   const searchTerm = sanitizeCatalogString(input.searchTerm)
   const matchedProductIds = sanitizeCatalogStringArray(input.matchedProductIds)
@@ -194,6 +213,7 @@ function buildCatalogProductFocusState(input = {}) {
     productId,
     sourceListingSessionId: sanitizeCatalogString(input.sourceListingSessionId),
     detailLevel: sanitizeCatalogString(input.detailLevel) || "focused",
+    factualContext: buildCatalogProductFactualContextState(input.factualContext),
   }
 }
 
@@ -234,6 +254,50 @@ function decorateCatalogAssetsWithListingSession(assets = [], nextContext = {}) 
 function normalizeUiBlockItem(value) {
   const text = String(value || "").trim()
   return text || null
+}
+
+function countReplyWords(value) {
+  return String(value || "")
+    .trim()
+    .split(/\s+/)
+    .map((item) => item.trim())
+    .filter(Boolean).length
+}
+
+function shouldSuppressWhatsAppCtaForCatalogMicroReply(input = {}) {
+  if (input.channelKind === "whatsapp" || input.userAskedForWhatsApp === true) {
+    return false
+  }
+
+  const metadata = isPlainObject(input.ai?.metadata) ? input.ai.metadata : null
+  const catalogFactContext = isPlainObject(metadata?.catalogFactContext) ? metadata.catalogFactContext : null
+  const heuristicStage = sanitizeCatalogString(metadata?.heuristicStage).toLowerCase()
+  const primaryReply = String(input.primaryReply || "").trim()
+  const followUpReply = String(input.followUpReply || "").trim()
+
+  if (!catalogFactContext || !primaryReply || followUpReply) {
+    return false
+  }
+
+  if (!["mercado_livre_product_fact", "api_runtime", "api_catalog_runtime"].includes(heuristicStage)) {
+    return false
+  }
+
+  return primaryReply.length <= 140 && countReplyWords(primaryReply) <= 18
+}
+
+function shouldSuppressCatalogActionsForMicroReply(input = {}) {
+  const metadata = isPlainObject(input.ai?.metadata) ? input.ai.metadata : null
+  const catalogFactContext = isPlainObject(metadata?.catalogFactContext) ? metadata.catalogFactContext : null
+  const primaryReply = String(input.primaryReply || "").trim()
+  const followUpReply = String(input.followUpReply || "").trim()
+  const catalogContinuation = input.catalogContinuation === true
+
+  if (!catalogFactContext || !primaryReply || followUpReply || catalogContinuation) {
+    return false
+  }
+
+  return primaryReply.length <= 140 && countReplyWords(primaryReply) <= 18
 }
 
 function normalizeUiActionItem(item) {
@@ -790,6 +854,10 @@ export function updateContextFromAiResult(input) {
     isPlainObject(input.ai.metadata) && "catalogoProdutoAtual" in input.ai.metadata
       ? input.ai.metadata.catalogoProdutoAtual
       : null
+  const metadataCatalogFactContext =
+    isPlainObject(input.ai.metadata) && isPlainObject(input.ai.metadata.catalogFactContext)
+      ? input.ai.metadata.catalogFactContext
+      : null
 
   if (isPlainObject(metadataCatalogProduct)) {
     const sourceListingSessionId =
@@ -804,6 +872,10 @@ export function updateContextFromAiResult(input) {
         productId: metadataCatalogProduct.id,
         sourceListingSessionId,
         detailLevel: "focused",
+        factualContext:
+          sanitizeCatalogString(metadataCatalogFactContext?.productId) === sanitizeCatalogString(metadataCatalogProduct?.id)
+            ? metadataCatalogFactContext
+            : null,
       }),
       catalogState:
         String(nextContext?.conversation?.mode || "").trim().toLowerCase() === "product_detail" ? "product_locked" : "product_focus",
@@ -895,6 +967,25 @@ export function updateContextFromAiResult(input) {
         productId: metadataCatalogSearch.produtoAtual.id,
         sourceListingSessionId: nextListingSession?.id,
         detailLevel: "focused",
+        factualContext:
+          sanitizeCatalogString(metadataCatalogFactContext?.productId) === sanitizeCatalogString(metadataCatalogSearch.produtoAtual?.id)
+            ? metadataCatalogFactContext
+            : null,
+      })
+    }
+  }
+
+  if (isPlainObject(nextContext.catalogo?.productFocus) && metadataCatalogFactContext) {
+    const focusProductId = sanitizeCatalogString(nextContext.catalogo.productFocus.productId)
+    const factProductId = sanitizeCatalogString(metadataCatalogFactContext.productId)
+    if (!factProductId || !focusProductId || factProductId === focusProductId) {
+      nextContext.catalogo.productFocus = buildCatalogProductFocusState({
+        ...nextContext.catalogo.productFocus,
+        factualContext: {
+          ...(isPlainObject(nextContext.catalogo.productFocus?.factualContext) ? nextContext.catalogo.productFocus.factualContext : {}),
+          ...metadataCatalogFactContext,
+          productId: focusProductId || factProductId,
+        },
       })
     }
   }
@@ -912,6 +1003,11 @@ export function updateContextFromAiResult(input) {
         sanitizeCatalogString(nextContext.catalogo?.productFocus?.sourceListingSessionId) ||
         sanitizeCatalogString(nextContext.catalogo?.listingSession?.id),
       detailLevel: "focused",
+      factualContext:
+        sanitizeCatalogString(nextContext.catalogo?.productFocus?.factualContext?.productId) ===
+        sanitizeCatalogString(nextContext.catalogo?.produtoAtual?.id)
+          ? nextContext.catalogo?.productFocus?.factualContext
+          : null,
     })
     nextContext.conversation = {
       ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
@@ -1007,7 +1103,14 @@ export function prepareAiReplyPayload(input) {
   const shouldMentionWhatsAppInText =
     userAskedForWhatsApp ||
     input.ai?.handoff?.requested === true
-  const actions = buildChatWidgetActions({
+  const suppressWhatsAppCta = shouldSuppressWhatsAppCtaForCatalogMicroReply({
+    channelKind: input.channelKind,
+    ai: input.ai,
+    primaryReply,
+    followUpReply,
+    userAskedForWhatsApp,
+  })
+  const rawActions = buildChatWidgetActions({
     channelKind: input.channelKind,
     nextContext: input.nextContext,
     reply: primaryReply,
@@ -1016,7 +1119,18 @@ export function prepareAiReplyPayload(input) {
     agendaSlots: input.agendaSlots,
     assets: catalogAwareAssets,
   })
-  const whatsappCta = buildWhatsAppContinuationCta({
+  let actions = suppressWhatsAppCta ? rawActions.filter((action) => action?.type !== "whatsapp_link") : rawActions
+  if (shouldSuppressCatalogActionsForMicroReply({
+    ai: input.ai,
+    primaryReply,
+    followUpReply,
+    catalogContinuation,
+  })) {
+    actions = actions.filter((action) => action?.type === "message" && action?.extraContext?.ui?.catalogAction === "load_more")
+  }
+  const whatsappCta = suppressWhatsAppCta
+    ? null
+    : buildWhatsAppContinuationCta({
       channelKind: input.channelKind,
       nextContext: input.nextContext,
       reply: primaryReply,
