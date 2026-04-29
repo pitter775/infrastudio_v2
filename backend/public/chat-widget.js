@@ -2852,7 +2852,7 @@
         var previousDayKey = null;
         messages.forEach(function (message) {
           var currentDayKey = getMessageDayKey(message);
-          if (currentDayKey && currentDayKey !== previousDayKey) {
+          if (currentDayKey && previousDayKey && currentDayKey !== previousDayKey) {
             stack.appendChild(createMessageDayDivider(formatMessageDayLabel(message)));
           }
 
@@ -3181,6 +3181,28 @@
       }, getSyncIntervalMs());
     }
 
+    function shouldSkipUserBubble(settings) {
+      if (!settings || typeof settings !== "object") {
+        return false;
+      }
+
+      if (settings.skipUserBubble === true) {
+        return true;
+      }
+
+      if (String(settings.source || "").trim() === "widget_catalog_load_more") {
+        return true;
+      }
+
+      return Boolean(
+        settings.extraContext &&
+        typeof settings.extraContext === "object" &&
+        settings.extraContext.ui &&
+        typeof settings.extraContext.ui === "object" &&
+        settings.extraContext.ui.catalogAction === "load_more"
+      );
+    }
+
     async function sendMessage(text, options) {
       var settings = options && typeof options === "object" ? options : {};
       var trimmed = String(text || "").trim();
@@ -3190,7 +3212,7 @@
       }
       requestInFlight = true;
 
-      if (!settings.skipUserBubble) {
+      if (!shouldSkipUserBubble(settings)) {
         messages.push(assignMessageOrder({
           id: "user-" + Date.now(),
           text: String(settings.userBubbleText || trimmed || "[Anexo enviado]"),
