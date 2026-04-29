@@ -18,6 +18,7 @@ import {
   resolveCanonicalWhatsAppExternalIdentifier,
   resolveChatDomainRoute,
   resolveConversationPipelineStageState,
+  resolveRecentCatalogReferenceDecision,
   resolveRecentCatalogProductReference,
 } from "@/tests/chat-source"
 import {
@@ -42,6 +43,10 @@ const whatsappContextFixture = loadWhatsAppContextFixture()
 async function main() {
   const strongReference = resolveDeterministicCatalogFollowUpDecision("gostei da sopeira que mandou", catalogContext, deps)
   assert.equal(strongReference?.kind, "recent_product_reference")
+  const bareTitleReference = resolveRecentCatalogReferenceDecision("floral", catalogContext as never)
+  assert.equal(bareTitleReference, null)
+  const bareRequestReference = resolveRecentCatalogReferenceDecision("quero", catalogContext as never)
+  assert.equal(bareRequestReference, null)
 
   const staleResolved = resolveRecentCatalogProductReference(
     "gostei da sopeira",
@@ -62,6 +67,23 @@ async function main() {
     singularizeToken: (value) => value,
   })
   assert.ok(apiFocused.fields.length > 0)
+  assert.ok(apiFocused.fields.every((field) => field.apiId === "api-pedidos-1"))
+
+  const productPriceReply = buildApiFallbackReply("qual o preco do produto?", apiFixture.apis, {
+    normalizeText: normalizeFixtureText,
+    buildSearchTokens: (value) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+    singularizeToken: (value) => value,
+  })
+  assert.match(productPriceReply ?? "", /R\$/i)
+  assert.match(productPriceReply ?? "", /disponivel/i)
+  assert.doesNotMatch(productPriceReply ?? "", /em separacao/i)
+
+  const genericStatusReply = buildApiFallbackReply("qual o status?", apiFixture.apis, {
+    normalizeText: normalizeFixtureText,
+    buildSearchTokens: (value) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+    singularizeToken: (value) => value,
+  })
+  assert.equal(genericStatusReply, null)
 
   const realEstateValueReply = buildApiFallbackReply("qual o valor do imovel?", apiRealEstateFixture.apis, {
     normalizeText: normalizeFixtureText,
@@ -70,7 +92,7 @@ async function main() {
   })
   assert.match(realEstateValueReply ?? "", /valor/i)
   assert.match(realEstateValueReply ?? "", /R\$/i)
-  assert.match(realEstateValueReply ?? "", /Contexto util:/i)
+  assert.match(realEstateValueReply ?? "", /Status:/i)
   assert.doesNotMatch(realEstateValueReply ?? "", /^descricao:/i)
 
   const realEstateDateReply = buildApiFallbackReply("me passa a data do leilao", apiRealEstateFixture.apis, {
@@ -79,7 +101,7 @@ async function main() {
     singularizeToken: (value) => value,
   })
   assert.match(realEstateDateReply ?? "", /27\/03\/2026/)
-  assert.match(realEstateDateReply ?? "", /Contexto util:/i)
+  assert.match(realEstateDateReply ?? "", /Status:/i)
 
   const analyticalReply = buildApiFallbackReply("vale a pena esse imovel?", apiRealEstateFixture.apis, {
     normalizeText: normalizeFixtureText,
@@ -138,9 +160,31 @@ async function main() {
     runtimeApis: [],
     focusedApiContext: { fields: [] },
   })
-  assert.equal(storefrontCatalogRoute.domain, "catalog")
-  assert.equal(storefrontCatalogRoute.source, "mercado_livre")
-  assert.equal(storefrontCatalogRoute.shouldUseTool, true)
+  assert.equal(storefrontCatalogRoute.domain, "general")
+  assert.equal(storefrontCatalogRoute.source, "agent")
+  assert.equal(storefrontCatalogRoute.shouldUseTool, false)
+
+  const staleCatalogFollowUpRoute = resolveChatDomainRoute({
+    latestUserMessage: "aquela floral",
+    history: [{ role: "assistant", content: "Encontrei alguns produtos para voce." }],
+    context: {
+      catalogo: {
+        ultimosProdutos: [
+          { id: "ml-1", nome: "Prato Floral" },
+          { id: "ml-2", nome: "Saleiro Floral" },
+        ],
+        snapshotCreatedAt: "2024-01-01T00:00:00.000Z",
+      },
+    },
+    project: {
+      directConnections: {
+        mercadoLivre: 1,
+      },
+    },
+    runtimeApis: [],
+    focusedApiContext: { fields: [] },
+  })
+  assert.equal(staleCatalogFollowUpRoute.domain, "general")
 
   const productDetailRoute = resolveChatDomainRoute({
     latestUserMessage: "esse tem garantia?",

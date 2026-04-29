@@ -54,7 +54,25 @@ function getLastMessage(conversation) {
 }
 
 function getConversationPhone(conversation) {
-  return conversation.cliente.telefone || "+55 11 97061-4357"
+  return conversation?.cliente?.telefone || ""
+}
+
+function getConversationSubtitle(conversation) {
+  const value = String(getConversationPhone(conversation) || "").trim()
+  if (!value) {
+    return null
+  }
+
+  if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/i.test(value)) {
+    return value
+  }
+
+  const digits = value.replace(/\D/g, "")
+  if (digits.length >= 10 && digits.length <= 13) {
+    return value
+  }
+
+  return null
 }
 
 function getAttachmentKey(attachment, index) {
@@ -263,11 +281,12 @@ function resolveConversationStatusLabel(conversation) {
   return "IA atendendo"
 }
 
-function ConversationItem({ conversation, active, onClick }) {
+function ConversationItem({ conversation, active, onClick, isMobile = false }) {
   const lastMessage = getLastMessage(conversation)
   const initials = getInitials(conversation.cliente.nome)
   const loopPaused = conversation.status === "pausado_loop"
   const totalMessages = Number(conversation.totalMensagens ?? conversation.mensagens.length)
+  const subtitle = getConversationSubtitle(conversation)
 
   return (
     <button
@@ -275,7 +294,9 @@ function ConversationItem({ conversation, active, onClick }) {
       onClick={onClick}
       className={cn(
         "w-full rounded-[12px] border px-2.5 py-2 text-left transition-all duration-200",
-        active
+        isMobile && !active
+          ? "border-transparent bg-transparent px-0 hover:border-transparent hover:bg-transparent"
+          : active
           ? "border-sky-500/30 bg-sky-500/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
           : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]"
       )}
@@ -289,9 +310,7 @@ function ConversationItem({ conversation, active, onClick }) {
             <div className="truncate text-[12px] font-semibold leading-4 text-slate-100">
               {conversation.cliente.nome}
             </div>
-            <div className="truncate text-[10px] leading-4 text-slate-400">
-              {getConversationPhone(conversation)}
-            </div>
+            {subtitle ? <div className="truncate text-[10px] leading-4 text-slate-400">{subtitle}</div> : null}
           </div>
         </div>
         <div className="shrink-0 text-right">
@@ -1763,7 +1782,7 @@ export default function AttendancePage() {
           title="Central de Atendimento"
           description="Fila ativa de conversas com inteligencia do pipeline real."
           actions={
-            currentUser?.role === "admin" && hasMultipleProjects ? (
+            hasMultipleProjects ? (
               <div className="w-full min-w-[230px] lg:w-[280px]">
                 <AppSelect
                   value={projectFilter}
@@ -1838,8 +1857,18 @@ export default function AttendancePage() {
             </div>
           </aside>
 
-          <section className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[12px] border border-white/5 bg-[#0d1424]">
-            <div className="sticky top-0 z-10 border-b border-white/5 bg-[#0d1424] px-3 py-3">
+          <section
+            className={cn(
+              "flex min-h-0 flex-1 flex-col overflow-hidden",
+              isMobile ? "rounded-none border-0 bg-transparent" : "rounded-[12px] border border-white/5 bg-[#0d1424]"
+            )}
+          >
+            <div
+              className={cn(
+                "sticky top-0 z-10 px-3 py-3",
+                isMobile ? "border-b-0 bg-transparent px-0 pt-1" : "border-b border-white/5 bg-[#0d1424]"
+              )}
+            >
               <div className="text-sm font-semibold text-slate-100">Conversas do projeto</div>
               <p className="mt-1 text-[11px] text-slate-500">Site e WhatsApp no mesmo feed.</p>
               <div className="mt-3 flex items-center gap-2">
@@ -1868,13 +1897,14 @@ export default function AttendancePage() {
               </div>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+            <div className={cn("min-h-0 flex-1 overflow-y-auto", isMobile ? "px-0 py-2" : "px-2 py-2")}>
               <div className="space-y-2">
                 {filteredConversations.map((conversation) => (
                   <ConversationItem
                     key={conversation.id}
                     conversation={conversation}
                     active={conversation.id === activeConversation.id}
+                    isMobile={isMobile}
                     onClick={() => handleConversationSelect(conversation)}
                   />
                 ))}

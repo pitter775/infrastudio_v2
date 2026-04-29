@@ -339,13 +339,17 @@ function resolveApiCatalogComparisonIndexes(message, products) {
   return [...new Set(patterns.filter((item) => item.pattern.test(normalized)).map((item) => item.index))].filter((index) => products[index])
 }
 
+function hasRecentApiListContext(contextProducts, products) {
+  return (Array.isArray(contextProducts) && contextProducts.length > 1) || (Array.isArray(products) && products.length > 1)
+}
+
 function hasTextualApiComparisonAnchor(message, contextProducts, products) {
   const explicitIndexes = resolveApiCatalogComparisonIndexes(message, products)
   if (explicitIndexes.length >= 2) {
     return true
   }
 
-  return Array.isArray(contextProducts) && contextProducts.length > 1
+  return hasRecentApiListContext(contextProducts, products)
 }
 
 function resolveApiCatalogSemanticComparisonIndexes(indexes, products) {
@@ -579,11 +583,7 @@ function detectApiIntent(message, deps) {
   const tokens = getApiKeywordGroups(message, deps)
   return (
     API_FIELD_INTENTS.find((intent) =>
-      intent.triggers.some(
-        (trigger) =>
-          tokens.directTokens.includes(trigger) ||
-          tokens.intentTokens.includes(trigger)
-      )
+      intent.triggers.some((trigger) => tokens.directTokens.includes(trigger))
     ) ?? null
   )
 }
@@ -639,6 +639,75 @@ function resolveIntentTargetFields(apiContexts = [], targetNames = [], deps, sco
   return [...new Map(selected.map((item) => [`${item.apiId}:${item.nome}`, item])).values()]
 }
 
+function filterFieldsByApiId(fields = [], apiId = "") {
+  if (!apiId) {
+    return Array.isArray(fields) ? fields : []
+  }
+
+  return (Array.isArray(fields) ? fields : []).filter((field) => String(field?.apiId || "").trim() === apiId)
+}
+
+function uniqueFieldsByApiAndName(fields = []) {
+  return [...new Map((Array.isArray(fields) ? fields : []).map((item) => [`${item.apiId}:${item.nome}`, item])).values()]
+}
+
+function countDistinctApiIds(fields = []) {
+  return new Set((Array.isArray(fields) ? fields : []).map((item) => String(item?.apiId || "").trim()).filter(Boolean)).size
+}
+
+function mergePreferredApiFields(primaryFieldOrApiId, ...fieldGroups) {
+  const primaryApiId =
+    typeof primaryFieldOrApiId === "string"
+      ? primaryFieldOrApiId.trim()
+      : String(primaryFieldOrApiId?.apiId || "").trim()
+  const merged = uniqueFieldsByApiAndName(fieldGroups.flatMap((group) => group ?? []))
+
+  if (!primaryApiId) {
+    return merged
+  }
+
+  const scoped = filterFieldsByApiId(merged, primaryApiId)
+  return scoped.length ? scoped : merged
+}
+
+function normalizeApiValueForLookup(value, deps) {
+  const normalized = deps.normalizeText(String(value ?? ""))
+  return normalized || ""
+}
+
+function resolvePreferredApiIdFromMessage(apiContexts = [], message, deps) {
+  const normalizedMessage = deps.normalizeText(message)
+  const messageTokens = new Set(deps.buildSearchTokens(message).filter((token) => token.length >= 4))
+  if (!normalizedMessage && messageTokens.size === 0) {
+    return ""
+  }
+
+  const scoredApis = apiContexts
+    .map((api) => {
+      const score = (api.campos ?? []).reduce((total, field) => {
+        const normalizedValue = normalizeApiValueForLookup(field?.valor, deps)
+        if (!normalizedValue || normalizedValue.length < 4) {
+          return total
+        }
+
+        const valueTokens = normalizedValue.split(/[^a-z0-9]+/i).filter((token) => token.length >= 4)
+        const hasFullValueMatch = normalizedMessage.includes(normalizedValue)
+        const tokenMatches = valueTokens.filter((token) => messageTokens.has(token)).length
+
+        return total + (hasFullValueMatch ? 10 : 0) + tokenMatches * 3
+      }, 0)
+
+      return {
+        apiId: String(api?.apiId || "").trim(),
+        score,
+      }
+    })
+    .filter((item) => item.apiId && item.score > 0)
+    .sort((left, right) => right.score - left.score)
+
+  return scoredApis[0]?.apiId ?? ""
+}
+
 function getSupportFieldSuffixes(intentId) {
   switch (intentId) {
     case "price":
@@ -662,13 +731,17 @@ function getSupportFieldSuffixes(intentId) {
 }
 
 function findSupportFields(apiContexts, primaryField, message, deps, customDeps = {}) {
+  const primaryApiId = String(primaryField?.apiId || "").trim()
+  const scopedApiContexts = primaryApiId
+    ? apiContexts.filter((api) => String(api?.apiId || "").trim() === primaryApiId)
+    : apiContexts
   const hintSupportFields = resolveSupportHintFields(apiContexts, primaryField, customDeps?.supportFieldHints, deps)
   if (hintSupportFields.length) {
-    return hintSupportFields
+    return filterFieldsByApiId(hintSupportFields, primaryApiId).slice(0, 3)
   }
 
   const intent = detectApiIntentFromHints(customDeps?.targetFieldHints, deps) ?? detectApiIntent(message, deps)
-  const intentSupportFields = resolveIntentTargetFields(apiContexts, getSupportFieldSuffixes(intent?.id), deps, 7).filter(
+  const intentSupportFields = resolveIntentTargetFields(scopedApiContexts, getSupportFieldSuffixes(intent?.id), deps, 7).filter(
     (field) => deps.normalizeText(field.nome) !== deps.normalizeText(primaryField?.nome)
   )
   if (intentSupportFields.length) {
@@ -819,21 +892,124 @@ function buildFallbackFields(apiContexts, deps, message, customDeps = {}) {
   return []
 }
 
-function buildDirectApiReply(message, apiContexts, deps, customDeps = {}) {
+function buildAnalyticalFallbackFields(apiContexts = [], deps) {
+  if (!Array.isArray(apiContexts) || apiContexts.length !== 1) {
+    return []
+  }
+
+  const preferredSuffixes = [
+    "status",
+    "riscos",
+    "risco",
+    "valor_minimo",
+    "valor_avaliacao",
+    "valor_mercado",
+    "preco",
+    "valor",
+    "data_leilao",
+    "previsao_envio",
+    "matricula",
+    "cartorio",
+    "descricao",
+    "resumo",
+    "roi_estimado",
+    "estoque",
+  ]
+  const [api] = apiContexts
+  const selected = preferredSuffixes.flatMap((suffix) =>
+    (api.campos ?? []).flatMap((field) =>
+      deps.normalizeText(field?.nome).endsWith(suffix)
+        ? [
+            {
+              ...field,
+              apiId: api.apiId,
+              apiNome: api.nome,
+              score: 1,
+            },
+          ]
+        : []
+    )
+  )
+
+  return uniqueFieldsByApiAndName(selected).slice(0, 6)
+}
+
+function resolveApiFieldLookupPlan(message, apiContexts, deps, customDeps = {}) {
   const availableApis = apiContexts.filter((api) => Array.isArray(api.campos) && api.campos.length > 0)
   if (!availableApis.length) {
-    return null
+    return {
+      availableApis: [],
+      preferredApiId: "",
+      hintMatches: [],
+      intentMatches: [],
+      supportMatches: [],
+      directMatches: [],
+      fallbackMatches: [],
+      hasStructuredHints: false,
+      hasExplicitLookupSignal: false,
+      analyticalFallbackFields: [],
+    }
   }
 
-  const hintMatches = resolveTargetHintFields(availableApis, customDeps?.targetFieldHints, deps)
+  const preferredApiId = resolvePreferredApiIdFromMessage(availableApis, message, deps)
+  const rawHintMatches = resolveTargetHintFields(availableApis, customDeps?.targetFieldHints, deps)
+  const hintMatches = mergePreferredApiFields(preferredApiId, rawHintMatches)
   const detectedIntent = detectApiIntentFromHints(customDeps?.targetFieldHints, deps) ?? detectApiIntent(message, deps)
-  const intentMatches = resolveIntentTargetFields(availableApis, detectedIntent?.targets, deps)
+  const rawIntentMatches = resolveIntentTargetFields(availableApis, detectedIntent?.targets, deps)
+  const intentMatches = mergePreferredApiFields(preferredApiId, rawIntentMatches)
+  const hasStructuredHints = hintMatches.length > 0 || intentMatches.length > 0
+  const hasExplicitLookupSignal = hasApiExplicitLookupSignal(message, deps)
 
-  if (!hintMatches.length && !intentMatches.length && !hasApiExplicitLookupSignal(message, deps)) {
+  if (!hintMatches.length && !intentMatches.length && !hasExplicitLookupSignal) {
+    return {
+      availableApis,
+      preferredApiId,
+      hintMatches,
+      intentMatches,
+      supportMatches: [],
+      directMatches: [],
+      fallbackMatches: [],
+      hasStructuredHints,
+      hasExplicitLookupSignal,
+      analyticalFallbackFields: customDeps?.allowAnalyticalFallback === true ? buildAnalyticalFallbackFields(availableApis, deps) : [],
+    }
+  }
+
+  const baseMatches = hintMatches.length ? hintMatches : intentMatches.length ? intentMatches : findMatchingApiFields(availableApis, message, deps)
+  const directMatches = mergePreferredApiFields(baseMatches[0] ?? preferredApiId, baseMatches)
+    .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
+  const primaryField = directMatches[0] ?? hintMatches[0] ?? intentMatches[0] ?? null
+  const supportMatches = primaryField ? findSupportFields(availableApis, primaryField, message, deps, customDeps) : []
+  const fallbackMatches =
+    !hintMatches.length && !intentMatches.length && !directMatches.length
+      ? buildFallbackFields(availableApis, deps, message, customDeps)
+      : []
+
+  return {
+    availableApis,
+    preferredApiId,
+    hintMatches,
+    intentMatches,
+    supportMatches,
+    directMatches,
+    fallbackMatches,
+    hasStructuredHints,
+    hasExplicitLookupSignal,
+    analyticalFallbackFields: [],
+  }
+}
+
+function buildDirectApiReply(message, apiContexts, deps, customDeps = {}) {
+  const lookupPlan = resolveApiFieldLookupPlan(message, apiContexts, deps, customDeps)
+  if (!lookupPlan.availableApis.length) {
     return null
   }
-  const matches = (hintMatches.length ? hintMatches : intentMatches.length ? intentMatches : findMatchingApiFields(availableApis, message, deps))
-    .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
+
+  if (!lookupPlan.hintMatches.length && !lookupPlan.intentMatches.length && !lookupPlan.hasExplicitLookupSignal) {
+    return null
+  }
+
+  const matches = lookupPlan.directMatches
     .slice(0, 3)
 
   if (!matches.length) {
@@ -842,13 +1018,14 @@ function buildDirectApiReply(message, apiContexts, deps, customDeps = {}) {
 
   const topScore = matches[0]?.score ?? 0
   const strongMatches = matches.filter((field) => field.score >= topScore - 3)
+  const ambiguousAcrossApis = !lookupPlan.preferredApiId && !lookupPlan.hasStructuredHints && countDistinctApiIds(strongMatches) > 1
 
-  if (strongMatches.length > 2 || topScore < 20) {
+  if (strongMatches.length > 2 || topScore < 20 || ambiguousAcrossApis) {
     return null
   }
 
   const primaryField = strongMatches[0]
-  const supportFields = findSupportFields(availableApis, primaryField, message, deps, customDeps)
+  const supportFields = filterFieldsByApiId(lookupPlan.supportMatches, primaryField.apiId).slice(0, 3)
   const contextualReply = buildContextualDirectReply(primaryField, supportFields, deps)
   if (contextualReply) {
     return contextualReply
@@ -866,37 +1043,48 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
     return { instructions: "", fields: [], apis: [] }
   }
 
-  const hintMatches = resolveTargetHintFields(availableApis, customDeps?.targetFieldHints, deps)
-  const detectedIntent = detectApiIntentFromHints(customDeps?.targetFieldHints, deps) ?? detectApiIntent(message, deps)
-  const intentMatches = resolveIntentTargetFields(availableApis, detectedIntent?.targets, deps)
+  const lookupPlan = resolveApiFieldLookupPlan(message, availableApis, deps, customDeps)
 
-  if (!hintMatches.length && !intentMatches.length && !hasApiExplicitLookupSignal(message, deps)) {
+  if (!lookupPlan.hintMatches.length && !lookupPlan.intentMatches.length && !lookupPlan.hasExplicitLookupSignal) {
+    const analyticalFallbackFields = lookupPlan.analyticalFallbackFields
+    if (analyticalFallbackFields.length) {
+      return {
+        fields: analyticalFallbackFields,
+        apis,
+        instructions: [
+          "Use somente os dados factuais abaixo como fonte da verdade quando a pergunta pedir analise objetiva.",
+          "Se a informacao pedida nao estiver presente, diga isso com clareza.",
+          "Campos relevantes:\n" +
+            analyticalFallbackFields
+              .map((field) => `- ${formatApiFieldLabel(field.nome)} (${field.nome}): ${formatApiFieldValue(field.nome, field.valor, deps)}`)
+              .join("\n"),
+        ].join("\n\n"),
+      }
+    }
+
     return { instructions: failedApis.length ? failedApis.map((api) => `- API indisponivel: ${api.nome}. Motivo: ${api.erro}`).join("\n") : "", fields: [], apis: [] }
   }
-  const primaryField = hintMatches[0] ?? intentMatches[0] ?? null
-  const supportMatches = primaryField ? findSupportFields(availableApis, primaryField, message, deps, customDeps) : []
-  const matches = findMatchingApiFields(availableApis, message, deps)
-    .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
-    .slice(0, 6)
-
-  const selectedFields = hintMatches.length
-    ? [...new Map([...hintMatches, ...supportMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
-    : intentMatches.length
-      ? [...new Map([...intentMatches, ...supportMatches].map((item) => [`${item.apiId}:${item.nome}`, item])).values()].slice(0, 6)
-    : matches.length
-      ? matches
-      : buildFallbackFields(availableApis, deps, message, customDeps)
-  const fieldLines = selectedFields.map(
+  const primaryField = lookupPlan.hintMatches[0] ?? lookupPlan.intentMatches[0] ?? lookupPlan.directMatches[0] ?? null
+  const selectedFields = lookupPlan.hintMatches.length
+    ? mergePreferredApiFields(primaryField ?? lookupPlan.hintMatches[0], lookupPlan.hintMatches, lookupPlan.supportMatches).slice(0, 6)
+    : lookupPlan.intentMatches.length
+      ? mergePreferredApiFields(primaryField ?? lookupPlan.intentMatches[0], lookupPlan.intentMatches, lookupPlan.supportMatches).slice(0, 6)
+      : lookupPlan.directMatches.length
+        ? lookupPlan.directMatches.slice(0, 6)
+        : lookupPlan.fallbackMatches
+  const scopedSelectedFields =
+    !lookupPlan.preferredApiId && !lookupPlan.hasStructuredHints && countDistinctApiIds(selectedFields) > 1 ? [] : selectedFields
+  const fieldLines = scopedSelectedFields.map(
     (field) => `- ${formatApiFieldLabel(field.nome)} (${field.nome}): ${formatApiFieldValue(field.nome, field.valor, deps)}`
   )
   const failedLines = failedApis.map((api) => `- API indisponivel: ${api.nome}. Motivo: ${api.erro}`)
 
   return {
-    fields: selectedFields,
-    apis: selectedFields.length ? apis : [],
+    fields: scopedSelectedFields,
+    apis: scopedSelectedFields.length ? apis : [],
     instructions: [
-      selectedFields.length ? "Use somente os dados factuais abaixo como fonte da verdade quando a pergunta for objetiva." : "",
-      selectedFields.length ? "Se a informacao pedida nao estiver presente, diga isso com clareza." : "",
+      scopedSelectedFields.length ? "Use somente os dados factuais abaixo como fonte da verdade quando a pergunta for objetiva." : "",
+      scopedSelectedFields.length ? "Se a informacao pedida nao estiver presente, diga isso com clareza." : "",
       fieldLines.length ? "Campos relevantes:\n" + fieldLines.join("\n") : "",
       failedLines.length ? "APIs indisponiveis:\n" + failedLines.join("\n") : "",
     ]
@@ -918,7 +1106,10 @@ export function buildApiFallbackReply(message, apis = [], customDeps = {}) {
     return null
   }
 
-  const focused = buildFocusedApiContext(message, apis, customDeps)
+  const focused = buildFocusedApiContext(message, apis, {
+    ...customDeps,
+    allowAnalyticalFallback: analytical,
+  })
   if (!focused.fields.length) {
     return null
   }

@@ -419,6 +419,7 @@ const tests: TestCase[] = [
       const ambiguous = resolveDeterministicCatalogFollowUpDecision("gostei desse", catalogContext as never, deps as never);
       const directReference = resolveRecentCatalogReferenceDecision("gostei desse", catalogContext as never);
       const weakReference = resolveRecentCatalogReferenceDecision("quero bonito", catalogContext as never);
+      const bareRequestReference = resolveRecentCatalogReferenceDecision("quero", catalogContext as never);
       const shortSearch = resolveRecentCatalogReferenceDecision("saleiro azul", catalogContext as never);
       const weakRefinement = resolveDeterministicCatalogFollowUpDecision("quero bonito", catalogContext as never, deps as never);
       const vagueSearch = resolveDeterministicCatalogFollowUpDecision("saleiro", catalogContext as never, deps as never);
@@ -438,6 +439,7 @@ const tests: TestCase[] = [
       assert.equal(ambiguous?.kind, "recent_product_reference_unresolved");
       assert.equal(directReference?.kind, "recent_product_reference_unresolved");
       assert.equal(weakReference, null);
+      assert.equal(bareRequestReference, null);
       assert.equal(shortSearch, null);
       assert.equal(weakRefinement, null);
       assert.equal(vagueSearch, null);
@@ -1916,6 +1918,31 @@ const tests: TestCase[] = [
         latestUserMessage: "aquela floral",
         history: [{ role: "assistant", content: "Encontrei alguns produtos para voce." }],
         context: {},
+        project: {
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+      });
+
+      assert.notEqual(decision.domain, "catalog");
+    },
+  },
+  {
+    name: "domain router nao assume follow-up catalogal curto com snapshot velho",
+    run: () => {
+      const decision = resolveChatDomainRoute({
+        latestUserMessage: "aquela floral",
+        history: [{ role: "assistant", content: "Encontrei alguns produtos para voce." }],
+        context: {
+          catalogo: {
+            ultimosProdutos: [
+              { id: "ml-1", nome: "Prato Floral" },
+              { id: "ml-2", nome: "Saleiro Floral" },
+            ],
+            snapshotCreatedAt: "2024-01-01T00:00:00.000Z",
+          },
+        },
         project: {
           directConnections: {
             mercadoLivre: 1,

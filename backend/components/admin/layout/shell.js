@@ -297,7 +297,10 @@ export function AdminShell({ user, children, buildLabel = '' }) {
   const pathname = usePathname()
   const attendanceRoute = pathname.startsWith('/admin/atendimento')
   const projectDetailRoute = pathname.startsWith('/admin/projetos/')
-  const [collapsed, setCollapsed] = useState(attendanceRoute || projectDetailRoute)
+  const compactSidebarRoute = attendanceRoute || projectDetailRoute
+  const [desktopManuallyCollapsed, setDesktopManuallyCollapsed] = useState(false)
+  const [sidebarPinnedOpen, setSidebarPinnedOpen] = useState(false)
+  const [sidebarHoverOpen, setSidebarHoverOpen] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [pendingHref, setPendingHref] = useState(null)
   const [notificationCounts, setNotificationCounts] = useState({
@@ -314,6 +317,7 @@ export function AdminShell({ user, children, buildLabel = '' }) {
   const notificationsRef = useRef(null)
   const billingHistoryActiveRef = useRef(false)
   const billingPopClosingRef = useRef(false)
+  const collapsed = compactSidebarRoute ? !(sidebarPinnedOpen || sidebarHoverOpen) : desktopManuallyCollapsed
   const contentBackgroundStyle = projectDetailRoute
     ? {
         backgroundImage: 'radial-gradient(rgba(71,85,105,0.18) 1px, transparent 1px)',
@@ -332,13 +336,15 @@ export function AdminShell({ user, children, buildLabel = '' }) {
   }, [])
 
   useEffect(() => {
-    setCollapsed(attendanceRoute || projectDetailRoute)
+    setDesktopManuallyCollapsed(false)
+    setSidebarPinnedOpen(false)
+    setSidebarHoverOpen(false)
     setMobileOpen(false)
     setPendingHref(null)
     if (!projectDetailRoute) {
       setProjectUsageSummary(null)
     }
-  }, [attendanceRoute, pathname, projectDetailRoute])
+  }, [pathname, projectDetailRoute])
 
   function handleNavigate(href) {
     if (!href || href === pathname) {
@@ -347,22 +353,6 @@ export function AdminShell({ user, children, buildLabel = '' }) {
 
     setPendingHref(href)
   }
-
-  useEffect(() => {
-    function handleProjectSheetToggle(event) {
-      if (!projectDetailRoute) {
-        return
-      }
-
-      setCollapsed(Boolean(event.detail?.open))
-    }
-
-    window.addEventListener('admin-project-sheet-toggle', handleProjectSheetToggle)
-
-    return () => {
-      window.removeEventListener('admin-project-sheet-toggle', handleProjectSheetToggle)
-    }
-  }, [projectDetailRoute])
 
   useEffect(() => {
     window.dispatchEvent(
@@ -618,6 +608,16 @@ export function AdminShell({ user, children, buildLabel = '' }) {
             animate={{ width: collapsed ? 80 : 192 }}
             transition={{ duration: 0.22, ease: 'easeInOut' }}
             className="hidden shrink-0 py-6 lg:block"
+            onMouseEnter={() => {
+              if (compactSidebarRoute) {
+                setSidebarHoverOpen(true)
+              }
+            }}
+            onMouseLeave={() => {
+              if (compactSidebarRoute && !sidebarPinnedOpen) {
+                setSidebarHoverOpen(false)
+              }
+            }}
           >
             <div className="flex h-full flex-col justify-between">
               <SidebarContent
@@ -672,7 +672,15 @@ export function AdminShell({ user, children, buildLabel = '' }) {
                     variant="ghost"
                     size="icon"
                     className="h-8 w-8 text-slate-500 shadow-none hover:bg-transparent hover:text-white"
-                    onClick={() => setCollapsed((current) => !current)}
+                    onClick={() => {
+                      if (compactSidebarRoute) {
+                        setSidebarPinnedOpen((current) => !current)
+                        setSidebarHoverOpen(false)
+                        return
+                      }
+
+                      setDesktopManuallyCollapsed((current) => !current)
+                    }}
                   >
                     {collapsed ? (
                       <ChevronRight className="h-4 w-4" />

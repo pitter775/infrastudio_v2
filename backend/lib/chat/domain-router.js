@@ -1,6 +1,8 @@
 import { normalizeText } from "@/lib/chat/text-utils"
 import { buildProductSearchCandidates, isGreetingOrAckMessage } from "@/lib/chat/sales-heuristics"
 
+const RECENT_CATALOG_SNAPSHOT_MAX_AGE_MS = 1000 * 60 * 60 * 12
+
 function sanitizeString(value) {
   const normalized = String(value || "").trim()
   return normalized || ""
@@ -184,14 +186,34 @@ function hasCatalogFollowUpSignal(message) {
   )
 }
 
+function isCatalogSnapshotFresh(context = {}) {
+  const snapshotCreatedAt = context?.catalogo?.snapshotCreatedAt
+  if (!snapshotCreatedAt) {
+    return true
+  }
+
+  const parsed = new Date(snapshotCreatedAt)
+  if (Number.isNaN(parsed.getTime())) {
+    return true
+  }
+
+  return Date.now() - parsed.getTime() <= RECENT_CATALOG_SNAPSHOT_MAX_AGE_MS
+}
+
 function hasRecentCatalogContext(context = {}) {
   return (
     Boolean(context?.catalogo?.produtoAtual?.nome) ||
-    (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 0)
+    (isCatalogSnapshotFresh(context) &&
+      Array.isArray(context?.catalogo?.ultimosProdutos) &&
+      context.catalogo.ultimosProdutos.length > 0)
   )
 }
 
 function hasRecentCatalogListContext(context = {}) {
+  if (!isCatalogSnapshotFresh(context)) {
+    return false
+  }
+
   return (
     Boolean(String(context?.catalogo?.ultimaBusca || "").trim()) ||
     (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 0)

@@ -157,6 +157,14 @@ function extractAnchorTokensFromCatalogContext(context = {}) {
   return [...new Set([...lastSearchTokens, ...currentProductTokens].filter(Boolean))]
 }
 
+function hasCatalogListAnchor(context = {}) {
+  return (
+    Boolean(String(context?.catalogo?.ultimaBusca || "").trim()) ||
+    (Array.isArray(context?.catalogo?.ultimosProdutos) && context.catalogo.ultimosProdutos.length > 1) ||
+    Boolean(context?.catalogo?.produtoAtual?.nome)
+  )
+}
+
 function hasCatalogRefinementAnchor(message, context = {}) {
   if (hasStrongRecentCatalogReferenceSignal(message)) {
     return true
@@ -208,6 +216,13 @@ function resolveProductsByTitleTokens(message, products) {
           "tenha",
           "quiser",
           "queria",
+          "link",
+          "links",
+          "garantia",
+          "frete",
+          "estoque",
+          "detalhes",
+          "detalhe",
         ].includes(item)
     )
 
@@ -241,6 +256,10 @@ function hasStrongRecentCatalogReferenceSignal(message) {
   return /\b(gostei|esse|essa|desse|dessa|aquele|aquela|daquele|daquela|opcao|opcoes|primeiro|primeira|segundo|segunda|terceiro|terceira|1|2|3)\b/i.test(
     String(message || "")
   )
+}
+
+function hasWeakRecentCatalogReferenceVerb(message) {
+  return /\b(gostei|quero|queria)\b/i.test(String(message || ""))
 }
 
 export function isCatalogLoadMoreIntent(message) {
@@ -336,8 +355,14 @@ export function resolveRecentCatalogReferenceDecision(message, context) {
   if (!products.length) {
     return null
   }
+  const hasStrongSignal = hasStrongRecentCatalogReferenceSignal(message)
+  const hasListAnchor = hasCatalogListAnchor(context)
 
-  if (products.length === 1 && hasStrongRecentCatalogReferenceSignal(message)) {
+  if (!hasStrongSignal && !hasListAnchor) {
+    return null
+  }
+
+  if (products.length === 1 && hasStrongSignal) {
     return {
       kind: "recent_product_reference",
       confidence: 0.92,
@@ -348,16 +373,18 @@ export function resolveRecentCatalogReferenceDecision(message, context) {
     }
   }
 
-  if (!hasStrongRecentCatalogReferenceSignal(message) && buildProductSearchCandidates(message).length > 0) {
+  if (!hasStrongSignal && buildProductSearchCandidates(message).length > 0) {
     return null
   }
 
   const matchedProducts = resolveRecentCatalogProductReference(message, context)
-  if (!isRecentCatalogReferenceAttempt(message) && matchedProducts.length === 0) {
+  const isReferenceAttempt = hasStrongSignal || (hasWeakRecentCatalogReferenceVerb(message) && matchedProducts.length > 0)
+
+  if (!isReferenceAttempt) {
     return null
   }
 
-  if (!hasStrongRecentCatalogReferenceSignal(message) && matchedProducts.length === 0) {
+  if (!hasStrongSignal && matchedProducts.length === 0) {
     return null
   }
 

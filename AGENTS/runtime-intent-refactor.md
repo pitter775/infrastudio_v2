@@ -383,6 +383,30 @@ Ainda errado / fragil:
   - `resolveDeterministicCatalogFollowUpDecision` agora so e consultado quando nao houver decisao semantica de catalogo ou quando o stage cair em `recent_product_reference_unresolved`
   - com isso, o guardrail local deixa de rodar em paralelo nos casos em que o stage semantico ja decidiu refinamento, load more, busca nova ou referencia resolvida
   - isso reduz mais o papel do fallback local como decisor concorrente
+- `api-runtime.js` agora tambem ficou mais coeso por escopo de API:
+  - quando o runtime escolhe um campo primario, os campos de suporte passam a ficar presos preferencialmente na mesma API
+  - `buildFocusedApiContext` e `buildApiFallbackReply` deixam de misturar com facilidade dados de produto e pedido na mesma resposta factual
+  - isso reduz mais um caminho de contexto semi-estruturado por associacao textual ampla entre APIs diferentes
+- `api-runtime.js` tambem ficou mais fail-closed em factual generico:
+  - quando varias APIs diferentes disputam a mesma pergunta curta e o cliente nao ancora por id/codigo/sku nem por hint estruturado, o runtime agora prefere nao responder por chute
+  - isso vale tanto para `buildApiFallbackReply` quanto para `buildFocusedApiContext`
+  - o caminho factual local fica menos propenso a responder `status` ou `valor` da API errada
+- o fallback local de catalogo tambem perdeu mais ruido:
+  - `isCatalogLoadMoreIntent` deixou de aceitar palavra ampla solta como `outras`/`opcoes` fora das frases explicitas ja controladas
+  - a referencia textual por titulo tambem passou a ignorar termos de apoio como `link`, `garantia`, `frete` e `estoque`
+  - isso reduz mais um caminho em que o fallback local podia confundir follow-up factual com referencia de item
+- a referencia recente heuristica de catalogo tambem ficou mais semantico-first:
+  - titulo solto do item (`floral`, `azul`, etc.) deixa de resolver sozinho no fallback local sem marcador de retomada
+  - para esse caminho heuristico, agora a frase precisa trazer tentativa real de referencia (`quero`, `gostei`, `esse`, ordinais etc.) ou sinal forte deitico
+  - isso empurra mais casos curtos de titulo puro para o `intent-stage` em vez de resolver por matching local
+- o fallback local de referencia recente tambem perdeu um ultimo gatilho verbal solto:
+  - `quero`/`queria` sem item citado nao abre mais ambiguidade nem referencia recente por si so
+  - verbo fraco agora so vale quando vem junto de match real em titulo/lista recente
+  - isso reduz mais um sequestro do catalogo por follow-up curto sem ancora concreta
+- o `domain-router` de catalogo tambem parou de confiar em snapshot velho:
+  - follow-up curto e sinal de objeto nao continuam catalogo quando a lista recente ja expirou
+  - `ultimosProdutos` antigos deixam de sustentar `aquela floral`, `me manda o link` e afins no roteador
+  - isso reduz mais um vazamento por estado velho antes do stage semantico
 
 ## Ordem de ataque obrigatoria
 
@@ -431,6 +455,7 @@ Ainda errado / fragil:
 
 ## Proximo passo recomendado agora
 
-- continuar reduzindo matching textual em `api-runtime.js`, principalmente revisando se `detectApiCatalogComparisonIntent` e o agrupamento de suporte ainda podem depender menos de texto livre
-- seguir rebaixando `catalog-follow-up.js` para guardrail residual, nao decisor
+- continuar reduzindo o intent factual local de `api-runtime.js`, tentando concentrar mais lookup em hints/decisao estruturada antes do matcher residual
+- seguir rebaixando `catalog-follow-up.js` para guardrail residual, principalmente nos casos em que ainda sobra decisao por texto curto sem ancora semantica
 - depois revisar se o merge final no `orchestrator.js` ja pode simplificar mais um passo sem reabrir regressao
+- se a suite continuar verde, o proximo corte deve mirar `domain-router.js`, principalmente follow-up curto de catalogo que ainda sobe por regex local forte
