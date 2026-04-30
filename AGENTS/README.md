@@ -14,7 +14,7 @@ Ordem recomendada de leitura:
 4. `laboratorio.md` se a tarefa exigir validacao/regressao
 5. `roadmap.md` se a tarefa exigir continuidade
 6. `melhorias.md` para ideias, backlog e operacao
-7. `../PLANO-LOJA-MERCADO-LIVRE.md` se a tarefa envolver loja publica do Mercado Livre
+7. `../ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md` se a tarefa envolver widget, WhatsApp, Mercado Livre, billing, catalogo ou arquitetura global do chat
 
 ## Regra critica para o cerebro do chat
 
@@ -32,6 +32,7 @@ Arquivos:
 - [laboratorio.md](C:\Projetos\infrastudio_v2\AGENTS\laboratorio.md): baseline, comandos, logs reais e pontos de falha mapeados no admin
 - [roadmap.md](C:\Projetos\infrastudio_v2\AGENTS\roadmap.md): foco de retomada, backlog principal, bases entregues e ordem de ataque
 - [melhorias.md](C:\Projetos\infrastudio_v2\AGENTS\melhorias.md): melhorias pendentes e oportunidades de produto/operacao
+- [ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md](C:\Projetos\infrastudio_v2\ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md): visao arquitetural alvo do universo chat, widget, WhatsApp, Mercado Livre, billing e catalogo
 
 ## Loja real para teste
 

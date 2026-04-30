@@ -16,10 +16,6 @@ const HOME_CHAT_WIDGET_FALLBACK = {
   accent: "#2563eb",
   transparent: true,
   src: "/chat-widget.js",
-  apiBase:
-    process.env.NODE_ENV === "development"
-      ? "https://www.infrastudio.pro"
-      : undefined,
 }
 
 const HOME_DATA_TIMEOUT_MS = 3500

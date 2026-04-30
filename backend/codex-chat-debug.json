@@ -1,0 +1,160 @@
+{
+  "chatId": "bd3b2fca-8439-406c-a385-9f955699f8ce",
+  "messageId": "8eee4634-3895-48f5-bdd8-3e1b1ac654df",
+  "createdAt": "2026-04-30T03:40:51.091",
+  "reply": "**Valores disponiveis**\n- Free: R$ 0/mês\n- Basic: R$ 29,90/mês\n- Plus: R$ 79,90/mês\n- Pro: R$ 149,90/mês\n\nSe quiser, eu comparo as opcoes e sigo com voce no WhatsApp.\n\nSe preferir, voce pode marcar um horario para contato.",
+  "followUpReply": "Se preferir, voce pode marcar um horario para contato.",
+  "messageSequence": [],
+  "assets": [],
+  "whatsapp": {
+    "label": "Continuar no WhatsApp",
+    "url": "https://wa.me/5511949506267?text=Oi!%20Vim%20do%20chat%20do%20site%20e%20quero%20continuar%20por%20aqui.%0A%0AResumo%20rapido%3A%0A-%20Meu%20interesse%3A%20oi%20qual%20os%20planos%20e%20valores%20%3F%0A-%20Contexto%20do%20atendimento%3A%20**Valores%20disponiveis**%20-%20Free%3A%20R%24%200%2Fm%C3%AAs%20-%20Basic%3A%20R%24%2029%2C90%2Fm%C3%AAs%20-%20Plus%3A%20R%24%2079%2C90%2Fm%C3%AAs%20-%20Pro%3A%20R%24%20149%2C90%2Fm%C3%AAs%20Se%20quiser%2C%20eu%20comparo%20as%20opcoes%20e%20sigo%20com%20voce%20no%20WhatsApp.",
+    "summary": "Leva um resumo rapido desta conversa."
+  },
+  "actions": [
+    {
+      "type": "whatsapp_link",
+      "label": "Continuar no WhatsApp",
+      "icon": "whatsapp",
+      "url": "https://wa.me/5511949506267?text=Oi!%20Vim%20do%20chat%20do%20site%20e%20quero%20continuar%20por%20aqui.%0A%0AResumo%20rapido%3A%0A-%20Meu%20interesse%3A%20oi%20qual%20os%20planos%20e%20valores%20%3F%0A-%20Contexto%20do%20atendimento%3A%20**Valores%20disponiveis**%20-%20Free%3A%20R%24%200%2Fm%C3%AAs%20-%20Basic%3A%20R%24%2029%2C90%2Fm%C3%AAs%20-%20Plus%3A%20R%24%2079%2C90%2Fm%C3%AAs%20-%20Pro%3A%20R%24%20149%2C90%2Fm%C3%AAs%20Se%20quiser%2C%20eu%20comparo%20as%20opcoes%20e%20sigo%20com%20voce%20no%20WhatsApp.",
+      "summary": "Leva um resumo rapido desta conversa."
+    },
+    {
+      "type": "agenda_schedule",
+      "label": "Agendar horario",
+      "icon": "calendar",
+      "summary": "Escolha um dia e depois o horario.",
+      "days": [
+        {
+          "key": "2026-04-30",
+          "label": "30/04/2026",
+          "date": "2026-04-30",
+          "weekdayLabel": "2026-04-30",
+          "slots": [
+            {
+              "id": "86e3c4c1-cc96-4734-8e27-05e652446e0f",
+              "label": "08:00",
+              "time": "08:00",
+              "date": "2026-04-30",
+              "weekdayLabel": "2026-04-30"
+            },
+            {
+              "id": "f616886d-f619-43a0-90eb-9071a4117291",
+              "label": "09:00",
+              "time": "09:00",
+              "date": "2026-04-30",
+              "weekdayLabel": "2026-04-30"
+            },
+            {
+              "id": "29232c6a-309a-4420-b9a9-b59acbee8e61",
+              "label": "10:00",
+              "time": "10:00",
+              "date": "2026-04-30",
+              "weekdayLabel": "2026-04-30"
+            },
+            {
+              "id": "a703a766-a2f0-4298-8b35-3fa74dc024ee",
+              "label": "11:00",
+              "time": "11:00",
+              "date": "2026-04-30",
+              "weekdayLabel": "2026-04-30"
+            },
+            {
+              "id": "8e7bdfd1-5126-4f63-b24b-582c7db39dbf",
+              "label": "12:00",
+              "time": "12:00",
+              "date": "2026-04-30",
+              "weekdayLabel": "2026-04-30"
+            },
+            {
+              "id": "27c64b22-4e5c-465a-9ef3-10718d276e57",
+              "label": "13:00",
+              "time": "13:00",
+              "date": "2026-04-30",
+              "weekdayLabel": "2026-04-30"
+            }
+          ]
+        },
+        {
+          "key": "2026-05-01",
+          "label": "01/05/2026",
+          "date": "2026-05-01",
+          "weekdayLabel": "2026-05-01",
+          "slots": [
+            {
+              "id": "97909a81-0784-49b1-bec8-0f2dbcb551ad",
+              "label": "08:00",
+              "time": "08:00",
+              "date": "2026-05-01",
+              "weekdayLabel": "2026-05-01"
+            },
+            {
+              "id": "ac8e180e-d3ee-4ce1-addf-f966d6383d92",
+              "label": "09:00",
+              "time": "09:00",
+              "date": "2026-05-01",
+              "weekdayLabel": "2026-05-01"
+            },
+            {
+              "id": "9935c502-86e2-485b-93cd-6bb95e66f268",
+              "label": "10:00",
+              "time": "10:00",
+              "date": "2026-05-01",
+              "weekdayLabel": "2026-05-01"
+            },
+            {
+              "id": "bca1bd5b-5827-4cee-8b07-043340737449",
+              "label": "11:00",
+              "time": "11:00",
+              "date": "2026-05-01",
+              "weekdayLabel": "2026-05-01"
+            },
+            {
+              "id": "448f8c51-7a2e-4fe5-ab5b-fa7675d6cced",
+              "label": "12:00",
+              "time": "12:00",
+              "date": "2026-05-01",
+              "weekdayLabel": "2026-05-01"
+            },
+            {
+              "id": "8060c30b-732e-4e5e-905c-8f539fc74c2f",
+              "label": "13:00",
+              "time": "13:00",
+              "date": "2026-05-01",
+              "weekdayLabel": "2026-05-01"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "ui": null,
+  "catalogContinuation": false,
+  "catalogMessageMode": null,
+  "catalogListingSessionId": "",
+  "handoff": null,
+  "diagnostics": {
+    "stage": "ready_for_ai",
+    "failClosed": false,
+    "projetoId": "0eef27f8-c646-4fd4-963c-4f7c5e3d028e",
+    "agenteId": "55bd3fe9-ed32-4d93-b6af-ddd1d6b60009",
+    "agenteNome": null,
+    "widgetId": "a709e70f-93cb-4435-bf08-73ddbc8412f9",
+    "widgetName": "InfraStudio",
+    "widgetSlug": "infrastudio-chat",
+    "channelKind": "web",
+    "provider": "billing_runtime",
+    "model": "structured_pricing_catalog",
+    "routeStage": "sales",
+    "domainStage": "billing",
+    "heuristicStage": "billing_runtime",
+    "inputTokens": 0,
+    "outputTokens": 0,
+    "runtimeApiCount": 0,
+    "runtimeApiCacheHits": 0,
+    "runtimeApis": [],
+    "handoffDecision": "none",
+    "handoffReason": "Sem sinal suficiente para handoff.",
+    "handoffRequested": false
+  }
+}
