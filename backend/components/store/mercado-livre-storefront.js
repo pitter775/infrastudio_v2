@@ -2,12 +2,13 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useState } from 'react'
-import { ArrowRight, AtSign, Camera, ChevronLeft, ChevronRight, Globe, LayoutGrid, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { ArrowRight, AtSign, Camera, ChevronLeft, ChevronRight, Filter, Globe, LayoutGrid, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
 
 import { StoreHeader } from '@/components/store/store-header'
 import { StoreProductCard } from '@/components/store/store-product-card'
 import { AppSelect } from '@/components/ui/app-select'
+import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { buildStoreAccentPalette, buildStoreUrl } from '@/components/store/store-utils'
 
 function shouldHideCategoryCode(label) {
@@ -15,8 +16,22 @@ function shouldHideCategoryCode(label) {
 }
 
 function ProductRow({ accentColor, analyticsSource, products, storeSlug, title, viewAllHref = null }) {
+  const rowRef = useRef(null)
+
   if (!products.length) {
     return null
+  }
+
+  function scrollNext() {
+    const row = rowRef.current
+    if (!row) {
+      return
+    }
+
+    row.scrollBy({
+      left: Math.max(260, row.clientWidth * 0.86),
+      behavior: 'smooth',
+    })
   }
 
   return (
@@ -31,11 +46,8 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title, 
       </div>
       <div className="relative">
         <div
-          className="grid grid-flow-col gap-2.5 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{
-            gridAutoColumns: 'clamp(164px, calc((100% - 40px) / 5), 232px)',
-            scrollSnapType: 'x proximity',
-          }}
+          ref={rowRef}
+          className="grid auto-cols-[calc((100%_-_10px)_/_2)] snap-x snap-mandatory grid-flow-col gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 py-3 touch-pan-x [scrollbar-width:none] sm:auto-cols-[calc((100%_-_20px)_/_3)] md:auto-cols-[calc((100%_-_30px)_/_4)] lg:auto-cols-[calc((100%_-_40px)_/_5)] [&::-webkit-scrollbar]:hidden"
         >
           {products.map((product) => (
             <StoreProductCard
@@ -49,11 +61,76 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title, 
             />
           ))}
         </div>
-        <div className="pointer-events-none absolute bottom-1 right-0 top-0 hidden w-[72px] items-center justify-end bg-gradient-to-r from-transparent to-white lg:flex" aria-hidden="true">
-          <div className="flex h-[62px] w-[62px] items-center justify-center rounded-full bg-white text-[42px] font-extralight leading-none text-[#3483fa] shadow-[0_2px_12px_rgba(0,0,0,0.08)]">›</div>
-        </div>
+        <button
+          type="button"
+          onClick={scrollNext}
+          className="absolute bottom-3 right-0 top-3 z-20 hidden w-[72px] items-center justify-end bg-gradient-to-r from-transparent to-white lg:flex"
+          aria-label={`Avancar ${title}`}
+        >
+          <span className="flex h-[62px] w-[62px] items-center justify-center rounded-full bg-white text-[#3483fa] shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition hover:scale-105">
+            <ChevronRight className="h-7 w-7" />
+          </span>
+        </button>
       </div>
     </section>
+  )
+}
+
+function StoreSearchFilters({
+  accentColor,
+  categoryId,
+  categoryOptions,
+  isSearching,
+  onCategoryChange,
+  onSearchSubmit,
+  onSortChange,
+  searchTerm,
+  setSearchTerm,
+  sortOptions,
+  sortValue,
+}) {
+  return (
+    <form onSubmit={onSearchSubmit} className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="flex min-w-0 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 shadow-sm">
+        <Search className="h-4 w-4 text-slate-400" />
+        <input
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+          placeholder="Buscar produto"
+          className="h-10 min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+        />
+      </div>
+      <button
+        type="submit"
+        disabled={isSearching}
+        className="inline-flex h-10 items-center justify-center rounded-[4px] bg-[#3483fa] px-4 text-sm font-semibold text-white transition hover:bg-[#2968c8] disabled:opacity-70"
+      >
+        {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+        Buscar
+      </button>
+      <div className={`grid gap-2 text-xs sm:col-span-2 ${categoryOptions.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        {categoryOptions.length > 1 ? (
+          <AppSelect
+            options={categoryOptions}
+            value={categoryId}
+            onChangeValue={onCategoryChange}
+            placeholder="Categorias"
+            minHeight={38}
+            tone="light"
+            accentColor={accentColor}
+          />
+        ) : null}
+        <AppSelect
+          options={sortOptions}
+          value={sortValue}
+          onChangeValue={onSortChange}
+          placeholder="Recentes"
+          minHeight={38}
+          tone="light"
+          accentColor={accentColor}
+        />
+      </div>
+    </form>
   )
 }
 
@@ -103,6 +180,7 @@ export function MercadoLivreStorefront({
   const [searchTerm, setSearchTerm] = useState(query)
   const [sortValue, setSortValue] = useState(sort)
   const [isSearching, setIsSearching] = useState(false)
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
   const recommendedProducts = featuredProducts.length ? featuredProducts : products.slice(0, 10)
   const latestProducts = products.slice(0, 12)
@@ -115,12 +193,12 @@ export function MercadoLivreStorefront({
     [categories],
   )
   const categoryOptions = useMemo(
-    () => [{ value: '', label: 'Todas categorias' }, ...visibleCategories.map((category) => ({ value: category.id, label: category.label }))],
+    () => [{ value: '', label: 'Categorias' }, ...visibleCategories.map((category) => ({ value: category.id, label: category.label }))],
     [visibleCategories],
   )
   const sortOptions = useMemo(
     () => [
-      { value: 'recent', label: 'Mais recentes' },
+      { value: 'recent', label: 'Recentes' },
       { value: 'price_asc', label: 'Menor preco' },
       { value: 'price_desc', label: 'Maior preco' },
       { value: 'title', label: 'Nome' },
@@ -198,7 +276,22 @@ export function MercadoLivreStorefront({
   function handleSearchSubmit(event) {
     event.preventDefault()
     setIsSearching(true)
+    setMobileFiltersOpen(false)
     navigateStore(searchTerm, categoryId, sortValue, 1)
+  }
+
+  function handleCategoryChange(value) {
+    setIsSearching(true)
+    setMobileFiltersOpen(false)
+    navigateStore(searchTerm, value || '', sortValue, 1)
+  }
+
+  function handleSortChange(value) {
+    const nextValue = value || 'recent'
+    setSortValue(nextValue)
+    setIsSearching(true)
+    setMobileFiltersOpen(false)
+    navigateStore(searchTerm, categoryId, nextValue, 1)
   }
 
   function handleResetCatalog() {
@@ -237,12 +330,35 @@ export function MercadoLivreStorefront({
           <section className="relative min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
             {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
             <div className="absolute inset-0" style={heroStyle.overlay} />
-            <div className="relative mx-auto max-w-[1228px] px-3 py-8 sm:px-4 lg:px-3">
-              <div className="max-w-xl">
+            <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
+              <div className="max-w-xl pr-14 lg:pr-0">
                 <div className="text-[13px] font-semibold text-slate-600">Loja oficial</div>
                 <h1 className="mt-1 text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">{store.name}</h1>
                 {store.headline ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{store.headline}</p> : null}
               </div>
+              <div className="hidden w-full justify-self-end lg:block">
+                <StoreSearchFilters
+                  accentColor={palette.accent}
+                  categoryId={categoryId}
+                  categoryOptions={categoryOptions}
+                  isSearching={isSearching}
+                  onCategoryChange={handleCategoryChange}
+                  onSearchSubmit={handleSearchSubmit}
+                  onSortChange={handleSortChange}
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  sortOptions={sortOptions}
+                  sortValue={sortValue}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setMobileFiltersOpen(true)}
+                className="absolute right-4 top-8 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-[0_8px_18px_rgba(0,0,0,0.10)] backdrop-blur transition hover:bg-white lg:hidden"
+                aria-label="Buscar e filtrar produtos"
+              >
+                <Filter className="h-5 w-5" />
+              </button>
             </div>
           </section>
 
@@ -280,56 +396,6 @@ export function MercadoLivreStorefront({
               analyticsSource="recommended_row"
               viewAllHref={viewAllHref}
             />
-
-            <form onSubmit={handleSearchSubmit} className="mt-8 grid w-full gap-2 rounded-[6px] border border-slate-100 bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="flex min-w-0 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3">
-                <Search className="h-4 w-4 text-slate-400" />
-                <input
-                  value={searchTerm}
-                  onChange={(event) => setSearchTerm(event.target.value)}
-                  placeholder="Buscar produto na loja"
-                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={isSearching}
-                className="inline-flex h-10 items-center justify-center rounded-[4px] bg-[#3483fa] px-4 text-sm font-semibold text-white transition hover:bg-[#2968c8] disabled:opacity-70"
-              >
-                {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                Buscar
-              </button>
-              <div className="grid grid-cols-2 gap-2 sm:col-span-2">
-                {categoryOptions.length > 1 ? (
-                  <AppSelect
-                    options={categoryOptions}
-                    value={categoryId}
-                    onChangeValue={(value) => {
-                      setIsSearching(true)
-                      navigateStore(searchTerm, value || '', sortValue, 1)
-                    }}
-                    placeholder="Categoria"
-                    minHeight={38}
-                    tone="light"
-                    accentColor={palette.accent}
-                  />
-                ) : null}
-                <AppSelect
-                  options={sortOptions}
-                  value={sortValue}
-                  onChangeValue={(value) => {
-                    const nextValue = value || 'recent'
-                    setSortValue(nextValue)
-                    setIsSearching(true)
-                    navigateStore(searchTerm, categoryId, nextValue, 1)
-                  }}
-                  placeholder="Ordenar"
-                  minHeight={38}
-                  tone="light"
-                  accentColor={palette.accent}
-                />
-              </div>
-            </form>
 
             {!products.length ? (
               <div className="mt-8 rounded-[6px] border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
@@ -399,6 +465,31 @@ export function MercadoLivreStorefront({
             </div>
           </section>
         </main>
+
+        <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
+          <SheetContent
+            side="right"
+            className="w-[min(92vw,360px)] border-l border-slate-200 bg-white p-4 text-slate-900"
+            overlayClassName="bg-slate-950/30"
+          >
+            <SheetTitle className="pr-8 text-base font-semibold text-slate-950">Buscar produtos</SheetTitle>
+            <div className="mt-4">
+              <StoreSearchFilters
+                accentColor={palette.accent}
+                categoryId={categoryId}
+                categoryOptions={categoryOptions}
+                isSearching={isSearching}
+                onCategoryChange={handleCategoryChange}
+                onSearchSubmit={handleSearchSubmit}
+                onSortChange={handleSortChange}
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                sortOptions={sortOptions}
+                sortValue={sortValue}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
 
         <footer className="border-t border-slate-100 bg-white">
           <div className="mx-auto grid max-w-[1228px] gap-6 px-3 py-8 sm:px-4 lg:grid-cols-[1fr_auto]">

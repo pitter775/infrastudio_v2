@@ -42,7 +42,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
 
   if (variant === 'marketplace') {
     return (
-      <div>
+      <div className="snap-start">
         <Link
           href={href}
           onClick={() => {
@@ -56,7 +56,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
             })
           }}
           aria-busy={isOpening}
-          className="group relative flex h-full min-h-[366px] flex-col overflow-hidden rounded-[6px] border border-[#eeeeee] bg-white text-left shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition duration-200 hover:shadow-[0_7px_16px_rgba(0,0,0,0.14)]"
+          className="group relative flex h-full min-h-[366px] flex-col overflow-hidden rounded-[6px] border border-[#e5e7eb] bg-white text-left shadow-none transition duration-200 hover:border-[#d1d5db] hover:shadow-[0_7px_16px_rgba(0,0,0,0.14)]"
         >
           {isOpening ? (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/72 backdrop-blur-[2px]">
@@ -72,6 +72,19 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
               // eslint-disable-next-line @next/next/no-img-element
               <img src={image} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
             ) : null}
+
+            <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+              {statusLabel ? (
+                <span className="inline-flex rounded-full bg-[#155eef] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                  {statusLabel}
+                </span>
+              ) : null}
+              {visibleCategoryLabel ? (
+                <span className="inline-flex rounded-full bg-[#3b82f6] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                  {visibleCategoryLabel}
+                </span>
+              ) : null}
+            </div>
 
             {hasGallery ? (
               <>
@@ -91,6 +104,14 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
+                <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900/15 px-2 py-1 backdrop-blur">
+                  {images.map((_, index) => (
+                    <span
+                      key={`${product.id}-marketplace-dot-${index}`}
+                      className={`rounded-full transition-all ${index === imageIndex ? 'h-2.5 w-5 bg-white' : 'h-2.5 w-2.5 bg-white/65'}`}
+                    />
+                  ))}
+                </div>
               </>
             ) : null}
           </div>
