@@ -10,6 +10,7 @@ import {
   sanitizePhone,
   sanitizeSocialLinks,
   sanitizeText,
+  sanitizeVisualConfig,
   slugify,
 } from "./sanitize"
 
@@ -201,6 +202,7 @@ function buildStorePayload(project, input, current = null) {
     footer_texto: sanitizeText(input?.footerText, 240),
     menu_links: sanitizeMenuLinks(input?.menuLinks),
     social_links: sanitizeSocialLinks(input?.socialLinks),
+    visual_config: sanitizeVisualConfig(input?.visualConfig),
     destaques: sanitizeFeaturedProducts(input?.featuredProducts),
     updated_at: new Date().toISOString(),
     slug: sanitizeText(input?.slug, 80) || current?.slug || `${slugify(project?.slug || project?.name || "loja")}-ml`,
@@ -327,6 +329,7 @@ async function upsertMercadoLivreStoreForProject(project, input = {}, options = 
       dominio_status,
       dominio_observacoes,
       chat_contexto_completo,
+      visual_config,
       ...legacyPayload
     } = basePayload
 
@@ -393,6 +396,7 @@ async function restoreMercadoLivreStoreDefaultsForProject(project, options = {})
     footer_texto: sanitizeText(current?.footer_texto, 240),
     menu_links: sanitizeMenuLinks(current?.menu_links),
     social_links: sanitizeSocialLinks(current?.social_links),
+    visual_config: sanitizeVisualConfig(current?.visual_config),
     destaques: sanitizeFeaturedProducts(current?.destaques),
     updated_at: new Date().toISOString(),
     slug: defaultSlug,
@@ -419,6 +423,7 @@ async function restoreMercadoLivreStoreDefaultsForProject(project, options = {})
       dominio_status,
       dominio_observacoes,
       chat_contexto_completo,
+      visual_config,
       ...legacyPayload
     } = basePayload
 

@@ -29,6 +29,33 @@ const DEFAULT_MENU_LINKS = [
   { label: 'Contato', href: '#contato' },
 ]
 
+const DEFAULT_VISUAL_CONFIG = {
+  logoStoragePath: '',
+  hero: {
+    backgroundMode: 'solid',
+    imageUrl: '',
+    imageStoragePath: '',
+    imageOpacity: 1,
+    imageMode: 'cover',
+    solidColor: '#ffffff',
+    gradientFrom: '#ffffff',
+    gradientTo: '#f5f5f5',
+    overlayColor: '#ffffff',
+    overlayOpacity: 0.18,
+  },
+}
+
+function buildVisualConfig(store) {
+  const hero = store?.visualConfig?.hero || {}
+  return {
+    logoStoragePath: store?.visualConfig?.logoStoragePath || '',
+    hero: {
+      ...DEFAULT_VISUAL_CONFIG.hero,
+      ...hero,
+    },
+  }
+}
+
 function normalizeStoreSlug(value) {
   return String(value || '')
     .normalize('NFD')
@@ -54,6 +81,7 @@ function buildInitialDraft(project, store) {
     about: store?.about || '',
     accentColor: store?.accentColor || '#0ea5e9',
     logoUrl: store?.logoUrl || '',
+    visualConfig: buildVisualConfig(store),
     chatWidgetActive: store?.chatWidgetActive !== false,
     chatWidgetId: store?.chatWidgetId || project.chatWidgets?.[0]?.id || '',
     chatContextFull: store?.chatContextFull === true,
@@ -107,6 +135,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   const [snapshot, setSnapshot] = useState(null)
   const [publicUrlCopied, setPublicUrlCopied] = useState(false)
   const [restoringDefaults, setRestoringDefaults] = useState(false)
+  const [assetUploading, setAssetUploading] = useState(null)
 
   const publicUrl = useMemo(() => buildPublicStoreUrl(project, draft.slug), [draft.slug, project])
 
@@ -378,6 +407,76 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     }
   }
 
+  async function handleAssetUpload(kind, file) {
+    if (!file) {
+      return
+    }
+
+    setAssetUploading(kind)
+    setFeedback(null)
+
+    try {
+      const formData = new FormData()
+      formData.set('kind', kind)
+      formData.set('file', file)
+      if (kind === 'logo') {
+        formData.set('previousUrl', draft.logoUrl || '')
+        formData.set('previousStoragePath', draft.visualConfig?.logoStoragePath || '')
+      } else {
+        formData.set('previousUrl', draft.visualConfig?.hero?.imageUrl || '')
+        formData.set('previousStoragePath', draft.visualConfig?.hero?.imageStoragePath || '')
+      }
+
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store/assets`, {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel enviar a imagem.' })
+        return
+      }
+
+      const publicUrl = data.asset?.publicUrl || ''
+      if (!publicUrl) {
+        setFeedback({ tone: 'error', text: 'Upload concluido sem URL publica.' })
+        return
+      }
+
+      if (kind === 'logo') {
+        setDraft((current) => ({
+          ...current,
+          logoUrl: publicUrl,
+          visualConfig: {
+            ...(current.visualConfig || DEFAULT_VISUAL_CONFIG),
+            logoStoragePath: data.asset?.storagePath || '',
+          },
+        }))
+      } else {
+        setDraft((current) => ({
+          ...current,
+          visualConfig: {
+            ...(current.visualConfig || DEFAULT_VISUAL_CONFIG),
+            hero: {
+              ...DEFAULT_VISUAL_CONFIG.hero,
+              ...(current.visualConfig?.hero || {}),
+              backgroundMode: 'image',
+              imageUrl: publicUrl,
+              imageStoragePath: data.asset?.storagePath || '',
+            },
+          },
+        }))
+      }
+
+      setFeedback({ tone: 'success', text: 'Imagem enviada. Salve a loja para publicar a configuracao.' })
+    } catch {
+      setFeedback({ tone: 'error', text: 'Nao foi possivel enviar a imagem.' })
+    } finally {
+      setAssetUploading(null)
+    }
+  }
+
   async function handleRestoreDefaults() {
     setRestoringDefaults(true)
     setFeedback(null)
@@ -462,7 +561,14 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         />
       ) : null}
 
-      {activeSubTab === 'appearance' ? <StoreAppearanceSection draft={draft} setDraft={setDraft} /> : null}
+      {activeSubTab === 'appearance' ? (
+        <StoreAppearanceSection
+          assetUploading={assetUploading}
+          draft={draft}
+          setDraft={setDraft}
+          onAssetUpload={handleAssetUpload}
+        />
+      ) : null}
 
       {activeSubTab === 'featured' ? (
         <StoreFeaturedSection

@@ -4,10 +4,10 @@ import { ToggleSwitchButton } from '@/components/ui/toggle-switch-button'
 
 export function StorePanelField({ label, children }) {
   return (
-    <label className="grid gap-2">
+    <div className="grid gap-2">
       <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{label}</span>
       {children}
-    </label>
+    </div>
   )
 }
 

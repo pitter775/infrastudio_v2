@@ -34,6 +34,7 @@ const STORE_DOMAIN_FIELDS = [
 export const STORE_FIELDS = [
   ...STORE_BASE_FIELDS,
   ...STORE_DOMAIN_FIELDS,
+  "visual_config",
   "destaques",
 ].join(", ")
 
@@ -41,5 +42,5 @@ export const STORE_FIELDS_LEGACY = [...STORE_BASE_FIELDS, "destaques"].join(", "
 
 export function isMissingStoreDomainColumnError(error) {
   const message = String(error?.message || error || "")
-  return /dominio_personalizado|dominio_ativo|dominio_status|dominio_observacoes|chat_contexto_completo/i.test(message)
+  return /dominio_personalizado|dominio_ativo|dominio_status|dominio_observacoes|chat_contexto_completo|visual_config/i.test(message)
 }

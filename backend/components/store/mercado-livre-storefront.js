@@ -1,18 +1,88 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
 import { ArrowRight, AtSign, Camera, ChevronLeft, ChevronRight, Globe, LayoutGrid, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
 
 import { StoreHeader } from '@/components/store/store-header'
 import { StoreProductCard } from '@/components/store/store-product-card'
 import { AppSelect } from '@/components/ui/app-select'
-import { buildStoreAccentPalette, buildStoreUrl, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, buildStoreUrl } from '@/components/store/store-utils'
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
+}
+
+function ProductRow({ accentColor, analyticsSource, products, storeSlug, title, viewAllHref = null }) {
+  if (!products.length) {
+    return null
+  }
+
+  return (
+    <section className="mt-[30px]">
+      <div className="mb-3 flex items-baseline gap-2.5">
+        <h2 className="text-[20px] font-bold leading-tight text-[#111827]">{title}</h2>
+        {viewAllHref ? (
+          <Link href={viewAllHref} className="text-[12px] font-medium text-[#2563eb]">
+            Ver mais
+          </Link>
+        ) : null}
+      </div>
+      <div className="relative">
+        <div
+          className="grid grid-flow-col gap-2.5 overflow-x-auto overscroll-x-contain px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          style={{
+            gridAutoColumns: 'clamp(164px, calc((100% - 40px) / 5), 232px)',
+            scrollSnapType: 'x proximity',
+          }}
+        >
+          {products.map((product) => (
+            <StoreProductCard
+              key={`${title}-${product.id}`}
+              storeSlug={storeSlug}
+              product={product}
+              accentColor={accentColor}
+              compact
+              variant="marketplace"
+              analyticsSource={analyticsSource}
+            />
+          ))}
+        </div>
+        <div className="pointer-events-none absolute bottom-1 right-0 top-0 hidden w-[72px] items-center justify-end bg-gradient-to-r from-transparent to-white lg:flex" aria-hidden="true">
+          <div className="flex h-[62px] w-[62px] items-center justify-center rounded-full bg-white text-[42px] font-extralight leading-none text-[#3483fa] shadow-[0_2px_12px_rgba(0,0,0,0.08)]">›</div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function buildHeroBackgroundStyle(hero) {
+  const mode = hero?.backgroundMode || 'solid'
+  const imageMode = hero?.imageMode || 'cover'
+  const baseBackground =
+    mode === 'gradient'
+      ? `linear-gradient(120deg, ${hero?.gradientFrom || '#ffffff'}, ${hero?.gradientTo || '#f5f5f5'})`
+      : hero?.solidColor || '#ffffff'
+
+  return {
+    base: {
+      background: baseBackground,
+    },
+    image: hero?.imageUrl
+      ? {
+          backgroundImage: `url(${hero.imageUrl})`,
+          backgroundPosition: 'center',
+          backgroundRepeat: imageMode === 'repeat-x' ? 'repeat-x' : 'no-repeat',
+          backgroundSize: imageMode === 'repeat-x' ? 'auto 100%' : 'cover',
+          opacity: Number(hero?.imageOpacity ?? 1),
+        }
+      : null,
+    overlay: {
+      backgroundColor: hero?.overlayColor || '#ffffff',
+      opacity: Number(hero?.overlayOpacity ?? 0.18),
+    },
+  }
 }
 
 export function MercadoLivreStorefront({
@@ -28,16 +98,14 @@ export function MercadoLivreStorefront({
   categories = [],
 }) {
   const router = useRouter()
-  const [activeIndex, setActiveIndex] = useState(0)
-  const [activeSlideImageState, setActiveSlideImageState] = useState({ slideId: null, index: 0 })
   const [headerSolid, setHeaderSolid] = useState(false)
-  const [activeSection, setActiveSection] = useState('topo')
+  const [activeSection, setActiveSection] = useState('produtos')
   const [searchTerm, setSearchTerm] = useState(query)
   const [sortValue, setSortValue] = useState(sort)
   const [isSearching, setIsSearching] = useState(false)
-  const slides = featuredProducts.length ? featuredProducts : products.slice(0, 4)
-  const activeSlide = slides[activeIndex] || null
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
+  const recommendedProducts = featuredProducts.length ? featuredProducts : products.slice(0, 10)
+  const latestProducts = products.slice(0, 12)
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],
@@ -72,16 +140,11 @@ export function MercadoLivreStorefront({
     sobre: Sparkles,
     contato: Phone,
   }
-  const activeSlideImages = getStoreProductImages(activeSlide)
-  const activeSlideImageIndex = activeSlideImageState.slideId === activeSlide?.id ? activeSlideImageState.index : 0
   const hasCategoryContext = Boolean(categoryId && categoryLabel)
   const hasSearchContext = Boolean(query)
-  const heroTitle = hasCategoryContext ? `${categoryLabel} com atendimento direto e compra segura` : store.title
-  const heroDescription = hasCategoryContext
-    ? `Explore a selecao de ${categoryLabel} da ${store.name} com suporte direto da loja e compra final no Mercado Livre.`
-    : store.headline
-  const productsHeading = hasCategoryContext ? `${categoryLabel} da loja` : hasSearchContext ? 'Resultados da busca' : 'Produtos da loja'
-  const productsEyebrow = hasCategoryContext ? 'Categoria' : hasSearchContext ? 'Busca' : 'Catalogo'
+  const viewAllHref = buildStoreUrl(store.slug, '', 1, '', 'recent')
+  const hero = store.visualConfig?.hero || {}
+  const heroStyle = buildHeroBackgroundStyle(hero)
 
   useEffect(() => {
     setSearchTerm(query)
@@ -96,53 +159,22 @@ export function MercadoLivreStorefront({
   }, [query, categoryId, sort, page])
 
   useEffect(() => {
-    if (slides.length <= 1) {
-      return undefined
-    }
-
-    const interval = window.setInterval(() => {
-      setActiveIndex((current) => (current + 1) % slides.length)
-    }, 4200)
-
-    return () => window.clearInterval(interval)
-  }, [slides.length])
-
-  useEffect(() => {
     function handleScroll() {
-      setHeaderSolid(window.scrollY > 18)
+      setHeaderSolid(window.scrollY > 8)
+      const productsSection = document.getElementById('produtos')
+      const aboutSection = document.getElementById('sobre')
+      if (aboutSection && aboutSection.getBoundingClientRect().top < window.innerHeight * 0.35) {
+        setActiveSection('sobre')
+      } else if (productsSection && productsSection.getBoundingClientRect().top < window.innerHeight * 0.35) {
+        setActiveSection('produtos')
+      } else {
+        setActiveSection('topo')
+      }
     }
 
     handleScroll()
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
-
-  useEffect(() => {
-    const sectionIds = ['topo', 'produtos', 'sobre', 'contato']
-
-    function updateActiveSection() {
-      const viewportAnchor = window.innerHeight * 0.24
-      let nextSection = 'topo'
-
-      for (const sectionId of sectionIds.slice(1)) {
-        const section = document.getElementById(sectionId)
-        if (!section) continue
-        const rect = section.getBoundingClientRect()
-        if (rect.top - viewportAnchor <= 0) {
-          nextSection = sectionId
-        }
-      }
-
-      setActiveSection(nextSection)
-    }
-
-    updateActiveSection()
-    window.addEventListener('scroll', updateActiveSection, { passive: true })
-    window.addEventListener('resize', updateActiveSection)
-    return () => {
-      window.removeEventListener('scroll', updateActiveSection)
-      window.removeEventListener('resize', updateActiveSection)
-    }
   }, [])
 
   function handleAnchorNavigation(event, href) {
@@ -151,11 +183,10 @@ export function MercadoLivreStorefront({
     }
 
     event.preventDefault()
-    setActiveSection(href.replace('#', '') || 'topo')
-    const target = document.querySelector(href)
+    const target = document.querySelector(href === '#topo' ? '#produtos' : href)
     if (target instanceof HTMLElement) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    } else if (href === '#topo') {
+    } else {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   }
@@ -177,47 +208,11 @@ export function MercadoLivreStorefront({
     navigateStore('', '', 'recent', 1)
   }
 
-  function goToPreviousFeaturedImage() {
-    if (!activeSlideImages.length) {
-      return
-    }
-    setActiveSlideImageState({
-      slideId: activeSlide?.id ?? null,
-      index: (activeSlideImageIndex - 1 + activeSlideImages.length) % activeSlideImages.length,
-    })
-  }
-
-  function goToNextFeaturedImage() {
-    if (!activeSlideImages.length) {
-      return
-    }
-    setActiveSlideImageState({
-      slideId: activeSlide?.id ?? null,
-      index: (activeSlideImageIndex + 1) % activeSlideImages.length,
-    })
-  }
-
-  function goToPreviousSlide(event) {
-    event?.preventDefault?.()
-    event?.stopPropagation?.()
-    if (!slides.length) return
-    setActiveIndex((current) => (current - 1 + slides.length) % slides.length)
-    setActiveSlideImageState({ slideId: null, index: 0 })
-  }
-
-  function goToNextSlide(event) {
-    event?.preventDefault?.()
-    event?.stopPropagation?.()
-    if (!slides.length) return
-    setActiveIndex((current) => (current + 1) % slides.length)
-    setActiveSlideImageState({ slideId: null, index: 0 })
-  }
-
   return (
     <>
       <style jsx global>{`
         html {
-          scrollbar-color: #cbd5e1 #f8fafc;
+          scrollbar-color: #d1d5db #ffffff;
         }
 
         body::-webkit-scrollbar {
@@ -225,314 +220,123 @@ export function MercadoLivreStorefront({
         }
 
         body::-webkit-scrollbar-track {
-          background: #f8fafc;
+          background: #ffffff;
         }
 
         body::-webkit-scrollbar-thumb {
-          background: #cbd5e1;
-          border: 3px solid #f8fafc;
+          background: #d1d5db;
+          border: 3px solid #ffffff;
           border-radius: 999px;
         }
 
-        body::-webkit-scrollbar-thumb:hover {
-          background: #94a3b8;
-        }
       `}</style>
-      <div
-        className="min-h-screen scroll-smooth bg-[#f7f4ee] text-slate-900"
-        style={{ fontFamily: 'Inter, ui-sans-serif, system-ui, sans-serif' }}
-      >
+      <div className="min-h-screen scroll-smooth bg-white text-slate-950" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
         <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
 
-        <main>
-          <section id="topo" className="relative -mt-[112px] overflow-hidden pt-[136px] md:-mt-[108px] md:pt-[132px]">
-            <div
-              className="absolute inset-0"
-              style={{
-                background: `radial-gradient(circle at top left, ${palette.accentMuted}, transparent 30%), linear-gradient(180deg, rgba(255,255,255,0.72), rgba(247,244,238,0.42))`,
-              }}
-            />
-            <div className="relative mx-auto grid max-w-7xl gap-10 px-5 py-16 sm:px-7 lg:grid-cols-[1.05fr_0.95fr] lg:px-10 lg:py-20">
-              <motion.div
-                initial={{ opacity: 0, y: 22 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.25 }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="max-w-2xl"
-              >
-                <div
-                  className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]"
-                  style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}
-                >
-                  {hasCategoryContext ? `Categoria ${categoryLabel}` : 'Vitrine conectada'}
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: palette.accent }} />
-                </div>
-                <h1 className="mt-5 max-w-xl text-4xl font-semibold leading-[0.95] tracking-[-0.04em] text-slate-950 sm:text-6xl">
-                  {heroTitle}
-                </h1>
-                <p className="mt-5 max-w-xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">{heroDescription}</p>
-
-                <div className="mt-8 flex flex-wrap gap-3">
-                  <a
-                    href="#produtos"
-                    onClick={(event) => handleAnchorNavigation(event, '#produtos')}
-                    className="inline-flex h-12 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_28px_-20px_rgba(15,23,42,0.34)] backdrop-blur-md"
-                    style={{ backgroundColor: `${palette.accentDark}e6` }}
-                  >
-                    <LayoutGrid className="mr-2 h-4 w-4" />
-                    Ver produtos
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </a>
-                  {store.contactWhatsApp ? (
-                    <a
-                      href={`https://wa.me/${String(store.contactWhatsApp).replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex h-12 items-center justify-center rounded-xl border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900"
-                    >
-                      <MessageCircle className="mr-2 h-4 w-4" />
-                      Falar no WhatsApp
-                    </a>
-                  ) : null}
-                </div>
-
-                <div className="mt-8 flex flex-wrap gap-4 text-sm text-slate-600">
-                  {store.contactPhone ? (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-2">
-                      <Phone className="h-4 w-4" />
-                      {store.contactPhone}
-                    </div>
-                  ) : null}
-                  {store.contactAddress ? (
-                    <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white/70 px-3 py-2">
-                      <MapPin className="h-4 w-4" />
-                      {store.contactAddress}
-                    </div>
-                  ) : null}
-                </div>
-
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 26 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, amount: 0.2 }}
-                transition={{ duration: 0.52, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
-                className="grid gap-4"
-              >
-                <div className="p-2">
-                  {activeSlide ? (
-                    <Link
-                      href={`/loja/${store.slug}/produto/${activeSlide.slug}`}
-                      onClick={() => {
-                        trackStoreEvent({
-                          storeSlug: store.slug,
-                          type: 'product_open',
-                          source: 'featured',
-                          product: activeSlide,
-                          dedupeKey: `${store.slug}:product_open:featured:${activeSlide.slug}`,
-                        })
-                      }}
-                      className="grid w-full gap-4 text-left"
-                    >
-                      <div className="relative aspect-[4/3] overflow-hidden rounded-[12px] bg-[#e8edf4] shadow-[8px_10px_18px_rgba(15,23,42,0.18)]">
-                        {activeSlideImages[activeSlideImageIndex] ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={activeSlideImages[activeSlideImageIndex]}
-                            alt={activeSlide.title}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-full w-full object-cover"
-                          />
-                        ) : null}
-                        {activeSlideImages.length > 1 ? (
-                          <>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.preventDefault()
-                                event.stopPropagation()
-                                goToPreviousFeaturedImage()
-                              }}
-                              className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/94 text-slate-900 shadow-[0_16px_32px_-20px_rgba(15,23,42,0.24)] transition hover:scale-105"
-                              aria-label="Imagem anterior"
-                            >
-                              <ChevronRight className="h-4 w-4 rotate-180" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(event) => {
-                                event.preventDefault()
-                                event.stopPropagation()
-                                goToNextFeaturedImage()
-                              }}
-                              className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-white/94 text-slate-900 shadow-[0_16px_32px_-20px_rgba(15,23,42,0.24)] transition hover:scale-105"
-                              aria-label="Proxima imagem"
-                            >
-                              <ChevronRight className="h-4 w-4" />
-                            </button>
-                          </>
-                        ) : null}
-                      </div>
-                      <div className="rounded-[14px] px-1 py-1">
-                        <div className="mb-4 flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2">
-                            {slides.map((item, index) => (
-                              <button
-                                key={`${item.id}-slide-${index}`}
-                                type="button"
-                                onClick={(event) => {
-                                  event.preventDefault()
-                                  event.stopPropagation()
-                                  setActiveIndex(index)
-                                  setActiveSlideImageState({ slideId: null, index: 0 })
-                                }}
-                                className="h-2.5 rounded-full transition-all"
-                                style={{
-                                  width: index === activeIndex ? 28 : 10,
-                                  backgroundColor: index === activeIndex ? palette.accentDark : '#cbd5e1',
-                                }}
-                                aria-label={`Ver destaque ${index + 1}`}
-                              />
-                            ))}
-                          </div>
-                          {slides.length > 1 ? (
-                            <div className="flex items-center gap-2">
-                              <button
-                                type="button"
-                                onClick={goToPreviousSlide}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] bg-white text-slate-900 shadow-[0_8px_18px_-12px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5"
-                                aria-label="Destaque anterior"
-                              >
-                                <ChevronLeft className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={goToNextSlide}
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-[12px] bg-white text-slate-900 shadow-[0_8px_18px_-12px_rgba(15,23,42,0.28)] transition hover:-translate-y-0.5"
-                                aria-label="Proximo destaque"
-                              >
-                                <ChevronRight className="h-4 w-4" />
-                              </button>
-                            </div>
-                          ) : null}
-                        </div>
-                      </div>
-                    </Link>
-                  ) : (
-                    <div className="rounded-[18px] border border-dashed border-slate-200 px-6 py-12 text-center text-sm text-slate-500">
-                      Escolha produtos em destaque na aba Loja do Mercado Livre.
-                    </div>
-                  )}
-                </div>
-              </motion.div>
+        <main id="topo" className="pb-12">
+          <section className="relative min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
+            {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
+            <div className="absolute inset-0" style={heroStyle.overlay} />
+            <div className="relative mx-auto max-w-[1228px] px-3 py-8 sm:px-4 lg:px-3">
+              <div className="max-w-xl">
+                <div className="text-[13px] font-semibold text-slate-600">Loja oficial</div>
+                <h1 className="mt-1 text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">{store.name}</h1>
+                {store.headline ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{store.headline}</p> : null}
+              </div>
             </div>
           </section>
 
-          <section id="produtos" className="mx-auto max-w-7xl px-5 py-16 sm:px-7 lg:px-10">
-            <div className="flex flex-col gap-6">
-              <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-                <div>
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: palette.accentDark }}>{productsEyebrow}</div>
-                  <h2 className="mt-2 text-3xl font-semibold text-slate-950">{productsHeading}</h2>
-                  {hasSearchContext || hasCategoryContext ? (
-                    <button
-                      type="button"
-                      onClick={handleResetCatalog}
-                      className="mt-3 inline-flex items-center gap-2 text-sm font-medium transition hover:opacity-80"
-                      style={{ color: palette.accentDark }}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Ver todos os produtos
-                    </button>
-                  ) : null}
-                </div>
-
-                <form onSubmit={handleSearchSubmit} className="grid w-full max-w-3xl grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-2xl p-2 shadow-[0_18px_36px_-32px_rgba(15,23,42,0.12)] md:flex md:items-center md:gap-3">
-                  <div className="flex min-w-0 flex-1 items-center gap-3 px-3">
-                    <Search className="h-4 w-4 text-slate-400" />
-                    <input
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.target.value)}
-                      placeholder="Buscar produto na loja"
-                      className="h-11 min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={isSearching}
-                    className="inline-flex h-11 items-center justify-center rounded-xl px-3 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(15,23,42,0.24)] md:order-4 md:px-5"
-                    style={{ backgroundColor: palette.accentDark, opacity: isSearching ? 0.82 : 1 }}
-                  >
-                    {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                    {isSearching ? 'Buscando...' : 'Buscar'}
-                  </button>
-                  <div className="col-span-2 grid grid-cols-2 gap-2 md:contents">
-                    {categoryOptions.length > 1 ? (
-                      <div className="min-w-0 md:min-w-[220px]">
-                        <AppSelect
-                          options={categoryOptions}
-                          value={categoryId}
-                          onChangeValue={(value) => {
-                            setIsSearching(true)
-                            navigateStore(searchTerm, value || '', sortValue, 1)
-                          }}
-                          placeholder="Categoria"
-                          minHeight={40}
-                          tone="light"
-                          accentColor={palette.accent}
-                        />
-                      </div>
-                    ) : null}
-                    <div className="min-w-0 md:min-w-[220px]">
-                      <AppSelect
-                        options={sortOptions}
-                        value={sortValue}
-                        onChangeValue={(value) => {
-                          const nextValue = value || 'recent'
-                          setSortValue(nextValue)
-                          setIsSearching(true)
-                          navigateStore(searchTerm, categoryId, nextValue, 1)
-                        }}
-                        placeholder="Ordenar"
-                        minHeight={40}
-                        tone="light"
-                        accentColor={palette.accent}
-                      />
-                    </div>
-                  </div>
-                </form>
+          <section id="produtos" className="mx-auto -mt-4 max-w-[1228px] scroll-mt-24 px-3 sm:px-4 lg:px-3">
+            {hasSearchContext || hasCategoryContext ? (
+              <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
+                {hasSearchContext ? <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Busca: {query}</span> : null}
+                {hasCategoryContext ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-slate-700">
+                    <Tag className="h-3.5 w-3.5" />
+                    {categoryLabel}
+                  </span>
+                ) : null}
+                <button type="button" onClick={handleResetCatalog} className="inline-flex items-center gap-1 px-1 text-[#3483fa]">
+                  <ChevronLeft className="h-4 w-4" />
+                  limpar filtros
+                </button>
               </div>
+            ) : null}
 
-              {categoryId && categoryLabel ? (
-                <div className="inline-flex w-fit items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm text-slate-700 shadow-[0_10px_20px_-16px_rgba(15,23,42,0.2)]">
-                  <Tag className="h-4 w-4" style={{ color: palette.accentDark }} />
-                  {categoryLabel}
-                </div>
-              ) : null}
-            </div>
+            <ProductRow
+              title="Adicionados por ultimo"
+              products={latestProducts}
+              storeSlug={store.slug}
+              accentColor={store.accentColor}
+              analyticsSource="latest_row"
+              viewAllHref={viewAllHref}
+            />
 
-            {products.length ? (
-              <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                {products.map((product) => (
-                  <StoreProductCard
-                    key={product.id}
-                    storeSlug={store.slug}
-                    product={product}
-                    accentColor={store.accentColor}
-                    analyticsSource="catalog_grid"
+            <ProductRow
+              title="Produtos recomendados"
+              products={recommendedProducts}
+              storeSlug={store.slug}
+              accentColor={store.accentColor}
+              analyticsSource="recommended_row"
+              viewAllHref={viewAllHref}
+            />
+
+            <form onSubmit={handleSearchSubmit} className="mt-8 grid w-full gap-2 rounded-[6px] border border-slate-100 bg-white p-3 shadow-sm sm:grid-cols-[minmax(0,1fr)_auto]">
+              <div className="flex min-w-0 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3">
+                <Search className="h-4 w-4 text-slate-400" />
+                <input
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder="Buscar produto na loja"
+                  className="h-10 min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={isSearching}
+                className="inline-flex h-10 items-center justify-center rounded-[4px] bg-[#3483fa] px-4 text-sm font-semibold text-white transition hover:bg-[#2968c8] disabled:opacity-70"
+              >
+                {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                Buscar
+              </button>
+              <div className="grid grid-cols-2 gap-2 sm:col-span-2">
+                {categoryOptions.length > 1 ? (
+                  <AppSelect
+                    options={categoryOptions}
+                    value={categoryId}
+                    onChangeValue={(value) => {
+                      setIsSearching(true)
+                      navigateStore(searchTerm, value || '', sortValue, 1)
+                    }}
+                    placeholder="Categoria"
+                    minHeight={38}
+                    tone="light"
+                    accentColor={palette.accent}
                   />
-                ))}
+                ) : null}
+                <AppSelect
+                  options={sortOptions}
+                  value={sortValue}
+                  onChangeValue={(value) => {
+                    const nextValue = value || 'recent'
+                    setSortValue(nextValue)
+                    setIsSearching(true)
+                    navigateStore(searchTerm, categoryId, nextValue, 1)
+                  }}
+                  placeholder="Ordenar"
+                  minHeight={38}
+                  tone="light"
+                  accentColor={palette.accent}
+                />
               </div>
-            ) : (
-              <div className="mt-8 rounded-[24px] border border-dashed border-black/10 bg-white/90 px-6 py-14 text-center shadow-[0_18px_40px_-38px_rgba(15,23,42,0.16)]">
+            </form>
+
+            {!products.length ? (
+              <div className="mt-8 rounded-[6px] border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
                 <div className="text-lg font-semibold text-slate-950">Nenhum produto encontrado</div>
-                <div className="mx-auto mt-3 max-w-xl text-sm leading-7 text-slate-600">
-                  Ajuste a busca ou os filtros para encontrar outros itens da loja.
-                </div>
+                <div className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Ajuste a busca ou os filtros para encontrar outros itens da loja.</div>
               </div>
-            )}
+            ) : null}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="text-sm text-slate-500">Pagina {page}</div>
@@ -544,7 +348,7 @@ export function MercadoLivreStorefront({
                       setIsSearching(true)
                       navigateStore(searchTerm, categoryId, sortValue, page - 1)
                     }}
-                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl bg-white px-5 text-sm font-semibold text-slate-900 shadow-[0_14px_30px_-28px_rgba(15,23,42,0.18)] sm:flex-none"
+                    className="inline-flex h-10 flex-1 items-center justify-center rounded-[4px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 sm:flex-none"
                   >
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     Anterior
@@ -557,8 +361,7 @@ export function MercadoLivreStorefront({
                       setIsSearching(true)
                       navigateStore(searchTerm, categoryId, sortValue, page + 1)
                     }}
-                    className="inline-flex h-11 flex-1 items-center justify-center rounded-xl px-5 text-sm font-semibold text-white shadow-[0_18px_30px_-22px_rgba(15,23,42,0.24)] sm:flex-none"
-                    style={{ backgroundColor: palette.accentDark }}
+                    className="inline-flex h-10 flex-1 items-center justify-center rounded-[4px] bg-[#3483fa] px-4 text-sm font-semibold text-white sm:flex-none"
                   >
                     Proxima
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -568,50 +371,43 @@ export function MercadoLivreStorefront({
             </div>
           </section>
 
-          <section id="sobre" className="mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10">
-            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[24px] bg-white p-8 shadow-[0_20px_46px_-38px_rgba(15,23,42,0.16)]">
-                <div className="text-xs uppercase tracking-[0.22em] text-slate-500">Sobre nos</div>
-                <div className="mt-4 text-lg leading-8 text-slate-700">{store.about}</div>
+          <section id="sobre" className="mx-auto mt-12 grid max-w-[1228px] scroll-mt-24 gap-4 border-t border-slate-100 px-3 pt-8 sm:px-4 lg:grid-cols-[1.1fr_0.9fr] lg:px-3">
+            <div>
+              <div className="text-xl font-bold text-slate-950">Sobre a loja</div>
+              <div className="mt-3 text-sm leading-7 text-slate-700">{store.about}</div>
+            </div>
+            <div id="contato">
+              <div className="text-xl font-bold text-slate-950">Contato</div>
+              <div className="mt-3 grid gap-3 text-sm text-slate-700">
+                {store.contactEmail ? <div className="inline-flex items-center gap-3"><AtSign className="h-4 w-4 text-slate-500" />{store.contactEmail}</div> : null}
+                {store.contactPhone ? <div className="inline-flex items-center gap-3"><Phone className="h-4 w-4 text-slate-500" />{store.contactPhone}</div> : null}
+                {store.contactWhatsApp ? <div className="inline-flex items-center gap-3"><MessageCircle className="h-4 w-4 text-slate-500" />{store.contactWhatsApp}</div> : null}
+                {store.contactAddress ? <div className="inline-flex items-center gap-3"><MapPin className="h-4 w-4 text-slate-500" />{store.contactAddress}</div> : null}
               </div>
-              <div id="contato" className="rounded-[24px] bg-white p-8 shadow-[0_20px_46px_-38px_rgba(15,23,42,0.16)]">
-                <div className="text-xs uppercase tracking-[0.22em] text-slate-500">Contato</div>
-                <div className="mt-4 grid gap-4 text-sm text-slate-700">
-                  {store.contactEmail ? <div className="inline-flex items-center gap-3"><AtSign className="h-4 w-4 text-slate-500" />{store.contactEmail}</div> : null}
-                  {store.contactPhone ? <div className="inline-flex items-center gap-3"><Phone className="h-4 w-4 text-slate-500" />{store.contactPhone}</div> : null}
-                  {store.contactWhatsApp ? <div className="inline-flex items-center gap-3"><MessageCircle className="h-4 w-4 text-slate-500" />{store.contactWhatsApp}</div> : null}
-                  {store.contactAddress ? <div className="inline-flex items-center gap-3"><MapPin className="h-4 w-4 text-slate-500" />{store.contactAddress}</div> : null}
-                </div>
 
-                <div className="mt-6 flex flex-wrap gap-3">
-                  {socialEntries.map(([key, value]) => (
-                    <a key={key} href={value} target="_blank" rel="noreferrer" className="inline-flex h-11 items-center gap-2 rounded-xl border border-black/10 bg-[#faf7f0] px-4 text-sm font-medium capitalize text-slate-900 transition hover:-translate-y-0.5 hover:bg-white">
-                      {(() => {
-                        const Icon = socialIcons[key] || Globe
-                        return <Icon className="h-4 w-4" />
-                      })()}
-                      {key}
-                    </a>
-                  ))}
-                </div>
+              <div className="mt-5 flex flex-wrap gap-2">
+                {socialEntries.map(([key, value]) => (
+                  <a key={key} href={value} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-sm font-medium capitalize text-slate-900 transition hover:border-slate-300">
+                    {(() => {
+                      const Icon = socialIcons[key] || Globe
+                      return <Icon className="h-4 w-4" />
+                    })()}
+                    {key}
+                  </a>
+                ))}
               </div>
             </div>
           </section>
         </main>
 
-        <footer className="mt-16" style={{ backgroundColor: palette.accentSoft }}>
-          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:px-7 lg:grid-cols-[1fr_auto] lg:px-10">
+        <footer className="border-t border-slate-100 bg-white">
+          <div className="mx-auto grid max-w-[1228px] gap-6 px-3 py-8 sm:px-4 lg:grid-cols-[1fr_auto]">
             <div>
-              <div className="text-lg font-semibold text-slate-950">{store.name}</div>
-              <div className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{store.footerText}</div>
-              <a
-                href="https://www.infrastudio.pro"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-6 inline-flex flex-col items-start transition hover:opacity-100"
-              >
-                <span className="text-base font-semibold tracking-[-0.02em] text-slate-950">InfraStudio</span>
-                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Sistema e automacao com IA</span>
+              <div className="text-base font-semibold text-slate-950">{store.name}</div>
+              <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{store.footerText}</div>
+              <a href="https://www.infrastudio.pro" target="_blank" rel="noreferrer" className="mt-4 inline-flex flex-col items-start transition hover:opacity-80">
+                <span className="text-sm font-semibold text-slate-950">InfraStudio</span>
+                <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Sistema e automacao com IA</span>
               </a>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -634,7 +430,6 @@ export function MercadoLivreStorefront({
           </div>
         </footer>
       </div>
-
     </>
   )
 }

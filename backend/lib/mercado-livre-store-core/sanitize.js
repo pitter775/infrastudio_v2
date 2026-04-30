@@ -101,6 +101,44 @@ function sanitizeSocialLinks(value) {
   }, {})
 }
 
+function clampNumber(value, fallback, min, max) {
+  const number = Number(value)
+  if (!Number.isFinite(number)) {
+    return fallback
+  }
+
+  return Math.max(min, Math.min(max, number))
+}
+
+function sanitizeHeroBackgroundMode(value) {
+  return ["image", "solid", "gradient"].includes(value) ? value : "solid"
+}
+
+function sanitizeHeroImageMode(value) {
+  return value === "repeat-x" ? "repeat-x" : "cover"
+}
+
+function sanitizeVisualConfig(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : {}
+  const inputHero = source.hero && typeof source.hero === "object" && !Array.isArray(source.hero) ? source.hero : source
+
+  return {
+    logoStoragePath: sanitizeText(source.logoStoragePath, 500),
+    hero: {
+      backgroundMode: sanitizeHeroBackgroundMode(sanitizeText(inputHero.backgroundMode || inputHero.mode, 20)),
+      imageUrl: sanitizeText(inputHero.imageUrl, 500),
+      imageStoragePath: sanitizeText(inputHero.imageStoragePath, 500),
+      imageOpacity: clampNumber(inputHero.imageOpacity, 1, 0, 1),
+      imageMode: sanitizeHeroImageMode(sanitizeText(inputHero.imageMode, 20)),
+      solidColor: sanitizeColor(inputHero.solidColor || inputHero.color || "#f5f5f5"),
+      gradientFrom: sanitizeColor(inputHero.gradientFrom || "#ffffff"),
+      gradientTo: sanitizeColor(inputHero.gradientTo || "#f5f5f5"),
+      overlayColor: sanitizeColor(inputHero.overlayColor || "#ffffff"),
+      overlayOpacity: clampNumber(inputHero.overlayOpacity, 0.18, 0, 1),
+    },
+  }
+}
+
 function sanitizeFeaturedProducts(value) {
   const list = Array.isArray(value) ? value : []
   return list
@@ -147,6 +185,7 @@ function normalizeStore(row, project = null) {
       "Somos uma loja conectada ao Mercado Livre com atendimento mais rapido, vitrine atualizada e suporte direto pelo chat.",
     accentColor: sanitizeColor(row?.cor_primaria),
     logoUrl: sanitizeText(row?.logo_url, 500),
+    visualConfig: sanitizeVisualConfig(row?.visual_config),
     theme: "light",
     active: row?.ativo === true,
     chatWidgetActive: row?.chat_widget_ativo !== false,
@@ -249,6 +288,7 @@ export {
   sanitizeMenuLinks,
   sanitizePhone,
   sanitizeSocialLinks,
+  sanitizeVisualConfig,
   sanitizeText,
   slugify,
   slugifyProduct,

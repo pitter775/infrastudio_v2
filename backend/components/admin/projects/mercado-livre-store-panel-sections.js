@@ -1,6 +1,6 @@
 'use client'
 
-import { Copy, Database, ExternalLink, Globe, Phone, RefreshCcw, Search } from 'lucide-react'
+import { Copy, Database, ExternalLink, Globe, ImageUp, Phone, RefreshCcw, Search } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
@@ -121,7 +121,44 @@ export function StoreGeneralSection({
   )
 }
 
-export function StoreAppearanceSection({ draft, setDraft }) {
+function updateHeroConfig(setDraft, patch) {
+  setDraft((current) => ({
+    ...current,
+    visualConfig: {
+      ...(current.visualConfig || {}),
+      hero: {
+        ...(current.visualConfig?.hero || {}),
+        ...patch,
+      },
+    },
+  }))
+}
+
+function StoreAssetUpload({ accept = 'image/png,image/jpeg,image/webp', disabled, label, onChange }) {
+  return (
+    <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06]">
+      <ImageUp className="h-4 w-4" />
+      {disabled ? 'Enviando...' : label}
+      <input
+        type="file"
+        accept={accept}
+        disabled={disabled}
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+          if (file) onChange(file)
+        }}
+        className="sr-only"
+      />
+    </label>
+  )
+}
+
+export function StoreAppearanceSection({ assetUploading = null, draft, setDraft, onAssetUpload }) {
+  const hero = draft.visualConfig?.hero || {}
+  const heroBackgroundMode = hero.backgroundMode || 'solid'
+  const heroImageMode = hero.imageMode || 'cover'
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <StorePanelField label="Cor predominante">
@@ -143,6 +180,22 @@ export function StoreAppearanceSection({ draft, setDraft }) {
         onChange={(event) => setDraft((current) => ({ ...current, logoUrl: event.target.value }))}
         placeholder="https://..."
       />
+      <StorePanelField label="Upload do logo">
+        <div className="grid gap-3 rounded-xl border border-white/10 bg-[#080e1d] p-3">
+          <StoreAssetUpload
+            disabled={assetUploading === 'logo'}
+            label="Enviar logo"
+            onChange={(file) => onAssetUpload?.('logo', file)}
+          />
+          {draft.logoUrl ? (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={draft.logoUrl} alt="Preview do logo" className="h-12 w-12 rounded-xl object-cover" />
+              <span className="break-all text-xs text-slate-400">{draft.logoUrl}</span>
+            </div>
+          ) : null}
+        </div>
+      </StorePanelField>
       <StorePanelToggle
         checked={draft.chatWidgetActive}
         onChange={(value) => setDraft((current) => ({ ...current, chatWidgetActive: value }))}
@@ -161,6 +214,122 @@ export function StoreAppearanceSection({ draft, setDraft }) {
       </StorePanelToggle>
       <div className="md:col-span-2 rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 text-xs leading-6 text-slate-400">
         Quando ligar, a pagina de detalhe do produto envia a descricao longa completa e uma ficha mais ampla do anuncio para o agente. Desligado, o chat continua no modo resumido atual.
+      </div>
+      <div className="md:col-span-2 rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+        <div className="mb-4 text-sm font-semibold text-white">Hero da loja</div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <StorePanelField label="Tipo de fundo">
+            <select
+              value={heroBackgroundMode}
+              onChange={(event) => updateHeroConfig(setDraft, { backgroundMode: event.target.value })}
+              className="h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30"
+            >
+              <option value="solid">Cor solida</option>
+              <option value="gradient">Gradiente</option>
+              <option value="image">Imagem</option>
+            </select>
+          </StorePanelField>
+          <StorePanelField label="Cor solida">
+            <input
+              type="color"
+              value={hero.solidColor || '#ffffff'}
+              onChange={(event) => updateHeroConfig(setDraft, { solidColor: event.target.value })}
+              className="h-11 w-full cursor-pointer rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2"
+            />
+          </StorePanelField>
+          <StorePanelField label="Modo da imagem">
+            <select
+              value={heroImageMode}
+              onChange={(event) => updateHeroConfig(setDraft, { imageMode: event.target.value })}
+              className="h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30"
+            >
+              <option value="cover">Cobrir hero</option>
+              <option value="repeat-x">Infinito lateral</option>
+            </select>
+          </StorePanelField>
+          <StorePanelField label="Gradiente inicio">
+            <input
+              type="color"
+              value={hero.gradientFrom || '#ffffff'}
+              onChange={(event) => updateHeroConfig(setDraft, { gradientFrom: event.target.value })}
+              className="h-11 w-full cursor-pointer rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2"
+            />
+          </StorePanelField>
+          <StorePanelField label="Gradiente fim">
+            <input
+              type="color"
+              value={hero.gradientTo || '#f5f5f5'}
+              onChange={(event) => updateHeroConfig(setDraft, { gradientTo: event.target.value })}
+              className="h-11 w-full cursor-pointer rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2"
+            />
+          </StorePanelField>
+          <StorePanelField label="Upload do fundo">
+            <StoreAssetUpload
+              disabled={assetUploading === 'hero'}
+              label="Enviar fundo"
+              onChange={(file) => onAssetUpload?.('hero', file)}
+            />
+          </StorePanelField>
+          <StorePanelInput
+            label="Imagem do hero URL"
+            value={hero.imageUrl || ''}
+            onChange={(event) => updateHeroConfig(setDraft, { imageUrl: event.target.value, imageStoragePath: '' })}
+            placeholder="https://..."
+          />
+          <StorePanelField label={`Transparencia da imagem ${Math.round(Number(hero.imageOpacity ?? 1) * 100)}%`}>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={Number(hero.imageOpacity ?? 1)}
+              onChange={(event) => updateHeroConfig(setDraft, { imageOpacity: Number(event.target.value) })}
+              className="h-11 w-full"
+            />
+          </StorePanelField>
+          <StorePanelField label={`Overlay ${Math.round(Number(hero.overlayOpacity ?? 0.18) * 100)}%`}>
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.05"
+              value={Number(hero.overlayOpacity ?? 0.18)}
+              onChange={(event) => updateHeroConfig(setDraft, { overlayOpacity: Number(event.target.value) })}
+              className="h-11 w-full"
+            />
+          </StorePanelField>
+        </div>
+        <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-[#080e1d]">
+          <div
+            className="relative min-h-[150px]"
+            style={{
+              background:
+                heroBackgroundMode === 'gradient'
+                  ? `linear-gradient(120deg, ${hero.gradientFrom || '#ffffff'}, ${hero.gradientTo || '#f5f5f5'})`
+                  : hero.solidColor || '#ffffff',
+            }}
+          >
+            {hero.imageUrl ? (
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${hero.imageUrl})`,
+                  backgroundPosition: 'center',
+                  backgroundRepeat: heroImageMode === 'repeat-x' ? 'repeat-x' : 'no-repeat',
+                  backgroundSize: heroImageMode === 'repeat-x' ? 'auto 100%' : 'cover',
+                  opacity: Number(hero.imageOpacity ?? 1),
+                }}
+              />
+            ) : null}
+            <div
+              className="absolute inset-0"
+              style={{
+                backgroundColor: hero.overlayColor || '#ffffff',
+                opacity: Number(hero.overlayOpacity ?? 0.18),
+              }}
+            />
+          </div>
+        </div>
       </div>
       <div className="md:col-span-2">
         <StorePanelTextarea

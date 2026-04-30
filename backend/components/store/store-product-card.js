@@ -11,7 +11,16 @@ function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
 }
 
-export function StoreProductCard({ storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card' }) {
+function formatMarketplaceInstallment(price, currencyId) {
+  const installmentValue = Number(price || 0) / 12
+  if (!Number.isFinite(installmentValue) || installmentValue <= 0) {
+    return ''
+  }
+
+  return `12x ${formatStoreCurrency(installmentValue, currencyId)}`
+}
+
+export function StoreProductCard({ storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card', variant = 'default' }) {
   const href = buildStoreProductHref(storeSlug, product)
   const images = getStoreProductImages(product)
   const [imageIndex, setImageIndex] = useState(0)
@@ -29,6 +38,77 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
     (visibleCategoryLabel
       ? `Produto publicado na categoria ${visibleCategoryLabel.toLowerCase()} com checkout final no Mercado Livre.`
       : 'Produto publicado com checkout final no Mercado Livre e atendimento direto pela loja.')
+  const marketplaceInstallment = formatMarketplaceInstallment(product.price, product.currencyId)
+
+  if (variant === 'marketplace') {
+    return (
+      <div>
+        <Link
+          href={href}
+          onClick={() => {
+            setIsOpening(true)
+            trackStoreEvent({
+              storeSlug,
+              type: 'product_open',
+              source: analyticsSource,
+              product,
+              dedupeKey: `${storeSlug}:product_open:${analyticsSource}:${product.slug}`,
+            })
+          }}
+          aria-busy={isOpening}
+          className="group relative flex h-full min-h-[366px] flex-col overflow-hidden rounded-[6px] border border-[#eeeeee] bg-white text-left shadow-[0_1px_3px_rgba(0,0,0,0.12)] transition duration-200 hover:shadow-[0_7px_16px_rgba(0,0,0,0.14)]"
+        >
+          {isOpening ? (
+            <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/72 backdrop-blur-[2px]">
+              <div className="inline-flex items-center gap-2 rounded-[4px] bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-[0_8px_18px_rgba(0,0,0,0.12)]">
+                <Loader2 className="h-4 w-4 animate-spin" style={{ color: palette.accentDark }} />
+                Abrindo
+              </div>
+            </div>
+          ) : null}
+
+          <div className="relative h-[224px] shrink-0 overflow-hidden bg-[#f5f5f5]">
+            {image ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={image} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
+            ) : null}
+
+            {hasGallery ? (
+              <>
+                <button
+                  type="button"
+                  onClick={showPreviousImage}
+                  className="absolute left-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition hover:scale-105 group-hover:inline-flex"
+                  aria-label="Imagem anterior"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={showNextImage}
+                  className="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition hover:scale-105 group-hover:inline-flex"
+                  aria-label="Proxima imagem"
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </button>
+              </>
+            ) : null}
+          </div>
+
+          <div className="flex flex-1 flex-col px-3 pb-3 pt-3">
+            <div className="line-clamp-2 min-h-[40px] text-[14px] font-normal leading-5 text-[#333333]">{product.title}</div>
+            <div className="mt-3 flex items-start gap-0.5 text-[#333333]">
+              <span className="text-[23px] font-normal leading-none">{formatStoreCurrency(product.price, product.currencyId).replace(/\s/g, ' ')}</span>
+            </div>
+            {marketplaceInstallment ? <div className="mt-1 text-[12px] leading-4 text-[#333333]">{marketplaceInstallment}</div> : null}
+            <div className="mt-2 text-[12px] font-semibold leading-4 text-[#00a650]">
+              Frete gratis <span className="font-normal text-[#777777]">por ser sua primeira compra</span>
+            </div>
+          </div>
+        </Link>
+      </div>
+    )
+  }
 
   function showPreviousImage(event) {
     event.preventDefault()
