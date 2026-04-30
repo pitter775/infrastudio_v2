@@ -629,3 +629,7 @@ Ainda errado / fragil:
   - `load more` passa a paginar sobre a mesma base filtrada da vitrine, em vez de concluir cedo sobre um recorte curto da conta
 - a acao estruturada `Ver mais opcoes` do widget agora pode seguir sem bolha azul do usuario
   - isso evita poluicao visual e reduz a sensacao de ordem quebrada nas mensagens quando a continuidade veio de clique controlado
+- etapas semanticas auxiliares agora falham fechado quando a OpenAI retorna JSON truncado/invalido
+  - `semantic-intent-stage.js` passou a parsear JSON de resposta com fallback `null` em vez de derrubar o turno inteiro
+  - a extracao de pricing/business ganhou limite de saida maior para reduzir truncamento em prompts longos
+  - isso fecha o caso em que o widget mostrava `Nao consegui responder agora.` apos erro `Unterminated string in JSON`

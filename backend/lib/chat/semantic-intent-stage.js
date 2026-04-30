@@ -11,6 +11,19 @@ function extractResponseText(payload) {
   )
 }
 
+function parseResponseJson(payload) {
+  const rawText = extractResponseText(payload)
+  if (!rawText) {
+    return null
+  }
+
+  try {
+    return JSON.parse(rawText)
+  } catch {
+    return null
+  }
+}
+
 export function buildCatalogDecisionFromSemanticIntent(input) {
   const semanticIntent = input?.semanticIntent
   const recentProducts = Array.isArray(input?.recentProducts) ? input.recentProducts : []
@@ -335,7 +348,7 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
           },
         },
       },
-      max_output_tokens: 300,
+      max_output_tokens: 900,
     }),
   })
 
@@ -344,12 +357,9 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
   }
 
   const payload = await response.json().catch(() => null)
-  const rawText = extractResponseText(payload)
-  if (!rawText) {
-    return null
-  }
+  const parsed = parseResponseJson(payload)
+  if (!parsed) return null
 
-  const parsed = JSON.parse(rawText)
   const items = Array.isArray(parsed?.items)
     ? parsed.items
         .map((item) => ({
@@ -446,7 +456,7 @@ export async function extractSemanticBusinessRuntimeFromAgentText(input = {}) {
           },
         },
       },
-      max_output_tokens: 260,
+      max_output_tokens: 520,
     }),
   })
 
@@ -455,12 +465,9 @@ export async function extractSemanticBusinessRuntimeFromAgentText(input = {}) {
   }
 
   const payload = await response.json().catch(() => null)
-  const rawText = extractResponseText(payload)
-  if (!rawText) {
-    return null
-  }
+  const parsed = parseResponseJson(payload)
+  if (!parsed) return null
 
-  const parsed = JSON.parse(rawText)
   const services = Array.isArray(parsed?.business?.services)
     ? parsed.business.services.map((item) => sanitizeString(item)).filter(Boolean)
     : []
@@ -643,12 +650,9 @@ export async function classifySemanticIntentStage(input = {}) {
   }
 
   const payload = await response.json().catch(() => null)
-  const rawText = extractResponseText(payload)
-  if (!rawText) {
-    return null
-  }
+  const parsed = parseResponseJson(payload)
+  if (!parsed) return null
 
-  const parsed = JSON.parse(rawText)
   return {
     intent: sanitizeString(parsed?.intent),
     confidence: Number(parsed?.confidence ?? 0) || 0,
@@ -791,12 +795,9 @@ export async function classifySemanticBillingIntentStage(input = {}) {
   }
 
   const payload = await response.json().catch(() => null)
-  const rawText = extractResponseText(payload)
-  if (!rawText) {
-    return null
-  }
+  const parsed = parseResponseJson(payload)
+  if (!parsed) return null
 
-  const parsed = JSON.parse(rawText)
   return {
     intent: sanitizeString(parsed?.intent),
     confidence: Number(parsed?.confidence ?? 0) || 0,
@@ -916,12 +917,9 @@ export async function classifySemanticApiIntentStage(input = {}) {
   }
 
   const payload = await response.json().catch(() => null)
-  const rawText = extractResponseText(payload)
-  if (!rawText) {
-    return null
-  }
+  const parsed = parseResponseJson(payload)
+  if (!parsed) return null
 
-  const parsed = JSON.parse(rawText)
   return {
     intent: sanitizeString(parsed?.intent),
     confidence: Number(parsed?.confidence ?? 0) || 0,
