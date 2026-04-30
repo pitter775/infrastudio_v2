@@ -15,8 +15,9 @@ function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
 }
 
-function ProductRow({ accentColor, analyticsSource, products, storeSlug, title, viewAllHref = null }) {
+function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }) {
   const rowRef = useRef(null)
+  const palette = buildStoreAccentPalette(accentColor)
 
   if (!products.length) {
     return null
@@ -34,20 +35,40 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title, 
     })
   }
 
+  function scrollPrevious() {
+    const row = rowRef.current
+    if (!row) {
+      return
+    }
+
+    row.scrollBy({
+      left: -Math.max(260, row.clientWidth * 0.86),
+      behavior: 'smooth',
+    })
+  }
+
   return (
     <section className="mt-[30px]">
       <div className="mb-3 flex items-baseline gap-2.5">
         <h2 className="text-[20px] font-bold leading-tight text-[#111827]">{title}</h2>
-        {viewAllHref ? (
-          <Link href={viewAllHref} className="text-[12px] font-medium text-[#2563eb]">
-            Ver mais
-          </Link>
-        ) : null}
       </div>
       <div className="relative">
+        <button
+          type="button"
+          onClick={scrollPrevious}
+          className="absolute bottom-4 left-0 top-4 z-20 hidden w-[58px] items-center justify-start bg-gradient-to-l from-transparent to-white lg:flex"
+          aria-label={`Voltar ${title}`}
+        >
+          <span
+            className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.07)] transition hover:scale-105"
+            style={{ color: palette.accentDark }}
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </span>
+        </button>
         <div
           ref={rowRef}
-          className="grid auto-cols-[calc((100%_-_10px)_/_2)] snap-x snap-mandatory grid-flow-col gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-1 py-3 touch-pan-x [scrollbar-width:none] sm:auto-cols-[calc((100%_-_20px)_/_3)] md:auto-cols-[calc((100%_-_30px)_/_4)] lg:auto-cols-[calc((100%_-_40px)_/_5)] [&::-webkit-scrollbar]:hidden"
+          className="grid auto-cols-[calc((100%_-_10px)_/_2)] snap-x snap-mandatory grid-flow-col gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-2 py-5 touch-pan-x [scrollbar-width:none] sm:auto-cols-[calc((100%_-_20px)_/_3)] md:auto-cols-[calc((100%_-_30px)_/_4)] lg:auto-cols-[calc((100%_-_40px)_/_5)] [&::-webkit-scrollbar]:hidden"
         >
           {products.map((product) => (
             <StoreProductCard
@@ -64,11 +85,14 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title, 
         <button
           type="button"
           onClick={scrollNext}
-          className="absolute bottom-3 right-0 top-3 z-20 hidden w-[72px] items-center justify-end bg-gradient-to-r from-transparent to-white lg:flex"
+          className="absolute bottom-4 right-0 top-4 z-20 hidden w-[58px] items-center justify-end bg-gradient-to-r from-transparent to-white lg:flex"
           aria-label={`Avancar ${title}`}
         >
-          <span className="flex h-[62px] w-[62px] items-center justify-center rounded-full bg-white text-[#3483fa] shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition hover:scale-105">
-            <ChevronRight className="h-7 w-7" />
+          <span
+            className="flex h-[52px] w-[52px] items-center justify-center rounded-full bg-white shadow-[0_2px_10px_rgba(0,0,0,0.07)] transition hover:scale-105"
+            style={{ color: palette.accentDark }}
+          >
+            <ChevronRight className="h-6 w-6" />
           </span>
         </button>
       </div>
@@ -103,7 +127,8 @@ function StoreSearchFilters({
       <button
         type="submit"
         disabled={isSearching}
-        className="inline-flex h-10 items-center justify-center rounded-[4px] bg-[#3483fa] px-4 text-sm font-semibold text-white transition hover:bg-[#2968c8] disabled:opacity-70"
+        className="inline-flex h-10 items-center justify-center rounded-[4px] px-4 text-sm font-semibold text-white transition disabled:opacity-70"
+        style={{ backgroundColor: accentColor }}
       >
         {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
         Buscar
@@ -220,7 +245,6 @@ export function MercadoLivreStorefront({
   }
   const hasCategoryContext = Boolean(categoryId && categoryLabel)
   const hasSearchContext = Boolean(query)
-  const viewAllHref = buildStoreUrl(store.slug, '', 1, '', 'recent')
   const hero = store.visualConfig?.hero || {}
   const heroStyle = buildHeroBackgroundStyle(hero)
 
@@ -332,8 +356,8 @@ export function MercadoLivreStorefront({
             <div className="absolute inset-0" style={heroStyle.overlay} />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
               <div className="max-w-xl pr-14 lg:pr-0">
-                <div className="text-[13px] font-semibold text-slate-600">Loja oficial</div>
-                <h1 className="mt-1 text-3xl font-bold leading-tight text-slate-950 sm:text-4xl">{store.name}</h1>
+                <div className="text-[13px] font-semibold" style={{ color: palette.accentDark }}>Loja oficial</div>
+                <h1 className="mt-1 text-3xl font-bold leading-tight sm:text-4xl" style={{ color: palette.accentDark }}>{store.name}</h1>
                 {store.headline ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{store.headline}</p> : null}
               </div>
               <div className="hidden w-full justify-self-end lg:block">
@@ -355,6 +379,7 @@ export function MercadoLivreStorefront({
                 type="button"
                 onClick={() => setMobileFiltersOpen(true)}
                 className="absolute right-4 top-8 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/85 text-slate-900 shadow-[0_8px_18px_rgba(0,0,0,0.10)] backdrop-blur transition hover:bg-white lg:hidden"
+                style={{ color: palette.accentDark }}
                 aria-label="Buscar e filtrar produtos"
               >
                 <Filter className="h-5 w-5" />
@@ -372,7 +397,7 @@ export function MercadoLivreStorefront({
                     {categoryLabel}
                   </span>
                 ) : null}
-                <button type="button" onClick={handleResetCatalog} className="inline-flex items-center gap-1 px-1 text-[#3483fa]">
+                <button type="button" onClick={handleResetCatalog} className="inline-flex items-center gap-1 px-1" style={{ color: palette.accentDark }}>
                   <ChevronLeft className="h-4 w-4" />
                   limpar filtros
                 </button>
@@ -385,7 +410,6 @@ export function MercadoLivreStorefront({
               storeSlug={store.slug}
               accentColor={store.accentColor}
               analyticsSource="latest_row"
-              viewAllHref={viewAllHref}
             />
 
             <ProductRow
@@ -394,7 +418,6 @@ export function MercadoLivreStorefront({
               storeSlug={store.slug}
               accentColor={store.accentColor}
               analyticsSource="recommended_row"
-              viewAllHref={viewAllHref}
             />
 
             {!products.length ? (
@@ -427,7 +450,8 @@ export function MercadoLivreStorefront({
                       setIsSearching(true)
                       navigateStore(searchTerm, categoryId, sortValue, page + 1)
                     }}
-                    className="inline-flex h-10 flex-1 items-center justify-center rounded-[4px] bg-[#3483fa] px-4 text-sm font-semibold text-white sm:flex-none"
+                    className="inline-flex h-10 flex-1 items-center justify-center rounded-[4px] px-4 text-sm font-semibold text-white sm:flex-none"
+                    style={{ backgroundColor: palette.accentDark }}
                   >
                     Proxima
                     <ArrowRight className="ml-2 h-4 w-4" />

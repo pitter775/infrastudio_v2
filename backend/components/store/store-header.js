@@ -80,19 +80,19 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
         <div className="flex items-center justify-between gap-6 px-1 sm:px-0">
           <Link href={`/loja/${store.slug}`} className="flex items-center gap-3">
             <div
-              className="flex h-12 w-12 items-center justify-center rounded-[14px] text-sm font-semibold text-white shadow-[0_16px_30px_-20px_rgba(15,23,42,0.24)]"
-              style={{ backgroundColor: store.accentColor }}
+              className={`flex h-12 w-12 items-center justify-center text-sm font-semibold text-white ${store.logoUrl ? '' : 'rounded-[14px] shadow-[0_16px_30px_-20px_rgba(15,23,42,0.24)]'}`}
+              style={{ backgroundColor: store.logoUrl ? 'transparent' : store.accentColor }}
             >
               {store.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-full w-full rounded-[14px] object-cover" />
+                <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-full w-full object-contain" />
               ) : (
                 store.name.slice(0, 2).toUpperCase()
               )}
             </div>
             <div>
               <div className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Loja</div>
-              <div className="text-[1.02rem] font-semibold tracking-[-0.02em]">{store.name}</div>
+              <div className="text-[1.02rem] font-semibold tracking-[-0.02em]" style={{ color: palette.accentDark }}>{store.name}</div>
             </div>
           </Link>
 

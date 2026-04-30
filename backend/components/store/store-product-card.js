@@ -31,6 +31,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
   const statusLabel = String(product.status || '').trim()
   const categoryLabel = String(product.categoryLabel || product.categoryId || '').trim()
   const visibleCategoryLabel = shouldHideCategoryCode(categoryLabel) ? '' : categoryLabel
+  const visibleStatusLabel = /^active$/i.test(statusLabel) ? '' : statusLabel
   const stockValue = typeof product.stock === 'number' && product.stock > 0 ? String(product.stock) : '-'
   const locationLabel = visibleCategoryLabel || 'Mercado Livre'
   const description =
@@ -56,7 +57,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
             })
           }}
           aria-busy={isOpening}
-          className="group relative flex h-full min-h-[366px] flex-col overflow-hidden rounded-[6px] border border-[#e5e7eb] bg-white text-left shadow-none transition duration-200 hover:border-[#d1d5db] hover:shadow-[0_7px_16px_rgba(0,0,0,0.14)]"
+          className="group relative flex h-full min-h-[366px] flex-col overflow-hidden rounded-[6px] border border-[#e5e7eb] bg-white text-left shadow-none transition duration-200 hover:border-[#d1d5db] hover:shadow-[0_4px_10px_rgba(0,0,0,0.10)]"
         >
           {isOpening ? (
             <div className="absolute inset-0 z-30 flex items-center justify-center bg-white/72 backdrop-blur-[2px]">
@@ -73,14 +74,14 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
               <img src={image} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
             ) : null}
 
-            <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-              {statusLabel ? (
-                <span className="inline-flex rounded-full bg-[#155eef] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
-                  {statusLabel}
+            <div className="absolute left-2 top-2 flex max-w-[calc(100%-16px)] flex-wrap gap-1.5">
+              {visibleStatusLabel ? (
+                <span className="inline-flex rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur" style={{ backgroundColor: `${palette.accentDark}99` }}>
+                  {visibleStatusLabel}
                 </span>
               ) : null}
               {visibleCategoryLabel ? (
-                <span className="inline-flex rounded-full bg-[#3b82f6] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
+                <span className="inline-flex max-w-full truncate rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur" style={{ backgroundColor: `${palette.accent}8c` }}>
                   {visibleCategoryLabel}
                 </span>
               ) : null}
