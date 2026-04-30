@@ -86,6 +86,20 @@ function buildPlanMatchIndex(items = []) {
   return new Map(items.flatMap((item) => item.aliases.map((alias) => [alias, item])))
 }
 
+function resolveComparisonFocusPlans(context = {}, items = []) {
+  const planSlugs = Array.isArray(context?.billing?.comparisonFocus?.plans)
+    ? context.billing.comparisonFocus.plans.map((item) => sanitizeString(item?.slug)).filter(Boolean)
+    : []
+
+  if (planSlugs.length < 2) {
+    return []
+  }
+
+  return planSlugs
+    .map((slug) => items.find((item) => item.slug === slug))
+    .filter(Boolean)
+}
+
 function resolveRequestedPlans(decision = null, items = [], context = {}) {
   const index = buildPlanMatchIndex(items)
   const requested = Array.isArray(decision?.requestedPlanNames) ? decision.requestedPlanNames : []
@@ -95,6 +109,13 @@ function resolveRequestedPlans(decision = null, items = [], context = {}) {
 
   if (requestedItems.length > 0) {
     return [...new Map(requestedItems.map((item) => [item.slug, item])).values()]
+  }
+
+  if (decision?.kind === "plan_comparison") {
+    const comparisonPlans = resolveComparisonFocusPlans(context, items)
+    if (comparisonPlans.length >= 2) {
+      return comparisonPlans
+    }
   }
 
   const focusedPlanSlug = sanitizeString(context?.billing?.planFocus?.slug)
@@ -221,6 +242,108 @@ function buildComparisonPlanSummary(plan) {
   return lines.join(" | ")
 }
 
+function getComparableFactRawValue(plan, field) {
+  if (!plan || !field) {
+    return null
+  }
+
+  if (field === "attendance_limit") return plan.attendanceLimit
+  if (field === "agent_limit") return plan.agentLimit
+  if (field === "credit_limit") return plan.creditLimit
+  if (field === "whatsapp_included") return plan.whatsappIncluded
+  if (field === "support_level") return plan.supportLevel || null
+  if (field === "price") return plan.amount
+  return null
+}
+
+function buildComparisonFieldLabel(field) {
+  const labels = {
+    attendance_limit: "Atendimentos",
+    agent_limit: "Agentes",
+    credit_limit: "Creditos",
+    whatsapp_included: "WhatsApp",
+    support_level: "Suporte",
+    price: "Preco",
+  }
+
+  return labels[field] || field
+}
+
+function rankSupportLevel(value) {
+  const supportRank = {
+    basico: 1,
+    padrao: 2,
+    prioritario: 3,
+    premium: 4,
+    dedicado: 5,
+  }
+
+  return supportRank[normalizeBillingText(value)] ?? 0
+}
+
+function comparePlansByField(left, right, field) {
+  const leftValue = getComparableFactRawValue(left, field)
+  const rightValue = getComparableFactRawValue(right, field)
+
+  if (field === "price") {
+    if (leftValue == null || rightValue == null) return null
+    return Number(leftValue) - Number(rightValue)
+  }
+
+  if (field === "support_level") {
+    return rankSupportLevel(leftValue) - rankSupportLevel(rightValue)
+  }
+
+  if (field === "whatsapp_included") {
+    return Number(leftValue === true) - Number(rightValue === true)
+  }
+
+  if (leftValue == null || rightValue == null) {
+    return null
+  }
+
+  return Number(leftValue) - Number(rightValue)
+}
+
+function buildFocusedComparisonReply(plans = [], fields = []) {
+  if (plans.length < 2 || !fields.length) {
+    return null
+  }
+
+  const lines = fields.map((field) => {
+    const missingPlan = plans.find((plan) => !buildFactValue(plan, field))
+    if (missingPlan) {
+      return buildFallbackFieldMissingReply(missingPlan, field)
+    }
+
+    const fieldLabel = buildComparisonFieldLabel(field)
+    const valuesLine = `${fieldLabel}: ${plans.map((plan) => `${plan.name} ${buildFactValue(plan, field)}`).join(" | ")}.`
+    const sorted = plans
+      .slice()
+      .sort((left, right) => {
+        const delta = comparePlansByField(left, right, field)
+        if (delta == null) {
+          return 0
+        }
+
+        return field === "price" ? delta : -delta
+      })
+    const winner = sorted[0]
+    if (!winner) {
+      return valuesLine
+    }
+
+    const winnerLead =
+      field === "price"
+        ? `${winner.name} e o menor preco nesse criterio.`
+        : `${winner.name} lidera em ${fieldLabel.toLowerCase()}.`
+
+    return `${valuesLine} ${winnerLead}`
+  })
+
+  return lines.filter(Boolean).join("\n")
+}
+
 function buildFallbackFieldMissingReply(plan, field) {
   const fieldLabels = {
     attendance_limit: "limite estruturado de atendimentos",
@@ -320,6 +443,56 @@ function buildPlanRecommendation(items = [], targetField = "", currentPlan = nul
   return sortedItems[sortedItems.length - 1]
 }
 
+function scorePlanForRecommendation(plan, fields = []) {
+  return fields.reduce((score, field) => {
+    if (field === "price") {
+      return score + (plan.amount != null ? Math.max(0, 1000000 - Number(plan.amount)) : 0)
+    }
+
+    if (field === "support_level") {
+      return score + rankSupportLevel(plan.supportLevel) * 100000
+    }
+
+    if (field === "whatsapp_included") {
+      return score + (plan.whatsappIncluded === true ? 100000 : 0)
+    }
+
+    const rawValue = getComparableFactRawValue(plan, field)
+    return score + (Number.isFinite(Number(rawValue)) ? Number(rawValue) : 0)
+  }, 0)
+}
+
+function buildMultiCriteriaRecommendation(items = [], fields = [], currentPlan = null) {
+  const comparableItems = items.filter((plan) => fields.every((field) => buildFactValue(plan, field) != null))
+  if (!comparableItems.length) {
+    return null
+  }
+
+  const rankedItems = comparableItems
+    .slice()
+    .sort((left, right) => {
+      const scoreDelta = scorePlanForRecommendation(right, fields) - scorePlanForRecommendation(left, fields)
+      if (scoreDelta !== 0) {
+        return scoreDelta
+      }
+
+      if (left.amount != null && right.amount != null) {
+        return Number(left.amount) - Number(right.amount)
+      }
+
+      return left.name.localeCompare(right.name)
+    })
+
+  if (currentPlan) {
+    const betterThanCurrent = rankedItems.find((plan) => scorePlanForRecommendation(plan, fields) > scorePlanForRecommendation(currentPlan, fields))
+    if (betterThanCurrent) {
+      return betterThanCurrent
+    }
+  }
+
+  return rankedItems[0] ?? null
+}
+
 export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decision = null) {
   const items = getStructuredPricingItems(runtimeConfig)
   if (!items.length || !decision?.kind) {
@@ -383,15 +556,20 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   }
 
   if (decision.kind === "plan_recommendation") {
-    const recommendationField = targetField || targetFields[0] || "attendance_limit"
+    const recommendationFields = targetFields.length ? targetFields : targetField ? [targetField] : ["attendance_limit"]
+    const recommendationField = recommendationFields[0]
     const currentPlan = selectedPlan ?? items.find((item) => item.slug === sanitizeString(context?.billing?.planFocus?.slug)) ?? null
-    const recommendedPlan = buildPlanRecommendation(items, recommendationField, currentPlan)
+    const recommendedPlan =
+      recommendationFields.length > 1
+        ? buildMultiCriteriaRecommendation(items, recommendationFields, currentPlan)
+        : buildPlanRecommendation(items, recommendationField, currentPlan)
     if (!recommendedPlan) {
       return {
         reply: "Nao encontrei no catalogo dados estruturados suficientes para recomendar um plano com seguranca.",
         metadata: {
           targetPlan: null,
           targetField: recommendationField,
+          targetFields: recommendationFields,
           fieldFound: false,
           replyStrategy: "missing_recommendation_basis",
         },
@@ -401,14 +579,16 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
     const recommendationLead = currentPlan && currentPlan.slug !== recommendedPlan.slug
       ? `Se a prioridade e esse criterio, o melhor proximo encaixe e o ${recommendedPlan.name}.`
       : `Se a prioridade e esse criterio, o plano que mais faz sentido no catalogo hoje e o ${recommendedPlan.name}.`
+    const factLines = recommendationFields.map((field) => buildFactSentence(recommendedPlan, field)).filter(Boolean)
 
     return {
-      reply: [recommendationLead, buildFactSentence(recommendedPlan, recommendationField)].filter(Boolean).join("\n"),
+      reply: [recommendationLead, ...factLines].filter(Boolean).join("\n"),
       metadata: {
         targetPlan: recommendedPlan.slug,
         targetField: recommendationField,
+        targetFields: recommendationFields,
         fieldFound: true,
-        replyStrategy: "structured_plan_recommendation",
+        replyStrategy: recommendationFields.length > 1 ? "structured_plan_recommendation_multi" : "structured_plan_recommendation",
       },
     }
   }
@@ -450,14 +630,17 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   }
 
   if (decision.kind === "plan_comparison" && requestedPlans.length >= 2) {
-    const lines = requestedPlans.map((item) => `- ${buildComparisonPlanSummary(item)}`)
+    const comparisonFields = targetFields.filter(Boolean)
+    const focusedReply = comparisonFields.length ? buildFocusedComparisonReply(requestedPlans, comparisonFields) : null
+    const lines = focusedReply ? [focusedReply] : requestedPlans.map((item) => `- ${buildComparisonPlanSummary(item)}`)
     return {
       reply: wantsStructured ? [`**Comparacao de planos**`, ...lines, "", multiCta].join("\n") : `${lines.join(" | ")}. ${multiCta}`,
       metadata: {
         targetPlan: requestedPlans.map((item) => item.slug).join(","),
-        targetField: "price",
+        targetField: targetField || comparisonFields[0] || "price",
+        targetFields: comparisonFields,
         fieldFound: true,
-        replyStrategy: "structured_plan_comparison",
+        replyStrategy: comparisonFields.length ? "structured_plan_comparison_multi" : "structured_plan_comparison",
       },
     }
   }
@@ -489,9 +672,12 @@ export function buildBillingContextUpdate(decision = null, runtimeConfig = {}, c
   const targetField = sanitizeString(decision?.targetField)
   const recommendationField = targetField || resolveDecisionTargetFields(decision)[0] || "attendance_limit"
   const currentPlan = requestedSinglePlan ?? items.find((item) => item.slug === sanitizeString(context?.billing?.planFocus?.slug)) ?? null
+  const requestedFields = resolveDecisionTargetFields(decision)
   const selectedPlan =
     decision.kind === "plan_recommendation"
-      ? buildPlanRecommendation(items, recommendationField, currentPlan)
+      ? requestedFields.length > 1
+        ? buildMultiCriteriaRecommendation(items, requestedFields, currentPlan)
+        : buildPlanRecommendation(items, recommendationField, currentPlan)
       : requestedSinglePlan
   const shouldUpdatePlanFocus =
     Boolean(selectedPlan) &&
@@ -506,7 +692,8 @@ export function buildBillingContextUpdate(decision = null, runtimeConfig = {}, c
 
   const nextUpdate = {
     lastIntent: decision.kind,
-    lastField: targetField || resolveDecisionTargetFields(decision)[0] || null,
+    lastField: targetField || requestedFields[0] || null,
+    lastFields: requestedFields,
     updatedAt: new Date().toISOString(),
   }
 
@@ -514,6 +701,17 @@ export function buildBillingContextUpdate(decision = null, runtimeConfig = {}, c
     nextUpdate.planFocus = {
       slug: selectedPlan.slug,
       name: selectedPlan.name,
+      updatedAt: nextUpdate.updatedAt,
+    }
+  }
+
+  if (decision.kind === "plan_comparison" && requestedPlans.length >= 2) {
+    nextUpdate.comparisonFocus = {
+      plans: requestedPlans.map((plan) => ({
+        slug: plan.slug,
+        name: plan.name,
+      })),
+      fields: requestedFields,
       updatedAt: nextUpdate.updatedAt,
     }
   }

@@ -62,6 +62,9 @@ Ja foi entregue:
 - comparacao deterministica entre planos agora expõe tambem capacidade/canais/suporte quando esses campos existem no catalogo estruturado
 - billing agora aceita `targetFields` estruturados para pergunta composta do mesmo plano
 - billing agora tem um caminho deterministico inicial de recomendacao por criterio estruturado do catalogo
+- billing agora persiste `comparisonFocus` e `lastFields` para follow-up apos comparacao sem repetir nomes de plano
+- comparacao entre dois planos agora tambem pode responder por campos pedidos (`attendance_limit`, `agent_limit`, `credit_limit`, `whatsapp_included`, `support_level`, `price`) em vez de despejar so overview
+- recomendacao agora tambem suporta mais de um criterio estruturado quando o stage devolver `targetFields`
 - existe auditoria real pronta para banco:
   - `cd backend && npm run audit:pricing-catalog`
   - mede quantos agentes tem catalogo, quantos estao so com `priceLabel` e quais campos estruturados ainda faltam por agente
@@ -227,6 +230,7 @@ Ainda falta amadurecer para:
 - `qual plano voce me recomenda?`
 - `qual faz mais sentido pra mim?`
 - cenarios com mais de um criterio ao mesmo tempo
+- pedidos consultivos sem criterio objetivo suficiente no stage
 
 Isso continua sem chute do modelo.
 A regra precisa sair do intent estruturado + catalogo real.
@@ -269,8 +273,8 @@ Adicionar/validar cenarios para:
 
 1. rodar `cd backend && npm run audit:pricing-catalog` e transformar os agentes mais fracos em backlog de preenchimento estrutural
 2. revisar onde o primeiro turno de billing ainda cai fora do handler estruturado
-3. amadurecer recomendacao para criterios subjetivos ou multiplos
-4. avaliar comparacao multi-slot entre dois planos com resposta mais compacta
+3. amadurecer recomendacao para criterios subjetivos quando o cliente nao explicita o eixo
+4. revisar follow-up tipo `e qual vale mais a pena?` logo apos comparacao multi-slot
 
 ## Resumo curto
 

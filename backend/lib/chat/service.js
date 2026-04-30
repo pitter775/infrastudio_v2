@@ -781,10 +781,16 @@ export function updateContextFromAiResult(input) {
   const billingContextUpdate = isPlainObject(input.ai?.metadata?.billingContextUpdate) ? input.ai.metadata.billingContextUpdate : null
   if (billingContextUpdate) {
     const hasPlanFocusUpdate = Object.prototype.hasOwnProperty.call(billingContextUpdate, "planFocus")
+    const hasComparisonFocusUpdate = Object.prototype.hasOwnProperty.call(billingContextUpdate, "comparisonFocus")
     nextContext.billing = {
       ...(isPlainObject(nextContext.billing) ? nextContext.billing : {}),
       lastIntent: typeof billingContextUpdate.lastIntent === "string" ? billingContextUpdate.lastIntent : nextContext.billing?.lastIntent ?? null,
       lastField: typeof billingContextUpdate.lastField === "string" ? billingContextUpdate.lastField : nextContext.billing?.lastField ?? null,
+      lastFields: Array.isArray(billingContextUpdate.lastFields)
+        ? billingContextUpdate.lastFields.filter((item) => typeof item === "string" && item.trim())
+        : Array.isArray(nextContext.billing?.lastFields)
+          ? nextContext.billing.lastFields
+          : [],
       updatedAt: typeof billingContextUpdate.updatedAt === "string" ? billingContextUpdate.updatedAt : new Date().toISOString(),
       planFocus: hasPlanFocusUpdate
         ? isPlainObject(billingContextUpdate.planFocus)
@@ -798,6 +804,31 @@ export function updateContextFromAiResult(input) {
             }
           : null
         : nextContext.billing?.planFocus ?? null,
+      comparisonFocus: hasComparisonFocusUpdate
+        ? isPlainObject(billingContextUpdate.comparisonFocus)
+          ? {
+              plans: Array.isArray(billingContextUpdate.comparisonFocus.plans)
+                ? billingContextUpdate.comparisonFocus.plans
+                    .map((item) =>
+                      isPlainObject(item)
+                        ? {
+                            slug: typeof item.slug === "string" ? item.slug : null,
+                            name: typeof item.name === "string" ? item.name : null,
+                          }
+                        : null
+                    )
+                    .filter(Boolean)
+                : [],
+              fields: Array.isArray(billingContextUpdate.comparisonFocus.fields)
+                ? billingContextUpdate.comparisonFocus.fields.filter((item) => typeof item === "string" && item.trim())
+                : [],
+              updatedAt:
+                typeof billingContextUpdate.comparisonFocus.updatedAt === "string"
+                  ? billingContextUpdate.comparisonFocus.updatedAt
+                  : new Date().toISOString(),
+            }
+          : null
+        : nextContext.billing?.comparisonFocus ?? null,
     }
   }
 

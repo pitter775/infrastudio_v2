@@ -698,6 +698,8 @@ export async function classifySemanticBillingIntentStage(input = {}) {
             "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes ou creditos de um plano.",
             "Use plan_feature_question quando pedir se o plano inclui WhatsApp, suporte ou algum recurso estruturado do catalogo.",
             "Use plan_recommendation quando ele pedir indicacao do melhor plano para uma necessidade objetiva do catalogo.",
+            "Quando existir billing.planFocus no contexto e o cliente falar esse plano, nele ou equivalente, use esse foco sem inventar novo nome.",
+            "Quando existir billing.comparisonFocus no contexto e o cliente fizer follow-up comparativo, mantenha a comparacao mesmo sem repetir os nomes dos planos.",
             "Preencha targetField com attendance_limit, agent_limit, credit_limit, whatsapp_included, support_level ou price quando houver um slot factual claro.",
             "Quando a pergunta cobrar mais de um fato ao mesmo tempo, preencha targetFields com todos os slots pedidos e preserve targetField como o principal.",
             "Nao invente nomes de plano. So use nomes realmente presentes no catalogo.",
@@ -707,6 +709,19 @@ export async function classifySemanticBillingIntentStage(input = {}) {
           role: "user",
           content: JSON.stringify({
             message: latestUserMessage,
+            billingContext: {
+              planFocus: sanitizeString(input?.context?.billing?.planFocus?.name),
+              comparisonPlans: Array.isArray(input?.context?.billing?.comparisonFocus?.plans)
+                ? input.context.billing.comparisonFocus.plans.map((item) => sanitizeString(item?.name)).filter(Boolean)
+                : [],
+              comparisonFields: Array.isArray(input?.context?.billing?.comparisonFocus?.fields)
+                ? input.context.billing.comparisonFocus.fields.map((item) => sanitizeString(item)).filter(Boolean)
+                : [],
+              lastField: sanitizeString(input?.context?.billing?.lastField),
+              lastFields: Array.isArray(input?.context?.billing?.lastFields)
+                ? input.context.billing.lastFields.map((item) => sanitizeString(item)).filter(Boolean)
+                : [],
+            },
             pricingItems: pricingItems.slice(0, 12).map((item) => ({
               name: sanitizeString(item?.name || item?.nome),
               slug: sanitizeString(item?.slug),

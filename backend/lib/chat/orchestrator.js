@@ -256,6 +256,8 @@ function buildBillingDiagnosticsPayload(input = {}) {
     targetPlan: input.billingReplyMetadata?.targetPlan ?? null,
     targetField: input.semanticBillingDecision?.targetField ?? input.billingReplyMetadata?.targetField ?? null,
     targetFields: input.semanticBillingDecision?.targetFields ?? input.billingReplyMetadata?.targetFields ?? [],
+    comparisonFocusBefore: input.context?.billing?.comparisonFocus ?? null,
+    comparisonFocusAfter: input.billingContextUpdate?.comparisonFocus ?? input.context?.billing?.comparisonFocus ?? null,
     planFocusBefore: input.context?.billing?.planFocus ?? null,
     planFocusAfter: input.billingContextUpdate?.planFocus ?? input.context?.billing?.planFocus ?? null,
     fieldFound: input.billingReplyMetadata?.fieldFound ?? null,
