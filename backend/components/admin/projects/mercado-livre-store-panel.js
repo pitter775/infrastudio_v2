@@ -469,7 +469,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         }))
       }
 
-      setFeedback({ tone: 'success', text: 'Imagem enviada. Salve a loja para publicar a configuracao.' })
+      setFeedback({ tone: 'success', text: 'Imagem enviada e publicada na loja.' })
     } catch {
       setFeedback({ tone: 'error', text: 'Nao foi possivel enviar a imagem.' })
     } finally {

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
 
 import { getMercadoLivreStoreSettingsForProject } from "@/lib/mercado-livre-store"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
+import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { removeStoreAsset, uploadStoreAsset } from "@/lib/store-assets"
 
 export async function POST(request, context) {
@@ -39,7 +41,51 @@ export async function POST(request, context) {
       projectId: project.id,
       storeId: store.id,
     })
-    const previousAsset = previousStoragePath || previousUrl
+
+    const supabase = getSupabaseAdminClient()
+    const currentVisualConfig = store.visualConfig || {}
+    const currentHero = currentVisualConfig.hero || {}
+    const nextVisualConfig =
+      kind === "logo"
+        ? {
+            ...currentVisualConfig,
+            logoStoragePath: asset.storagePath,
+          }
+        : {
+            ...currentVisualConfig,
+            hero: {
+              ...currentHero,
+              backgroundMode: "image",
+              imageUrl: asset.publicUrl,
+              imageStoragePath: asset.storagePath,
+            },
+          }
+    const updatePayload = {
+      visual_config: nextVisualConfig,
+      updated_at: new Date().toISOString(),
+    }
+
+    if (kind === "logo") {
+      updatePayload.logo_url = asset.publicUrl
+    }
+
+    const { error: updateError } = await supabase
+      .from("mercadolivre_lojas")
+      .update(updatePayload)
+      .eq("id", store.id)
+      .eq("projeto_id", project.id)
+
+    if (updateError) {
+      await removeStoreAsset(asset.storagePath).catch(() => {})
+      throw updateError
+    }
+
+    revalidatePath(`/loja/${store.slug}`)
+
+    const previousAsset =
+      kind === "logo"
+        ? previousStoragePath || currentVisualConfig.logoStoragePath || previousUrl || store.logoUrl
+        : previousStoragePath || currentHero.imageStoragePath || previousUrl || currentHero.imageUrl
     if (previousAsset && previousAsset !== asset.storagePath && previousAsset !== asset.publicUrl) {
       await removeStoreAsset(previousAsset).catch((error) => {
         console.warn("[mercado-livre-store] failed to remove previous store asset", {
@@ -49,7 +95,7 @@ export async function POST(request, context) {
       })
     }
 
-    return NextResponse.json({ asset }, { status: 200 })
+    return NextResponse.json({ asset, visualConfig: nextVisualConfig }, { status: 200 })
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Nao foi possivel enviar a imagem." },
