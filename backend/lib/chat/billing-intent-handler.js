@@ -281,6 +281,31 @@ function rankSupportLevel(value) {
   return supportRank[normalizeBillingText(value)] ?? 0
 }
 
+function isImprovementField(field) {
+  return ["attendance_limit", "agent_limit", "credit_limit", "whatsapp_included", "support_level"].includes(field)
+}
+
+function getFieldRankingValue(plan, field) {
+  if (!plan || !field) {
+    return null
+  }
+
+  if (field === "support_level") {
+    return rankSupportLevel(plan.supportLevel)
+  }
+
+  if (field === "whatsapp_included") {
+    return Number(plan.whatsappIncluded === true)
+  }
+
+  const rawValue = getComparableFactRawValue(plan, field)
+  if (rawValue == null) {
+    return null
+  }
+
+  return Number.isFinite(Number(rawValue)) ? Number(rawValue) : null
+}
+
 function comparePlansByField(left, right, field) {
   const leftValue = getComparableFactRawValue(left, field)
   const rightValue = getComparableFactRawValue(right, field)
@@ -385,6 +410,77 @@ function buildClarifyingRecommendationReply(plans = []) {
   return `Para te recomendar com seguranca, preciso que voce priorize um criterio: preco, atendimentos, agentes, WhatsApp ou suporte.${buildAvailableFieldsHint(plans)}`
 }
 
+function deriveRecommendationFieldsFromPlans(plans = []) {
+  if (plans.length < 2) {
+    return []
+  }
+
+  const candidateFields = ["price", "attendance_limit", "agent_limit", "credit_limit", "whatsapp_included", "support_level"]
+  return candidateFields.filter((field) => {
+    const values = plans.map((plan) => getComparableFactRawValue(plan, field))
+    if (values.some((value) => value == null)) {
+      return false
+    }
+
+    const normalized = values.map((value) => typeof value === "boolean" ? Number(value) : String(value))
+    return new Set(normalized).size > 1
+  })
+}
+
+function buildRecommendationFields(decision = null, context = {}, recommendationPool = []) {
+  const targetField = sanitizeString(decision?.targetField)
+  const targetFields = resolveDecisionTargetFields(decision)
+  const comparisonPlanSlugs = Array.isArray(context?.billing?.comparisonFocus?.plans)
+    ? context.billing.comparisonFocus.plans.map((plan) => sanitizeString(plan?.slug)).filter(Boolean)
+    : []
+  const comparisonFields = Array.isArray(context?.billing?.comparisonFocus?.fields)
+    ? context.billing.comparisonFocus.fields.map((field) => sanitizeString(field)).filter(Boolean)
+    : []
+
+  if (targetFields.length) {
+    return targetFields
+  }
+
+  if (targetField) {
+    return [targetField]
+  }
+
+  if (comparisonFields.length) {
+    const hasPriceForAll = recommendationPool.length >= 2 && recommendationPool.every((plan) => plan?.amount != null)
+    return uniqueArray([...comparisonFields, ...(hasPriceForAll ? ["price"] : [])])
+  }
+
+  const derivedFields = comparisonPlanSlugs.length >= 2 ? deriveRecommendationFieldsFromPlans(recommendationPool) : []
+  if (derivedFields.length) {
+    return derivedFields
+  }
+
+  return []
+}
+
+function buildRecommendationLead(recommendedPlan, currentPlan, fields = [], recommendationPool = []) {
+  if (!recommendedPlan) {
+    return ""
+  }
+
+  if (currentPlan && currentPlan.slug !== recommendedPlan.slug) {
+    if (fields.includes("price") && recommendedPlan.amount != null && currentPlan.amount != null) {
+      const delta = Number(recommendedPlan.amount) - Number(currentPlan.amount)
+      if (delta > 0) {
+        return `Se a prioridade e equilibrar custo e capacidade, o melhor proximo encaixe e o ${recommendedPlan.name}, com diferenca de R$ ${delta.toFixed(2).replace(".", ",")} sobre o ${currentPlan.name}.`
+      }
+    }
+
+    return `Se a prioridade e esse criterio, o melhor proximo encaixe e o ${recommendedPlan.name}.`
+  }
+
+  if (fields.includes("price") && recommendationPool.length >= 2) {
+    return `Considerando custo-beneficio dentro do catalogo atual, o plano que mais faz sentido hoje e o ${recommendedPlan.name}.`
+  }
+
+  return `Se a prioridade e esse criterio, o plano que mais faz sentido no catalogo hoje e o ${recommendedPlan.name}.`
+}
+
 function resolveDecisionTargetFields(decision = null) {
   const primaryField = sanitizeString(decision?.targetField)
   const additionalFields = Array.isArray(decision?.targetFields) ? decision.targetFields.map((item) => sanitizeString(item)).filter(Boolean) : []
@@ -471,23 +567,77 @@ function buildPlanRecommendation(items = [], targetField = "", currentPlan = nul
   return sortedItems[sortedItems.length - 1]
 }
 
-function scorePlanForRecommendation(plan, fields = []) {
-  return fields.reduce((score, field) => {
+function buildRecommendationScoreContext(items = [], fields = []) {
+  const normalizedFields = uniqueArray(fields.filter(Boolean))
+  const fieldStats = Object.fromEntries(normalizedFields.map((field) => {
+    const values = items
+      .map((plan) => getFieldRankingValue(plan, field))
+      .filter((value) => value != null)
+
+    if (!values.length) {
+      return [field, { min: null, max: null }]
+    }
+
+    return [field, { min: Math.min(...values), max: Math.max(...values) }]
+  }))
+
+  return {
+    fields: normalizedFields,
+    fieldStats,
+  }
+}
+
+function scorePlanForRecommendation(plan, scoreContext = null) {
+  if (!plan || !scoreContext?.fields?.length) {
+    return 0
+  }
+
+  return scoreContext.fields.reduce((score, field) => {
+    const stats = scoreContext.fieldStats?.[field] ?? null
+    const value = getFieldRankingValue(plan, field)
+    if (value == null || stats?.min == null || stats?.max == null) {
+      return score
+    }
+
+    if (stats.max === stats.min) {
+      return score + 1
+    }
+
     if (field === "price") {
-      return score + (plan.amount != null ? Math.max(0, 1000000 - Number(plan.amount)) : 0)
+      return score + ((stats.max - Number(value)) / (stats.max - stats.min))
     }
 
-    if (field === "support_level") {
-      return score + rankSupportLevel(plan.supportLevel) * 100000
-    }
-
-    if (field === "whatsapp_included") {
-      return score + (plan.whatsappIncluded === true ? 100000 : 0)
-    }
-
-    const rawValue = getComparableFactRawValue(plan, field)
-    return score + (Number.isFinite(Number(rawValue)) ? Number(rawValue) : 0)
+    return score + ((Number(value) - stats.min) / (stats.max - stats.min))
   }, 0)
+}
+
+function isUpgradeCandidate(plan, currentPlan, fields = []) {
+  if (!plan || !currentPlan || plan.slug === currentPlan.slug) {
+    return false
+  }
+
+  const improvementFields = fields.filter((field) => isImprovementField(field))
+  if (!improvementFields.length) {
+    return false
+  }
+
+  let improved = false
+
+  for (const field of improvementFields) {
+    const planValue = getFieldRankingValue(plan, field)
+    const currentValue = getFieldRankingValue(currentPlan, field)
+    if (planValue == null || currentValue == null) {
+      return false
+    }
+    if (planValue < currentValue) {
+      return false
+    }
+    if (planValue > currentValue) {
+      improved = true
+    }
+  }
+
+  return improved
 }
 
 function buildMultiCriteriaRecommendation(items = [], fields = [], currentPlan = null) {
@@ -496,23 +646,46 @@ function buildMultiCriteriaRecommendation(items = [], fields = [], currentPlan =
     return null
   }
 
-  const rankedItems = comparableItems
-    .slice()
-    .sort((left, right) => {
-      const scoreDelta = scorePlanForRecommendation(right, fields) - scorePlanForRecommendation(left, fields)
-      if (scoreDelta !== 0) {
-        return scoreDelta
-      }
+  const scoreContext = buildRecommendationScoreContext(comparableItems, fields)
+  const priceAware = fields.includes("price")
+  const compareByScore = (left, right) => {
+    const scoreDelta = scorePlanForRecommendation(right, scoreContext) - scorePlanForRecommendation(left, scoreContext)
+    if (scoreDelta !== 0) {
+      return scoreDelta
+    }
 
-      if (left.amount != null && right.amount != null) {
-        return Number(left.amount) - Number(right.amount)
-      }
+    if (left.amount != null && right.amount != null) {
+      return Number(left.amount) - Number(right.amount)
+    }
 
-      return left.name.localeCompare(right.name)
-    })
+    return left.name.localeCompare(right.name)
+  }
 
   if (currentPlan) {
-    const betterThanCurrent = rankedItems.find((plan) => scorePlanForRecommendation(plan, fields) > scorePlanForRecommendation(currentPlan, fields))
+    const upgradeCandidates = comparableItems.filter((plan) => isUpgradeCandidate(plan, currentPlan, fields))
+    if (upgradeCandidates.length) {
+      const rankedUpgrades = upgradeCandidates.slice().sort((left, right) => {
+        if (priceAware && left.amount != null && right.amount != null) {
+          const priceDelta = Number(left.amount) - Number(right.amount)
+          if (priceDelta !== 0) {
+            return priceDelta
+          }
+        }
+
+        return compareByScore(left, right)
+      })
+
+      return rankedUpgrades[0] ?? null
+    }
+  }
+
+  const rankedItems = comparableItems
+    .slice()
+    .sort(compareByScore)
+
+  if (currentPlan) {
+    const currentScore = scorePlanForRecommendation(currentPlan, scoreContext)
+    const betterThanCurrent = rankedItems.find((plan) => scorePlanForRecommendation(plan, scoreContext) > currentScore)
     if (betterThanCurrent) {
       return betterThanCurrent
     }
@@ -586,14 +759,7 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   if (decision.kind === "plan_recommendation") {
     const comparisonPlans = resolveComparisonFocusPlans(context, items)
     const recommendationPool = comparisonPlans.length >= 2 ? comparisonPlans : items
-    const comparisonFields = Array.isArray(context?.billing?.comparisonFocus?.fields)
-      ? context.billing.comparisonFocus.fields.map((field) => sanitizeString(field)).filter(Boolean)
-      : []
-    const recommendationFields =
-      targetFields.length ? targetFields
-      : targetField ? [targetField]
-      : comparisonFields.length ? comparisonFields
-      : []
+    const recommendationFields = buildRecommendationFields(decision, context, recommendationPool)
     const recommendationField = recommendationFields[0] || null
     const currentPlan = selectedPlan ?? items.find((item) => item.slug === sanitizeString(context?.billing?.planFocus?.slug)) ?? null
     if (!recommendationFields.length) {
@@ -625,9 +791,7 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
       }
     }
 
-    const recommendationLead = currentPlan && currentPlan.slug !== recommendedPlan.slug
-      ? `Se a prioridade e esse criterio, o melhor proximo encaixe e o ${recommendedPlan.name}.`
-      : `Se a prioridade e esse criterio, o plano que mais faz sentido no catalogo hoje e o ${recommendedPlan.name}.`
+    const recommendationLead = buildRecommendationLead(recommendedPlan, currentPlan, recommendationFields, recommendationPool)
     const factLines = recommendationFields.map((field) => buildFactSentence(recommendedPlan, field)).filter(Boolean)
 
     return {
@@ -680,14 +844,15 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
 
   if (decision.kind === "plan_comparison" && requestedPlans.length >= 2) {
     const comparisonFields = targetFields.filter(Boolean)
+    const effectiveComparisonFields = comparisonFields.length ? comparisonFields : deriveRecommendationFieldsFromPlans(requestedPlans)
     const focusedReply = comparisonFields.length ? buildFocusedComparisonReply(requestedPlans, comparisonFields) : null
     const lines = focusedReply ? [focusedReply] : requestedPlans.map((item) => `- ${buildComparisonPlanSummary(item)}`)
     return {
       reply: wantsStructured ? [`**Comparacao de planos**`, ...lines, "", multiCta].join("\n") : `${lines.join(" | ")}. ${multiCta}`,
       metadata: {
         targetPlan: requestedPlans.map((item) => item.slug).join(","),
-        targetField: targetField || comparisonFields[0] || "price",
-        targetFields: comparisonFields,
+        targetField: targetField || effectiveComparisonFields[0] || "price",
+        targetFields: effectiveComparisonFields,
         fieldFound: true,
         replyStrategy: comparisonFields.length ? "structured_plan_comparison_multi" : "structured_plan_comparison",
       },
@@ -722,11 +887,11 @@ export function buildBillingContextUpdate(decision = null, runtimeConfig = {}, c
   const recommendationField = targetField || resolveDecisionTargetFields(decision)[0] || "attendance_limit"
   const currentPlan = requestedSinglePlan ?? items.find((item) => item.slug === sanitizeString(context?.billing?.planFocus?.slug)) ?? null
   const requestedFields = resolveDecisionTargetFields(decision)
+  const recommendationPool = resolveComparisonFocusPlans(context, items)
   const comparisonFields = Array.isArray(context?.billing?.comparisonFocus?.fields)
     ? context.billing.comparisonFocus.fields.map((field) => sanitizeString(field)).filter(Boolean)
     : []
-  const recommendationPool = resolveComparisonFocusPlans(context, items)
-  const effectiveRecommendationFields = requestedFields.length ? requestedFields : comparisonFields
+  const effectiveRecommendationFields = buildRecommendationFields(decision, context, recommendationPool.length >= 2 ? recommendationPool : items)
   const selectedPlan =
     decision.kind === "plan_recommendation"
       ? effectiveRecommendationFields.length > 1
@@ -762,12 +927,13 @@ export function buildBillingContextUpdate(decision = null, runtimeConfig = {}, c
   }
 
   if (decision.kind === "plan_comparison" && requestedPlans.length >= 2) {
+    const effectiveComparisonFields = requestedFields.length ? requestedFields : deriveRecommendationFieldsFromPlans(requestedPlans)
     nextUpdate.comparisonFocus = {
       plans: requestedPlans.map((plan) => ({
         slug: plan.slug,
         name: plan.name,
       })),
-      fields: requestedFields,
+      fields: effectiveComparisonFields,
       updatedAt: nextUpdate.updatedAt,
     }
   }

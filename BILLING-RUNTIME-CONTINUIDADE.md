@@ -68,6 +68,11 @@ Ja foi entregue:
 - recomendacao aberta sem criterio explicito agora falha fechado de forma deterministica e pede prioridade objetiva antes de recomendar
 - follow-up consultivo apos comparacao, como `qual vale mais a pena?`, agora reaproveita `comparisonFocus.fields` para decidir sem depender de repeticao textual
 - quando faltar campo estruturado no catalogo real do agente, a resposta agora informa tambem quais campos ainda existem de forma estruturada naquele plano
+- recomendacao multi-criterio agora trata `price` como custo-beneficio normalizado, em vez de ranking bruto por magnitude
+- quando existe `planFocus` atual e o cliente pede equilibrio entre preco e capacidade, o handler passa a sugerir o upgrade mais barato que melhora os criterios estruturados pedidos
+- follow-up consultivo herdado de comparacao agora tambem pode incluir `price` no criterio efetivo quando os dois planos comparados tem preco estruturado
+- quando a comparacao anterior foi generica e `comparisonFocus.fields` ficou vazio, o handler agora deriva criterios uteis diretamente do catalogo dos planos comparados
+- comparacao generica agora tambem persiste esses campos derivados em `comparisonFocus.fields`, evitando recalculo e fortalecendo os proximos turnos consultivos
 - existe auditoria real pronta para banco:
   - `cd backend && npm run audit:pricing-catalog`
   - mede quantos agentes tem catalogo, quantos estao so com `priceLabel` e quais campos estruturados ainda faltam por agente
@@ -166,6 +171,13 @@ Casos ainda frageis:
 - `se eu passar do limite no plus o que acontece?`
 
 Hoje o handler ja cobre pergunta composta factual e follow-up consultivo pos-comparacao, mas ainda nao fecha toda camada consultiva aberta.
+
+Melhora aplicada:
+
+- `qual vale mais a pena?` apos comparacao agora tende a responder em custo-beneficio, nao so no maior plano
+- `quero gastar menos mas ter mais agentes` com plano atual em foco agora consegue sugerir upgrade intermediario em vez de pular direto para o topo
+- `vale a pena pagar a diferenca?` apos comparacao generica agora nao depende mais de o turno anterior ter gravado campos explicitos no contexto
+- `qual a diferenca entre plus e pro?` agora deixa o contexto melhor preparado para follow-ups como `qual vale mais a pena?`
 
 ## Erros reais mais provaveis
 

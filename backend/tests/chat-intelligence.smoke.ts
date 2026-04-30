@@ -783,6 +783,65 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "billing estruturado recomenda upgrade equilibrando preco e agentes a partir do plano atual",
+    run: () => {
+      const reply = buildBillingReplyResult(
+        {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              {
+                slug: "basic",
+                name: "Basic",
+                matchAny: ["basic"],
+                priceLabel: "R$ 29,90/mes",
+                attendanceLimit: 100,
+                agentLimit: 1,
+              },
+              {
+                slug: "plus",
+                name: "Plus",
+                matchAny: ["plus"],
+                priceLabel: "R$ 79,90/mes",
+                attendanceLimit: 250,
+                agentLimit: 2,
+              },
+              {
+                slug: "pro",
+                name: "Pro",
+                matchAny: ["pro"],
+                priceLabel: "R$ 149,90/mes",
+                attendanceLimit: 500,
+                agentLimit: 5,
+              },
+            ],
+          },
+        },
+        {
+          channel: { kind: "web" },
+          billing: {
+            planFocus: {
+              slug: "basic",
+              name: "Basic",
+            },
+          },
+        },
+        {
+          kind: "plan_recommendation",
+          targetField: "price",
+          targetFields: ["price", "agent_limit"],
+          requestedPlanNames: [],
+        }
+      )
+
+      assert.equal(reply?.metadata?.targetPlan, "plus")
+      assert.match(reply?.reply ?? "", /melhor proximo encaixe e o Plus/i)
+      assert.match(reply?.reply ?? "", /diferenca de R\$ 50,00 sobre o Basic/i)
+      assert.match(reply?.reply ?? "", /O plano Plus custa R\$ 79,90\/mes\./i)
+      assert.match(reply?.reply ?? "", /O plano Plus permite 2 agentes\./i)
+    },
+  },
+  {
     name: "billing recommendation aberta pede criterio de forma deterministica",
     run: () => {
       const reply = buildBillingReplyResult(
@@ -873,7 +932,64 @@ const tests: TestCase[] = [
       )
 
       assert.equal(reply?.metadata?.replyStrategy, "structured_plan_recommendation_multi")
-      assert.match(reply?.reply ?? "", /plano que mais faz sentido no catalogo hoje e o Pro/i)
+      assert.match(reply?.reply ?? "", /custo-beneficio/i)
+      assert.match(reply?.reply ?? "", /500 atendimentos/i)
+      assert.match(reply?.reply ?? "", /5 agentes/i)
+      assert.match(reply?.reply ?? "", /R\$ 149,90\/mes/i)
+    },
+  },
+  {
+    name: "billing follow-up consultivo apos comparacao generica deriva criterios do catalogo",
+    run: () => {
+      const reply = buildBillingReplyResult(
+        {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              {
+                slug: "plus",
+                name: "Plus",
+                matchAny: ["plus"],
+                priceLabel: "R$ 79,90/mes",
+                attendanceLimit: 250,
+                agentLimit: 2,
+                whatsappIncluded: true,
+              },
+              {
+                slug: "pro",
+                name: "Pro",
+                matchAny: ["pro"],
+                priceLabel: "R$ 149,90/mes",
+                attendanceLimit: 500,
+                agentLimit: 5,
+                whatsappIncluded: true,
+              },
+            ],
+          },
+        },
+        {
+          channel: { kind: "web" },
+          billing: {
+            comparisonFocus: {
+              plans: [
+                { slug: "plus", name: "Plus" },
+                { slug: "pro", name: "Pro" },
+              ],
+              fields: [],
+            },
+          },
+        },
+        {
+          kind: "plan_recommendation",
+          targetField: "",
+          targetFields: [],
+          requestedPlanNames: [],
+        }
+      )
+
+      assert.equal(reply?.metadata?.replyStrategy, "structured_plan_recommendation_multi")
+      assert.match(reply?.reply ?? "", /custo-beneficio/i)
+      assert.match(reply?.reply ?? "", /R\$ 149,90\/mes/i)
       assert.match(reply?.reply ?? "", /500 atendimentos/i)
       assert.match(reply?.reply ?? "", /5 agentes/i)
     },
@@ -970,6 +1086,59 @@ const tests: TestCase[] = [
       assert.match(reply?.reply ?? "", /Agentes: Plus 2 agentes \| Pro 5 agentes\./i)
       assert.equal(update?.comparisonFocus?.plans?.[0]?.slug, "plus")
       assert.deepEqual(update?.lastFields, ["attendance_limit", "agent_limit"])
+    },
+  },
+  {
+    name: "billing comparacao generica deriva campos uteis e persiste comparisonFocus",
+    run: () => {
+      const runtimeConfig = {
+        pricingCatalog: {
+          enabled: true,
+          items: [
+            {
+              slug: "plus",
+              name: "Plus",
+              matchAny: ["plus"],
+              priceLabel: "R$ 79,90/mes",
+              attendanceLimit: 250,
+              agentLimit: 2,
+            },
+            {
+              slug: "pro",
+              name: "Pro",
+              matchAny: ["pro"],
+              priceLabel: "R$ 149,90/mes",
+              attendanceLimit: 500,
+              agentLimit: 5,
+            },
+          ],
+        },
+      }
+
+      const reply = buildBillingReplyResult(
+        runtimeConfig,
+        { channel: { kind: "web" } },
+        {
+          kind: "plan_comparison",
+          requestedPlanNames: ["plus", "pro"],
+          targetField: "",
+          targetFields: [],
+        }
+      )
+      const update = buildBillingContextUpdate(
+        {
+          kind: "plan_comparison",
+          requestedPlanNames: ["plus", "pro"],
+          targetField: "",
+          targetFields: [],
+        },
+        runtimeConfig,
+        { billing: {} }
+      )
+
+      assert.equal(reply?.metadata?.replyStrategy, "structured_plan_comparison")
+      assert.deepEqual(reply?.metadata?.targetFields, ["price", "attendance_limit", "agent_limit"])
+      assert.deepEqual(update?.comparisonFocus?.fields, ["price", "attendance_limit", "agent_limit"])
     },
   },
   {
@@ -8497,6 +8666,86 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador de billing equilibra preco e agentes a partir do plano atual",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "quero gastar menos mas ter mais agentes" }] as never,
+        {
+          agente: {
+            id: "agent-billing-5b",
+            nome: "InfraStudio",
+            promptBase: "Atenda com objetividade.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  {
+                    slug: "basic",
+                    name: "Basic",
+                    matchAny: ["basic"],
+                    priceLabel: "R$ 29,90/mes",
+                    attendanceLimit: 100,
+                    agentLimit: 1,
+                  },
+                  {
+                    slug: "plus",
+                    name: "Plus",
+                    matchAny: ["plus"],
+                    priceLabel: "R$ 79,90/mes",
+                    attendanceLimit: 250,
+                    agentLimit: 2,
+                  },
+                  {
+                    slug: "pro",
+                    name: "Pro",
+                    matchAny: ["pro"],
+                    priceLabel: "R$ 149,90/mes",
+                    attendanceLimit: 500,
+                    agentLimit: 5,
+                  },
+                ],
+              },
+            },
+          },
+          projeto: {
+            id: "proj-billing-5b",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 0,
+            },
+          },
+          channel: {
+            kind: "web",
+          },
+          billing: {
+            planFocus: {
+              slug: "basic",
+              name: "Basic",
+            },
+          },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "plan_recommendation",
+            confidence: 0.96,
+            reason: "tradeoff entre preco e agentes com plano atual",
+            requestedPlanNames: [],
+            targetField: "price",
+            targetFields: ["price", "agent_limit"],
+            usedLlm: true,
+          }),
+          classifySemanticApiIntentStage: async () => null,
+          classifySemanticIntentStage: async () => null,
+        }
+      )
+
+      assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "plus")
+      assert.match(result.reply, /melhor proximo encaixe e o Plus/i)
+      assert.match(result.reply, /diferenca de R\$ 50,00 sobre o Basic/i)
+    },
+  },
+  {
     name: "orquestrador de billing recommendation aberta pede criterio",
     run: async () => {
       const result = await executeSalesOrchestrator(
@@ -8633,7 +8882,151 @@ const tests: TestCase[] = [
       )
 
       assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "pro")
-      assert.match(result.reply, /plano que mais faz sentido no catalogo hoje e o Pro/i)
+      assert.match(result.reply, /custo-beneficio/i)
+      assert.match(result.reply, /R\$ 149,90\/mes/i)
+    },
+  },
+  {
+    name: "orquestrador de billing deriva criterio em follow-up consultivo apos comparacao generica",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "vale a pena pagar a diferenca?" }] as never,
+        {
+          agente: {
+            id: "agent-billing-8",
+            nome: "InfraStudio",
+            promptBase: "Atenda com objetividade.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  {
+                    slug: "plus",
+                    name: "Plus",
+                    matchAny: ["plus"],
+                    priceLabel: "R$ 79,90/mes",
+                    attendanceLimit: 250,
+                    agentLimit: 2,
+                    whatsappIncluded: true,
+                  },
+                  {
+                    slug: "pro",
+                    name: "Pro",
+                    matchAny: ["pro"],
+                    priceLabel: "R$ 149,90/mes",
+                    attendanceLimit: 500,
+                    agentLimit: 5,
+                    whatsappIncluded: true,
+                  },
+                ],
+              },
+            },
+          },
+          projeto: {
+            id: "proj-billing-8",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 0,
+            },
+          },
+          channel: {
+            kind: "web",
+          },
+          billing: {
+            comparisonFocus: {
+              plans: [
+                { slug: "plus", name: "Plus" },
+                { slug: "pro", name: "Pro" },
+              ],
+              fields: [],
+            },
+          },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "plan_recommendation",
+            confidence: 0.95,
+            reason: "follow-up consultivo apos comparacao generica",
+            requestedPlanNames: [],
+            targetField: "",
+            targetFields: [],
+            usedLlm: true,
+          }),
+          classifySemanticApiIntentStage: async () => null,
+          classifySemanticIntentStage: async () => null,
+        }
+      )
+
+      assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "pro")
+      assert.match(result.reply, /custo-beneficio/i)
+      assert.match(result.reply, /R\$ 149,90\/mes/i)
+      assert.match(result.reply, /5 agentes/i)
+    },
+  },
+  {
+    name: "orquestrador de billing persiste campos derivados apos comparacao generica",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "qual a diferenca entre plus e pro?" }] as never,
+        {
+          agente: {
+            id: "agent-billing-9",
+            nome: "InfraStudio",
+            promptBase: "Atenda com objetividade.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  {
+                    slug: "plus",
+                    name: "Plus",
+                    matchAny: ["plus"],
+                    priceLabel: "R$ 79,90/mes",
+                    attendanceLimit: 250,
+                    agentLimit: 2,
+                  },
+                  {
+                    slug: "pro",
+                    name: "Pro",
+                    matchAny: ["pro"],
+                    priceLabel: "R$ 149,90/mes",
+                    attendanceLimit: 500,
+                    agentLimit: 5,
+                  },
+                ],
+              },
+            },
+          },
+          projeto: {
+            id: "proj-billing-9",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 0,
+            },
+          },
+          channel: {
+            kind: "web",
+          },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "plan_comparison",
+            confidence: 0.96,
+            reason: "comparacao generica entre dois planos",
+            requestedPlanNames: ["plus", "pro"],
+            targetField: "",
+            targetFields: [],
+            usedLlm: true,
+          }),
+          classifySemanticApiIntentStage: async () => null,
+          classifySemanticIntentStage: async () => null,
+        }
+      )
+
+      assert.deepEqual(result.metadata?.billingContextUpdate?.comparisonFocus?.fields, ["price", "attendance_limit", "agent_limit"])
+      assert.deepEqual(result.metadata?.billingDiagnostics?.targetFields, ["price", "attendance_limit", "agent_limit"])
     },
   },
   {

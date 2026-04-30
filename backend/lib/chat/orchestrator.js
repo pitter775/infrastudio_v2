@@ -255,11 +255,14 @@ function buildBillingDiagnosticsPayload(input = {}) {
     typeof input.semanticBillingDecision?.targetField === "string" && input.semanticBillingDecision.targetField.trim()
       ? input.semanticBillingDecision.targetField.trim()
       : null
+  const semanticTargetFields = Array.isArray(input.semanticBillingDecision?.targetFields)
+    ? input.semanticBillingDecision.targetFields.filter(Boolean)
+    : []
   return {
     billingIntent: input.semanticBillingDecision?.kind ?? null,
     targetPlan: input.billingReplyMetadata?.targetPlan ?? null,
     targetField: semanticTargetField ?? input.billingReplyMetadata?.targetField ?? null,
-    targetFields: input.semanticBillingDecision?.targetFields ?? input.billingReplyMetadata?.targetFields ?? [],
+    targetFields: semanticTargetFields.length ? semanticTargetFields : input.billingReplyMetadata?.targetFields ?? [],
     comparisonFocusBefore: input.context?.billing?.comparisonFocus ?? null,
     comparisonFocusAfter: input.billingContextUpdate?.comparisonFocus ?? input.context?.billing?.comparisonFocus ?? null,
     planFocusBefore: input.context?.billing?.planFocus ?? null,

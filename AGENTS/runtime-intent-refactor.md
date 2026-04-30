@@ -103,6 +103,11 @@ Ja feito:
 - recomendacao aberta sem criterio explicito agora falha fechado e pede um criterio objetivo antes de recomendar
 - follow-up consultivo apos comparacao de billing agora reaproveita `comparisonFocus.fields` para responder `qual vale mais a pena?` sem depender de repetir os nomes dos planos
 - quando o catalogo estruturado estiver incompleto, billing agora responde faltando dado mas informa os campos estruturados disponiveis naquele plano
+- recomendacao multi-criterio de billing passou a usar score normalizado por campo, evitando distorcao por magnitude bruta de preco ou limites
+- quando existe `billing.planFocus` e o pedido mistura economia com capacidade, o handler agora prioriza o upgrade mais barato que realmente melhora os criterios pedidos
+- follow-up consultivo herdado de `comparisonFocus` agora tambem pode incorporar `price` no criterio efetivo quando os planos comparados trazem preco estruturado
+- quando `comparisonFocus` guarda apenas os planos e nao os campos, billing agora deriva criterios comparativos diretamente do catalogo estruturado para responder follow-up consultivo
+- a propria comparacao generica agora tambem grava esses campos derivados em `billing.comparisonFocus.fields`, reduzindo dependencia de rederivacao nos turnos seguintes
   - `pricingCatalog` do agente passou a aceitar campos estruturados alem de `name` e `priceLabel`:
     - `attendanceLimit`
     - `agentLimit`
