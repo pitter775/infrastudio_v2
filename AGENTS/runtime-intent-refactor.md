@@ -97,9 +97,12 @@ Ja feito:
   - comparacao deterministica entre planos agora tambem usa os campos estruturados do catalogo (`attendanceLimit`, `agentLimit`, `creditLimit`, `whatsappIncluded`, `supportLevel`) quando eles existirem
   - billing estruturado agora tambem aceita `targetFields` para pergunta composta do mesmo plano
   - billing ganhou um primeiro handler deterministico de recomendacao por criterio estruturado do catalogo
-  - billing agora tambem persiste `comparisonFocus` e `lastFields` para follow-up apos comparacao sem depender de repeticao textual dos nomes
-  - comparacao entre dois planos agora tambem pode responder por slots especificos do catalogo, nao apenas overview geral
-  - recomendacao agora tambem suporta multi-criterio quando o `intent-stage` devolver mais de um `targetField`
+- billing agora tambem persiste `comparisonFocus` e `lastFields` para follow-up apos comparacao sem depender de repeticao textual dos nomes
+- comparacao entre dois planos agora tambem pode responder por slots especificos do catalogo, nao apenas overview geral
+- recomendacao agora tambem suporta multi-criterio quando o `intent-stage` devolver mais de um `targetField`
+- recomendacao aberta sem criterio explicito agora falha fechado e pede um criterio objetivo antes de recomendar
+- follow-up consultivo apos comparacao de billing agora reaproveita `comparisonFocus.fields` para responder `qual vale mais a pena?` sem depender de repetir os nomes dos planos
+- quando o catalogo estruturado estiver incompleto, billing agora responde faltando dado mas informa os campos estruturados disponiveis naquele plano
   - `pricingCatalog` do agente passou a aceitar campos estruturados alem de `name` e `priceLabel`:
     - `attendanceLimit`
     - `agentLimit`

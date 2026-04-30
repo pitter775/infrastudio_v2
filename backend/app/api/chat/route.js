@@ -230,6 +230,23 @@ function inferChatFailureOrigin(error) {
   return "runtime"
 }
 
+function buildPublicChatErrorMessage(error) {
+  const rawMessage = String(error?.message || "").trim()
+  if (!rawMessage) {
+    return "Erro interno no chat"
+  }
+
+  if (/unterminated string|json|position \d+|unexpected token|parse/i.test(rawMessage)) {
+    return "Erro interno no chat"
+  }
+
+  if (inferChatFailureOrigin(error) === "runtime" || inferChatFailureOrigin(error) === "openai") {
+    return "Erro interno no chat"
+  }
+
+  return rawMessage
+}
+
 function getIncomingWhatsAppChannelId(body) {
   if (typeof body?.whatsappChannelId === "string" && body.whatsappChannelId.trim()) {
     return body.whatsappChannelId.trim()
@@ -740,10 +757,7 @@ export async function POST(request) {
     })
 
     const payload = {
-      error:
-        error instanceof Error
-          ? error.message
-          : "Erro interno no chat",
+      error: buildPublicChatErrorMessage(error),
     }
     recordJsonApiUsage({
       route: "/api/chat",

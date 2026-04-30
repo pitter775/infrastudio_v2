@@ -697,7 +697,7 @@ export async function classifySemanticBillingIntentStage(input = {}) {
             "Use specific_plan_question quando citar explicitamente um plano do catalogo e pedir uma visao geral dele.",
             "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes ou creditos de um plano.",
             "Use plan_feature_question quando pedir se o plano inclui WhatsApp, suporte ou algum recurso estruturado do catalogo.",
-            "Use plan_recommendation quando ele pedir indicacao do melhor plano para uma necessidade objetiva do catalogo.",
+            "Use plan_recommendation quando ele pedir indicacao do melhor plano, mesmo sem explicitar o criterio. Quando o criterio nao estiver claro, deixe targetField vazio e targetFields vazio.",
             "Quando existir billing.planFocus no contexto e o cliente falar esse plano, nele ou equivalente, use esse foco sem inventar novo nome.",
             "Quando existir billing.comparisonFocus no contexto e o cliente fizer follow-up comparativo, mantenha a comparacao mesmo sem repetir os nomes dos planos.",
             "Preencha targetField com attendance_limit, agent_limit, credit_limit, whatsapp_included, support_level ou price quando houver um slot factual claro.",

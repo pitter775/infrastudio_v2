@@ -357,6 +357,34 @@ function buildFallbackFieldMissingReply(plan, field) {
   return `Nao encontrei no catalogo ${label} para o plano ${plan.name}.`
 }
 
+function listStructuredFieldsForPlan(plan) {
+  if (!plan) {
+    return []
+  }
+
+  const fields = []
+  if (plan.priceLabel) fields.push("preco")
+  if (plan.attendanceLimit != null) fields.push("atendimentos")
+  if (plan.agentLimit != null) fields.push("agentes")
+  if (plan.creditLimit != null) fields.push("creditos")
+  if (plan.whatsappIncluded != null) fields.push("whatsapp")
+  if (plan.supportLevel) fields.push("suporte")
+  return fields
+}
+
+function buildAvailableFieldsHint(plans = []) {
+  const available = uniqueArray(plans.flatMap((plan) => listStructuredFieldsForPlan(plan)))
+  if (!available.length) {
+    return ""
+  }
+
+  return ` Hoje eu tenho estruturado: ${available.join(", ")}.`
+}
+
+function buildClarifyingRecommendationReply(plans = []) {
+  return `Para te recomendar com seguranca, preciso que voce priorize um criterio: preco, atendimentos, agentes, WhatsApp ou suporte.${buildAvailableFieldsHint(plans)}`
+}
+
 function resolveDecisionTargetFields(decision = null) {
   const primaryField = sanitizeString(decision?.targetField)
   const additionalFields = Array.isArray(decision?.targetFields) ? decision.targetFields.map((item) => sanitizeString(item)).filter(Boolean) : []
@@ -530,7 +558,7 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
     const missingField = resolvedFields.find((field) => !buildFactValue(selectedPlan, field))
     if (missingField) {
       return {
-        reply: buildFallbackFieldMissingReply(selectedPlan, missingField),
+        reply: buildFallbackFieldMissingReply(selectedPlan, missingField) + buildAvailableFieldsHint([selectedPlan]),
         metadata: {
           targetPlan: selectedPlan.slug,
           targetField: missingField,
@@ -556,16 +584,37 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   }
 
   if (decision.kind === "plan_recommendation") {
-    const recommendationFields = targetFields.length ? targetFields : targetField ? [targetField] : ["attendance_limit"]
-    const recommendationField = recommendationFields[0]
+    const comparisonPlans = resolveComparisonFocusPlans(context, items)
+    const recommendationPool = comparisonPlans.length >= 2 ? comparisonPlans : items
+    const comparisonFields = Array.isArray(context?.billing?.comparisonFocus?.fields)
+      ? context.billing.comparisonFocus.fields.map((field) => sanitizeString(field)).filter(Boolean)
+      : []
+    const recommendationFields =
+      targetFields.length ? targetFields
+      : targetField ? [targetField]
+      : comparisonFields.length ? comparisonFields
+      : []
+    const recommendationField = recommendationFields[0] || null
     const currentPlan = selectedPlan ?? items.find((item) => item.slug === sanitizeString(context?.billing?.planFocus?.slug)) ?? null
+    if (!recommendationFields.length) {
+      return {
+        reply: buildClarifyingRecommendationReply(recommendationPool),
+        metadata: {
+          targetPlan: null,
+          targetField: null,
+          targetFields: [],
+          fieldFound: false,
+          replyStrategy: "missing_recommendation_criterion",
+        },
+      }
+    }
     const recommendedPlan =
       recommendationFields.length > 1
-        ? buildMultiCriteriaRecommendation(items, recommendationFields, currentPlan)
-        : buildPlanRecommendation(items, recommendationField, currentPlan)
+        ? buildMultiCriteriaRecommendation(recommendationPool, recommendationFields, currentPlan)
+        : buildPlanRecommendation(recommendationPool, recommendationField, currentPlan)
     if (!recommendedPlan) {
       return {
-        reply: "Nao encontrei no catalogo dados estruturados suficientes para recomendar um plano com seguranca.",
+        reply: `Nao encontrei no catalogo dados estruturados suficientes para recomendar um plano com seguranca.${buildAvailableFieldsHint(recommendationPool)}`,
         metadata: {
           targetPlan: null,
           targetField: recommendationField,
@@ -673,11 +722,18 @@ export function buildBillingContextUpdate(decision = null, runtimeConfig = {}, c
   const recommendationField = targetField || resolveDecisionTargetFields(decision)[0] || "attendance_limit"
   const currentPlan = requestedSinglePlan ?? items.find((item) => item.slug === sanitizeString(context?.billing?.planFocus?.slug)) ?? null
   const requestedFields = resolveDecisionTargetFields(decision)
+  const comparisonFields = Array.isArray(context?.billing?.comparisonFocus?.fields)
+    ? context.billing.comparisonFocus.fields.map((field) => sanitizeString(field)).filter(Boolean)
+    : []
+  const recommendationPool = resolveComparisonFocusPlans(context, items)
+  const effectiveRecommendationFields = requestedFields.length ? requestedFields : comparisonFields
   const selectedPlan =
     decision.kind === "plan_recommendation"
-      ? requestedFields.length > 1
-        ? buildMultiCriteriaRecommendation(items, requestedFields, currentPlan)
-        : buildPlanRecommendation(items, recommendationField, currentPlan)
+      ? effectiveRecommendationFields.length > 1
+        ? buildMultiCriteriaRecommendation(recommendationPool.length >= 2 ? recommendationPool : items, effectiveRecommendationFields, currentPlan)
+        : effectiveRecommendationFields.length === 1
+          ? buildPlanRecommendation(recommendationPool.length >= 2 ? recommendationPool : items, effectiveRecommendationFields[0] || recommendationField, currentPlan)
+          : null
       : requestedSinglePlan
   const shouldUpdatePlanFocus =
     Boolean(selectedPlan) &&
@@ -692,8 +748,8 @@ export function buildBillingContextUpdate(decision = null, runtimeConfig = {}, c
 
   const nextUpdate = {
     lastIntent: decision.kind,
-    lastField: targetField || requestedFields[0] || null,
-    lastFields: requestedFields,
+    lastField: targetField || requestedFields[0] || comparisonFields[0] || null,
+    lastFields: requestedFields.length ? requestedFields : comparisonFields,
     updatedAt: new Date().toISOString(),
   }
 

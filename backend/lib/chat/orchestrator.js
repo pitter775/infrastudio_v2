@@ -251,10 +251,14 @@ function buildCatalogDiagnosticsPayload(input = {}) {
 }
 
 function buildBillingDiagnosticsPayload(input = {}) {
+  const semanticTargetField =
+    typeof input.semanticBillingDecision?.targetField === "string" && input.semanticBillingDecision.targetField.trim()
+      ? input.semanticBillingDecision.targetField.trim()
+      : null
   return {
     billingIntent: input.semanticBillingDecision?.kind ?? null,
     targetPlan: input.billingReplyMetadata?.targetPlan ?? null,
-    targetField: input.semanticBillingDecision?.targetField ?? input.billingReplyMetadata?.targetField ?? null,
+    targetField: semanticTargetField ?? input.billingReplyMetadata?.targetField ?? null,
     targetFields: input.semanticBillingDecision?.targetFields ?? input.billingReplyMetadata?.targetFields ?? [],
     comparisonFocusBefore: input.context?.billing?.comparisonFocus ?? null,
     comparisonFocusAfter: input.billingContextUpdate?.comparisonFocus ?? input.context?.billing?.comparisonFocus ?? null,

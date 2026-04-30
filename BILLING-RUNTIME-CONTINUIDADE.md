@@ -65,6 +65,9 @@ Ja foi entregue:
 - billing agora persiste `comparisonFocus` e `lastFields` para follow-up apos comparacao sem repetir nomes de plano
 - comparacao entre dois planos agora tambem pode responder por campos pedidos (`attendance_limit`, `agent_limit`, `credit_limit`, `whatsapp_included`, `support_level`, `price`) em vez de despejar so overview
 - recomendacao agora tambem suporta mais de um criterio estruturado quando o stage devolver `targetFields`
+- recomendacao aberta sem criterio explicito agora falha fechado de forma deterministica e pede prioridade objetiva antes de recomendar
+- follow-up consultivo apos comparacao, como `qual vale mais a pena?`, agora reaproveita `comparisonFocus.fields` para decidir sem depender de repeticao textual
+- quando faltar campo estruturado no catalogo real do agente, a resposta agora informa tambem quais campos ainda existem de forma estruturada naquele plano
 - existe auditoria real pronta para banco:
   - `cd backend && npm run audit:pricing-catalog`
   - mede quantos agentes tem catalogo, quantos estao so com `priceLabel` e quais campos estruturados ainda faltam por agente
@@ -94,7 +97,25 @@ Exemplo:
 
 Isso e melhor que inventar, mas ainda gera erro funcional se o cadastro dos agentes nao estiver maduro.
 
-### 2. Continuidade de billing ainda depende do primeiro turno ter fixado foco
+Melhora aplicada:
+
+- quando o campo pedido nao existe, a resposta agora tambem mostra os campos estruturados disponiveis naquele catalogo
+
+### 2. Recomendacao ainda depende de criterio semantico suficientemente objetivo
+
+Casos como:
+
+- `qual plano voce recomenda?`
+- `qual faz mais sentido pra mim?`
+
+agora nao inventam resposta.
+
+Mas a qualidade final ainda depende do `intent-stage` conseguir devolver:
+
+- criterio principal quando existir
+- ou deixar claro que a resposta precisa pedir desempatador
+
+### 3. Continuidade de billing ainda depende do primeiro turno ter fixado foco
 
 `esse plano` so funciona bem quando o turno anterior gerou `billingContextUpdate`.
 
@@ -110,7 +131,7 @@ Melhora aplicada:
 
 - overview generico sem plano unico nao limpa mais um foco valido de billing que ja vinha do contexto
 
-### 3. O domain-router legado ainda pode sequestrar a conversa
+### 4. O domain-router legado ainda pode sequestrar a conversa
 
 Se o roteador antigo mandar a mensagem para:
 
@@ -123,7 +144,7 @@ o override semantico de billing nao assume.
 
 Isso ainda deixa billing dependente de uma camada antiga demais.
 
-### 4. Match de plano ainda esta rigido
+### 5. Match de plano ainda esta rigido
 
 Hoje o handler resolve plano por alias normalizado do catalogo.
 
@@ -136,15 +157,15 @@ Deve ser resolvido com:
 - melhor prompt/classificacao do stage
 - se necessario, normalizacao estruturada de alias dentro do dominio de billing apenas
 
-### 5. Perguntas compostas ainda podem falhar
+### 6. Billing consultivo ainda nao cobre tudo
 
-Casos provaveis de erro:
+Casos ainda frageis:
 
-- `esse plano tem whatsapp e quantos atendimentos?`
-- `qual a diferenca do plus pro pro em atendimento e agentes?`
+- `quero gastar menos mas ter mais agentes`
+- `vale a pena pagar a diferenca?`
 - `se eu passar do limite no plus o que acontece?`
 
-Hoje o handler esta melhor para pergunta de um slot por vez.
+Hoje o handler ja cobre pergunta composta factual e follow-up consultivo pos-comparacao, mas ainda nao fecha toda camada consultiva aberta.
 
 ## Erros reais mais provaveis
 
@@ -157,9 +178,11 @@ Ao testar manualmente, priorizar estes cenarios:
 5. `qual o plano mais barato?`
 6. `quero contratar o plus`
 7. `se eu precisar de mais atendimentos, qual plano faz sentido?`
-8. `esse plano suporta quantos agentes?`
-9. `esse plano` logo apos uma resposta generica de overview
-10. `plano plus` quando o `matchAny` do catalogo estiver pobre
+8. `qual plano voce recomenda?`
+9. `qual vale mais a pena?` logo apos comparar dois planos
+10. `esse plano suporta quantos agentes?`
+11. `esse plano` logo apos uma resposta generica de overview
+12. `plano plus` quando o `matchAny` do catalogo estiver pobre
 
 ## Ordem de ataque obrigatoria
 

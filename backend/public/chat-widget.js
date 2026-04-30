@@ -2264,6 +2264,33 @@
         .toLowerCase();
     }
 
+    function isTemporaryLocalUserMessage(message) {
+      return Boolean(
+        message &&
+        message.isAi !== true &&
+        !message.serverId &&
+        typeof message.id === "string" &&
+        message.id.indexOf("user-") === 0
+      );
+    }
+
+    function normalizeChatErrorMessage(message, status) {
+      var text = String(message || "").trim();
+      if (!text) {
+        return "Nao consegui responder agora.";
+      }
+
+      if (Number(status) >= 500) {
+        return "Nao consegui responder agora.";
+      }
+
+      if (/unterminated string|json|position \d+|unexpected token|parse/i.test(text)) {
+        return "Nao consegui responder agora.";
+      }
+
+      return text;
+    }
+
     function isCatalogListingMessage(message) {
       return Boolean(
         message &&
@@ -2332,6 +2359,14 @@
       var currentTime = getMessageTimestamp(current);
       if (!candidateTime || !currentTime) {
         return true;
+      }
+
+      if (
+        candidateSignature === currentSignature &&
+        ((candidate.serverId && isTemporaryLocalUserMessage(current)) ||
+          (current.serverId && isTemporaryLocalUserMessage(candidate)))
+      ) {
+        return Math.abs(candidateTime - currentTime) <= 12 * 60 * 60 * 1000;
       }
 
       return Math.abs(candidateTime - currentTime) <= 10 * 60 * 1000;
@@ -3363,6 +3398,9 @@
         });
 
         var payload = await response.json();
+        if (!response.ok) {
+          throw new Error(normalizeChatErrorMessage(payload && payload.error, response.status));
+        }
         if (payload.chatId) {
           chatId = payload.chatId;
         }
@@ -3395,7 +3433,7 @@
       } catch (error) {
         messages.push(assignMessageOrder({
           id: "ai-" + Date.now(),
-          text: "Nao consegui responder agora.",
+          text: normalizeChatErrorMessage(error && error.message, 500),
           isAi: true,
           createdAt: new Date().toISOString(),
           cta: null,
