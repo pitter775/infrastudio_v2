@@ -14,6 +14,9 @@ import {
   buildApiDecisionFromSemanticIntent,
   buildAiObservability,
   buildAssistantMessageMetadata,
+  buildBillingContextUpdate,
+  buildBillingDecisionFromSemanticIntent,
+  buildBillingReplyResult,
   buildBillingSnapshot,
   buildBillingBlockedResult,
   buildCatalogDecisionFromSemanticIntent,
@@ -410,6 +413,283 @@ const tests: TestCase[] = [
       assert.equal(snapshot.currentCycle.usagePercent.totalTokens, 50)
       assert.equal(snapshot.topUps.totalTokens, 300)
       assert.equal(snapshot.status.blocked, false)
+    },
+  },
+  {
+    name: "billing estruturado responde campo factual e persiste foco do plano",
+    run: () => {
+      const runtimeConfig = {
+        pricingCatalog: {
+          enabled: true,
+          items: [
+            {
+              slug: "plus",
+              name: "Plano Plus",
+              matchAny: ["plus", "plano plus"],
+              priceLabel: "R$ 79,90/mes",
+              attendanceLimit: 250,
+              agentLimit: 2,
+              creditLimit: 400000,
+              whatsappIncluded: true,
+              supportLevel: "prioritario",
+              features: ["chat widget", "faq"],
+              channels: ["web", "whatsapp"],
+            },
+          ],
+        },
+      }
+
+      const decision = buildBillingDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "plan_limit_question",
+          confidence: 0.95,
+          reason: "cliente pediu capacidade do plano",
+          requestedPlanNames: ["Plano Plus"],
+          targetField: "attendance_limit",
+          usedLlm: true,
+        },
+      })
+
+      const reply = buildBillingReplyResult(runtimeConfig, { channel: { kind: "web" } }, decision)
+      const contextUpdate = buildBillingContextUpdate(decision, runtimeConfig, { billing: {} })
+
+      assert.equal(decision?.kind, "plan_limit_question")
+      assert.equal(decision?.targetField, "attendance_limit")
+      assert.match(reply?.reply ?? "", /Plano Plus comporta 250 atendimentos/i)
+      assert.equal(reply?.metadata?.fieldFound, true)
+      assert.equal(contextUpdate?.planFocus?.slug, "plus")
+      assert.equal(contextUpdate?.lastField, "attendance_limit")
+    },
+  },
+  {
+    name: "billing estruturado falha fechado sem campo factual no catalogo",
+    run: () => {
+      const runtimeConfig = {
+        pricingCatalog: {
+          enabled: true,
+          items: [
+            {
+              slug: "plus",
+              name: "Plano Plus",
+              matchAny: ["plus", "plano plus"],
+              priceLabel: "R$ 79,90/mes",
+            },
+          ],
+        },
+      }
+
+      const reply = buildBillingReplyResult(
+        runtimeConfig,
+        {
+          channel: { kind: "web" },
+          billing: {
+            planFocus: {
+              slug: "plus",
+              name: "Plano Plus",
+            },
+          },
+        },
+        {
+          kind: "plan_limit_question",
+          targetField: "attendance_limit",
+          requestedPlanNames: [],
+        }
+      )
+
+      assert.match(reply?.reply ?? "", /Nao encontrei no catalogo limite estruturado de atendimentos/i)
+      assert.equal(reply?.metadata?.fieldFound, false)
+    },
+  },
+  {
+    name: "service propaga billingContextUpdate para o contexto da conversa",
+    run: () => {
+      const updatedContext = updateContextFromAiResult({
+        nextContext: {
+          billing: {},
+        },
+        historyLengthSource: 1,
+        chatId: "chat-billing-1",
+        ai: {
+          reply: "O plano Plus comporta 250 atendimentos.",
+          assets: [],
+          metadata: {
+            billingContextUpdate: {
+              planFocus: {
+                slug: "plus",
+                name: "Plano Plus",
+                updatedAt: "2026-04-29T12:00:00.000Z",
+              },
+              lastIntent: "plan_limit_question",
+              lastField: "attendance_limit",
+              updatedAt: "2026-04-29T12:00:00.000Z",
+            },
+          },
+        },
+      })
+
+      assert.equal(updatedContext.billing?.planFocus?.slug, "plus")
+      assert.equal(updatedContext.billing?.lastIntent, "plan_limit_question")
+      assert.equal(updatedContext.billing?.lastField, "attendance_limit")
+    },
+  },
+  {
+    name: "service preserva planFocus anterior quando billingContextUpdate nao troca o foco",
+    run: () => {
+      const updatedContext = updateContextFromAiResult({
+        nextContext: {
+          billing: {
+            planFocus: {
+              slug: "plus",
+              name: "Plano Plus",
+              updatedAt: "2026-04-29T12:00:00.000Z",
+            },
+          },
+        },
+        historyLengthSource: 1,
+        chatId: "chat-billing-2",
+        ai: {
+          reply: "Estes sao os valores disponiveis.",
+          assets: [],
+          metadata: {
+            billingContextUpdate: {
+              lastIntent: "pricing_overview",
+              lastField: "price",
+              updatedAt: "2026-04-29T12:01:00.000Z",
+            },
+          },
+        },
+      })
+
+      assert.equal(updatedContext.billing?.planFocus?.slug, "plus")
+      assert.equal(updatedContext.billing?.lastIntent, "pricing_overview")
+    },
+  },
+  {
+    name: "billing comparacao estruturada inclui capacidade e canais quando existirem",
+    run: () => {
+      const reply = buildBillingReplyResult(
+        {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              {
+                slug: "basic",
+                name: "Basic",
+                matchAny: ["basic"],
+                priceLabel: "R$ 29,90/mes",
+                attendanceLimit: 100,
+                agentLimit: 1,
+                whatsappIncluded: false,
+              },
+              {
+                slug: "pro",
+                name: "Pro",
+                matchAny: ["pro"],
+                priceLabel: "R$ 149,90/mes",
+                attendanceLimit: 500,
+                agentLimit: 5,
+                whatsappIncluded: true,
+                supportLevel: "prioritario",
+              },
+            ],
+          },
+        },
+        { channel: { kind: "web" } },
+        {
+          kind: "plan_comparison",
+          requestedPlanNames: ["basic", "pro"],
+        }
+      )
+
+      assert.match(reply?.reply ?? "", /Basic: R\$ 29,90\/mes \| Atendimentos: 100 atendimentos \| Agentes: 1 agente \| WhatsApp: Nao/i)
+      assert.match(reply?.reply ?? "", /Pro: R\$ 149,90\/mes \| Atendimentos: 500 atendimentos \| Agentes: 5 agentes \| WhatsApp: Sim \| Suporte: prioritario/i)
+    },
+  },
+  {
+    name: "billing estruturado responde pergunta composta com mais de um slot",
+    run: () => {
+      const reply = buildBillingReplyResult(
+        {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              {
+                slug: "plus",
+                name: "Plano Plus",
+                matchAny: ["plus", "plano plus"],
+                priceLabel: "R$ 79,90/mes",
+                attendanceLimit: 250,
+                whatsappIncluded: true,
+              },
+            ],
+          },
+        },
+        {
+          channel: { kind: "web" },
+        },
+        {
+          kind: "plan_feature_question",
+          requestedPlanNames: ["Plano Plus"],
+          targetField: "whatsapp_included",
+          targetFields: ["whatsapp_included", "attendance_limit"],
+        }
+      )
+
+      assert.match(reply?.reply ?? "", /No plano Plano Plus, WhatsApp: Sim\./i)
+      assert.match(reply?.reply ?? "", /O plano Plano Plus comporta 250 atendimentos\./i)
+      assert.equal(reply?.metadata?.replyStrategy, "structured_plan_fact_multi")
+    },
+  },
+  {
+    name: "billing estruturado recomenda upgrade por capacidade usando foco atual",
+    run: () => {
+      const reply = buildBillingReplyResult(
+        {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              {
+                slug: "basic",
+                name: "Basic",
+                matchAny: ["basic"],
+                priceLabel: "R$ 29,90/mes",
+                attendanceLimit: 100,
+              },
+              {
+                slug: "plus",
+                name: "Plus",
+                matchAny: ["plus"],
+                priceLabel: "R$ 79,90/mes",
+                attendanceLimit: 250,
+              },
+              {
+                slug: "pro",
+                name: "Pro",
+                matchAny: ["pro"],
+                priceLabel: "R$ 149,90/mes",
+                attendanceLimit: 500,
+              },
+            ],
+          },
+        },
+        {
+          channel: { kind: "web" },
+          billing: {
+            planFocus: {
+              slug: "basic",
+              name: "Basic",
+            },
+          },
+        },
+        {
+          kind: "plan_recommendation",
+          targetField: "attendance_limit",
+          requestedPlanNames: [],
+        }
+      )
+
+      assert.match(reply?.reply ?? "", /melhor proximo encaixe e o Plus/i)
+      assert.match(reply?.reply ?? "", /O plano Plus comporta 250 atendimentos\./i)
     },
   },
   {
@@ -7543,6 +7823,240 @@ const tests: TestCase[] = [
       assert.deepEqual(candidates, ["inox"]);
       assert.equal(scoreMercadoLivreItem(woodItem, "tem inox"), 0);
       assert.ok(scoreMercadoLivreItem(inoxItem, "tem inox") > 0);
+    },
+  },
+  {
+    name: "orquestrador de billing responde slot factual e atualiza contexto do plano em foco",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "quantos atendimentos cabem no plano plus?" }] as never,
+        {
+          agente: {
+            id: "agent-billing-1",
+            nome: "InfraStudio",
+            promptBase: "Atenda com objetividade.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  {
+                    slug: "plus",
+                    name: "Plano Plus",
+                    matchAny: ["plus", "plano plus"],
+                    priceLabel: "R$ 79,90/mes",
+                    attendanceLimit: 250,
+                    agentLimit: 2,
+                    creditLimit: 400000,
+                    whatsappIncluded: true,
+                    supportLevel: "prioritario",
+                    features: ["chat widget"],
+                    channels: ["web", "whatsapp"],
+                  },
+                ],
+              },
+            },
+          },
+          projeto: {
+            id: "proj-billing-1",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 0,
+            },
+          },
+          channel: {
+            kind: "web",
+          },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "plan_limit_question",
+            confidence: 0.97,
+            reason: "pedido de capacidade do plano",
+            requestedPlanNames: ["Plano Plus"],
+            targetField: "attendance_limit",
+            usedLlm: true,
+          }),
+          classifySemanticApiIntentStage: async () => null,
+          classifySemanticIntentStage: async () => null,
+        }
+      )
+
+      assert.match(result.reply, /Plano Plus comporta 250 atendimentos/i)
+      assert.equal(result.metadata?.provider, "billing_runtime")
+      assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "plus")
+      assert.equal(result.metadata?.billingDiagnostics?.targetField, "attendance_limit")
+    },
+  },
+  {
+    name: "orquestrador de billing responde pergunta composta com slots estruturados",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "o plus tem whatsapp e quantos atendimentos?" }] as never,
+        {
+          agente: {
+            id: "agent-billing-2",
+            nome: "InfraStudio",
+            promptBase: "Atenda com objetividade.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  {
+                    slug: "plus",
+                    name: "Plano Plus",
+                    matchAny: ["plus", "plano plus"],
+                    priceLabel: "R$ 79,90/mes",
+                    attendanceLimit: 250,
+                    whatsappIncluded: true,
+                  },
+                ],
+              },
+            },
+          },
+          projeto: {
+            id: "proj-billing-2",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 0,
+            },
+          },
+          channel: {
+            kind: "web",
+          },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "plan_feature_question",
+            confidence: 0.97,
+            reason: "pedido composto sobre o plano",
+            requestedPlanNames: ["Plano Plus"],
+            targetField: "whatsapp_included",
+            targetFields: ["whatsapp_included", "attendance_limit"],
+            usedLlm: true,
+          }),
+          classifySemanticApiIntentStage: async () => null,
+          classifySemanticIntentStage: async () => null,
+        }
+      )
+
+      assert.match(result.reply, /WhatsApp: Sim\./i)
+      assert.match(result.reply, /250 atendimentos\./i)
+      assert.deepEqual(result.metadata?.billingDiagnostics?.targetFields, ["whatsapp_included", "attendance_limit"])
+    },
+  },
+  {
+    name: "orquestrador de billing recomenda plano por capacidade de forma deterministica",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "se eu precisar de mais atendimentos, qual plano faz sentido?" }] as never,
+        {
+          agente: {
+            id: "agent-billing-3",
+            nome: "InfraStudio",
+            promptBase: "Atenda com objetividade.",
+            runtimeConfig: {
+              pricingCatalog: {
+                enabled: true,
+                items: [
+                  {
+                    slug: "basic",
+                    name: "Basic",
+                    matchAny: ["basic"],
+                    priceLabel: "R$ 29,90/mes",
+                    attendanceLimit: 100,
+                  },
+                  {
+                    slug: "plus",
+                    name: "Plus",
+                    matchAny: ["plus"],
+                    priceLabel: "R$ 79,90/mes",
+                    attendanceLimit: 250,
+                  },
+                  {
+                    slug: "pro",
+                    name: "Pro",
+                    matchAny: ["pro"],
+                    priceLabel: "R$ 149,90/mes",
+                    attendanceLimit: 500,
+                  },
+                ],
+              },
+            },
+          },
+          projeto: {
+            id: "proj-billing-3",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 0,
+            },
+          },
+          channel: {
+            kind: "web",
+          },
+          billing: {
+            planFocus: {
+              slug: "basic",
+              name: "Basic",
+            },
+          },
+        } as never,
+        {
+          classifySemanticBillingIntentStage: async () => ({
+            intent: "plan_recommendation",
+            confidence: 0.96,
+            reason: "pedido de recomendacao por capacidade",
+            requestedPlanNames: [],
+            targetField: "attendance_limit",
+            targetFields: ["attendance_limit"],
+            usedLlm: true,
+          }),
+          classifySemanticApiIntentStage: async () => null,
+          classifySemanticIntentStage: async () => null,
+        }
+      )
+
+      assert.match(result.reply, /melhor proximo encaixe e o Plus/i)
+      assert.equal(result.metadata?.provider, "billing_runtime")
+      assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "plus")
+    },
+  },
+  {
+    name: "buildBillingContextUpdate nao apaga foco anterior em overview generico",
+    run: () => {
+      const update = buildBillingContextUpdate(
+        {
+          kind: "pricing_overview",
+          targetField: "price",
+          requestedPlanNames: [],
+        },
+        {
+          pricingCatalog: {
+            enabled: true,
+            items: [
+              {
+                slug: "plus",
+                name: "Plano Plus",
+                matchAny: ["plus"],
+                priceLabel: "R$ 79,90/mes",
+              },
+            ],
+          },
+        },
+        {
+          billing: {
+            planFocus: {
+              slug: "plus",
+              name: "Plano Plus",
+            },
+          },
+        }
+      )
+
+      assert.equal(Object.prototype.hasOwnProperty.call(update ?? {}, "planFocus"), false)
+      assert.equal(update?.lastIntent, "pricing_overview")
     },
   },
 ];

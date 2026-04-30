@@ -180,4 +180,14 @@ export {
   normalizeWhatsAppLookupPhone,
 } from "@/lib/chats";
 
-export { buildApiDecisionFromSemanticIntent, buildCatalogDecisionFromSemanticIntent } from "@/lib/chat/semantic-intent-stage";
+export {
+  buildApiDecisionFromSemanticIntent,
+  buildBillingDecisionFromSemanticIntent,
+  buildCatalogDecisionFromSemanticIntent,
+} from "@/lib/chat/semantic-intent-stage";
+
+export {
+  buildBillingContextUpdate,
+  buildBillingReplyResult,
+  getStructuredPricingItems,
+} from "@/lib/chat/billing-intent-handler";

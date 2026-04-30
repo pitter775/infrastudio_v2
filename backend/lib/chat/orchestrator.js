@@ -1,4 +1,5 @@
 import { buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReplyResolution } from "@/lib/chat/api-runtime"
+import { buildBillingContextUpdate, buildBillingReplyResult } from "@/lib/chat/billing-intent-handler"
 import { hasRecentCatalogSnapshot } from "@/lib/chat/catalog-follow-up"
 import { resolveCatalogDecisionState } from "@/lib/chat/catalog-intent-handler"
 import { buildLeadNameAcknowledgementReply, enrichLeadContext, extractName, isLikelyLeadNameReply } from "@/lib/chat/lead-stage"
@@ -24,7 +25,6 @@ import {
   extractSemanticPricingCatalogFromAgentText,
 } from "@/lib/chat/semantic-intent-stage"
 import {
-  buildPricingCatalogReplyFromIntent,
   buildProductSearchCandidates,
   isGreetingOrAckMessage,
   isOutOfScopeForCatalog,
@@ -228,6 +228,8 @@ function buildHeuristicReplyResult(reply, metadata = {}) {
       catalogoBusca: metadata.catalogoBusca ?? null,
       semanticIntent: metadata.semanticIntent ?? null,
       catalogDiagnostics: metadata.catalogDiagnostics ?? null,
+      billingDiagnostics: metadata.billingDiagnostics ?? null,
+      billingContextUpdate: metadata.billingContextUpdate ?? null,
       routingDecision: metadata.routingDecision ?? null,
       focus: metadata.focus ?? null,
     },
@@ -245,6 +247,19 @@ function buildCatalogDiagnosticsPayload(input = {}) {
     paginationNextOffset: listingSession?.nextOffset ?? input.paginationNextOffset ?? 0,
     matchedCount: input.matchedCount ?? 0,
     replyAssetsCount: input.replyAssetsCount ?? 0,
+  }
+}
+
+function buildBillingDiagnosticsPayload(input = {}) {
+  return {
+    billingIntent: input.semanticBillingDecision?.kind ?? null,
+    targetPlan: input.billingReplyMetadata?.targetPlan ?? null,
+    targetField: input.semanticBillingDecision?.targetField ?? input.billingReplyMetadata?.targetField ?? null,
+    targetFields: input.semanticBillingDecision?.targetFields ?? input.billingReplyMetadata?.targetFields ?? [],
+    planFocusBefore: input.context?.billing?.planFocus ?? null,
+    planFocusAfter: input.billingContextUpdate?.planFocus ?? input.context?.billing?.planFocus ?? null,
+    fieldFound: input.billingReplyMetadata?.fieldFound ?? null,
+    replyStrategy: input.billingReplyMetadata?.replyStrategy ?? null,
   }
 }
 
@@ -658,10 +673,9 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       mercadoLivreFlowState.genericMercadoLivreListingRequested ||
       mercadoLivreFlowState.loadMoreCatalogRequested)
   const catalogPricingReply = runtimeConfig?.pricingCatalog?.enabled
-    ? buildPricingCatalogReplyFromIntent(runtimeConfig, context, semanticBillingDecision, {
-        prefersStructuredReply,
-      })
+    ? buildBillingReplyResult(runtimeConfig, effectiveContext, semanticBillingDecision)
     : null
+  const billingContextUpdate = catalogPricingReply ? buildBillingContextUpdate(semanticBillingDecision, runtimeConfig, effectiveContext) : null
   const shouldDeferLeadCapture =
     Boolean(runtimeConfig?.leadCapture?.deferOnQuestions) &&
     (isCommercialCapabilityMessage(latestUserMessage) || /\?/.test(String(latestUserMessage || "")))
@@ -712,6 +726,12 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         context?.catalogo?.paginationTotal ??
         0,
       replyAssetsCount: mercadoLivreAssets.length,
+      }),
+    billingDiagnostics: buildBillingDiagnosticsPayload({
+      context: effectiveContext,
+      semanticBillingDecision,
+      billingReplyMetadata: catalogPricingReply?.metadata ?? null,
+      billingContextUpdate,
     }),
   }
 
@@ -787,12 +807,21 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   }
 
   if (catalogPricingReply && !shouldPreferMercadoLivreListing && !mercadoLivreReply) {
-    return buildHeuristicReplyResult(catalogPricingReply, {
+    return buildHeuristicReplyResult(catalogPricingReply.reply, {
       ...heuristicMetadata,
-      heuristicStage: "pricing_catalog",
-      domainStage: "catalog",
-      provider: "local_heuristic",
-      model: "heuristic",
+      heuristicStage: "billing_runtime",
+      domainStage: "billing",
+      provider: "billing_runtime",
+      model: "structured_pricing_catalog",
+      focus: billingContextUpdate?.planFocus
+        ? {
+            domain: "billing",
+            source: "billing_runtime",
+            subject: billingContextUpdate.planFocus.name,
+            confidence: semanticBillingDecision?.confidence ?? 0.9,
+          }
+        : routingDecision.focus ?? null,
+      billingContextUpdate,
     })
   }
 

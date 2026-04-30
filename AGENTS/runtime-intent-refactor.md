@@ -86,6 +86,29 @@ Heuristica nao pode entrar como:
 
 Ja feito:
 
+- billing estruturado deixou de colapsar pergunta factual em resposta generica de preco:
+  - o `intent-stage` de billing agora tambem cobre `plan_limit_question` e `plan_feature_question`
+  - a decisao estruturada pode carregar `targetField` como `attendance_limit`, `agent_limit`, `credit_limit`, `whatsapp_included`, `support_level` ou `price`
+  - o runtime ganhou `billing-intent-handler.js` como handler deterministico de billing
+  - perguntas como `quantos atendimentos cabem no plano plus?` passam a responder pelo campo estruturado do catalogo, sem cair na tabela geral
+  - quando o catalogo nao trouxer o campo pedido, o fluxo falha fechado com resposta explicita em vez de voltar para CTA comercial ou lista de valores
+  - o contexto agora persiste `billing.planFocus`, `billing.lastIntent` e `billing.lastField` para continuidade factual de `esse plano`
+  - `billingContextUpdate` agora preserva `planFocus` anterior quando o turno atual e so um overview/comparacao ampla sem plano unico resolvido
+  - comparacao deterministica entre planos agora tambem usa os campos estruturados do catalogo (`attendanceLimit`, `agentLimit`, `creditLimit`, `whatsappIncluded`, `supportLevel`) quando eles existirem
+  - billing estruturado agora tambem aceita `targetFields` para pergunta composta do mesmo plano
+  - billing ganhou um primeiro handler deterministico de recomendacao por criterio estruturado do catalogo
+  - `pricingCatalog` do agente passou a aceitar campos estruturados alem de `name` e `priceLabel`:
+    - `attendanceLimit`
+    - `agentLimit`
+    - `creditLimit`
+    - `whatsappIncluded`
+    - `supportLevel`
+    - `features`
+    - `channels`
+  - o runtime tambem publica `metadata.billingDiagnostics` e `metadata.billingContextUpdate` por turno para auditoria
+  - a auditoria real dos catalogos estruturados do banco agora esta disponivel em `cd backend && npm run audit:pricing-catalog`
+  - o orquestrador continua coordenando, mas a resposta factual de billing agora sai do handler estruturado em vez de fallback comercial amplo
+
 - o lock de `product_detail` no catalogo ganhou uma saida deterministica para busca ampla de loja:
   - se a mensagem em detalhe sinaliza busca catalogal real por candidatos estruturados e nao referencia explicitamente o item atual, o runtime sai do item e abre busca nova
   - isso cobre casos como `tem porcelanato?` ou `tem inox?` depois de abrir um produto, sem depender de novo matcher textual amplo
@@ -551,6 +574,7 @@ Ainda errado / fragil:
 
 ## Proximo passo recomendado agora
 
+- rodar `cd backend && npm run audit:pricing-catalog` e priorizar preenchimento dos agentes com catalogo ainda fraco
 - consolidar a mesma resolucao de `similar_items_search` no caminho de API quando existir provider que suporte nova busca por item/tipo
 - continuar movendo comparacao e selecao de lista para o handler compartilhado de catalogo, reduzindo o que ainda esta dentro de `mercado-livre.js` e `api-runtime.js`
 - mover comparacao/ranking de lista (`mais caro`, `mais barato`, `vale mais a pena`) para o handler compartilhado de catalogo, evitando duplicidade entre Mercado Livre e API

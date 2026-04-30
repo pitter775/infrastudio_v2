@@ -41,6 +41,13 @@ function normalizePricingCatalogItems(value) {
         name: normalizeString(item.name),
         matchAny: normalizeStringArray(item.matchAny),
         priceLabel: normalizeString(item.priceLabel),
+        attendanceLimit: typeof item.attendanceLimit === "number" ? item.attendanceLimit : null,
+        agentLimit: typeof item.agentLimit === "number" ? item.agentLimit : null,
+        creditLimit: typeof item.creditLimit === "number" ? item.creditLimit : null,
+        whatsappIncluded: typeof item.whatsappIncluded === "boolean" ? item.whatsappIncluded : null,
+        supportLevel: normalizeString(item.supportLevel),
+        features: normalizeStringArray(item.features),
+        channels: normalizeStringArray(item.channels),
       })
     })
     .filter((item) => item && Object.keys(item).length > 0)
@@ -108,6 +115,13 @@ export function buildAgentRuntimeConfigTemplate() {
           name: "Servico principal",
           matchAny: ["site", "landing page"],
           priceLabel: "R$ 300 a R$ 1.000",
+          attendanceLimit: 100,
+          agentLimit: 1,
+          creditLimit: 200000,
+          whatsappIncluded: true,
+          supportLevel: "padrao",
+          features: ["recurso 1", "recurso 2"],
+          channels: ["web", "whatsapp"],
         },
       ],
     },

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "prepare:mercado-livre-test-store": "tsx --tsconfig tsconfig.tests.json tests/mercado-livre.prepare-store.ts",
+    "audit:pricing-catalog": "tsx --tsconfig tsconfig.tests.json tests/pricing-catalog.audit.ts",
     "test:chat-laboratory:record": "tsx --tsconfig tsconfig.tests.json tests/chat-laboratory.record.ts",
     "test:chat-intelligence": "tsx --tsconfig tsconfig.tests.json tests/chat-intelligence.smoke.ts",
     "test:chat-intelligence:scenarios": "tsx --tsconfig tsconfig.tests.json tests/chat-intelligence.scenarios.ts",

@@ -185,6 +185,9 @@ export function buildBillingDecisionFromSemanticIntent(input) {
       "lowest_priced_plan",
       "plan_comparison",
       "specific_plan_question",
+      "plan_limit_question",
+      "plan_feature_question",
+      "plan_recommendation",
     ].includes(semanticIntent.intent)
   ) {
     return {
@@ -193,6 +196,10 @@ export function buildBillingDecisionFromSemanticIntent(input) {
       reason: semanticIntent.reason ?? "Intencao de pricing estruturado.",
       requestedPlanNames: Array.isArray(semanticIntent.requestedPlanNames)
         ? semanticIntent.requestedPlanNames.map((item) => sanitizeString(item)).filter(Boolean)
+        : [],
+      targetField: sanitizeString(semanticIntent.targetField),
+      targetFields: Array.isArray(semanticIntent.targetFields)
+        ? semanticIntent.targetFields.map((item) => sanitizeString(item)).filter(Boolean)
         : [],
       usedLlm: Boolean(semanticIntent.usedLlm),
     }
@@ -254,11 +261,13 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
           content: [
             "Extraia um catalogo estruturado de planos/precos a partir do texto do agente.",
             "Retorne somente JSON valido.",
-            'Schema: {"enabled":true|false,"items":[{"slug":"string","name":"string","matchAny":["string"],"priceLabel":"string"}]}.',
+            'Schema: {"enabled":true|false,"items":[{"slug":"string","name":"string","matchAny":["string"],"priceLabel":"string","attendanceLimit":0,"agentLimit":0,"creditLimit":0,"whatsappIncluded":true,"supportLevel":"string","features":["string"],"channels":["string"]}]}.',
             "Use enabled=true apenas quando houver pelo menos um plano ou valor identificavel no texto.",
             "Cada item precisa ter nome e priceLabel.",
             "Use slug curto, estavel e em minusculas.",
             "matchAny deve conter variacoes literais uteis do plano, incluindo o proprio nome.",
+            "Se o texto trouxer limites, creditos, quantidade de agentes, canais ou suporte, preencha esses campos.",
+            "Quando um dado nao existir no texto, retorne null, false ou lista vazia conforme o schema.",
             "Nao invente preco nem plano que nao esteja claramente no texto.",
             "Ignore texto comercial generico sem valores concretos.",
           ].join("\n"),
@@ -292,8 +301,33 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
                       items: { type: "string" },
                     },
                     priceLabel: { type: "string" },
+                    attendanceLimit: { type: ["number", "null"] },
+                    agentLimit: { type: ["number", "null"] },
+                    creditLimit: { type: ["number", "null"] },
+                    whatsappIncluded: { type: ["boolean", "null"] },
+                    supportLevel: { type: "string" },
+                    features: {
+                      type: "array",
+                      items: { type: "string" },
+                    },
+                    channels: {
+                      type: "array",
+                      items: { type: "string" },
+                    },
                   },
-                  required: ["slug", "name", "matchAny", "priceLabel"],
+                  required: [
+                    "slug",
+                    "name",
+                    "matchAny",
+                    "priceLabel",
+                    "attendanceLimit",
+                    "agentLimit",
+                    "creditLimit",
+                    "whatsappIncluded",
+                    "supportLevel",
+                    "features",
+                    "channels",
+                  ],
                 },
               },
             },
@@ -323,6 +357,13 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
           name: sanitizeString(item?.name),
           matchAny: Array.isArray(item?.matchAny) ? item.matchAny.map((token) => sanitizeString(token)).filter(Boolean) : [],
           priceLabel: sanitizeString(item?.priceLabel),
+          attendanceLimit: item?.attendanceLimit == null ? null : Number(item.attendanceLimit),
+          agentLimit: item?.agentLimit == null ? null : Number(item.agentLimit),
+          creditLimit: item?.creditLimit == null ? null : Number(item.creditLimit),
+          whatsappIncluded: typeof item?.whatsappIncluded === "boolean" ? item.whatsappIncluded : null,
+          supportLevel: sanitizeString(item?.supportLevel),
+          features: Array.isArray(item?.features) ? item.features.map((token) => sanitizeString(token)).filter(Boolean) : [],
+          channels: Array.isArray(item?.channels) ? item.channels.map((token) => sanitizeString(token)).filter(Boolean) : [],
         }))
         .filter((item) => item.slug && item.name && item.priceLabel)
     : []
@@ -649,11 +690,16 @@ export async function classifySemanticBillingIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de catalogo estruturado de planos/precos.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"pricing_overview|highest_priced_plan|lowest_priced_plan|plan_comparison|specific_plan_question|other","confidence":0..1,"reason":"string","requestedPlanNames":["string"]}.',
+            'Schema: {"intent":"pricing_overview|highest_priced_plan|lowest_priced_plan|plan_comparison|specific_plan_question|plan_limit_question|plan_feature_question|plan_recommendation|other","confidence":0..1,"reason":"string","requestedPlanNames":["string"],"targetField":"attendance_limit|agent_limit|credit_limit|whatsapp_included|support_level|price|","targetFields":["attendance_limit","agent_limit","credit_limit","whatsapp_included","support_level","price"]}',
             "Use pricing_overview quando o cliente pedir tabela, lista, valores, planos ou precos em geral.",
             "Use highest_priced_plan ou lowest_priced_plan quando ele pedir mais caro ou mais barato.",
             "Use plan_comparison quando ele pedir comparacao entre mais de um plano.",
-            "Use specific_plan_question quando citar explicitamente um plano do catalogo.",
+            "Use specific_plan_question quando citar explicitamente um plano do catalogo e pedir uma visao geral dele.",
+            "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes ou creditos de um plano.",
+            "Use plan_feature_question quando pedir se o plano inclui WhatsApp, suporte ou algum recurso estruturado do catalogo.",
+            "Use plan_recommendation quando ele pedir indicacao do melhor plano para uma necessidade objetiva do catalogo.",
+            "Preencha targetField com attendance_limit, agent_limit, credit_limit, whatsapp_included, support_level ou price quando houver um slot factual claro.",
+            "Quando a pergunta cobrar mais de um fato ao mesmo tempo, preencha targetFields com todos os slots pedidos e preserve targetField como o principal.",
             "Nao invente nomes de plano. So use nomes realmente presentes no catalogo.",
           ].join("\n"),
         },
@@ -679,7 +725,17 @@ export async function classifySemanticBillingIntentStage(input = {}) {
             properties: {
               intent: {
                 type: "string",
-                enum: ["pricing_overview", "highest_priced_plan", "lowest_priced_plan", "plan_comparison", "specific_plan_question", "other"],
+                enum: [
+                  "pricing_overview",
+                  "highest_priced_plan",
+                  "lowest_priced_plan",
+                  "plan_comparison",
+                  "specific_plan_question",
+                  "plan_limit_question",
+                  "plan_feature_question",
+                  "plan_recommendation",
+                  "other",
+                ],
               },
               confidence: {
                 type: "number",
@@ -695,8 +751,19 @@ export async function classifySemanticBillingIntentStage(input = {}) {
                   type: "string",
                 },
               },
+              targetField: {
+                type: "string",
+                enum: ["", "attendance_limit", "agent_limit", "credit_limit", "whatsapp_included", "support_level", "price"],
+              },
+              targetFields: {
+                type: "array",
+                items: {
+                  type: "string",
+                  enum: ["attendance_limit", "agent_limit", "credit_limit", "whatsapp_included", "support_level", "price"],
+                },
+              },
             },
-            required: ["intent", "confidence", "reason", "requestedPlanNames"],
+            required: ["intent", "confidence", "reason", "requestedPlanNames", "targetField", "targetFields"],
           },
         },
       },
@@ -721,6 +788,10 @@ export async function classifySemanticBillingIntentStage(input = {}) {
     reason: sanitizeString(parsed?.reason),
     requestedPlanNames: Array.isArray(parsed?.requestedPlanNames)
       ? parsed.requestedPlanNames.map((item) => sanitizeString(item)).filter(Boolean)
+      : [],
+    targetField: sanitizeString(parsed?.targetField),
+    targetFields: Array.isArray(parsed?.targetFields)
+      ? parsed.targetFields.map((item) => sanitizeString(item)).filter(Boolean)
       : [],
     usedLlm: true,
   }

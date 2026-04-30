@@ -747,6 +747,7 @@ export function updateContextFromAiResult(input) {
     conversation: isPlainObject(input.nextContext?.conversation) ? { ...input.nextContext.conversation } : {},
     catalogo: isPlainObject(input.nextContext?.catalogo) ? { ...input.nextContext.catalogo } : {},
     agenda: isPlainObject(input.nextContext?.agenda) ? { ...input.nextContext.agenda } : {},
+    billing: isPlainObject(input.nextContext?.billing) ? { ...input.nextContext.billing } : {},
   }
   if (isPlainObject(nextContext.ui) && "catalogAction" in nextContext.ui) {
     delete nextContext.ui.catalogAction
@@ -775,6 +776,29 @@ export function updateContextFromAiResult(input) {
     }
   } else if (isPlainObject(input.ai?.metadata?.routingDecision) && input.ai.metadata.routingDecision.domain === "general") {
     delete nextContext.focus
+  }
+
+  const billingContextUpdate = isPlainObject(input.ai?.metadata?.billingContextUpdate) ? input.ai.metadata.billingContextUpdate : null
+  if (billingContextUpdate) {
+    const hasPlanFocusUpdate = Object.prototype.hasOwnProperty.call(billingContextUpdate, "planFocus")
+    nextContext.billing = {
+      ...(isPlainObject(nextContext.billing) ? nextContext.billing : {}),
+      lastIntent: typeof billingContextUpdate.lastIntent === "string" ? billingContextUpdate.lastIntent : nextContext.billing?.lastIntent ?? null,
+      lastField: typeof billingContextUpdate.lastField === "string" ? billingContextUpdate.lastField : nextContext.billing?.lastField ?? null,
+      updatedAt: typeof billingContextUpdate.updatedAt === "string" ? billingContextUpdate.updatedAt : new Date().toISOString(),
+      planFocus: hasPlanFocusUpdate
+        ? isPlainObject(billingContextUpdate.planFocus)
+          ? {
+              slug: typeof billingContextUpdate.planFocus.slug === "string" ? billingContextUpdate.planFocus.slug : null,
+              name: typeof billingContextUpdate.planFocus.name === "string" ? billingContextUpdate.planFocus.name : null,
+              updatedAt:
+                typeof billingContextUpdate.planFocus.updatedAt === "string"
+                  ? billingContextUpdate.planFocus.updatedAt
+                  : new Date().toISOString(),
+            }
+          : null
+        : nextContext.billing?.planFocus ?? null,
+    }
   }
 
   const recentMercadoLivreProducts = extractRecentMercadoLivreProductsFromAssets(input.ai.assets)
