@@ -540,8 +540,8 @@
       ".chat-ui-rail { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; -ms-overflow-style: none; cursor: grab; -webkit-overflow-scrolling: touch; touch-action: pan-x; scroll-snap-type: x proximity; }",
       ".chat-ui-rail::-webkit-scrollbar { display: none; }",
       ".chat-ui-rail.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }",
-      ".chat-ui-list { margin: 0; padding: 0; list-style: none; }",
-      ".chat-ui-list-item { flex: 0 0 min(220px, 72%); display: flex; align-items: flex-start; gap: 8px; padding: 10px 11px; border-radius: 14px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.04)") + "; font-size: 12px; line-height: 1.45; color: inherit; scroll-snap-align: start; }",
+      ".chat-ui-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }",
+      ".chat-ui-list-item { display: flex; align-items: flex-start; gap: 8px; padding: 10px 11px; border-radius: 14px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.04)") + "; font-size: 12px; line-height: 1.45; color: inherit; }",
       ".chat-ui-list-item::before { content: ''; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: color-mix(in srgb, " + accent + " 74%, white 26%); flex: 0 0 6px; }",
       ".chat-ui-cards { }",
       ".chat-ui-card { display: grid; gap: 4px; border-radius: 10px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.76)" : "rgba(255,255,255,0.04)") + "; padding: 9px 10px; }",
@@ -1604,7 +1604,7 @@
 
         if (block.type === "list" && Array.isArray(block.items) && block.items.length) {
           var list = document.createElement("ul");
-          list.className = "chat-ui-list chat-ui-rail";
+          list.className = "chat-ui-list";
           block.items.forEach(function (item) {
             if (!item) {
               return;
