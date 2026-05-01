@@ -270,12 +270,14 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
               onChange={(file) => onAssetUpload?.('hero', file)}
             />
           </StorePanelField>
-          <StorePanelInput
-            label="Imagem do hero URL"
-            value={hero.imageUrl || ''}
-            onChange={(event) => updateHeroConfig(setDraft, { imageUrl: event.target.value, imageStoragePath: '' })}
-            placeholder="https://..."
-          />
+          <div className="md:col-span-3">
+            <StorePanelInput
+              label="Imagem do hero URL"
+              value={hero.imageUrl || ''}
+              onChange={(event) => updateHeroConfig(setDraft, { imageUrl: event.target.value, imageStoragePath: '' })}
+              placeholder="https://..."
+            />
+          </div>
           <StorePanelField label={`Transparencia da imagem ${Math.round(Number(hero.imageOpacity ?? 1) * 100)}%`}>
             <input
               type="range"

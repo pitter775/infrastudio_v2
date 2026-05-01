@@ -359,13 +359,15 @@ export function MercadoLivreStorefront({
         }
 
       `}</style>
-      <div className="min-h-screen scroll-smooth bg-white text-slate-950">
+      <div className="min-h-screen scroll-smooth bg-slate-50 text-slate-950">
         <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
 
         <main id="topo" className="pb-12">
           <section className="relative min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
             {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
             <div className="absolute inset-0" style={heroStyle.overlay} />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-b from-transparent to-slate-50/95" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-[-28px] h-14 bg-black/8 blur-2xl" />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
               <div className="max-w-xl pr-14 lg:pr-0">
                 <h1
@@ -434,6 +436,9 @@ export function MercadoLivreStorefront({
 
             {visibleProducts.length ? (
               <section className="mt-8">
+                <div className="mb-3 flex items-baseline gap-2.5">
+                  <h2 className="text-[20px] font-normal leading-tight text-slate-700">Produtos recomendados</h2>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   {visibleProducts.map((product) => (
                     <StoreProductCard
@@ -441,7 +446,7 @@ export function MercadoLivreStorefront({
                       storeSlug={store.slug}
                       product={product}
                       accentColor={store.accentColor}
-                      compact
+                      variant="marketplace"
                       analyticsSource="catalog_grid"
                     />
                   ))}
@@ -461,7 +466,7 @@ export function MercadoLivreStorefront({
             ) : null}
 
             <ProductRow
-              title="Produtos recomendados"
+              title="Em destaque"
               products={recommendedProducts}
               storeSlug={store.slug}
               accentColor={store.accentColor}
