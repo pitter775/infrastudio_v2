@@ -5,101 +5,137 @@ import { getMercadoLivreStoreSettingsForProject } from "@/lib/mercado-livre-stor
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
-import { removeStoreAsset, uploadStoreAsset } from "@/lib/store-assets"
+import {
+  createStoreAssetSignedUpload,
+  getStoreAssetPublicUrl,
+  isStoreAssetPathOwnedByStore,
+  removeStoreAsset,
+} from "@/lib/store-assets"
 
-export async function POST(request, context) {
+async function resolveProjectStore(context) {
   const user = await getSessionUser()
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return { error: NextResponse.json({ error: "Nao autenticado." }, { status: 401 }) }
   }
 
   const { id } = await context.params
   const project = await getProjectForUser(id, user)
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return { error: NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 }) }
   }
 
   const store = await getMercadoLivreStoreSettingsForProject(project)
   if (!store?.id) {
-    return NextResponse.json({ error: "Salve a loja antes de enviar imagens." }, { status: 400 })
+    return { error: NextResponse.json({ error: "Salve a loja antes de enviar imagens." }, { status: 400 }) }
   }
 
-  const formData = await request.formData().catch(() => null)
-  const file = formData?.get("file")
-  const kind = String(formData?.get("kind") || "").trim()
-  const previousStoragePath = String(formData?.get("previousStoragePath") || "").trim()
-  const previousUrl = String(formData?.get("previousUrl") || "").trim()
+  return { project, store }
+}
 
-  if (!(file instanceof File)) {
-    return NextResponse.json({ error: "Arquivo obrigatorio." }, { status: 400 })
+export async function POST(request, context) {
+  const resolved = await resolveProjectStore(context)
+  if (resolved.error) {
+    return resolved.error
   }
+
+  const { project, store } = resolved
+  const body = await request.json().catch(() => ({}))
 
   try {
-    const asset = await uploadStoreAsset({
-      file,
-      kind,
+    const asset = await createStoreAssetSignedUpload({
+      kind: body?.kind,
+      fileName: body?.fileName,
+      fileSize: body?.fileSize,
+      contentType: body?.contentType,
       projectId: project.id,
       storeId: store.id,
     })
 
-    const supabase = getSupabaseAdminClient()
-    const currentVisualConfig = store.visualConfig || {}
-    const currentHero = currentVisualConfig.hero || {}
-    const nextVisualConfig =
-      kind === "logo"
-        ? {
-            ...currentVisualConfig,
-            logoStoragePath: asset.storagePath,
-          }
-        : {
-            ...currentVisualConfig,
-            hero: {
-              ...currentHero,
-              backgroundMode: "image",
-              imageUrl: asset.publicUrl,
-              imageStoragePath: asset.storagePath,
-            },
-          }
-    const updatePayload = {
-      visual_config: nextVisualConfig,
-      updated_at: new Date().toISOString(),
-    }
-
-    if (kind === "logo") {
-      updatePayload.logo_url = asset.publicUrl
-    }
-
-    const { error: updateError } = await supabase
-      .from("mercadolivre_lojas")
-      .update(updatePayload)
-      .eq("id", store.id)
-      .eq("projeto_id", project.id)
-
-    if (updateError) {
-      await removeStoreAsset(asset.storagePath).catch(() => {})
-      throw updateError
-    }
-
-    revalidatePath(`/loja/${store.slug}`)
-
-    const previousAsset =
-      kind === "logo"
-        ? previousStoragePath || currentVisualConfig.logoStoragePath || previousUrl || store.logoUrl
-        : previousStoragePath || currentHero.imageStoragePath || previousUrl || currentHero.imageUrl
-    if (previousAsset && previousAsset !== asset.storagePath && previousAsset !== asset.publicUrl) {
-      await removeStoreAsset(previousAsset).catch((error) => {
-        console.warn("[mercado-livre-store] failed to remove previous store asset", {
-          kind,
-          message: error instanceof Error ? error.message : String(error || ""),
-        })
-      })
-    }
-
-    return NextResponse.json({ asset, visualConfig: nextVisualConfig }, { status: 200 })
+    return NextResponse.json({ asset }, { status: 200 })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Nao foi possivel enviar a imagem." },
+      { error: error instanceof Error ? error.message : "Nao foi possivel preparar o upload." },
       { status: 400 },
     )
   }
+}
+
+export async function PATCH(request, context) {
+  const resolved = await resolveProjectStore(context)
+  if (resolved.error) {
+    return resolved.error
+  }
+
+  const { project, store } = resolved
+  const body = await request.json().catch(() => ({}))
+  const kind = String(body?.kind || "").trim()
+  const previousStoragePath = String(body?.previousStoragePath || "").trim()
+  const previousUrl = String(body?.previousUrl || "").trim()
+  const storagePath = String(body?.storagePath || "").trim()
+
+  if (!storagePath || !isStoreAssetPathOwnedByStore({ projectId: project.id, storeId: store.id, storagePath })) {
+    return NextResponse.json({ error: "Arquivo invalido para esta loja." }, { status: 400 })
+  }
+
+  const publicUrl = getStoreAssetPublicUrl(storagePath)
+  const supabase = getSupabaseAdminClient()
+  const currentVisualConfig = store.visualConfig || {}
+  const currentHero = currentVisualConfig.hero || {}
+  const nextVisualConfig =
+    kind === "logo"
+      ? {
+          ...currentVisualConfig,
+          logoStoragePath: storagePath,
+        }
+      : {
+          ...currentVisualConfig,
+          hero: {
+            ...currentHero,
+            backgroundMode: "image",
+            imageUrl: publicUrl,
+            imageStoragePath: storagePath,
+          },
+        }
+
+  const updatePayload = {
+    visual_config: nextVisualConfig,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (kind === "logo") {
+    updatePayload.logo_url = publicUrl
+  }
+
+  const { error: updateError } = await supabase
+    .from("mercadolivre_lojas")
+    .update(updatePayload)
+    .eq("id", store.id)
+    .eq("projeto_id", project.id)
+
+  if (updateError) {
+    await removeStoreAsset(storagePath).catch(() => {})
+    return NextResponse.json({ error: updateError.message || "Nao foi possivel salvar a imagem." }, { status: 400 })
+  }
+
+  revalidatePath(`/loja/${store.slug}`)
+
+  const previousAsset =
+    kind === "logo"
+      ? previousStoragePath || currentVisualConfig.logoStoragePath || previousUrl || store.logoUrl
+      : previousStoragePath || currentHero.imageStoragePath || previousUrl || currentHero.imageUrl
+  if (previousAsset && previousAsset !== storagePath && previousAsset !== publicUrl) {
+    await removeStoreAsset(previousAsset).catch(() => {})
+  }
+
+  return NextResponse.json(
+    {
+      asset: {
+        kind: kind === "logo" ? "logo" : "hero",
+        publicUrl,
+        storagePath,
+      },
+      visualConfig: nextVisualConfig,
+    },
+    { status: 200 },
+  )
 }

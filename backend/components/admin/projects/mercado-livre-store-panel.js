@@ -11,6 +11,8 @@ import {
   StoreSocialSection,
   StoreDomainSection,
 } from '@/components/admin/projects/mercado-livre-store-panel-sections'
+import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
+import { MAX_STORE_ASSET_BYTES, STORE_ASSETS_BUCKET, STORE_LOGO_MAX_WIDTH } from '@/lib/store-assets-constants'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -43,6 +45,91 @@ const DEFAULT_VISUAL_CONFIG = {
     overlayColor: '#ffffff',
     overlayOpacity: 0.18,
   },
+}
+
+function replaceFileExtension(fileName, nextExtension) {
+  const baseName = String(fileName || 'arquivo').replace(/\.[^.]+$/, '')
+  return `${baseName}.${nextExtension}`
+}
+
+function isSvgAsset(file) {
+  return String(file?.type || '').trim().toLowerCase() === 'image/svg+xml' || /\.svg$/i.test(String(file?.name || ''))
+}
+
+function canvasToBlob(canvas, type, quality) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob), type, quality)
+  })
+}
+
+function loadImageFromObjectUrl(objectUrl) {
+  return new Promise((resolve, reject) => {
+    const image = new window.Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error('Nao foi possivel processar a imagem.'))
+    image.src = objectUrl
+  })
+}
+
+async function optimizeLogoFile(file) {
+  if (!file || isSvgAsset(file)) {
+    return file
+  }
+
+  const objectUrl = URL.createObjectURL(file)
+
+  try {
+    const image = await loadImageFromObjectUrl(objectUrl)
+    const sourceWidth = Number(image.naturalWidth || image.width || 0)
+    const sourceHeight = Number(image.naturalHeight || image.height || 0)
+    if (!sourceWidth || !sourceHeight) {
+      throw new Error('Nao foi possivel ler o tamanho do logo.')
+    }
+
+    const targetWidth = Math.min(STORE_LOGO_MAX_WIDTH, sourceWidth)
+    const targetHeight = Math.max(1, Math.round((sourceHeight / sourceWidth) * targetWidth))
+    const canvas = document.createElement('canvas')
+    canvas.width = targetWidth
+    canvas.height = targetHeight
+
+    const context = canvas.getContext('2d')
+    if (!context) {
+      throw new Error('Nao foi possivel preparar o logo para upload.')
+    }
+
+    context.clearRect(0, 0, targetWidth, targetHeight)
+    context.drawImage(image, 0, 0, targetWidth, targetHeight)
+
+    let blob = await canvasToBlob(canvas, 'image/webp', 0.86)
+    let nextName = replaceFileExtension(file.name, 'webp')
+    if (!blob) {
+      blob = await canvasToBlob(canvas, 'image/png')
+      nextName = replaceFileExtension(file.name, 'png')
+    }
+    if (!blob) {
+      throw new Error('Nao foi possivel gerar a versao otimizada do logo.')
+    }
+
+    if (blob.size > MAX_STORE_ASSET_BYTES) {
+      let quality = 0.8
+      while (blob.size > MAX_STORE_ASSET_BYTES && quality >= 0.45) {
+        const nextBlob = await canvasToBlob(canvas, 'image/webp', quality)
+        if (!nextBlob) {
+          break
+        }
+        blob = nextBlob
+        nextName = replaceFileExtension(file.name, 'webp')
+        quality -= 0.1
+      }
+    }
+
+    return new File([blob], nextName, {
+      type: blob.type || 'image/webp',
+      lastModified: Date.now(),
+    })
+  } finally {
+    URL.revokeObjectURL(objectUrl)
+  }
 }
 
 function buildVisualConfig(store) {
@@ -416,29 +503,79 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     setFeedback(null)
 
     try {
-      const formData = new FormData()
-      formData.set('kind', kind)
-      formData.set('file', file)
-      if (kind === 'logo') {
-        formData.set('previousUrl', draft.logoUrl || '')
-        formData.set('previousStoragePath', draft.visualConfig?.logoStoragePath || '')
-      } else {
-        formData.set('previousUrl', draft.visualConfig?.hero?.imageUrl || '')
-        formData.set('previousStoragePath', draft.visualConfig?.hero?.imageStoragePath || '')
-      }
-
-      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store/assets`, {
-        method: 'POST',
-        body: formData,
-      })
-      const data = await response.json().catch(() => ({}))
-
-      if (!response.ok) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel enviar a imagem.' })
+      const uploadFile = kind === 'logo' ? await optimizeLogoFile(file) : file
+      if (!uploadFile) {
+        setFeedback({ tone: 'error', text: 'Arquivo invalido para upload.' })
         return
       }
 
-      const publicUrl = data.asset?.publicUrl || ''
+      if (uploadFile.size > MAX_STORE_ASSET_BYTES) {
+        setFeedback({ tone: 'error', text: 'A imagem deve ter no maximo 1 MB.' })
+        return
+      }
+
+      const prepareResponse = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store/assets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          kind,
+          fileName: uploadFile.name,
+          fileSize: uploadFile.size,
+          contentType: uploadFile.type,
+        }),
+      })
+      const prepareData = await prepareResponse.json().catch(() => ({}))
+
+      if (!prepareResponse.ok) {
+        setFeedback({ tone: 'error', text: prepareData.error || 'Nao foi possivel preparar o upload.' })
+        return
+      }
+
+      const asset = prepareData.asset || {}
+      if (!asset.storagePath || !asset.token) {
+        setFeedback({ tone: 'error', text: 'Upload preparado sem credenciais validas.' })
+        return
+      }
+
+      const supabase = getSupabaseBrowserClient()
+      const normalizedStoragePath = String(asset.storagePath || '').replace(`${STORE_ASSETS_BUCKET}/`, '').replace(/^\/+/, '')
+      const uploadResult = await supabase.storage.from(STORE_ASSETS_BUCKET).uploadToSignedUrl(
+        normalizedStoragePath,
+        asset.token,
+        uploadFile,
+        {
+          contentType: uploadFile.type || asset.contentType || 'application/octet-stream',
+        },
+      )
+      if (uploadResult.error) {
+        setFeedback({ tone: 'error', text: uploadResult.error.message || 'Nao foi possivel enviar a imagem.' })
+        return
+      }
+
+      const commitResponse = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store/assets`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          kind,
+          storagePath: normalizedStoragePath,
+          previousUrl: kind === 'logo' ? draft.logoUrl || '' : draft.visualConfig?.hero?.imageUrl || '',
+          previousStoragePath:
+            kind === 'logo' ? draft.visualConfig?.logoStoragePath || '' : draft.visualConfig?.hero?.imageStoragePath || '',
+        }),
+      })
+      const commitData = await commitResponse.json().catch(() => ({}))
+
+      if (!commitResponse.ok) {
+        setFeedback({ tone: 'error', text: commitData.error || 'Nao foi possivel publicar a imagem.' })
+        return
+      }
+
+      const publicUrl = commitData.asset?.publicUrl || asset.publicUrl || ''
+      const nextStoragePath = commitData.asset?.storagePath || normalizedStoragePath
       if (!publicUrl) {
         setFeedback({ tone: 'error', text: 'Upload concluido sem URL publica.' })
         return
@@ -450,7 +587,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           logoUrl: publicUrl,
           visualConfig: {
             ...(current.visualConfig || DEFAULT_VISUAL_CONFIG),
-            logoStoragePath: data.asset?.storagePath || '',
+            logoStoragePath: nextStoragePath,
           },
         }))
       } else {
@@ -463,7 +600,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
               ...(current.visualConfig?.hero || {}),
               backgroundMode: 'image',
               imageUrl: publicUrl,
-              imageStoragePath: data.asset?.storagePath || '',
+              imageStoragePath: nextStoragePath,
             },
           },
         }))

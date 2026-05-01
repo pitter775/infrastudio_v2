@@ -3,9 +3,7 @@ import "server-only"
 import { randomUUID } from "crypto"
 
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
-
-export const STORE_ASSETS_BUCKET = "store-assets"
-export const MAX_STORE_ASSET_BYTES = 1 * 1024 * 1024
+import { MAX_STORE_ASSET_BYTES, STORE_ASSETS_BUCKET } from "@/lib/store-assets-constants"
 
 const ALLOWED_STORE_ASSET_MIME_TYPES = [
   "image/avif",
@@ -40,6 +38,10 @@ function shortenId(value) {
     .slice(0, 10) || "x"
 }
 
+export function buildStoreAssetPrefix({ projectId, storeId }) {
+  return `p-${shortenId(projectId)}/lojas/${shortenId(storeId)}/`
+}
+
 function normalizeStoreAssetPath(value) {
   const rawValue = String(value || "").trim()
   if (!rawValue) {
@@ -64,7 +66,6 @@ function normalizeStoreAssetPath(value) {
     .replace(/^\/+/, "")
 }
 
-
 function resolveStoreAssetMimeType(file, normalizedKind) {
   const rawMimeType = String(file?.type || "").trim().toLowerCase()
   if (ALLOWED_STORE_ASSET_MIME_TYPES.includes(rawMimeType)) {
@@ -76,11 +77,15 @@ function resolveStoreAssetMimeType(file, normalizedKind) {
   return STORE_ASSET_EXTENSION_TO_MIME[extension] || ""
 }
 
-export async function uploadStoreAsset({ file, projectId, storeId, kind }) {
-  const normalizedKind = kind === "logo" ? "logo" : "hero"
-  const mimeType = resolveStoreAssetMimeType(file, normalizedKind)
+function buildStoreAssetFileName({ fileName, kind, mimeType }) {
+  const originalName = String(fileName || kind).trim()
+  const extension = originalName.includes(".") ? originalName.split(".").pop() ?? "" : mimeType.split("/")[1] ?? ""
+  const safeExtension = sanitizeFileName(extension)
+  return `${kind}-${Date.now().toString(36)}-${randomUUID().replace(/-/g, "").slice(0, 10)}${safeExtension ? `.${safeExtension}` : ""}`
+}
 
-  if (!projectId || !storeId || !file) {
+function validateStoreAssetInput({ fileSize, mimeType, projectId, storeId }) {
+  if (!projectId || !storeId) {
     throw new Error("Upload da loja invalido.")
   }
 
@@ -88,36 +93,41 @@ export async function uploadStoreAsset({ file, projectId, storeId, kind }) {
     throw new Error("Formato invalido. Use AVIF, JPG, PNG, SVG ou WEBP.")
   }
 
-  if (Number(file.size || 0) > MAX_STORE_ASSET_BYTES) {
+  if (Number(fileSize || 0) > MAX_STORE_ASSET_BYTES) {
     throw new Error("A imagem deve ter no maximo 1 MB.")
   }
+}
 
-  const bytes = Buffer.from(await file.arrayBuffer())
-  if (!bytes.byteLength) {
-    throw new Error("Arquivo invalido.")
-  }
+export function isStoreAssetPathOwnedByStore({ projectId, storeId, storagePath }) {
+  const normalizedPath = normalizeStoreAssetPath(storagePath)
+  return normalizedPath.startsWith(buildStoreAssetPrefix({ projectId, storeId }))
+}
+
+export function getStoreAssetPublicUrl(storagePath) {
   const supabase = getSupabaseAdminClient()
-  const originalName = String(file.name || normalizedKind).trim()
-  const extension = originalName.includes(".") ? originalName.split(".").pop() ?? "" : mimeType.split("/")[1] ?? ""
-  const safeExtension = sanitizeFileName(extension)
-  const fileName = `${normalizedKind}-${Date.now().toString(36)}-${randomUUID().replace(/-/g, "").slice(0, 10)}${safeExtension ? `.${safeExtension}` : ""}`
-  const storagePath = `p-${shortenId(projectId)}/lojas/${shortenId(storeId)}/${fileName}`
+  return supabase.storage.from(STORE_ASSETS_BUCKET).getPublicUrl(normalizeStoreAssetPath(storagePath)).data.publicUrl
+}
 
-  const uploadResult = await supabase.storage.from(STORE_ASSETS_BUCKET).upload(storagePath, bytes, {
-    contentType: mimeType,
+export async function createStoreAssetSignedUpload({ projectId, storeId, kind, fileName, fileSize, contentType }) {
+  const normalizedKind = kind === "logo" ? "logo" : "hero"
+  const mimeType = resolveStoreAssetMimeType({ name: fileName, type: contentType }, normalizedKind)
+  validateStoreAssetInput({ fileSize, mimeType, projectId, storeId })
+  const supabase = getSupabaseAdminClient()
+  const storagePath = `${buildStoreAssetPrefix({ projectId, storeId })}${buildStoreAssetFileName({ fileName, kind: normalizedKind, mimeType })}`
+  const { data, error } = await supabase.storage.from(STORE_ASSETS_BUCKET).createSignedUploadUrl(storagePath, {
     upsert: false,
   })
-
-  if (uploadResult.error) {
-    throw uploadResult.error
+  if (error) {
+    throw error
   }
 
-  const publicUrl = supabase.storage.from(STORE_ASSETS_BUCKET).getPublicUrl(storagePath).data.publicUrl
-
   return {
-    publicUrl,
+    token: data.token,
+    signedUrl: data.signedUrl,
+    publicUrl: getStoreAssetPublicUrl(storagePath),
     storagePath,
     kind: normalizedKind,
+    contentType: mimeType,
   }
 }
 
