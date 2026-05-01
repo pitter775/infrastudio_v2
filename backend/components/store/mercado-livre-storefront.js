@@ -56,7 +56,7 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
         <button
           type="button"
           onClick={scrollPrevious}
-          className="absolute bottom-4 left-0 top-4 z-20 hidden w-[58px] items-center justify-start bg-gradient-to-l from-transparent to-white lg:flex"
+          className="absolute bottom-4 left-0 top-4 z-20 hidden w-[58px] items-center justify-start lg:flex"
           aria-label={`Voltar ${title}`}
         >
           <span
@@ -85,7 +85,7 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
         <button
           type="button"
           onClick={scrollNext}
-          className="absolute bottom-4 right-0 top-4 z-20 hidden w-[58px] items-center justify-end bg-gradient-to-r from-transparent to-white lg:flex"
+          className="absolute bottom-4 right-0 top-4 z-20 hidden w-[58px] items-center justify-end lg:flex"
           aria-label={`Avancar ${title}`}
         >
           <span
@@ -347,7 +347,7 @@ export function MercadoLivreStorefront({
         }
 
       `}</style>
-      <div className="min-h-screen scroll-smooth bg-white text-slate-950" style={{ fontFamily: 'Arial, Helvetica, sans-serif' }}>
+      <div className="min-h-screen scroll-smooth bg-white text-slate-950">
         <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
 
         <main id="topo" className="pb-12">
@@ -357,8 +357,17 @@ export function MercadoLivreStorefront({
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
               <div className="max-w-xl pr-14 lg:pr-0">
                 <div className="text-[13px] font-semibold" style={{ color: palette.accentDark }}>Loja oficial</div>
-                <h1 className="mt-1 text-3xl font-bold leading-tight sm:text-4xl" style={{ color: palette.accentDark }}>{store.name}</h1>
-                {store.headline ? <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{store.headline}</p> : null}
+                <h1
+                  className="mt-1 text-3xl font-bold leading-tight sm:text-4xl"
+                  style={{ color: palette.accentDark, textShadow: '0 10px 26px rgba(255,255,255,0.45), 0 2px 10px rgba(15,23,42,0.12)' }}
+                >
+                  {store.name}
+                </h1>
+                {store.headline ? (
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700" style={{ textShadow: '0 6px 20px rgba(255,255,255,0.35)' }}>
+                    {store.headline}
+                  </p>
+                ) : null}
               </div>
               <div className="hidden w-full justify-self-end lg:block">
                 <StoreSearchFilters
@@ -515,14 +524,26 @@ export function MercadoLivreStorefront({
           </SheetContent>
         </Sheet>
 
-        <footer className="border-t border-slate-100 bg-white">
+        <footer className="border-t border-black/10" style={{ backgroundColor: palette.accentDark }}>
           <div className="mx-auto grid max-w-[1228px] gap-6 px-3 py-8 sm:px-4 lg:grid-cols-[1fr_auto]">
             <div>
-              <div className="text-base font-semibold text-slate-950">{store.name}</div>
-              <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{store.footerText}</div>
+              <div className="flex items-center gap-4">
+                {store.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-16 w-16 rounded-2xl bg-white/10 p-2 object-contain" />
+                ) : (
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/14 text-lg font-semibold text-white">
+                    {store.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <div className="text-lg font-semibold text-white">{store.name}</div>
+                  <div className="mt-2 max-w-2xl text-sm leading-6 text-white/72">{store.footerText}</div>
+                </div>
+              </div>
               <a href="https://www.infrastudio.pro" target="_blank" rel="noreferrer" className="mt-4 inline-flex flex-col items-start transition hover:opacity-80">
-                <span className="text-sm font-semibold text-slate-950">InfraStudio</span>
-                <span className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Sistema e automacao com IA</span>
+                <span className="text-sm font-semibold text-white">InfraStudio</span>
+                <span className="text-[11px] uppercase tracking-[0.16em] text-white/60">Sistema e automacao com IA</span>
               </a>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -531,7 +552,7 @@ export function MercadoLivreStorefront({
                   key={`${item.label}-${item.href}-footer`}
                   href={item.href}
                   onClick={(event) => handleAnchorNavigation(event, item.href)}
-                  className="inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-950"
+                  className="inline-flex items-center gap-2 text-sm text-white/72 transition hover:text-white"
                 >
                   {(() => {
                     const sectionId = item.href.replace('#', '')

@@ -191,7 +191,7 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
             <div className="flex items-center gap-3">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={draft.logoUrl} alt="Preview do logo" className="h-12 w-12 rounded-xl object-cover" />
-              <span className="break-all text-xs text-slate-400">{draft.logoUrl}</span>
+              <span className="text-xs text-slate-400">Preview do logo atualizado</span>
             </div>
           ) : null}
         </div>
