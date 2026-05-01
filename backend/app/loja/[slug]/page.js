@@ -39,7 +39,7 @@ export default async function LojaPage({ params, searchParams }) {
   const resolvedSearchParams = await searchParams
   const query = String(resolvedSearchParams?.q || "").trim()
   const page = Math.max(Number(resolvedSearchParams?.page || 1) || 1, 1)
-  const listingLimit = Math.max(page * 12, 12)
+  const listingLimit = Math.max(page * 10, 10)
   const categoryId = String(resolvedSearchParams?.cat || "").trim()
   const sort = String(resolvedSearchParams?.sort || "recent").trim() || "recent"
 

@@ -163,7 +163,7 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
 
   const supabase = options.supabase ?? getSupabaseAdminClient()
   const page = Math.max(Number(options.page ?? 1) || 1, 1)
-  const limit = Math.min(Math.max(Number(options.limit ?? 12) || 12, 1), 120)
+  const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 120)
   const offset = (page - 1) * limit
   const searchTerm = sanitizeText(options.searchTerm, 120).toLowerCase()
   const excludeSlug = sanitizeText(options.excludeSlug, 180)

@@ -207,15 +207,10 @@ export function MercadoLivreStorefront({
   const [isSearching, setIsSearching] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
-  const latestProducts = useMemo(() => products.slice(0, 12), [products])
   const recommendedProducts = useMemo(() => {
-    const source = featuredProducts.length ? featuredProducts : products
-    const latestIds = new Set(latestProducts.map((product) => String(product?.itemId || product?.id || '')))
-    const uniqueRecommended = source.filter((product) => !latestIds.has(String(product?.itemId || product?.id || '')))
-    const fallbackPool = products.filter((product) => !latestIds.has(String(product?.itemId || product?.id || '')))
-    return (uniqueRecommended.length ? uniqueRecommended : fallbackPool).slice(0, 10)
-  }, [featuredProducts, latestProducts, products])
-  const visibleProducts = useMemo(() => products.slice(5), [products])
+    return (featuredProducts.length ? featuredProducts : products).slice(0, 10)
+  }, [featuredProducts, products])
+  const visibleProducts = useMemo(() => products, [products])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],
@@ -358,10 +353,10 @@ export function MercadoLivreStorefront({
         <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
 
         <main id="topo" className="pb-12">
-          <section className="relative z-10 min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
+          <section className="relative z-20 min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
             {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
             <div className="absolute inset-0" style={heroStyle.overlay} />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[18px] bg-[linear-gradient(to_bottom,rgba(15,23,42,0.00),rgba(15,23,42,0.10))]" />
+            <div className="pointer-events-none absolute inset-x-0 bottom-[-12px] h-[28px] bg-[radial-gradient(ellipse_at_center,rgba(15,23,42,0.18),rgba(15,23,42,0.04)_58%,rgba(15,23,42,0)_78%)] blur-md" />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
               <div className="max-w-xl pr-14 lg:pr-0">
                 <h1
@@ -403,7 +398,7 @@ export function MercadoLivreStorefront({
             </div>
           </section>
 
-          <section id="produtos" className="relative z-0 mx-auto -mt-4 max-w-[1228px] scroll-mt-24 px-3 sm:px-4 lg:px-3 before:pointer-events-none before:absolute before:left-3 before:right-3 before:top-0 before:h-[14px] before:rounded-t-[8px] before:bg-white/75 before:shadow-[0_-1px_0_rgba(255,255,255,0.65),0_-10px_22px_-18px_rgba(15,23,42,0.32)] sm:before:left-4 sm:before:right-4 lg:before:left-3 lg:before:right-3">
+          <section id="produtos" className="relative z-0 mx-auto -mt-4 max-w-[1228px] scroll-mt-24 px-3 sm:px-4 lg:px-3">
             {hasSearchContext || hasCategoryContext ? (
               <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
                 {hasSearchContext ? <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Busca: {query}</span> : null}
@@ -421,11 +416,11 @@ export function MercadoLivreStorefront({
             ) : null}
 
             <ProductRow
-              title="Adicionados por ultimo"
-              products={latestProducts}
+              title="Em destaque"
+              products={recommendedProducts}
               storeSlug={store.slug}
               accentColor={store.accentColor}
-              analyticsSource="latest_row"
+              analyticsSource="featured_row"
             />
 
             {visibleProducts.length ? (
@@ -462,22 +457,12 @@ export function MercadoLivreStorefront({
               </section>
             ) : null}
 
-            <ProductRow
-              title="Em destaque"
-              products={recommendedProducts}
-              storeSlug={store.slug}
-              accentColor={store.accentColor}
-              analyticsSource="recommended_row"
-            />
-
             {!products.length ? (
               <div className="mt-8 rounded-[6px] border border-dashed border-slate-200 bg-white px-6 py-14 text-center">
                 <div className="text-lg font-semibold text-slate-950">Nenhum produto encontrado</div>
                 <div className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Ajuste a busca ou os filtros para encontrar outros itens da loja.</div>
               </div>
             ) : null}
-
-            <div className="mt-8 text-sm text-slate-500">Pagina {page}</div>
           </section>
 
           <section id="sobre" className="mx-auto mt-12 grid max-w-[1228px] scroll-mt-24 gap-4 border-t border-slate-100 px-3 pt-8 sm:px-4 lg:grid-cols-[1.1fr_0.9fr] lg:px-3">
