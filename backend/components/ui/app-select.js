@@ -56,6 +56,10 @@ function buildStyles({ minHeight = 48, tone = "dark", accentColor = "#0ea5e9" } 
       backgroundColor: light ? "#ffffff" : "#0b1120",
       boxShadow: light ? "0 18px 40px rgba(15,23,42,0.12)" : "0 18px 40px rgba(2,6,23,0.46)",
     }),
+    menuPortal: (base) => ({
+      ...base,
+      zIndex: 9999,
+    }),
     menuList: (base) => ({
       ...base,
       padding: 8,
@@ -90,6 +94,7 @@ export function AppSelect({
   isSearchable = false,
 }) {
   const selectedOption = options.find((option) => option.value === value) ?? null
+  const menuPortalTarget = typeof document !== "undefined" ? document.body : null
 
   return (
     <Select
@@ -102,6 +107,8 @@ export function AppSelect({
       isClearable={isClearable}
       isSearchable={isSearchable}
       menuPlacement={menuPlacement}
+      menuPosition="fixed"
+      menuPortalTarget={menuPortalTarget}
       styles={buildStyles({ minHeight, tone, accentColor })}
       noOptionsMessage={() => "Nenhuma opcao"}
     />

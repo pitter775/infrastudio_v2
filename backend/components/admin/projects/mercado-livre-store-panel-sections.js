@@ -134,7 +134,7 @@ function updateHeroConfig(setDraft, patch) {
   }))
 }
 
-function StoreAssetUpload({ accept = 'image/png,image/jpeg,image/webp', disabled, label, onChange }) {
+function StoreAssetUpload({ accept = 'image/avif,image/png,image/jpeg,image/svg+xml,image/webp,.svg', disabled, label, onChange }) {
   return (
     <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06]">
       <ImageUp className="h-4 w-4" />

@@ -68,7 +68,7 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
         </button>
         <div
           ref={rowRef}
-          className="grid auto-cols-[calc((100%_-_10px)_/_2)] snap-x snap-mandatory grid-flow-col gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-2 py-5 touch-pan-x [scrollbar-width:none] sm:auto-cols-[calc((100%_-_20px)_/_3)] md:auto-cols-[calc((100%_-_30px)_/_4)] lg:auto-cols-[calc((100%_-_40px)_/_5)] [&::-webkit-scrollbar]:hidden"
+          className="grid auto-cols-[calc(100%_-_56px)] snap-x snap-mandatory grid-flow-col gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-2 py-5 touch-pan-x [scrollbar-width:none] sm:auto-cols-[calc((100%_-_10px)_/_2)] md:auto-cols-[calc((100%_-_20px)_/_3)] lg:auto-cols-[calc((100%_-_40px)_/_5)] [&::-webkit-scrollbar]:hidden"
         >
           {products.map((product) => (
             <StoreProductCard
@@ -133,7 +133,7 @@ function StoreSearchFilters({
         {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
         Buscar
       </button>
-      <div className={`grid gap-2 text-xs sm:col-span-2 ${categoryOptions.length > 1 ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className={`grid gap-2 text-xs sm:col-span-2 ${categoryOptions.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'}`}>
         {categoryOptions.length > 1 ? (
           <AppSelect
             options={categoryOptions}
