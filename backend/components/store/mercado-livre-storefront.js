@@ -358,9 +358,10 @@ export function MercadoLivreStorefront({
         <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
 
         <main id="topo" className="pb-12">
-          <section className="relative z-10 min-h-[238px] overflow-hidden pt-[86px] shadow-[0_22px_34px_-28px_rgba(15,23,42,0.42)]" style={heroStyle.base}>
+          <section className="relative z-10 min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
             {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
             <div className="absolute inset-0" style={heroStyle.overlay} />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[18px] bg-[linear-gradient(to_bottom,rgba(15,23,42,0.00),rgba(15,23,42,0.10))]" />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
               <div className="max-w-xl pr-14 lg:pr-0">
                 <h1
@@ -402,7 +403,7 @@ export function MercadoLivreStorefront({
             </div>
           </section>
 
-          <section id="produtos" className="mx-auto -mt-4 max-w-[1228px] scroll-mt-24 px-3 sm:px-4 lg:px-3">
+          <section id="produtos" className="relative z-0 mx-auto -mt-4 max-w-[1228px] scroll-mt-24 px-3 sm:px-4 lg:px-3 before:pointer-events-none before:absolute before:left-3 before:right-3 before:top-0 before:h-[14px] before:rounded-t-[8px] before:bg-white/75 before:shadow-[0_-1px_0_rgba(255,255,255,0.65),0_-10px_22px_-18px_rgba(15,23,42,0.32)] sm:before:left-4 sm:before:right-4 lg:before:left-3 lg:before:right-3">
             {hasSearchContext || hasCategoryContext ? (
               <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
                 {hasSearchContext ? <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Busca: {query}</span> : null}
