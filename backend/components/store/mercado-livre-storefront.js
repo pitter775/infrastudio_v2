@@ -206,6 +206,7 @@ export function MercadoLivreStorefront({
   const [sortValue, setSortValue] = useState(sort)
   const [isSearching, setIsSearching] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [visibleProductCount, setVisibleProductCount] = useState(8)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
   const latestProducts = useMemo(() => products.slice(0, 12), [products])
   const recommendedProducts = useMemo(() => {
@@ -215,6 +216,7 @@ export function MercadoLivreStorefront({
     const fallbackPool = products.filter((product) => !latestIds.has(String(product?.itemId || product?.id || '')))
     return (uniqueRecommended.length ? uniqueRecommended : fallbackPool).slice(0, 10)
   }, [featuredProducts, latestProducts, products])
+  const visibleProducts = useMemo(() => products.slice(0, visibleProductCount), [products, visibleProductCount])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],
@@ -264,6 +266,10 @@ export function MercadoLivreStorefront({
 
   useEffect(() => {
     setIsSearching(false)
+  }, [query, categoryId, sort, page])
+
+  useEffect(() => {
+    setVisibleProductCount(8)
   }, [query, categoryId, sort, page])
 
   useEffect(() => {
@@ -425,6 +431,34 @@ export function MercadoLivreStorefront({
               accentColor={store.accentColor}
               analyticsSource="latest_row"
             />
+
+            {visibleProducts.length ? (
+              <section className="mt-8">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {visibleProducts.map((product) => (
+                    <StoreProductCard
+                      key={`grid-${product.id}`}
+                      storeSlug={store.slug}
+                      product={product}
+                      accentColor={store.accentColor}
+                      compact
+                      analyticsSource="catalog_grid"
+                    />
+                  ))}
+                </div>
+                {visibleProductCount < products.length ? (
+                  <div className="mt-5 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setVisibleProductCount((current) => current + 8)}
+                      className="inline-flex h-10 items-center justify-center rounded-[4px] border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300"
+                    >
+                      Carregar mais
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
 
             <ProductRow
               title="Produtos recomendados"
