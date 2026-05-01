@@ -5,10 +5,7 @@ import { randomUUID } from "crypto"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 export const STORE_ASSETS_BUCKET = "store-assets"
-const STORE_ASSET_SIZE_LIMITS = {
-  logo: 3 * 1024 * 1024,
-  hero: 8 * 1024 * 1024,
-}
+export const MAX_STORE_ASSET_BYTES = 1 * 1024 * 1024
 
 const ALLOWED_STORE_ASSET_MIME_TYPES = [
   "image/avif",
@@ -25,8 +22,6 @@ const STORE_ASSET_EXTENSION_TO_MIME = {
   svg: "image/svg+xml",
   webp: "image/webp",
 }
-
-let bucketReady = false
 
 function sanitizeFileName(name) {
   return String(name || "")
@@ -69,41 +64,6 @@ function normalizeStoreAssetPath(value) {
     .replace(/^\/+/, "")
 }
 
-async function ensureStoreAssetsBucket() {
-  if (bucketReady) {
-    return
-  }
-
-  const supabase = getSupabaseAdminClient()
-  const { data, error } = await supabase.storage.listBuckets()
-  if (error) {
-    throw error
-  }
-
-  const bucketExists = data?.some((bucket) => bucket.name === STORE_ASSETS_BUCKET)
-  if (!bucketExists) {
-    const createResult = await supabase.storage.createBucket(STORE_ASSETS_BUCKET, {
-      public: true,
-      fileSizeLimit: STORE_ASSET_SIZE_LIMITS.hero,
-      allowedMimeTypes: ALLOWED_STORE_ASSET_MIME_TYPES,
-    })
-
-    if (createResult.error && !String(createResult.error.message || "").toLowerCase().includes("already")) {
-      throw createResult.error
-    }
-  }
-
-  const updateResult = await supabase.storage.updateBucket(STORE_ASSETS_BUCKET, {
-    public: true,
-    fileSizeLimit: STORE_ASSET_SIZE_LIMITS.hero,
-    allowedMimeTypes: ALLOWED_STORE_ASSET_MIME_TYPES,
-  })
-  if (updateResult.error && !String(updateResult.error.message || "").toLowerCase().includes("not found")) {
-    throw updateResult.error
-  }
-
-  bucketReady = true
-}
 
 function resolveStoreAssetMimeType(file, normalizedKind) {
   const rawMimeType = String(file?.type || "").trim().toLowerCase()
@@ -119,7 +79,6 @@ function resolveStoreAssetMimeType(file, normalizedKind) {
 export async function uploadStoreAsset({ file, projectId, storeId, kind }) {
   const normalizedKind = kind === "logo" ? "logo" : "hero"
   const mimeType = resolveStoreAssetMimeType(file, normalizedKind)
-  const maxBytes = STORE_ASSET_SIZE_LIMITS[normalizedKind] || STORE_ASSET_SIZE_LIMITS.hero
 
   if (!projectId || !storeId || !file) {
     throw new Error("Upload da loja invalido.")
@@ -129,18 +88,14 @@ export async function uploadStoreAsset({ file, projectId, storeId, kind }) {
     throw new Error("Formato invalido. Use AVIF, JPG, PNG, SVG ou WEBP.")
   }
 
-  if (Number(file.size || 0) > maxBytes) {
-    const limitLabel = normalizedKind === "logo" ? "3 MB" : "8 MB"
-    throw new Error(`A imagem deve ter no maximo ${limitLabel}.`)
+  if (Number(file.size || 0) > MAX_STORE_ASSET_BYTES) {
+    throw new Error("A imagem deve ter no maximo 1 MB.")
   }
 
   const bytes = Buffer.from(await file.arrayBuffer())
   if (!bytes.byteLength) {
     throw new Error("Arquivo invalido.")
   }
-
-  await ensureStoreAssetsBucket()
-
   const supabase = getSupabaseAdminClient()
   const originalName = String(file.name || normalizedKind).trim()
   const extension = originalName.includes(".") ? originalName.split(".").pop() ?? "" : mimeType.split("/")[1] ?? ""
@@ -171,8 +126,6 @@ export async function removeStoreAsset(value) {
   if (!storagePath || storagePath.includes("..") || storagePath.startsWith("http")) {
     return { removed: false }
   }
-
-  await ensureStoreAssetsBucket()
 
   const supabase = getSupabaseAdminClient()
   const result = await supabase.storage.from(STORE_ASSETS_BUCKET).remove([storagePath])
