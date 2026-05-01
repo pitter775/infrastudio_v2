@@ -2,7 +2,7 @@
 
 import { ExternalLink, MessageCircle } from 'lucide-react'
 
-import { openStoreChat, trackStoreEvent } from '@/components/store/store-utils'
+import { buildStoreProductExternalUrl, openStoreChat, trackStoreEvent } from '@/components/store/store-utils'
 
 export function StoreProductActions({
   accentColor,
@@ -14,12 +14,13 @@ export function StoreProductActions({
   widgetSlug,
 }) {
   const hasWidget = Boolean(widgetId || widgetSlug)
+  const externalUrl = buildStoreProductExternalUrl(product || { permalink })
 
   return (
     <>
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
         <a
-          href={permalink}
+          href={externalUrl}
           target="_blank"
           rel="noreferrer"
           onClick={() =>

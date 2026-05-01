@@ -7,7 +7,7 @@ import { StoreProductActions } from "@/components/store/store-product-actions"
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
 import { StoreProductCard } from "@/components/store/store-product-card"
 import { StoreProductHeroGallery } from "@/components/store/store-product-hero-gallery"
-import { buildStoreAccentPalette, formatStoreCurrency } from "@/components/store/store-utils"
+import { buildStoreAccentPalette, buildStoreProductExternalUrl, formatStoreCurrency } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
 import { buildStoreProductRef } from "@/lib/mercado-livre-store-core/sanitize"
 import {
@@ -356,7 +356,7 @@ function ProductPurchasePanel({
       <div className="mt-6 grid gap-3">
         <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
           <a
-            href={result.product.permalink}
+            href={buildStoreProductExternalUrl(result.product)}
             target="_blank"
             rel="noreferrer"
             className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-5 text-sm font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"

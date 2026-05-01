@@ -50,13 +50,13 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
   return (
     <section className="mt-[30px]">
       <div className="mb-3 flex items-baseline gap-2.5">
-        <h2 className="text-[20px] font-bold leading-tight text-[#111827]">{title}</h2>
+        <h2 className="text-[20px] font-normal leading-tight text-slate-700">{title}</h2>
       </div>
       <div className="relative">
         <button
           type="button"
           onClick={scrollPrevious}
-          className="absolute bottom-4 left-0 top-4 z-20 hidden w-[58px] items-center justify-start lg:flex"
+          className="absolute bottom-4 left-[-18px] top-4 z-20 hidden w-[58px] items-center justify-start lg:flex"
           aria-label={`Voltar ${title}`}
         >
           <span
@@ -85,7 +85,7 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
         <button
           type="button"
           onClick={scrollNext}
-          className="absolute bottom-4 right-0 top-4 z-20 hidden w-[58px] items-center justify-end lg:flex"
+          className="absolute bottom-4 right-[-18px] top-4 z-20 hidden w-[58px] items-center justify-end lg:flex"
           aria-label={`Avancar ${title}`}
         >
           <span
@@ -207,8 +207,14 @@ export function MercadoLivreStorefront({
   const [isSearching, setIsSearching] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
-  const recommendedProducts = featuredProducts.length ? featuredProducts : products.slice(0, 10)
-  const latestProducts = products.slice(0, 12)
+  const latestProducts = useMemo(() => products.slice(0, 12), [products])
+  const recommendedProducts = useMemo(() => {
+    const source = featuredProducts.length ? featuredProducts : products
+    const latestIds = new Set(latestProducts.map((product) => String(product?.itemId || product?.id || '')))
+    const uniqueRecommended = source.filter((product) => !latestIds.has(String(product?.itemId || product?.id || '')))
+    const fallbackPool = products.filter((product) => !latestIds.has(String(product?.itemId || product?.id || '')))
+    return (uniqueRecommended.length ? uniqueRecommended : fallbackPool).slice(0, 10)
+  }, [featuredProducts, latestProducts, products])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],
@@ -356,15 +362,14 @@ export function MercadoLivreStorefront({
             <div className="absolute inset-0" style={heroStyle.overlay} />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
               <div className="max-w-xl pr-14 lg:pr-0">
-                <div className="text-[13px] font-semibold" style={{ color: palette.accentDark }}>Loja oficial</div>
                 <h1
                   className="mt-1 text-3xl font-bold leading-tight sm:text-4xl"
-                  style={{ color: palette.accentDark, textShadow: '0 10px 26px rgba(255,255,255,0.45), 0 2px 10px rgba(15,23,42,0.12)' }}
+                  style={{ color: palette.accentDark, textShadow: '0 12px 28px rgba(255,255,255,0.55), 0 3px 12px rgba(15,23,42,0.16)' }}
                 >
                   {store.name}
                 </h1>
                 {store.headline ? (
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700" style={{ textShadow: '0 6px 20px rgba(255,255,255,0.35)' }}>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700" style={{ textShadow: '0 8px 22px rgba(255,255,255,0.42), 0 2px 8px rgba(15,23,42,0.08)' }}>
                     {store.headline}
                   </p>
                 ) : null}

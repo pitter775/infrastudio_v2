@@ -174,3 +174,28 @@ export function buildStoreProductHref(storeSlug, product) {
   const productRef = itemId ? `${itemId}${slug ? `-${slug}` : ''}` : slug
   return `/loja/${storeSlug}/produto/${productRef}`
 }
+
+function slugifyMercadoLivreTitle(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 140)
+}
+
+export function buildStoreProductExternalUrl(product) {
+  const permalink = String(product?.permalink || '').trim()
+  if (permalink && !/internal-shop\.mercadoshops\.com\.br/i.test(permalink)) {
+    return permalink
+  }
+
+  const itemId = String(product?.itemId || product?.id || '').trim()
+  if (!itemId) {
+    return permalink
+  }
+
+  const slug = slugifyMercadoLivreTitle(product?.title || product?.slug || '')
+  return `https://produto.mercadolivre.com.br/${itemId}${slug ? `-${slug}` : ''}-_JM`
+}

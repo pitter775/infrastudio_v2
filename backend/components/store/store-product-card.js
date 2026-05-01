@@ -68,7 +68,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
             </div>
           ) : null}
 
-          <div className="relative h-[224px] shrink-0 overflow-hidden bg-[#f5f5f5]">
+          <div className="relative h-[224px] shrink-0 overflow-hidden bg-[#f5f5f5] p-[5px]">
             {image ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={image} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-contain transition duration-300 group-hover:scale-[1.02]" />
