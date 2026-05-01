@@ -207,6 +207,17 @@ function copyDraftForSave(draft) {
   }
 }
 
+function buildDeveloperUploadError(stage, message, fallbackText) {
+  const normalizedStage = String(stage || 'upload').trim()
+  const normalizedMessage = String(message || '').trim()
+
+  return {
+    tone: 'error',
+    text: fallbackText || 'Nao foi possivel enviar a imagem.',
+    detail: normalizedMessage ? `[${normalizedStage}] ${normalizedMessage}` : `[${normalizedStage}] sem detalhe adicional`,
+  }
+}
+
 export function MercadoLivreStorePanel({ project, active = false, onFooterStateChange }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const [activeSubTab, setActiveSubTab] = useState('general')
@@ -505,12 +516,18 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     try {
       const uploadFile = kind === 'logo' ? await optimizeLogoFile(file) : file
       if (!uploadFile) {
-        setFeedback({ tone: 'error', text: 'Arquivo invalido para upload.' })
+        setFeedback(buildDeveloperUploadError('prepare-client', 'arquivo retornou vazio apos preprocessamento', 'Arquivo invalido para upload.'))
         return
       }
 
       if (uploadFile.size > MAX_STORE_ASSET_BYTES) {
-        setFeedback({ tone: 'error', text: 'A imagem deve ter no maximo 1 MB.' })
+        setFeedback(
+          buildDeveloperUploadError(
+            'prepare-client',
+            `arquivo final com ${uploadFile.size} bytes excede o limite de ${MAX_STORE_ASSET_BYTES} bytes`,
+            'A imagem deve ter no maximo 1 MB.',
+          ),
+        )
         return
       }
 
@@ -529,13 +546,19 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       const prepareData = await prepareResponse.json().catch(() => ({}))
 
       if (!prepareResponse.ok) {
-        setFeedback({ tone: 'error', text: prepareData.error || 'Nao foi possivel preparar o upload.' })
+        setFeedback(
+          buildDeveloperUploadError(
+            'prepare-server',
+            prepareData.error || `HTTP ${prepareResponse.status}`,
+            'Nao foi possivel preparar o upload.',
+          ),
+        )
         return
       }
 
       const asset = prepareData.asset || {}
       if (!asset.storagePath || !asset.token) {
-        setFeedback({ tone: 'error', text: 'Upload preparado sem credenciais validas.' })
+        setFeedback(buildDeveloperUploadError('prepare-server', 'asset sem storagePath ou token', 'Upload preparado sem credenciais validas.'))
         return
       }
 
@@ -550,7 +573,13 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         },
       )
       if (uploadResult.error) {
-        setFeedback({ tone: 'error', text: uploadResult.error.message || 'Nao foi possivel enviar a imagem.' })
+        setFeedback(
+          buildDeveloperUploadError(
+            'storage-upload',
+            uploadResult.error.message || 'falha sem mensagem do Supabase',
+            'Nao foi possivel enviar a imagem.',
+          ),
+        )
         return
       }
 
@@ -570,14 +599,20 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       const commitData = await commitResponse.json().catch(() => ({}))
 
       if (!commitResponse.ok) {
-        setFeedback({ tone: 'error', text: commitData.error || 'Nao foi possivel publicar a imagem.' })
+        setFeedback(
+          buildDeveloperUploadError(
+            'commit-server',
+            commitData.error || `HTTP ${commitResponse.status}`,
+            'Nao foi possivel publicar a imagem.',
+          ),
+        )
         return
       }
 
       const publicUrl = commitData.asset?.publicUrl || asset.publicUrl || ''
       const nextStoragePath = commitData.asset?.storagePath || normalizedStoragePath
       if (!publicUrl) {
-        setFeedback({ tone: 'error', text: 'Upload concluido sem URL publica.' })
+        setFeedback(buildDeveloperUploadError('commit-server', 'asset salvo sem publicUrl', 'Upload concluido sem URL publica.'))
         return
       }
 
@@ -607,8 +642,14 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       }
 
       setFeedback({ tone: 'success', text: 'Imagem enviada e publicada na loja.' })
-    } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel enviar a imagem.' })
+    } catch (error) {
+      setFeedback(
+        buildDeveloperUploadError(
+          'unexpected',
+          error instanceof Error ? error.message : String(error || 'erro desconhecido'),
+          'Nao foi possivel enviar a imagem.',
+        ),
+      )
     } finally {
       setAssetUploading(null)
     }
@@ -680,7 +721,12 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
               : 'border-rose-400/20 bg-rose-500/10 text-rose-100',
           )}
         >
-          {feedback.text}
+          <div>{feedback.text}</div>
+          {feedback.detail ? (
+            <div className="mt-2 break-all rounded-lg border border-current/10 bg-black/10 px-2 py-2 font-mono text-[11px] leading-5 opacity-90">
+              {feedback.detail}
+            </div>
+          ) : null}
         </div>
       ) : null}
 
