@@ -11,7 +11,6 @@ import {
   StoreSocialSection,
   StoreDomainSection,
 } from '@/components/admin/projects/mercado-livre-store-panel-sections'
-import { getSupabaseBrowserClient } from '@/lib/supabase-browser'
 import { MAX_STORE_ASSET_BYTES, STORE_ASSETS_BUCKET, STORE_LOGO_MAX_WIDTH } from '@/lib/store-assets-constants'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -557,26 +556,28 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       }
 
       const asset = prepareData.asset || {}
-      if (!asset.storagePath || !asset.token) {
-        setFeedback(buildDeveloperUploadError('prepare-server', 'asset sem storagePath ou token', 'Upload preparado sem credenciais validas.'))
+      if (!asset.storagePath || !asset.signedUrl) {
+        setFeedback(buildDeveloperUploadError('prepare-server', 'asset sem storagePath ou signedUrl', 'Upload preparado sem credenciais validas.'))
         return
       }
 
-      const supabase = getSupabaseBrowserClient()
       const normalizedStoragePath = String(asset.storagePath || '').replace(`${STORE_ASSETS_BUCKET}/`, '').replace(/^\/+/, '')
-      const uploadResult = await supabase.storage.from(STORE_ASSETS_BUCKET).uploadToSignedUrl(
-        normalizedStoragePath,
-        asset.token,
-        uploadFile,
-        {
-          contentType: uploadFile.type || asset.contentType || 'application/octet-stream',
+      const uploadFormData = new FormData()
+      uploadFormData.append('cacheControl', '3600')
+      uploadFormData.append('', uploadFile)
+      const uploadResponse = await fetch(asset.signedUrl, {
+        method: 'PUT',
+        body: uploadFormData,
+        headers: {
+          'x-upsert': 'false',
         },
-      )
-      if (uploadResult.error) {
+      })
+      if (!uploadResponse.ok) {
+        const uploadText = await uploadResponse.text().catch(() => '')
         setFeedback(
           buildDeveloperUploadError(
             'storage-upload',
-            uploadResult.error.message || 'falha sem mensagem do Supabase',
+            uploadText || `HTTP ${uploadResponse.status}`,
             'Nao foi possivel enviar a imagem.',
           ),
         )
