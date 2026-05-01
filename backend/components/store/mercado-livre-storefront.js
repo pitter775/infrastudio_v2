@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowRight, AtSign, Camera, ChevronLeft, ChevronRight, Filter, Globe, LayoutGrid, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
+import { AtSign, Camera, ChevronLeft, ChevronRight, Filter, Globe, LayoutGrid, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
 
 import { StoreHeader } from '@/components/store/store-header'
 import { StoreProductCard } from '@/components/store/store-product-card'
@@ -206,7 +206,6 @@ export function MercadoLivreStorefront({
   const [sortValue, setSortValue] = useState(sort)
   const [isSearching, setIsSearching] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
-  const [visibleProductCount, setVisibleProductCount] = useState(8)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
   const latestProducts = useMemo(() => products.slice(0, 12), [products])
   const recommendedProducts = useMemo(() => {
@@ -216,7 +215,7 @@ export function MercadoLivreStorefront({
     const fallbackPool = products.filter((product) => !latestIds.has(String(product?.itemId || product?.id || '')))
     return (uniqueRecommended.length ? uniqueRecommended : fallbackPool).slice(0, 10)
   }, [featuredProducts, latestProducts, products])
-  const visibleProducts = useMemo(() => products.slice(0, visibleProductCount), [products, visibleProductCount])
+  const visibleProducts = useMemo(() => products.slice(5), [products])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],
@@ -266,10 +265,6 @@ export function MercadoLivreStorefront({
 
   useEffect(() => {
     setIsSearching(false)
-  }, [query, categoryId, sort, page])
-
-  useEffect(() => {
-    setVisibleProductCount(8)
   }, [query, categoryId, sort, page])
 
   useEffect(() => {
@@ -363,11 +358,9 @@ export function MercadoLivreStorefront({
         <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
 
         <main id="topo" className="pb-12">
-          <section className="relative min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
+          <section className="relative z-10 min-h-[238px] overflow-hidden pt-[86px] shadow-[0_22px_34px_-28px_rgba(15,23,42,0.42)]" style={heroStyle.base}>
             {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
             <div className="absolute inset-0" style={heroStyle.overlay} />
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-b from-transparent to-slate-50/95" />
-            <div className="pointer-events-none absolute inset-x-0 bottom-[-28px] h-14 bg-black/8 blur-2xl" />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
               <div className="max-w-xl pr-14 lg:pr-0">
                 <h1
@@ -439,7 +432,7 @@ export function MercadoLivreStorefront({
                 <div className="mb-3 flex items-baseline gap-2.5">
                   <h2 className="text-[20px] font-normal leading-tight text-slate-700">Produtos recomendados</h2>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   {visibleProducts.map((product) => (
                     <StoreProductCard
                       key={`grid-${product.id}`}
@@ -451,11 +444,14 @@ export function MercadoLivreStorefront({
                     />
                   ))}
                 </div>
-                {visibleProductCount < products.length ? (
+                {hasMore ? (
                   <div className="mt-5 flex justify-center">
                     <button
                       type="button"
-                      onClick={() => setVisibleProductCount((current) => current + 8)}
+                      onClick={() => {
+                        setIsSearching(true)
+                        navigateStore(searchTerm, categoryId, sortValue, page + 1)
+                      }}
                       className="inline-flex h-10 items-center justify-center rounded-[4px] border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300"
                     >
                       Carregar mais
@@ -480,44 +476,25 @@ export function MercadoLivreStorefront({
               </div>
             ) : null}
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="text-sm text-slate-500">Pagina {page}</div>
-              <div className="flex w-full gap-3 sm:w-auto">
-                {page > 1 ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSearching(true)
-                      navigateStore(searchTerm, categoryId, sortValue, page - 1)
-                    }}
-                    className="inline-flex h-10 flex-1 items-center justify-center rounded-[4px] border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-900 sm:flex-none"
-                  >
-                    <ChevronLeft className="mr-2 h-4 w-4" />
-                    Anterior
-                  </button>
-                ) : null}
-                {hasMore ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSearching(true)
-                      navigateStore(searchTerm, categoryId, sortValue, page + 1)
-                    }}
-                    className="inline-flex h-10 flex-1 items-center justify-center rounded-[4px] px-4 text-sm font-semibold text-white sm:flex-none"
-                    style={{ backgroundColor: palette.accentDark }}
-                  >
-                    Proxima
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </button>
-                ) : null}
-              </div>
-            </div>
+            <div className="mt-8 text-sm text-slate-500">Pagina {page}</div>
           </section>
 
           <section id="sobre" className="mx-auto mt-12 grid max-w-[1228px] scroll-mt-24 gap-4 border-t border-slate-100 px-3 pt-8 sm:px-4 lg:grid-cols-[1.1fr_0.9fr] lg:px-3">
-            <div>
-              <div className="text-xl font-bold text-slate-950">Sobre a loja</div>
-              <div className="mt-3 text-sm leading-7 text-slate-700">{store.about}</div>
+            <div className="rounded-[6px] bg-white p-4 shadow-[0_12px_30px_-28px_rgba(15,23,42,0.3)]">
+              <div className="flex items-start gap-4">
+                {store.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-20 w-20 shrink-0 rounded-2xl border border-slate-100 bg-white p-2 object-contain" />
+                ) : (
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-xl font-semibold text-slate-700">
+                    {store.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="text-[20px] font-normal leading-tight text-slate-700">Sobre {store.name}</div>
+                  <div className="mt-3 text-sm leading-7 text-slate-700">{store.about}</div>
+                </div>
+              </div>
             </div>
             <div id="contato">
               <div className="text-xl font-bold text-slate-950">Contato</div>

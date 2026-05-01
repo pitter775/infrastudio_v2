@@ -371,13 +371,14 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
 
   const searchTerm = sanitizeText(options.searchTerm, 120)
   const page = Math.max(Number(options.page ?? 1) || 1, 1)
+  const limit = Math.min(Math.max(Number(options.limit ?? 12) || 12, 1), 120)
   const categoryId = sanitizeText(options.categoryId, 80)
   const sort = sanitizeText(options.sort, 32) || "recent"
   const listing = await listSnapshotProductsByProjectId(projectRow.id, {
     supabase,
     searchTerm,
     page,
-    limit: 12,
+    limit,
     categoryId,
     sort,
   })
