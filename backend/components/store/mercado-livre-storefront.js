@@ -407,7 +407,7 @@ export function MercadoLivreStorefront({
 
       `}</style>
       <div className="min-h-screen scroll-smooth bg-slate-50 text-slate-950">
-        <StoreHeader store={store} activeSection={activeSection} headerSolid samePageNavigation />
+        <StoreHeader store={store} activeSection={activeSection} samePageNavigation />
 
         <main id="topo" className="pb-12">
           <section className="relative z-20 min-h-[238px] overflow-visible pt-[86px]" style={heroStyle.base}>
@@ -463,7 +463,7 @@ export function MercadoLivreStorefront({
               target="_blank"
               rel="noreferrer"
               aria-label="InfraStudio"
-              className="absolute right-3 top-0 flex w-[190px] -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] bg-slate-50 px-4 pt-3 sm:right-4 lg:right-3"
+              className="absolute right-3 top-0 flex w-[190px] -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] bg-[#f8fafc] px-4 pt-3 sm:right-4 lg:right-3"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/vitrini.png" alt="" loading="eager" decoding="async" className="store-vitrine-mark w-[160px] max-w-full object-contain" />
@@ -542,7 +542,7 @@ export function MercadoLivreStorefront({
               <div className="flex items-start gap-4">
                 {store.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-20 w-20 shrink-0 rounded-2xl border border-slate-100 bg-white p-2 object-contain" />
+                  <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-20 w-20 shrink-0 rounded-2xl p-2 object-contain" />
                 ) : (
                   <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-xl font-semibold text-slate-700">
                     {store.name.slice(0, 2).toUpperCase()}

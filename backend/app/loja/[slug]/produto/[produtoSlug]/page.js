@@ -527,21 +527,20 @@ export default async function LojaProdutoPage({ params }) {
         <section className="relative overflow-hidden" style={heroStyle.base}>
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
-          <StoreHeader store={result.store} activeSection="produtos" headerSolid />
-          <div className="relative mx-auto max-w-7xl px-5 pb-4 pt-[88px] sm:px-7 md:pt-[88px] lg:px-10">
+          <StoreHeader store={result.store} activeSection="produtos" />
+          <div className="relative mx-auto max-w-7xl px-5 pb-1 pt-[74px] sm:px-7 md:pt-[76px] lg:px-10" />
+        </section>
+
+        <main>
+          <div className="mx-auto max-w-7xl px-5 pb-8 pt-0 sm:px-7 lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border bg-transparent shadow-[0_10px_24px_-18px_rgba(15,23,42,0.36)] transition hover:scale-105"
-              style={{ borderColor: palette.accentDark, color: palette.accentDark }}
+              className="-mt-5 mb-5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105"
+              style={{ color: palette.accentDark }}
               aria-label="Voltar para a loja"
             >
               <ArrowLeft className="h-5 w-5" />
             </Link>
-          </div>
-        </section>
-
-        <main>
-          <div className="mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10">
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
               <div className="grid gap-5">
                 <StoreProductHeroGallery key={result.product.id || result.product.slug} accentColor={result.store.accentColor} product={result.product} title={result.product.title} />
@@ -558,6 +557,16 @@ export default async function LojaProdutoPage({ params }) {
 
                 {attributeGroups.length ? (
                   <section className="rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+                    <style>{`
+                      .store-accordion::details-content {
+                        block-size: 0;
+                        overflow: hidden;
+                        transition: block-size 200ms ease-out, content-visibility 200ms ease-out allow-discrete;
+                      }
+                      .store-accordion[open]::details-content {
+                        block-size: auto;
+                      }
+                    `}</style>
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       <LayoutGrid className="h-4 w-4" />
                       Caracteristicas do produto
@@ -566,7 +575,7 @@ export default async function LojaProdutoPage({ params }) {
                       {attributeGroups.map((group) => (
                         <details
                           key={group.title}
-                          className="group rounded-[6px] bg-[#fbf8f2] shadow-[0_10px_18px_-18px_rgba(15,23,42,0.14)]"
+                          className="store-accordion group rounded-[6px] bg-[#fbf8f2] shadow-[0_10px_18px_-18px_rgba(15,23,42,0.14)]"
                         >
                           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-sm font-semibold text-slate-950 [&::-webkit-details-marker]:hidden">
                             <span className="flex min-w-0 items-center gap-2">
@@ -578,13 +587,17 @@ export default async function LojaProdutoPage({ params }) {
                               <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
                             </span>
                           </summary>
-                          <div className="grid gap-2 px-4 pb-4 md:grid-cols-2">
-                            {group.items.map((item) => (
-                              <div key={`${group.title}-${item.id}-${item.value}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 rounded-[6px] bg-white px-3 py-3 text-sm shadow-[0_8px_16px_-16px_rgba(15,23,42,0.18)]">
-                                <div className="text-slate-500">{item.name}</div>
-                                <div className="font-medium text-slate-950">{item.value}</div>
+                          <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 ease-out group-open:grid-rows-[1fr]">
+                            <div className="overflow-hidden">
+                              <div className="grid gap-2 px-4 pb-4 md:grid-cols-2">
+                                {group.items.map((item) => (
+                                  <div key={`${group.title}-${item.id}-${item.value}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 rounded-[6px] bg-white px-3 py-3 text-sm shadow-[0_8px_16px_-16px_rgba(15,23,42,0.18)]">
+                                    <div className="text-slate-500">{item.name}</div>
+                                    <div className="font-medium text-slate-950">{item.value}</div>
+                                  </div>
+                                ))}
                               </div>
-                            ))}
+                            </div>
                           </div>
                         </details>
                       ))}

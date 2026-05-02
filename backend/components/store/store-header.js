@@ -78,7 +78,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
     >
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-6 px-1 sm:px-0">
-          <Link href={`/loja/${store.slug}`} className="flex items-center gap-3">
+          <Link href={`/loja/${store.slug}`} className="flex items-center gap-5">
             <div
               className="flex h-12 w-12 items-center justify-center rounded-[14px] text-sm font-semibold text-white"
               style={{ backgroundColor: store.logoUrl ? undefined : store.accentColor }}

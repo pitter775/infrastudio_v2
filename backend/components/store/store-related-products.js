@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 
+import { ChevronDown } from 'lucide-react'
+
 import { StoreProductCard } from '@/components/store/store-product-card'
 import { buildStoreAccentPalette } from '@/components/store/store-utils'
 
@@ -33,10 +35,11 @@ export function StoreRelatedProducts({ accentColor, products, storeSlug }) {
           <button
             type="button"
             onClick={() => setVisibleCount((current) => Math.min(current + RELATED_PAGE_SIZE, items.length))}
-            className="inline-flex h-10 items-center justify-center rounded-[4px] border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-transparent hover:bg-[var(--store-related-hover)]"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-[4px] border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-transparent hover:bg-[var(--store-related-hover)]"
             style={{ '--store-related-hover': palette.accentBorder }}
           >
             Ver mais
+            <ChevronDown className="h-4 w-4" />
           </button>
         </div>
       ) : null}
