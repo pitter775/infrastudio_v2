@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 
 import { getStoreProductImages } from '@/components/store/store-utils'
 
-export function StoreProductHeroGallery({ product, title = '' }) {
+export function StoreProductHeroGallery({ accentColor = '#0f172a', product, title = '' }) {
   const images = useMemo(() => getStoreProductImages(product), [product])
   const [activeIndex, setActiveIndex] = useState(0)
   const safeActiveIndex = activeIndex >= images.length ? 0 : activeIndex
@@ -57,15 +57,14 @@ export function StoreProductHeroGallery({ product, title = '' }) {
       </div>
 
       {images.length > 1 ? (
-        <div className="grid grid-cols-6 gap-2">
+        <div className="grid grid-cols-8 gap-1.5">
           {images.map((image, index) => (
             <button
               key={`${image}-${index}`}
               type="button"
               onClick={() => setActiveIndex(index)}
-              className={`overflow-hidden rounded-[6px] transition ${
-                index === safeActiveIndex ? 'ring-2 ring-slate-900/10' : ''
-              }`}
+              className="overflow-hidden rounded-[6px] border bg-transparent transition hover:shadow-[0_8px_18px_-12px_rgba(15,23,42,0.34)]"
+              style={{ borderColor: index === safeActiveIndex ? `${accentColor}88` : 'transparent' }}
               aria-label={`Ver imagem ${index + 1}`}
             >
               <div className="aspect-square overflow-hidden rounded-[6px]">

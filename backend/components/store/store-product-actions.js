@@ -32,8 +32,7 @@ export function StoreProductActions({
               dedupeKey: `${storeSlug}:product_buy_click:${product?.slug || 'unknown'}`,
             })
           }
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-slate-200 bg-white px-5 text-sm font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
-          style={{ color: accentColor }}
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-[#ffe600] bg-[#ffe600] px-5 text-sm font-semibold text-[#333333] shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:bg-[#fff159] hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
         >
           <ExternalLink className="h-4 w-4" />
           Comprar no Mercado Livre
@@ -51,7 +50,8 @@ export function StoreProductActions({
             openStoreChat({ widgetId, widgetSlug })
           }}
           disabled={!hasWidget}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-slate-200 bg-[#faf8f3] px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 hover:bg-white disabled:opacity-60"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-[var(--store-accent)] bg-[var(--store-accent)] px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+          style={{ '--store-accent': accentColor }}
         >
           <MessageCircle className="h-4 w-4" />
           Tirar duvida

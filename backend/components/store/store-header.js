@@ -72,8 +72,8 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
     <header
       className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
         resolvedHeaderSolid
-          ? 'bg-[#f7f4ee]/92 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.14)] backdrop-blur-xl'
-          : 'bg-white/18 shadow-[0_14px_34px_-30px_rgba(15,23,42,0.28)] backdrop-blur-md'
+          ? 'bg-white/45 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.2)] backdrop-blur-xl'
+          : 'bg-transparent shadow-none'
       }`}
     >
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">

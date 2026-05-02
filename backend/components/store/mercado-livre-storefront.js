@@ -117,7 +117,7 @@ function StoreSearchFilters({
 }) {
   return (
     <form onSubmit={onSearchSubmit} className="grid w-full gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-      <div className="flex min-w-0 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 shadow-sm">
+      <div className="flex min-w-0 items-center gap-2 rounded-[16px] border border-slate-200 bg-white/72 px-3 shadow-sm backdrop-blur">
         <Search className="h-4 w-4 text-slate-400" />
         <input
           value={searchTerm}
@@ -129,8 +129,8 @@ function StoreSearchFilters({
       <button
         type="submit"
         disabled={isSearching}
-        className="inline-flex h-10 items-center justify-center rounded-[4px] px-4 text-sm font-semibold text-white transition disabled:opacity-70"
-        style={{ backgroundColor: accentColor }}
+        className="inline-flex h-10 items-center justify-center rounded-[16px] border border-slate-200 bg-white/72 px-4 text-sm font-semibold text-[var(--store-accent)] shadow-sm backdrop-blur transition hover:border-transparent hover:bg-[var(--store-accent)] hover:text-white disabled:opacity-70"
+        style={{ '--store-accent': accentColor }}
       >
         {isSearching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
         Buscar

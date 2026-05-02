@@ -345,7 +345,7 @@ function ProductPurchasePanel({
         {result.product.title}
       </h1>
 
-      <div className="mt-6 text-3xl font-semibold sm:text-4xl" style={{ color: palette.accentDark }}>
+      <div className="mt-4 text-lg font-semibold sm:text-xl" style={{ color: palette.accentDark }}>
         {formatStoreCurrency(result.product.price, result.product.currencyId)}
       </div>
       {installmentText ? (
@@ -368,8 +368,7 @@ function ProductPurchasePanel({
             href={buildStoreProductExternalUrl(result.product)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[6px] border border-slate-200 bg-white px-5 text-sm font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
-            style={{ color: "#3483fa" }}
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[6px] border border-[#ffe600] bg-[#ffe600] px-5 text-sm font-semibold text-[#333333] shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:bg-[#fff159] hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
           >
             <ShoppingBag className="h-4 w-4" />
             Comprar agora
@@ -556,7 +555,7 @@ export default async function LojaProdutoPage({ params }) {
           <div className="mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10">
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
               <div className="grid gap-5">
-                <StoreProductHeroGallery key={result.product.id || result.product.slug} product={result.product} title={result.product.title} />
+                <StoreProductHeroGallery key={result.product.id || result.product.slug} accentColor={result.store.accentColor} product={result.product} title={result.product.title} />
 
                 <ProductPurchasePanel
                   result={result}
@@ -619,7 +618,11 @@ export default async function LojaProdutoPage({ params }) {
             </div>
 
             {descriptionBlocks.length ? (
-              <section className="mt-6 rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+              <section className="relative mt-6 rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+                {result.store.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={result.store.logoUrl} alt={result.store.name} loading="lazy" decoding="async" className="absolute right-6 top-6 hidden h-16 w-16 rounded-[8px] border border-slate-200 bg-white p-2 object-contain shadow-[0_10px_24px_-18px_rgba(15,23,42,0.32)] lg:block" />
+                ) : null}
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <FileText className="h-4 w-4" />
                   Descricao completa

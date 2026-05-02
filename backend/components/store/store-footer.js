@@ -1,6 +1,14 @@
 'use client'
 
 import { buildStoreAccentPalette } from '@/components/store/store-utils'
+import { Globe, LayoutGrid, Phone, Sparkles, Store } from 'lucide-react'
+
+const menuIconMap = {
+  topo: Store,
+  produtos: LayoutGrid,
+  sobre: Sparkles,
+  contato: Phone,
+}
 
 function resolveFooterHref(storeSlug, href, samePageNavigation) {
   if (!href || !href.startsWith('#')) {
@@ -39,9 +47,9 @@ export function StoreFooter({ store, samePageNavigation = false }) {
           <div className="flex items-center gap-5">
             {store.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-32 w-32 shrink-0 rounded-[10px] bg-white/20 p-2 object-contain" />
+              <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-32 w-32 shrink-0 rounded-[10px] object-contain" />
             ) : (
-              <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-[10px] bg-white/24 text-3xl font-semibold text-slate-800">
+              <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-[10px] text-3xl font-semibold text-slate-800">
                 {store.name.slice(0, 2).toUpperCase()}
               </div>
             )}
@@ -50,22 +58,28 @@ export function StoreFooter({ store, samePageNavigation = false }) {
               {footerText ? <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{footerText}</div> : null}
               <a href="https://www.infrastudio.pro" target="_blank" rel="noreferrer" className="mt-4 inline-flex opacity-70 transition hover:opacity-90">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/infrastudio-preto.png" alt="InfraStudio" loading="lazy" decoding="async" className="h-5 w-auto object-contain" />
+                <img src="/infrastudio-preto.png" alt="InfraStudio" loading="lazy" decoding="async" className="h-2.5 w-auto object-contain" />
               </a>
             </div>
           </div>
         </div>
         <div className="flex flex-wrap gap-3 lg:justify-end">
-          {store.menuLinks.map((item) => (
-            <a
-              key={`${item.label}-${item.href}-footer`}
-              href={resolveFooterHref(store.slug, item.href, samePageNavigation)}
-              onClick={(event) => handleAnchorNavigation(event, item.href)}
-              className="inline-flex items-center gap-2 text-sm text-slate-700 transition hover:text-slate-950"
-            >
-              {item.label}
-            </a>
-          ))}
+          {store.menuLinks.map((item) => {
+            const sectionId = item.href.replace('#', '')
+            const Icon = menuIconMap[sectionId] || Globe
+
+            return (
+              <a
+                key={`${item.label}-${item.href}-footer`}
+                href={resolveFooterHref(store.slug, item.href, samePageNavigation)}
+                onClick={(event) => handleAnchorNavigation(event, item.href)}
+                className="inline-flex items-center gap-2 text-sm text-slate-700 transition hover:text-slate-950"
+              >
+                <Icon className="h-4 w-4" />
+                {item.label}
+              </a>
+            )
+          })}
         </div>
       </div>
     </footer>
