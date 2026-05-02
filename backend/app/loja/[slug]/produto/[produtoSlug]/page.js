@@ -345,19 +345,19 @@ function ProductPurchasePanel({
         {result.product.title}
       </h1>
 
-      <div className="mt-4 hidden text-lg font-semibold sm:block sm:text-xl" style={{ color: palette.accentDark }}>
+      <div className="mt-4 text-lg font-semibold sm:text-xl" style={{ color: palette.accentDark }}>
         {formatStoreCurrency(result.product.price, result.product.currencyId)}
       </div>
       {installmentText ? (
-        <div className="mt-2 hidden text-lg font-medium text-slate-700 sm:block">{installmentText}</div>
+        <div className="mt-2 text-lg font-medium text-slate-700">{installmentText}</div>
       ) : null}
       {Number(result.product.unitPrice ?? 0) > 0 ? (
-        <div className="mt-1 hidden text-sm text-slate-500 sm:block">
+        <div className="mt-1 text-sm text-slate-500">
           Preco por unidade: {formatStoreCurrency(result.product.unitPrice, result.product.currencyId)}
         </div>
       ) : null}
       {result.product.originalPrice > result.product.price ? (
-        <div className="mt-2 hidden text-sm text-slate-500 line-through sm:block">
+        <div className="mt-2 text-sm text-slate-500 line-through">
           {formatStoreCurrency(result.product.originalPrice, result.product.currencyId)}
         </div>
       ) : null}
@@ -429,16 +429,9 @@ function ProductPurchasePanel({
   )
 }
 
-function MobileProductSummary({ installmentText, palette, product, store }) {
+function MobileProductTitle({ product }) {
   return (
-    <section className="rounded-[8px] bg-white p-4 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.18)] sm:hidden">
-      <div className="text-[11px] uppercase tracking-[0.2em] text-slate-500">{store.name}</div>
-      <h1 className="mt-3 text-xl font-semibold leading-tight text-slate-950">{product.title}</h1>
-      <div className="mt-3 text-xl font-semibold" style={{ color: palette.accentDark }}>
-        {formatStoreCurrency(product.price, product.currencyId)}
-      </div>
-      {installmentText ? <div className="mt-1 text-sm font-medium text-slate-700">{installmentText}</div> : null}
-    </section>
+    <h1 className="text-xl font-semibold leading-tight text-slate-950 sm:hidden">{product.title}</h1>
   )
 }
 
@@ -537,18 +530,26 @@ export default async function LojaProdutoPage({ params }) {
         />
       ) : null}
       <div className="min-h-screen bg-slate-50 text-slate-900">
-        <section className="relative min-h-[138px] overflow-hidden pt-[70px]" style={heroStyle.base}>
+        <section className="relative min-h-[138px] overflow-visible pt-[70px] sm:overflow-hidden" style={heroStyle.base}>
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
           <StoreHeader store={result.store} activeSection="produtos" />
+          <Link
+            href={`/loja/${result.store.slug}`}
+            className="absolute bottom-[-20px] left-1/2 z-20 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105 sm:hidden"
+            style={{ color: palette.accentDark }}
+            aria-label="Voltar para a loja"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
           <div className="relative mx-auto max-w-7xl px-5 py-3 sm:px-7 lg:px-10" />
         </section>
 
         <main>
-          <div className="mx-auto max-w-7xl px-5 pb-8 pt-2 sm:px-7 lg:px-10">
+          <div className="mx-auto max-w-7xl px-5 pb-8 pt-8 sm:px-7 sm:pt-2 lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
-              className="-mt-7 mb-5 mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105 sm:mx-0"
+              className="-mt-7 mb-5 hidden h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105 sm:flex"
               style={{ color: palette.accentDark }}
               aria-label="Voltar para a loja"
             >
@@ -556,12 +557,7 @@ export default async function LojaProdutoPage({ params }) {
             </Link>
             <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
               <div className="grid gap-5">
-                <MobileProductSummary
-                  installmentText={installmentText}
-                  palette={palette}
-                  product={result.product}
-                  store={result.store}
-                />
+                <MobileProductTitle product={result.product} />
                 <StoreProductHeroGallery key={result.product.id || result.product.slug} accentColor={result.store.accentColor} product={result.product} title={result.product.title} />
 
                 <ProductPurchasePanel
