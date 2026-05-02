@@ -7,6 +7,8 @@ import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } fr
 import { getSnapshotProductBySlug, listSnapshotCategoryFacetsByProjectId, listSnapshotProductsByProjectId } from "./snapshot"
 import { buildStoreProductRef, isStoreProductAvailable, normalizeSnapshotProduct, normalizeStore, parseStoreProductRef, sanitizeText, slugifyProduct } from "./sanitize"
 
+const PRODUCT_RELATED_LIMIT = 50
+
 function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
   return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message)
@@ -501,17 +503,17 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
   const related = await listSnapshotProductsByProjectId(storeResult.store.projectId, {
     supabase,
     page: 1,
-    limit: 10,
+    limit: PRODUCT_RELATED_LIMIT,
     excludeSlug: product.slug,
     categoryId: product.categoryId || "",
   })
 
   let fallbackRelated = Array.isArray(related.items) ? related.items : []
-  if (fallbackRelated.length < 10) {
+  if (fallbackRelated.length < PRODUCT_RELATED_LIMIT) {
     const latestRelated = await listSnapshotProductsByProjectId(storeResult.store.projectId, {
       supabase,
       page: 1,
-      limit: 10,
+      limit: PRODUCT_RELATED_LIMIT,
       excludeSlug: product.slug,
     })
     const seenIds = new Set(fallbackRelated.map((item) => sanitizeText(item?.itemId || item?.id || item?.slug, 180)).filter(Boolean))
@@ -523,7 +525,7 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
       seenIds.add(itemKey)
       return true
     })
-    fallbackRelated = [...fallbackRelated, ...extraItems].slice(0, 10)
+    fallbackRelated = [...fallbackRelated, ...extraItems].slice(0, PRODUCT_RELATED_LIMIT)
   }
 
   return {

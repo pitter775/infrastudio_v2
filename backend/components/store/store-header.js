@@ -80,12 +80,12 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
         <div className="flex items-center justify-between gap-6 px-1 sm:px-0">
           <Link href={`/loja/${store.slug}`} className="flex items-center gap-3">
             <div
-              className={`flex h-12 w-12 items-center justify-center rounded-[14px] text-sm font-semibold text-white shadow-[0_16px_30px_-20px_rgba(15,23,42,0.24)] backdrop-blur-md ${store.logoUrl ? 'bg-white/42 p-1.5' : ''}`}
+              className="flex h-12 w-12 items-center justify-center rounded-[14px] text-sm font-semibold text-white"
               style={{ backgroundColor: store.logoUrl ? undefined : store.accentColor }}
             >
               {store.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-full w-full object-contain" />
+                <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-20 w-20 max-w-none object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.95)]" />
               ) : (
                 store.name.slice(0, 2).toUpperCase()
               )}
@@ -112,8 +112,8 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
                   }`}
                   style={
                     isActive
-                      ? { backgroundColor: palette.accentDark, '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
-                      : { backgroundColor: 'transparent', '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
+                      ? { backgroundColor: palette.accentDark, '--store-hover-bg': palette.accentBorder, '--store-text': palette.accentDark }
+                      : { backgroundColor: 'transparent', '--store-hover-bg': palette.accentBorder, '--store-text': palette.accentDark }
                   }
                 >
                   <Icon className="h-4 w-4" />
@@ -159,8 +159,8 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
                     isActive
                       ? { backgroundColor: palette.accentDark, '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
                       : resolvedHeaderSolid
-                        ? { backgroundColor: '#ffffff', '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
-                        : { backgroundColor: 'transparent', '--store-hover-bg': palette.accentSoft, '--store-text': palette.accentDark }
+                        ? { backgroundColor: '#ffffff', '--store-hover-bg': palette.accentBorder, '--store-text': palette.accentDark }
+                        : { backgroundColor: 'transparent', '--store-hover-bg': palette.accentBorder, '--store-text': palette.accentDark }
                   }
                 >
                   <Icon className="h-4 w-4" />

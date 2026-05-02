@@ -92,7 +92,7 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
         </button>
         <div
           ref={rowRef}
-          className="grid auto-cols-[calc(100%_-_56px)] snap-x snap-mandatory grid-flow-col gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-2 py-5 touch-auto [scrollbar-width:none] sm:auto-cols-[calc((100%_-_10px)_/_2)] md:auto-cols-[calc((100%_-_20px)_/_3)] lg:auto-cols-[calc((100%_-_40px)_/_5)] [&::-webkit-scrollbar]:hidden"
+          className="grid auto-cols-[calc(100%_-_56px)] snap-x snap-mandatory grid-flow-col gap-2.5 overflow-x-auto overflow-y-visible overscroll-x-contain px-2 py-5 touch-auto [scrollbar-width:none] sm:auto-cols-[calc((100%_-_10px)_/_2)] md:auto-cols-[calc((100%_-_20px)_/_3)] lg:auto-cols-[calc((100%_-_40px)_/_5)] lg:overflow-x-hidden lg:px-0 [&::-webkit-scrollbar]:hidden"
         >
           {products.map((product) => (
             <StoreProductCard
@@ -241,7 +241,6 @@ export function MercadoLivreStorefront({
   categories = [],
 }) {
   const router = useRouter()
-  const [headerSolid, setHeaderSolid] = useState(false)
   const [activeSection, setActiveSection] = useState('produtos')
   const [searchTerm, setSearchTerm] = useState(query)
   const [sortValue, setSortValue] = useState(sort)
@@ -301,7 +300,6 @@ export function MercadoLivreStorefront({
 
   useEffect(() => {
     function handleScroll() {
-      setHeaderSolid(window.scrollY > 8)
       const productsSection = document.getElementById('produtos')
       const aboutSection = document.getElementById('sobre')
       if (aboutSection && aboutSection.getBoundingClientRect().top < window.innerHeight * 0.35) {
@@ -409,10 +407,10 @@ export function MercadoLivreStorefront({
 
       `}</style>
       <div className="min-h-screen scroll-smooth bg-slate-50 text-slate-950">
-        <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
+        <StoreHeader store={store} activeSection={activeSection} headerSolid samePageNavigation />
 
         <main id="topo" className="pb-12">
-          <section className="relative z-20 min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
+          <section className="relative z-20 min-h-[238px] overflow-visible pt-[86px]" style={heroStyle.base}>
             {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
             <div className="absolute inset-0" style={heroStyle.overlay} />
             <div className="pointer-events-none absolute inset-x-0 bottom-[-12px] h-[28px] bg-[radial-gradient(ellipse_at_center,rgba(15,23,42,0.18),rgba(15,23,42,0.04)_58%,rgba(15,23,42,0)_78%)] blur-md" />
@@ -450,7 +448,7 @@ export function MercadoLivreStorefront({
               <button
                 type="button"
                 onClick={() => setMobileFiltersOpen(true)}
-                className="absolute bottom-[-20px] right-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-[0_8px_18px_rgba(0,0,0,0.10)] backdrop-blur transition hover:bg-white lg:hidden"
+                className="absolute bottom-[-20px] left-4 z-30 inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/90 text-slate-900 shadow-[0_8px_18px_rgba(0,0,0,0.10)] backdrop-blur transition hover:bg-white lg:hidden"
                 style={{ color: palette.accentDark }}
                 aria-label="Buscar e filtrar produtos"
               >
@@ -465,7 +463,7 @@ export function MercadoLivreStorefront({
               target="_blank"
               rel="noreferrer"
               aria-label="InfraStudio"
-              className="absolute left-3 top-0 flex w-[190px] -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] bg-slate-50 px-4 pt-3 sm:left-4 lg:left-3"
+              className="absolute right-3 top-0 flex w-[190px] -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] bg-slate-50 px-4 pt-3 sm:right-4 lg:right-3"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/vitrini.png" alt="" loading="eager" decoding="async" className="store-vitrine-mark w-[160px] max-w-full object-contain" />
@@ -556,8 +554,8 @@ export function MercadoLivreStorefront({
                 </div>
               </div>
             </div>
-            <div id="contato">
-              <div className="text-xl font-bold text-slate-950">Contato</div>
+            <div id="contato" className="rounded-[6px] bg-white p-4 shadow-[0_12px_30px_-28px_rgba(15,23,42,0.3)]">
+              <div className="text-[20px] font-normal leading-tight text-slate-700">Contato</div>
               <div className="mt-3 grid gap-3 text-sm text-slate-700">
                 {store.contactEmail ? <div className="inline-flex items-center gap-3"><AtSign className="h-4 w-4 text-slate-500" />{store.contactEmail}</div> : null}
                 {store.contactPhone ? <div className="inline-flex items-center gap-3"><Phone className="h-4 w-4 text-slate-500" />{store.contactPhone}</div> : null}

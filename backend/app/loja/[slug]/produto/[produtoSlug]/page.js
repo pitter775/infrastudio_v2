@@ -6,8 +6,8 @@ import { StoreFooter } from "@/components/store/store-footer"
 import { StoreHeader } from "@/components/store/store-header"
 import { StoreProductActions } from "@/components/store/store-product-actions"
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
-import { StoreProductCard } from "@/components/store/store-product-card"
 import { StoreProductHeroGallery } from "@/components/store/store-product-hero-gallery"
+import { StoreRelatedProducts } from "@/components/store/store-related-products"
 import { StoreSnapshotRefresh } from "@/components/store/store-snapshot-refresh"
 import { buildStoreAccentPalette, formatStoreCurrency } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
@@ -405,6 +405,16 @@ function ProductPurchasePanel({
         </div>
       </div>
 
+      <StoreProductActions
+        accentColor={palette.accentDark}
+        chatDescription="O chat da loja pode ser aberto daqui para continuar o atendimento a partir desta pagina com mais contexto do produto."
+        permalink={result.product.permalink}
+        product={result.product}
+        storeSlug={result.store.slug}
+        widgetId={result.store.widget?.id}
+        widgetSlug={result.store.widget?.slug}
+      />
+
       <div className="mt-6 px-1 py-1">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo da descricao</div>
         <div className="mt-3 grid gap-3 text-sm leading-7 text-slate-700">
@@ -415,16 +425,6 @@ function ProductPurchasePanel({
             ))}
         </div>
       </div>
-
-      <StoreProductActions
-        accentColor={palette.accentDark}
-        chatDescription="O chat da loja pode ser aberto daqui para continuar o atendimento a partir desta pagina com mais contexto do produto."
-        permalink={result.product.permalink}
-        product={result.product}
-        storeSlug={result.store.slug}
-        widgetId={result.store.widget?.id}
-        widgetSlug={result.store.widget?.slug}
-      />
     </section>
   )
 }
@@ -527,7 +527,7 @@ export default async function LojaProdutoPage({ params }) {
         <section className="relative overflow-hidden" style={heroStyle.base}>
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
-          <StoreHeader store={result.store} activeSection="produtos" />
+          <StoreHeader store={result.store} activeSection="produtos" headerSolid />
           <div className="relative mx-auto max-w-7xl px-5 pb-4 pt-[88px] sm:px-7 md:pt-[88px] lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
@@ -610,7 +610,7 @@ export default async function LojaProdutoPage({ params }) {
               <section className="relative mt-6 rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
                 {result.store.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={result.store.logoUrl} alt={result.store.name} loading="lazy" decoding="async" className="absolute right-0 top-0 hidden h-24 w-24 rounded-[8px] object-contain shadow-[0_10px_24px_-18px_rgba(15,23,42,0.32)] lg:block" />
+                  <img src={result.store.logoUrl} alt={result.store.name} loading="lazy" decoding="async" className="absolute right-4 top-4 hidden h-24 w-24 rounded-[8px] object-contain lg:block" />
                 ) : null}
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <FileText className="h-4 w-4" />
@@ -635,19 +635,7 @@ export default async function LojaProdutoPage({ params }) {
                 </Link>
               </div>
 
-              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                {result.relatedProducts.map((product) => (
-                  <StoreProductCard
-                    key={product.slug}
-                    storeSlug={result.store.slug}
-                    product={product}
-                    accentColor={result.store.accentColor}
-                    compact
-                    variant="marketplace"
-                    analyticsSource="product_page_related"
-                  />
-                ))}
-              </div>
+              <StoreRelatedProducts products={result.relatedProducts} storeSlug={result.store.slug} accentColor={result.store.accentColor} />
             </section>
           </div>
         </main>

@@ -23,11 +23,24 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
 
   return (
     <div className="grid gap-3">
+      <style jsx>{`
+        @keyframes store-gallery-fade {
+          from {
+            opacity: 0.28;
+          }
+          to {
+            opacity: 1;
+          }
+        }
+        .store-gallery-active-image {
+          animation: store-gallery-fade 220ms ease-out both;
+        }
+      `}</style>
       <div className="relative overflow-hidden rounded-[8px]">
         <div className="relative aspect-[4/3] overflow-hidden rounded-[8px]">
           {activeImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={activeImage} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+            <img key={activeImage} src={activeImage} alt={title} loading="lazy" decoding="async" className="store-gallery-active-image h-full w-full object-cover" />
           ) : (
             <div className="flex h-full items-center justify-center text-slate-400">
               <ImageIcon className="h-8 w-8" />
@@ -57,7 +70,7 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
       </div>
 
       {images.length > 1 ? (
-        <div className="grid grid-cols-8 gap-1.5">
+        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-8">
           {images.map((image, index) => (
             <button
               key={`${image}-${index}`}
