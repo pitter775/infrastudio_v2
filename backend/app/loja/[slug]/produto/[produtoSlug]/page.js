@@ -495,10 +495,9 @@ export default async function LojaProdutoPage({ params }) {
           </Link>
           <div className="relative mx-auto flex max-w-7xl items-start justify-between gap-4 px-5 py-3 sm:px-7 lg:px-10">
             <div className="hidden flex-1 lg:block" />
-            <div className="absolute bottom-[-20px] left-5 z-20 sm:left-7 lg:static lg:z-auto lg:w-[430px]">
+            <div className="absolute bottom-[-20px] left-5 right-5 z-20 sm:left-7 sm:right-7 lg:static lg:right-auto lg:z-auto lg:w-[430px]">
               <StoreProductTopSearch
                 accentColor={palette.accentDark}
-                categories={result.filters?.categories || []}
                 storeSlug={result.store.slug}
               />
             </div>

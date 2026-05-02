@@ -7,9 +7,10 @@ import { getStoreProductImages } from '@/components/store/store-utils'
 
 export function StoreProductHeroGallery({ accentColor = '#0f172a', product, title = '' }) {
   const images = useMemo(() => getStoreProductImages(product), [product])
+  const largeImages = useMemo(() => getStoreProductImages(product, { variant: 'F' }), [product])
   const [activeIndex, setActiveIndex] = useState(0)
   const safeActiveIndex = activeIndex >= images.length ? 0 : activeIndex
-  const activeImage = images[safeActiveIndex] || ''
+  const activeImage = largeImages[safeActiveIndex] || images[safeActiveIndex] || ''
 
   function goToPreviousImage() {
     if (!images.length) return

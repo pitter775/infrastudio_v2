@@ -127,13 +127,24 @@ export function trackStoreEvent({ storeSlug, type, source = null, product = null
   } catch {}
 }
 
-export function getStoreProductImages(product) {
-  const images = Array.isArray(product?.images) ? product.images.filter(Boolean) : []
-  if (images.length) {
-    return images
+function getMercadoLivreImageVariant(value, variant = 'O') {
+  const normalized = String(value || '').trim()
+  if (!normalized) {
+    return ''
   }
 
-  return product?.thumbnail ? [product.thumbnail] : []
+  return normalized.replace(/-([A-Z])(\.(jpg|jpeg|png|webp)(\?.*)?)$/i, `-${variant}$2`)
+}
+
+export function getStoreProductImages(product, options = {}) {
+  const variant = options?.variant || ''
+  const images = Array.isArray(product?.images) ? product.images.filter(Boolean) : []
+  if (images.length) {
+    return variant ? images.map((image) => getMercadoLivreImageVariant(image, variant)).filter(Boolean) : images
+  }
+
+  const fallback = product?.thumbnail ? [product.thumbnail] : []
+  return variant ? fallback.map((image) => getMercadoLivreImageVariant(image, variant)).filter(Boolean) : fallback
 }
 
 export function openStoreChat(widget) {

@@ -14,10 +14,11 @@ function shouldHideCategoryCode(label) {
 export function StoreProductCard({ storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card', variant = 'default' }) {
   const href = buildStoreProductHref(storeSlug, product)
   const images = getStoreProductImages(product)
+  const largeImages = getStoreProductImages(product, { variant: 'F' })
   const [imageIndex, setImageIndex] = useState(0)
   const [isOpening, setIsOpening] = useState(false)
   const palette = buildStoreAccentPalette(accentColor)
-  const image = images[imageIndex] || images[0] || ''
+  const image = largeImages[imageIndex] || images[imageIndex] || largeImages[0] || images[0] || ''
   const hasGallery = images.length > 1
   const statusLabel = String(product.status || '').trim()
   const categoryLabel = String(product.categoryLabel || product.categoryId || '').trim()
@@ -89,7 +90,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
                 <button
                   type="button"
                   onClick={showPreviousImage}
-                  className="absolute left-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition hover:scale-105 group-hover:inline-flex"
+                  className="absolute left-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/34 text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.10)] backdrop-blur-md transition hover:scale-105 hover:bg-white/48 group-hover:inline-flex"
                   aria-label="Imagem anterior"
                 >
                   <ChevronLeft className="h-4 w-4" />
@@ -97,17 +98,27 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
                 <button
                   type="button"
                   onClick={showNextImage}
-                  className="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/95 text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.12)] transition hover:scale-105 group-hover:inline-flex"
+                  className="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/34 text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.10)] backdrop-blur-md transition hover:scale-105 hover:bg-white/48 group-hover:inline-flex"
                   aria-label="Proxima imagem"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
-                <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900/15 px-2 py-1 backdrop-blur">
-                  {images.map((_, index) => (
-                    <span
-                      key={`${product.id}-marketplace-dot-${index}`}
-                      className={`rounded-full transition-all ${index === imageIndex ? 'h-2.5 w-5 bg-white' : 'h-2.5 w-2.5 bg-white/65'}`}
-                    />
+                <div className="absolute bottom-2 left-2 right-2 flex justify-center gap-1 overflow-hidden rounded-[4px] bg-white/42 p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)] backdrop-blur-md">
+                  {images.slice(0, 6).map((thumbnail, index) => (
+                    <button
+                      type="button"
+                      key={`${product.id}-marketplace-thumb-${index}`}
+                      onClick={(event) => showImage(event, index)}
+                      className="relative h-8 w-8 shrink-0 overflow-hidden rounded-[3px] bg-white"
+                      aria-label={`Ver imagem ${index + 1}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={thumbnail} alt={`${product.title} ${index + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                      <span
+                        className="pointer-events-none absolute inset-0 rounded-[3px] border-2"
+                        style={{ borderColor: index === imageIndex ? palette.accentDark : 'transparent' }}
+                      />
+                    </button>
                   ))}
                 </div>
               </>
@@ -139,6 +150,12 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
     event.preventDefault()
     event.stopPropagation()
     setImageIndex((current) => (current + 1) % images.length)
+  }
+
+  function showImage(event, index) {
+    event.preventDefault()
+    event.stopPropagation()
+    setImageIndex(index)
   }
 
   return (
@@ -199,7 +216,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
               <button
                 type="button"
                 onClick={showPreviousImage}
-                className="absolute left-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/94 text-slate-900 shadow-[0_16px_32px_-18px_rgba(15,23,42,0.26)] transition hover:scale-105"
+                className="absolute left-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/34 text-slate-900 shadow-[0_16px_32px_-18px_rgba(15,23,42,0.20)] backdrop-blur-md transition hover:scale-105 hover:bg-white/48"
                 aria-label="Imagem anterior"
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -207,17 +224,27 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
               <button
                 type="button"
                 onClick={showNextImage}
-                className="absolute right-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/94 text-slate-900 shadow-[0_16px_32px_-18px_rgba(15,23,42,0.26)] transition hover:scale-105"
+                className="absolute right-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/34 text-slate-900 shadow-[0_16px_32px_-18px_rgba(15,23,42,0.20)] backdrop-blur-md transition hover:scale-105 hover:bg-white/48"
                 aria-label="Proxima imagem"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <div className="absolute bottom-4 left-1/2 flex -translate-x-1/2 items-center gap-1.5 rounded-full bg-slate-900/58 px-3 py-1.5 backdrop-blur">
-                {images.map((_, index) => (
-                  <span
-                    key={`${product.id}-dot-${index}`}
-                    className={`rounded-full transition-all ${index === imageIndex ? 'h-2.5 w-5 bg-white' : 'h-2.5 w-2.5 bg-white/50'}`}
-                  />
+              <div className="absolute bottom-3 left-3 right-3 flex justify-center gap-1.5 overflow-hidden rounded-[6px] bg-white/42 p-1.5 shadow-[0_10px_20px_-14px_rgba(15,23,42,0.24)] backdrop-blur-md">
+                {images.slice(0, 6).map((thumbnail, index) => (
+                  <button
+                    type="button"
+                    key={`${product.id}-thumb-${index}`}
+                    onClick={(event) => showImage(event, index)}
+                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded-[4px] bg-white"
+                    aria-label={`Ver imagem ${index + 1}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={thumbnail} alt={`${product.title} ${index + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    <span
+                      className="pointer-events-none absolute inset-0 rounded-[4px] border-2"
+                      style={{ borderColor: index === imageIndex ? palette.accentDark : 'transparent' }}
+                    />
+                  </button>
                 ))}
               </div>
             </>

@@ -35,6 +35,12 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
     return snapshotProduct
   }
 
+  const liveImages = Array.isArray(liveProduct.images) && liveProduct.images.filter(Boolean).length
+    ? liveProduct.images.filter(Boolean)
+    : Array.isArray(liveProduct.pictures)
+      ? liveProduct.pictures.filter(Boolean)
+      : []
+
   return {
     ...snapshotProduct,
     ...liveProduct,
@@ -50,12 +56,7 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
     installmentRate: snapshotProduct.installmentRate || liveProduct.installmentRate || 0,
     unitPrice: snapshotProduct.unitPrice || liveProduct.unitPrice || 0,
     thumbnail: snapshotProduct.thumbnail || liveProduct.thumbnail,
-    images:
-      (Array.isArray(liveProduct.images) && liveProduct.images.filter(Boolean).length
-        ? liveProduct.images.filter(Boolean)
-        : Array.isArray(snapshotProduct.images)
-          ? snapshotProduct.images.filter(Boolean)
-          : []),
+    images: liveImages.length ? liveImages : Array.isArray(snapshotProduct.images) ? snapshotProduct.images.filter(Boolean) : [],
     permalink: snapshotProduct.permalink || liveProduct.permalink,
     status: liveProduct.status || snapshotProduct.status,
     stock: Number(liveProduct.availableQuantity ?? liveProduct.stock ?? snapshotProduct.stock ?? 0) || 0,
