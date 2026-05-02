@@ -72,7 +72,7 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
   }
 
   return (
-    <section className="mt-[30px]">
+    <section className="mt-[50px] lg:mt-[30px]">
       <div className="mb-1 flex items-baseline gap-2.5">
         <h2 className="text-[20px] font-normal leading-tight text-slate-700">{title}</h2>
       </div>
@@ -413,9 +413,8 @@ export function MercadoLivreStorefront({
           <section className="relative z-20 min-h-[238px] overflow-visible pt-[86px]" style={heroStyle.base}>
             {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
             <div className="absolute inset-0" style={heroStyle.overlay} />
-            <div className="pointer-events-none absolute inset-x-0 bottom-[-12px] h-[28px] bg-[radial-gradient(ellipse_at_center,rgba(15,23,42,0.18),rgba(15,23,42,0.04)_58%,rgba(15,23,42,0)_78%)] blur-md" />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
-              <div className="max-w-xl pr-14 lg:pr-0">
+              <div className="-mt-3 max-w-xl pr-14 lg:mt-0 lg:pr-0">
                 <div className="inline-block max-w-full rounded-[10px] bg-white/54 px-5 py-4 shadow-[0_18px_46px_-34px_rgba(15,23,42,0.36)] backdrop-blur-md">
                 <h1
                   className="text-3xl font-normal leading-tight sm:text-4xl"
@@ -463,7 +462,8 @@ export function MercadoLivreStorefront({
               target="_blank"
               rel="noreferrer"
               aria-label="InfraStudio"
-              className="absolute right-3 top-0 flex w-[190px] -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] bg-[#f8fafc] px-4 pt-3 sm:right-4 lg:right-3"
+              className="absolute right-3 top-0 flex w-[190px] -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] px-4 pt-3 sm:right-4 lg:right-3"
+              style={{ backgroundColor: '#f8fafc' }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/vitrini.png" alt="" loading="eager" decoding="async" className="store-vitrine-mark w-[160px] max-w-full object-contain" />
