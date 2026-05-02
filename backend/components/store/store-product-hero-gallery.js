@@ -22,9 +22,9 @@ export function StoreProductHeroGallery({ product, title = '' }) {
   }
 
   return (
-    <div className="grid gap-4">
-      <div className="relative overflow-hidden rounded-[18px] bg-white p-3 shadow-[0_14px_30px_-24px_rgba(15,23,42,0.18)]">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-[14px] bg-[#efe8da]">
+    <div className="grid gap-3">
+      <div className="relative overflow-hidden rounded-[8px]">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-[8px]">
           {activeImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={activeImage} alt={title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
@@ -57,18 +57,18 @@ export function StoreProductHeroGallery({ product, title = '' }) {
       </div>
 
       {images.length > 1 ? (
-        <div className="grid grid-cols-4 gap-3 sm:grid-cols-5">
+        <div className="grid grid-cols-6 gap-2">
           {images.map((image, index) => (
             <button
               key={`${image}-${index}`}
               type="button"
               onClick={() => setActiveIndex(index)}
-              className={`overflow-hidden rounded-[12px] bg-white p-1 shadow-[0_10px_22px_-18px_rgba(15,23,42,0.18)] transition ${
+              className={`overflow-hidden rounded-[6px] transition ${
                 index === safeActiveIndex ? 'ring-2 ring-slate-900/10' : ''
               }`}
               aria-label={`Ver imagem ${index + 1}`}
             >
-              <div className="aspect-square overflow-hidden rounded-[10px] bg-[#efe8da]">
+              <div className="aspect-square overflow-hidden rounded-[6px]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={image} alt={`${title} ${index + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
               </div>

@@ -222,6 +222,34 @@ function formatInstallmentText(product) {
   return `${quantity}x ${formatStoreCurrency(amount, product?.currencyId)}`
 }
 
+function buildProductPageBackgroundStyle(hero) {
+  const mode = hero?.backgroundMode || "solid"
+  const imageMode = hero?.imageMode || "cover"
+  const baseBackground =
+    mode === "gradient"
+      ? `linear-gradient(120deg, ${hero?.gradientFrom || "#ffffff"}, ${hero?.gradientTo || "#f5f5f5"})`
+      : hero?.solidColor || "#ffffff"
+
+  return {
+    base: {
+      background: baseBackground,
+    },
+    image: hero?.imageUrl
+      ? {
+          backgroundImage: `url(${hero.imageUrl})`,
+          backgroundPosition: "center",
+          backgroundRepeat: imageMode === "repeat-x" ? "repeat-x" : "no-repeat",
+          backgroundSize: imageMode === "repeat-x" ? "auto 100%" : "cover",
+          opacity: Number(hero?.imageOpacity ?? 1),
+        }
+      : null,
+    overlay: {
+      backgroundColor: hero?.overlayColor || "#ffffff",
+      opacity: Number(hero?.overlayOpacity ?? 0.18),
+    },
+  }
+}
+
 function buildChatProductContext(product, store, categoryLabel = "") {
   if (!product) {
     return null
@@ -312,28 +340,28 @@ function ProductPurchasePanel({
   className = "",
 }) {
   return (
-    <section className={`rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6 ${className}`}>
+    <section className={`rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6 ${className}`}>
       <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{result.store.name}</div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <span className="inline-flex items-center gap-2 rounded-full bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
+        <span className="inline-flex items-center gap-2 rounded-[6px] bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
           <Package className="h-3.5 w-3.5" />
           Produto da loja
         </span>
         {visibleCategoryLabel ? (
-          <span className="inline-flex items-center gap-2 rounded-full bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
+          <span className="inline-flex items-center gap-2 rounded-[6px] bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
             <Tag className="h-3.5 w-3.5" />
             {visibleCategoryLabel}
           </span>
         ) : null}
         {result.product.status ? (
-          <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-[11px] uppercase tracking-[0.18em] shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]" style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}>
+          <span className="inline-flex items-center gap-2 rounded-[6px] px-3 py-1 text-[11px] uppercase tracking-[0.18em] shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]" style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}>
             <ShieldCheck className="h-3.5 w-3.5" />
             {result.product.status}
           </span>
         ) : null}
       </div>
 
-      <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-[-0.03em] text-slate-950 sm:text-[3rem]">
+      <h1 className="mt-4 text-2xl font-semibold leading-tight text-slate-950 sm:text-[2.35rem]">
         {result.product.title}
       </h1>
 
@@ -355,19 +383,19 @@ function ProductPurchasePanel({
       ) : null}
 
       <div className="mt-6 grid gap-3">
-        <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
+        <div className="rounded-[6px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
           <a
             href={buildStoreProductExternalUrl(result.product)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[14px] border border-slate-200 bg-white px-5 text-sm font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
+            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[6px] border border-slate-200 bg-white px-5 text-sm font-semibold shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
             style={{ color: "#3483fa" }}
           >
             <ShoppingBag className="h-4 w-4" />
             Comprar agora
           </a>
         </div>
-        <div className="rounded-[14px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
+        <div className="rounded-[6px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
           <div className="grid gap-3 text-sm text-slate-700">
             {visibleCategoryLabel ? (
               <div className="flex items-center justify-between gap-4">
@@ -456,6 +484,7 @@ export default async function LojaProdutoPage({ params }) {
   const descriptionBlocks = buildDescriptionBlocks(result.product)
   const attributeGroups = groupProductAttributes(result.product.attributes)
   const palette = buildStoreAccentPalette(result.store.accentColor)
+  const heroStyle = buildProductPageBackgroundStyle(result.store.visualConfig?.hero || {})
   const installmentText = formatInstallmentText(result.product)
   const chatProductContext = buildChatProductContext(result.product, result.store, visibleCategoryLabel)
   const widgetConfig = result.store.widget
@@ -526,10 +555,12 @@ export default async function LojaProdutoPage({ params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
         />
       ) : null}
-      <div className="min-h-screen bg-[#f7f3eb] text-slate-900">
-        <StoreHeader store={result.store} activeSection="produtos" />
-        <main className="pt-[112px] md:pt-[108px]">
-          <div className="mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10">
+      <div className="min-h-screen bg-slate-50 text-slate-900">
+        <section className="relative overflow-hidden" style={heroStyle.base}>
+          {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
+          <div className="absolute inset-0" style={heroStyle.overlay} />
+          <StoreHeader store={result.store} activeSection="produtos" />
+          <div className="relative mx-auto max-w-7xl px-5 pb-8 pt-[112px] sm:px-7 md:pt-[108px] lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
               className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
@@ -537,8 +568,12 @@ export default async function LojaProdutoPage({ params }) {
               <ChevronLeft className="h-4 w-4" />
               Voltar para a loja
             </Link>
+          </div>
+        </section>
 
-            <div className="mt-8 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
+        <main>
+          <div className="mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10">
+            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:gap-8">
               <div className="grid gap-5">
                 <StoreProductHeroGallery key={result.product.id || result.product.slug} product={result.product} title={result.product.title} />
 
@@ -553,7 +588,7 @@ export default async function LojaProdutoPage({ params }) {
                 />
 
                 {attributeGroups.length ? (
-                  <section className="rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+                  <section className="rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       <LayoutGrid className="h-4 w-4" />
                       Caracteristicas do produto
@@ -562,7 +597,7 @@ export default async function LojaProdutoPage({ params }) {
                       {attributeGroups.map((group) => (
                         <details
                           key={group.title}
-                          className="group rounded-[14px] bg-[#fbf8f2] shadow-[0_10px_18px_-18px_rgba(15,23,42,0.14)]"
+                          className="group rounded-[6px] bg-[#fbf8f2] shadow-[0_10px_18px_-18px_rgba(15,23,42,0.14)]"
                         >
                           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 text-sm font-semibold text-slate-950 [&::-webkit-details-marker]:hidden">
                             <span className="flex min-w-0 items-center gap-2">
@@ -576,7 +611,7 @@ export default async function LojaProdutoPage({ params }) {
                           </summary>
                           <div className="grid gap-2 px-4 pb-4 md:grid-cols-2">
                             {group.items.map((item) => (
-                              <div key={`${group.title}-${item.id}-${item.value}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 rounded-[12px] bg-white px-3 py-3 text-sm shadow-[0_8px_16px_-16px_rgba(15,23,42,0.18)]">
+                              <div key={`${group.title}-${item.id}-${item.value}`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-3 rounded-[6px] bg-white px-3 py-3 text-sm shadow-[0_8px_16px_-16px_rgba(15,23,42,0.18)]">
                                 <div className="text-slate-500">{item.name}</div>
                                 <div className="font-medium text-slate-950">{item.value}</div>
                               </div>
@@ -603,7 +638,7 @@ export default async function LojaProdutoPage({ params }) {
             </div>
 
             {descriptionBlocks.length ? (
-              <section className="mt-6 rounded-[18px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+              <section className="mt-6 rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <FileText className="h-4 w-4" />
                   Descricao completa
@@ -621,7 +656,7 @@ export default async function LojaProdutoPage({ params }) {
 
             <section className="mt-14">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="text-2xl font-semibold text-slate-950">Outros produtos</h2>
+                <h2 className="text-[20px] font-normal leading-tight text-slate-700">Outros produtos</h2>
                 <Link href={`/loja/${result.store.slug}`} className="text-sm font-medium text-slate-600 transition hover:text-slate-950">
                   Ver todos
                 </Link>
@@ -635,6 +670,7 @@ export default async function LojaProdutoPage({ params }) {
                     product={product}
                     accentColor={result.store.accentColor}
                     compact
+                    variant="marketplace"
                     analyticsSource="product_page_related"
                   />
                 ))}
