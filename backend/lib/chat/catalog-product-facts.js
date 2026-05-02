@@ -63,6 +63,19 @@ const FACT_SCOPE_ALIASES = new Map([
   ["geral", "general"],
 ])
 
+const COMMERCIAL_ADVICE_ALIASES = new Map([
+  ["price_objection", "price_objection"],
+  ["objecao_preco", "price_objection"],
+  ["caro", "price_objection"],
+  ["improvement_suggestion", "improvement_suggestion"],
+  ["melhoria", "improvement_suggestion"],
+  ["value_assessment", "value_assessment"],
+  ["custo_beneficio", "value_assessment"],
+  ["fit_advice", "fit_advice"],
+  ["adequacao", "fit_advice"],
+  ["other", "other"],
+])
+
 const DIMENSION_FIELD_ORDER = ["height", "width", "length", "depth", "diameter", "capacity"]
 
 function createDimensionBucket() {
@@ -101,6 +114,11 @@ export function normalizeCatalogFactHints(values = []) {
 export function normalizeCatalogFactScope(value) {
   const normalized = normalizeToken(value)
   return FACT_SCOPE_ALIASES.get(normalized) || ""
+}
+
+export function normalizeCatalogCommercialAdviceType(value) {
+  const normalized = normalizeToken(value).replace(/[\s-]+/g, "_")
+  return COMMERCIAL_ADVICE_ALIASES.get(normalized) || "other"
 }
 
 function resolveAttributeScope(attributeName) {
@@ -537,4 +555,49 @@ export function buildFocusedCatalogProductFactualResolution(product, message = "
     },
     facts,
   }
+}
+
+function collectKnownFactLabels(facts) {
+  const labels = []
+  if (facts?.priceLabel) labels.push(`valor: ${facts.priceLabel}`)
+  if (facts?.material) labels.push(`material: ${facts.material}`)
+  if (facts?.color) labels.push(`cor/acabamento: ${facts.color}`)
+  if (facts?.availableQuantity > 0) labels.push(`estoque: ${facts.availableQuantity} unidade${facts.availableQuantity > 1 ? "s" : ""}`)
+  if (facts?.freeShipping) labels.push("frete gratis indicado")
+  return labels
+}
+
+export function buildFocusedCatalogProductCommercialReply(product, options = {}) {
+  if (!product?.nome) {
+    return null
+  }
+
+  const facts = buildCatalogProductFacts(product)
+  if (!facts) {
+    return null
+  }
+
+  const adviceType = normalizeCatalogCommercialAdviceType(options?.adviceType)
+  const knownFacts = collectKnownFactLabels(facts)
+  const knownFactsText = knownFacts.length ? ` Pelo anuncio, eu tenho ${knownFacts.slice(0, 4).join(", ")}.` : ""
+
+  if (adviceType === "price_objection") {
+    const priceText = facts.priceLabel ? `Ele esta anunciado por ${facts.priceLabel}.` : "Eu nao tenho o valor exato confirmado no anuncio agora."
+    const materialText = facts.material ? ` O material informado e ${facts.material}.` : ""
+    return `${priceText}${materialText} Se a sua duvida e custo-beneficio, eu nao avaliaria so pelo material: confira estado nas fotos, medidas, frete no seu CEP e se a peca resolve o que voce procura. Se ficar caro para o que voce quer, posso buscar opcoes parecidas da loja para comparar.`
+  }
+
+  if (adviceType === "improvement_suggestion") {
+    return `Para decidir melhor sobre este produto, eu melhoraria a validacao destes pontos: medidas reais do produto, estado/conservacao pelas fotos, frete no seu CEP, garantia e se ha algum detalhe de uso ou avaria no anuncio.${knownFactsText}`
+  }
+
+  if (adviceType === "value_assessment") {
+    return `Para avaliar se vale a pena, compare preco, material, estado, medidas e frete com produtos parecidos da propria loja.${knownFactsText} Se quiser, eu busco alternativas similares para comparar lado a lado.`
+  }
+
+  if (adviceType === "fit_advice") {
+    return `Para ver se esse item combina com o que voce precisa, eu olharia principalmente medidas, material, acabamento e condicao do anuncio.${knownFactsText}`
+  }
+
+  return `Consigo te ajudar a avaliar este produto pelo que o anuncio informa: preco, material, medidas, estoque, frete e detalhes visiveis.${knownFactsText}`
 }

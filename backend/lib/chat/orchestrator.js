@@ -5,6 +5,7 @@ import { resolveCatalogDecisionState } from "@/lib/chat/catalog-intent-handler"
 import { buildLeadNameAcknowledgementReply, enrichLeadContext, extractName, isLikelyLeadNameReply } from "@/lib/chat/lead-stage"
 import { resolveChatDomainRoute } from "@/lib/chat/domain-router"
 import {
+  buildFocusedProductCommercialReply,
   buildFocusedProductFactualResolution,
   resolveMercadoLivreFlowState,
   resolveMercadoLivreHeuristicReply,
@@ -675,6 +676,14 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         })
       : null
   const deterministicMercadoLivreFactualReply = deterministicMercadoLivreFactualResolution?.reply ?? null
+  const deterministicMercadoLivreCommercialReply =
+    shouldUseMercadoLivre &&
+    currentCatalogProduct &&
+    semanticCatalogDecision?.kind === "current_product_commercial_advice"
+      ? buildFocusedProductCommercialReply(currentCatalogProduct, {
+          adviceType: semanticCatalogDecision.adviceType,
+        })
+      : null
   const shouldPreferMercadoLivreListing =
     shouldUseMercadoLivre &&
     mercadoLivreAssets.length > 0 &&
@@ -859,6 +868,18 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         catalogFactContext: deterministicMercadoLivreFactualResolution?.factContext ?? null,
       },
     }
+  }
+
+  if (deterministicMercadoLivreCommercialReply) {
+    return buildHeuristicReplyResult(deterministicMercadoLivreCommercialReply, {
+      ...heuristicMetadata,
+      provider: "mercado_livre_runtime",
+      model: "mercado_livre_connector",
+      heuristicStage: "mercado_livre_product_commercial_advice",
+      domainStage: "catalog",
+      catalogoProdutoAtual: currentCatalogProduct ?? null,
+      catalogoBusca: mercadoLivreCatalogSearchState,
+    })
   }
 
   if (selectedMercadoLivreProductReply) {

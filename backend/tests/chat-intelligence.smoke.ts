@@ -6218,6 +6218,121 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "catalogo trata objecao de preco do produto em foco como avaliacao comercial",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "Achei caro por ser vidro" }] as never,
+        {
+          agente: {
+            id: "agent-product-price-objection",
+            nome: "Loja Cliente",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-product-price-objection",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          conversation: { mode: "product_detail" },
+          storefront: { kind: "mercado_livre", pageKind: "product_detail" },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-OBJECTION-1",
+              nome: "Centro De Mesa De Vidro",
+              preco: 341.54,
+              material: "Vidro",
+              availableQuantity: 1,
+              link: "https://example.com/vidro",
+            },
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "current_product_commercial_advice",
+            confidence: 0.93,
+            reason: "Cliente fez objecao de custo-beneficio do produto atual.",
+            targetType: "",
+            referencedProductIds: [],
+            excludeCurrentProduct: true,
+            targetFactHints: [],
+            factScope: "commercial",
+            adviceType: "price_objection",
+            usedLlm: true,
+          }),
+          resolveMercadoLivreProductById: async () => null,
+        }
+      )
+
+      assert.equal(result.metadata.domainStage, "catalog")
+      assert.equal(result.metadata.heuristicStage, "mercado_livre_product_commercial_advice")
+      assert.match(result.reply, /custo-beneficio/i)
+      assert.match(result.reply, /Vidro/i)
+      assert.doesNotMatch(result.reply, /^O valor atual deste produto/i)
+    },
+  },
+  {
+    name: "catalogo responde pedido de melhoria do produto em foco sem abrir busca nova",
+    run: async () => {
+      let searchCalls = 0
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "o que voce ve de melhoria para ser feito?" }] as never,
+        {
+          agente: {
+            id: "agent-product-improvement",
+            nome: "Loja Cliente",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-product-improvement",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          conversation: { mode: "product_detail" },
+          storefront: { kind: "mercado_livre", pageKind: "product_detail" },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-IMPROVEMENT-1",
+              nome: "Reliquia De Familia",
+              preco: 341.54,
+              material: "Vidro",
+              availableQuantity: 1,
+            },
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "current_product_commercial_advice",
+            confidence: 0.91,
+            reason: "Cliente pediu avaliacao consultiva do produto atual.",
+            targetType: "",
+            referencedProductIds: [],
+            excludeCurrentProduct: true,
+            targetFactHints: [],
+            factScope: "commercial",
+            adviceType: "improvement_suggestion",
+            usedLlm: true,
+          }),
+          resolveMercadoLivreProductById: async () => null,
+          resolveMercadoLivreSearch: async () => {
+            searchCalls += 1
+            return { items: [], connector: null, paging: { total: 0 }, error: null }
+          },
+        }
+      )
+
+      assert.equal(searchCalls, 0)
+      assert.equal(result.metadata.domainStage, "catalog")
+      assert.match(result.reply, /medidas reais/i)
+      assert.match(result.reply, /estado\/conservacao/i)
+    },
+  },
+  {
     name: "orquestrador nao sobrescreve pricing catalog explicito com texto do agente",
     run: async () => {
       let extractionCalls = 0

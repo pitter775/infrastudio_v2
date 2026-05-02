@@ -633,3 +633,7 @@ Ainda errado / fragil:
   - `semantic-intent-stage.js` passou a parsear JSON de resposta com fallback `null` em vez de derrubar o turno inteiro
   - a extracao de pricing/business ganhou limite de saida maior para reduzir truncamento em prompts longos
   - isso fecha o caso em que o widget mostrava `Nao consegui responder agora.` apos erro `Unterminated string in JSON`
+- produto em foco ganhou uma intencao semantica consultiva para avaliacao comercial
+  - `current_product_commercial_advice` separa objecao de preco, custo-beneficio, pedido de melhoria/validacao e adequacao do produto de perguntas factuais como preco/material
+  - o handler deterministico responde sobre o produto atual usando dados estruturados do anuncio, sem transformar `achei caro` em simples resposta de preco
+  - cobre a pagina de produto do Mercado Livre quando o cliente pergunta o que melhorar/validar ou questiona se o valor faz sentido pelo material

@@ -1,6 +1,10 @@
 import { getMercadoLivreProductByIdForProject, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
 import { getMercadoLivreStoreSettingsForProject } from "@/lib/mercado-livre-store"
-import { buildCatalogProductFacts, buildFocusedCatalogProductFactualResolution } from "@/lib/chat/catalog-product-facts"
+import {
+  buildCatalogProductFacts,
+  buildFocusedCatalogProductCommercialReply,
+  buildFocusedCatalogProductFactualResolution,
+} from "@/lib/chat/catalog-product-facts"
 import { resolveCatalogExecutionState } from "@/lib/chat/catalog-intent-handler"
 
 function sanitizeString(value) {
@@ -402,6 +406,10 @@ export function buildFocusedProductFactualReply(product, userMessage = "", optio
 
 export function buildFocusedProductFactualResolution(product, userMessage = "", options = {}) {
   return buildFocusedCatalogProductFactualResolution(product, userMessage, options)
+}
+
+export function buildFocusedProductCommercialReply(product, options = {}) {
+  return buildFocusedCatalogProductCommercialReply(product, options)
 }
 
 export function shouldAttachMercadoLivreAssetForMessage(message = "") {
