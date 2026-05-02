@@ -525,7 +525,10 @@ export function resolveCatalogIntentState(input = {}) {
     referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? implicitSingleRecentProduct ?? null
 
   const semanticSearchCandidates =
-    inferredDecision?.kind === "similar_items_search" || inferredDecision?.kind === "same_type_search"
+    inferredDecision?.kind === "similar_items_search" ||
+    inferredDecision?.kind === "same_type_search" ||
+    (inferredDecision?.kind === "catalog_alternative_search" &&
+      (inferredDecision?.relation === "same_type" || inferredDecision?.relation === "similar"))
       ? buildCatalogSimilarSearchCandidates(candidateCurrentCatalogProduct, inferredDecision?.searchCandidates?.[0])
       : []
   const storewideCatalogSearchRequested = shouldTreatMessageAsStorewideCatalogSearch(
@@ -543,6 +546,7 @@ export function resolveCatalogIntentState(input = {}) {
     (inferredDecision?.kind === "catalog_search_refinement" && inferredDecision?.usedLlm === true) ||
     inferredDecision?.kind === "same_type_search" ||
     inferredDecision?.kind === "similar_items_search" ||
+    inferredDecision?.kind === "catalog_alternative_search" ||
     shouldContinueListing
 
   const stayOnCurrentProduct =
@@ -556,7 +560,8 @@ export function resolveCatalogIntentState(input = {}) {
     (storewideCatalogSearchRequested ||
       inferredDecision?.kind === "catalog_search_refinement" ||
       inferredDecision?.kind === "same_type_search" ||
-      inferredDecision?.kind === "similar_items_search") &&
+      inferredDecision?.kind === "similar_items_search" ||
+      inferredDecision?.kind === "catalog_alternative_search") &&
     !stayOnCurrentProduct
   const shouldPreserveCurrentCatalogProduct =
     !forceNewSearch && inferredDecision?.kind !== "catalog_load_more"
@@ -591,6 +596,13 @@ export function resolveCatalogIntentState(input = {}) {
           productSearchCandidates[0] ??
           "",
     excludeCurrentProductFromSearch: inferredDecision?.excludeCurrentProduct === true,
+    priceMaxExclusive:
+      inferredDecision?.kind === "catalog_alternative_search" && inferredDecision?.priceConstraint === "below_current"
+        ? candidateCurrentCatalogProduct?.preco == null
+          ? null
+          : sanitizeNumber(candidateCurrentCatalogProduct.preco, null)
+        : null,
+    allowEmptyCatalogSearch: inferredDecision?.kind === "catalog_alternative_search",
     lastSearchTerm: sanitizeString(listingSession?.searchTerm || contextCatalog.ultimaBusca),
     paginationOffset: forceNewSearch
       ? 0

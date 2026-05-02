@@ -637,3 +637,8 @@ Ainda errado / fragil:
   - `current_product_commercial_advice` separa objecao de preco, custo-beneficio, pedido de melhoria/validacao e adequacao do produto de perguntas factuais como preco/material
   - o handler deterministico responde sobre o produto atual usando dados estruturados do anuncio, sem transformar `achei caro` em simples resposta de preco
   - cobre a pagina de produto do Mercado Livre quando o cliente pergunta o que melhorar/validar ou questiona se o valor faz sentido pelo material
+- alternativas de catalogo a partir do detalhe de produto ganharam decisao semantica estruturada
+  - `catalog_alternative_search` separa pedido de alternativa do produto atual de pergunta factual/consultiva sobre o item aberto
+  - a decisao carrega `relation`, `priceConstraint` e `excludeCurrentProduct`, permitindo buscar outros produtos sem repetir o item em foco
+  - para alternativa mais barata, o handler usa o preco estruturado do produto atual como `priceMaxExclusive` e ordena por `price_asc`
+  - Mercado Livre/snapshot agora aceitam busca vazia controlada para alternativas amplas, filtro por preco e exclusao do item atual como contrato de dados, sem novo matcher textual

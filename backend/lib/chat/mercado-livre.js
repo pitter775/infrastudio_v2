@@ -726,7 +726,11 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   const refinementSearchTerm =
     sanitizeString(input.catalogFollowUpDecision?.uncoveredTokens?.[0]) ||
     sanitizeString(input.catalogFollowUpDecision?.searchCandidates?.[0])
-  const freshSearchTerm = refinementSearchTerm || sanitizeString(input.productSearchTerm) || sanitizeString(input.latestUserMessage)
+  const allowEmptyCatalogSearch = input.allowEmptyCatalogSearch === true
+  const freshSearchTerm =
+    refinementSearchTerm ||
+    sanitizeString(input.productSearchTerm) ||
+    (allowEmptyCatalogSearch ? "" : sanitizeString(input.latestUserMessage))
   const searchTerm = input.forceNewSearch
     ? freshSearchTerm || sanitizeString(input.lastSearchTerm) || sanitizeString(input.context?.catalogo?.ultimaBusca)
     : input.loadMoreCatalogRequested
@@ -754,6 +758,9 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       offset: searchOffset,
       poolLimit,
       excludeItemIds,
+      priceMaxExclusive: input.priceMaxExclusive,
+      sort: input.priceMaxExclusive != null ? "price_asc" : undefined,
+      allowEmptySearch: allowEmptyCatalogSearch,
     }
   )
 

@@ -615,6 +615,8 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     loadMoreCatalogRequested: shouldUseMercadoLivre && mercadoLivreFlowState.loadMoreCatalogRequested,
     productSearchTerm: mercadoLivreFlowState.productSearchTerm,
     excludeCurrentProductFromSearch: mercadoLivreFlowState.excludeCurrentProductFromSearch,
+    priceMaxExclusive: mercadoLivreFlowState.priceMaxExclusive,
+    allowEmptyCatalogSearch: mercadoLivreFlowState.allowEmptyCatalogSearch,
     lastSearchTerm: mercadoLivreFlowState.lastSearchTerm,
     paginationOffset: mercadoLivreFlowState.paginationOffset,
     paginationPoolLimit: mercadoLivreFlowState.paginationPoolLimit,

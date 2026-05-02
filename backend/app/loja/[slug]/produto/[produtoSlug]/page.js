@@ -319,10 +319,6 @@ function ProductPurchasePanel({
     <section className={`rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6 ${className}`}>
       <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{result.store.name}</div>
       <div className="mt-4 flex flex-wrap gap-2">
-        <span className="hidden items-center gap-2 rounded-[6px] bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)] sm:inline-flex">
-          <Package className="h-3.5 w-3.5" />
-          Produto da loja
-        </span>
         {visibleCategoryLabel ? (
           <span className="inline-flex items-center gap-2 rounded-[6px] bg-[#faf7f0] px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-600 shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]">
             <Tag className="h-3.5 w-3.5" />
@@ -335,11 +331,11 @@ function ProductPurchasePanel({
         {result.product.title}
       </h1>
 
-      <div className="mt-4 text-lg font-semibold sm:text-xl" style={{ color: palette.accentDark }}>
+      <div className="mt-4 text-2xl font-semibold sm:text-3xl" style={{ color: palette.accentDark }}>
         {formatStoreCurrency(result.product.price, result.product.currencyId)}
       </div>
       {installmentText ? (
-        <div className="mt-2 text-lg font-medium text-slate-700">{installmentText}</div>
+        <div className="mt-2 text-base font-normal text-slate-700 sm:text-lg">{installmentText}</div>
       ) : null}
       {Number(result.product.unitPrice ?? 0) > 0 ? (
         <div className="mt-1 text-sm text-slate-500">
@@ -520,7 +516,7 @@ export default async function LojaProdutoPage({ params }) {
         />
       ) : null}
       <div className="min-h-screen bg-slate-50 text-slate-900">
-        <section className="relative min-h-[138px] overflow-visible pt-[70px] sm:overflow-hidden" style={heroStyle.base}>
+        <section className="relative min-h-[138px] overflow-visible pt-[70px]" style={heroStyle.base}>
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
           <StoreHeader store={result.store} activeSection="produtos" />
@@ -539,7 +535,7 @@ export default async function LojaProdutoPage({ params }) {
           <div className="mx-auto max-w-7xl px-5 pb-8 pt-8 sm:px-7 sm:pt-2 lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
-              className="-mt-7 mb-5 hidden h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105 sm:flex"
+              className="relative z-30 -mt-7 mb-5 hidden h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105 sm:flex"
               style={{ color: palette.accentDark }}
               aria-label="Voltar para a loja"
             >

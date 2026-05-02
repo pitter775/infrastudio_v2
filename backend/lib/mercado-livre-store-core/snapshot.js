@@ -169,6 +169,7 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
   const excludeSlug = sanitizeText(options.excludeSlug, 180)
   const categoryId = sanitizeText(options.categoryId, 80)
   const sort = sanitizeText(options.sort, 32) || "recent"
+  const priceMaxExclusive = Number(options.priceMaxExclusive)
   const requiresClientSearch = Boolean(searchTerm)
   const searchOrFilter = buildSnapshotSearchOrFilter(searchTerm)
   const fetchLimit = requiresClientSearch ? Math.min(Math.max(limit * 10, 60), 180) : limit
@@ -198,6 +199,10 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
     query = query.eq("categoria_id", categoryId)
   }
 
+  if (Number.isFinite(priceMaxExclusive) && priceMaxExclusive > 0) {
+    query = query.lt("preco", priceMaxExclusive)
+  }
+
   query = query.range(fetchOffset, fetchOffset + fetchLimit - 1)
 
   let { data, error, count } = await query
@@ -224,6 +229,10 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
 
     if (categoryId) {
       fallbackQuery = fallbackQuery.eq("categoria_id", categoryId)
+    }
+
+    if (Number.isFinite(priceMaxExclusive) && priceMaxExclusive > 0) {
+      fallbackQuery = fallbackQuery.lt("preco", priceMaxExclusive)
     }
 
     fallbackQuery = fallbackQuery.range(fetchOffset, fetchOffset + fetchLimit - 1)

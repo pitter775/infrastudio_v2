@@ -155,6 +155,21 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
     }
   }
 
+  if (semanticIntent.intent === "catalog_alternative_search") {
+    return {
+      kind: "catalog_alternative_search",
+      confidence: semanticIntent.confidence,
+      reason: semanticIntent.reason ?? "Cliente pediu alternativas ao produto em foco.",
+      matchedProducts: [],
+      usedLlm: Boolean(semanticIntent.usedLlm),
+      shouldBlockNewSearch: false,
+      searchCandidates: sanitizeString(semanticIntent.targetType) ? [sanitizeString(semanticIntent.targetType)] : [],
+      excludeCurrentProduct: semanticIntent.excludeCurrentProduct !== false,
+      relation: sanitizeString(semanticIntent.relation) || "storewide",
+      priceConstraint: sanitizeString(semanticIntent.priceConstraint) || "any",
+    }
+  }
+
   if (semanticIntent.intent === "catalog_search_refinement" && sanitizeString(semanticIntent.targetType)) {
     return {
       kind: "catalog_search_refinement",
@@ -527,13 +542,15 @@ export async function classifySemanticIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de catalogo Mercado Livre.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"current_product_question|current_product_commercial_advice|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_search_refinement|new_catalog_search|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false,"targetFactHints":["string"],"factScope":"product|package|shipping|commercial|general|","adviceType":"price_objection|improvement_suggestion|value_assessment|fit_advice|other|"}.',
+            'Schema: {"intent":"current_product_question|current_product_commercial_advice|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_alternative_search|catalog_search_refinement|new_catalog_search|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false,"targetFactHints":["string"],"factScope":"product|package|shipping|commercial|general|","adviceType":"price_objection|improvement_suggestion|value_assessment|fit_advice|other|","relation":"same_type|similar|storewide|","priceConstraint":"below_current|any|"}.',
             "Use current_product_commercial_advice quando o cliente pedir uma avaliacao consultiva do produto atual, questionar custo-beneficio, reclamar que esta caro, perguntar o que melhorar/validar antes de comprar ou pedir opiniao comercial sem pedir um campo factual isolado.",
             "Para current_product_commercial_advice, preencha adviceType com price_objection, improvement_suggestion, value_assessment, fit_advice ou other e deixe targetFactHints vazio, exceto se o cliente tambem pedir um dado factual especifico.",
             "Use same_type_search apenas quando o cliente pedir outro item do mesmo tipo ou da mesma classe do produto atual.",
             "Quando usar same_type_search, extraia targetType curto e literal, por exemplo saleiro, jarra, xicara, prato.",
             "Use similar_items_search quando o cliente pedir algo parecido, similar, semelhante ou na mesma linha do produto atual, mesmo sem citar o tipo explicitamente.",
             "Em similar_items_search, targetType pode vir vazio quando o tipo precisara ser derivado do proprio produto atual.",
+            "Use catalog_alternative_search quando o cliente pedir alternativas ao produto atual, outros produtos ou opcoes fora do item aberto; preencha relation e use priceConstraint=below_current quando ele pedir alternativa mais barata que o produto atual.",
+            "Em catalog_alternative_search, nao trate o produto atual como alvo da resposta; use-o apenas como referencia de tipo/categoria/preco e mantenha excludeCurrentProduct=true.",
             "Use catalog_search_refinement quando o cliente refinar a ultima lista com um atributo novo ou filtro novo, por exemplo inox, azul, madeira, vintage, grande.",
             "Quando usar catalog_search_refinement, extraia targetType curto e literal com o termo novo principal da busca.",
             "Use new_catalog_search quando o cliente iniciar uma nova busca de catalogo, inclusive na vitrine, com um tipo ou termo curto claro, por exemplo saleiro azul, xicara vintage, vaso amarelo.",
@@ -606,6 +623,7 @@ export async function classifySemanticIntentStage(input = {}) {
                   "recent_product_reference_unresolved",
                   "same_type_search",
                   "similar_items_search",
+                  "catalog_alternative_search",
                   "catalog_search_refinement",
                   "new_catalog_search",
                   "catalog_load_more",
@@ -646,6 +664,14 @@ export async function classifySemanticIntentStage(input = {}) {
                 type: "string",
                 enum: ["", "price_objection", "improvement_suggestion", "value_assessment", "fit_advice", "other"],
               },
+              relation: {
+                type: "string",
+                enum: ["", "same_type", "similar", "storewide"],
+              },
+              priceConstraint: {
+                type: "string",
+                enum: ["", "below_current", "any"],
+              },
             },
             required: [
               "intent",
@@ -657,11 +683,13 @@ export async function classifySemanticIntentStage(input = {}) {
               "targetFactHints",
               "factScope",
               "adviceType",
+              "relation",
+              "priceConstraint",
             ],
           },
         },
       },
-      max_output_tokens: 120,
+      max_output_tokens: 150,
     }),
   })
 
@@ -687,6 +715,8 @@ export async function classifySemanticIntentStage(input = {}) {
       : [],
     factScope: sanitizeString(parsed?.factScope),
     adviceType: sanitizeString(parsed?.adviceType),
+    relation: sanitizeString(parsed?.relation),
+    priceConstraint: sanitizeString(parsed?.priceConstraint),
     usedLlm: true,
   }
 }

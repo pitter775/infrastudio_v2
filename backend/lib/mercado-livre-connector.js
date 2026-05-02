@@ -54,6 +54,15 @@ function sanitizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function sanitizePositiveNumber(value) {
+  if (value == null || value === "") {
+    return null
+  }
+
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
 function mapSnapshotAttributesToMercadoLivre(attributes = []) {
   return Array.isArray(attributes)
     ? attributes
@@ -122,7 +131,7 @@ function mapSnapshotProductToMercadoLivreItem(product) {
 
 async function searchSnapshotMercadoLivreProductsForProject(projectId, options = {}, deps = {}) {
   const searchTerm = sanitizeString(options.searchTerm)
-  if (!projectId || !searchTerm) {
+  if (!projectId || (!searchTerm && options.allowEmptySearch !== true)) {
     return null
   }
 
@@ -131,6 +140,8 @@ async function searchSnapshotMercadoLivreProductsForProject(projectId, options =
   const excludedItemIds = Array.isArray(options.excludeItemIds)
     ? options.excludeItemIds.map((itemId) => sanitizeString(itemId)).filter(Boolean)
     : []
+  const priceMaxExclusive = sanitizePositiveNumber(options.priceMaxExclusive)
+  const sort = sanitizeString(options.sort) || (priceMaxExclusive != null ? "price_asc" : "recent")
   const supabase = deps.supabase ?? getSupabaseAdminClient()
   const seenItemIds = new Set()
   const collectedItems = []
@@ -146,7 +157,8 @@ async function searchSnapshotMercadoLivreProductsForProject(projectId, options =
       searchTerm,
       page,
       limit: requestedLimit,
-      sort: "recent",
+      sort,
+      priceMaxExclusive,
     })
     const pageItems = Array.isArray(listing?.items) ? listing.items : []
 
@@ -1353,6 +1365,7 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
     const poolLimit = Math.min(Math.max(Number(options.poolLimit ?? 24) || 24, requestedLimit), 50)
     const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
     const searchTerm = sanitizeString(options.searchTerm)
+    const priceMaxExclusive = sanitizePositiveNumber(options.priceMaxExclusive)
     const excludedItemIds = Array.isArray(options.excludeItemIds)
       ? options.excludeItemIds.map((itemId) => sanitizeString(itemId)).filter(Boolean)
       : []
@@ -1364,6 +1377,9 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
         offset,
         poolLimit,
         excludeItemIds: excludedItemIds,
+        priceMaxExclusive,
+        sort: sanitizeString(options.sort) || (priceMaxExclusive != null ? "price_asc" : "recent"),
+        allowEmptySearch: options.allowEmptySearch === true,
       },
       { ...deps, supabase }
     )
@@ -1407,6 +1423,7 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
       const loadedItems = await loadMercadoLivreItems(itemIds, accessToken, deps)
       const rankedItems = loadedItems
         .filter((item) => !excludedItemIds.includes(sanitizeString(item?.id)))
+        .filter((item) => priceMaxExclusive == null || sanitizeNumber(item?.price, Number.POSITIVE_INFINITY) < priceMaxExclusive)
         .map((item) => ({
           ...item,
           _score: searchTerm ? scoreMercadoLivreItem(item, searchTerm) : 0,
@@ -1415,6 +1432,9 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
         .sort((left, right) => {
           if (right._score !== left._score) {
             return right._score - left._score
+          }
+          if (priceMaxExclusive != null) {
+            return sanitizeNumber(left.price, Number.POSITIVE_INFINITY) - sanitizeNumber(right.price, Number.POSITIVE_INFINITY)
           }
           return String(left.title || "").localeCompare(String(right.title || ""), "pt-BR")
         })

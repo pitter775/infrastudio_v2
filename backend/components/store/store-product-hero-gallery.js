@@ -76,14 +76,15 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
               key={`${image}-${index}`}
               type="button"
               onClick={() => setActiveIndex(index)}
-              className="overflow-hidden rounded-[6px] border-[3px] bg-transparent p-0 leading-none transition hover:shadow-[0_8px_18px_-12px_rgba(15,23,42,0.34)]"
-              style={{ borderColor: index === safeActiveIndex ? `${accentColor}55` : 'transparent' }}
+              className="relative aspect-square overflow-hidden rounded-[6px] bg-transparent p-0 leading-none transition hover:shadow-[0_8px_18px_-12px_rgba(15,23,42,0.34)]"
               aria-label={`Ver imagem ${index + 1}`}
             >
-              <div className="aspect-square overflow-hidden rounded-[6px] bg-transparent">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={image} alt={`${title} ${index + 1}`} loading="lazy" decoding="async" className="block h-full w-full object-cover" />
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={image} alt={`${title} ${index + 1}`} loading="lazy" decoding="async" className="block h-full w-full object-cover" />
+              <span
+                className="pointer-events-none absolute inset-0 rounded-[6px] border-[3px] transition"
+                style={{ borderColor: index === safeActiveIndex ? `${accentColor}55` : 'transparent' }}
+              />
             </button>
           ))}
         </div>

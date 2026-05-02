@@ -22,6 +22,8 @@ import {
   resolveCatalogDecisionState,
   resolveCatalogExecutionState,
   resolveCatalogComparisonDecisionState,
+  buildCatalogDecisionFromSemanticIntent,
+  resolveMercadoLivreHeuristicState,
   resolveRecentCatalogReferenceDecision,
   resolveRecentCatalogProductReference,
 } from "@/tests/chat-source"
@@ -276,6 +278,121 @@ async function main() {
   assert.equal(sharedCatalogIntent.currentCatalogProduct, null)
   assert.equal(sharedCatalogIntent.productSearchTerm, "Saleiros")
 
+  const cheaperAlternativeDecision = buildCatalogDecisionFromSemanticIntent({
+    semanticIntent: {
+      intent: "catalog_alternative_search",
+      confidence: 0.92,
+      reason: "Cliente pediu alternativas mais baratas ao produto em foco.",
+      targetType: "",
+      referencedProductIds: [],
+      excludeCurrentProduct: true,
+      targetFactHints: [],
+      factScope: "",
+      adviceType: "",
+      relation: "same_type",
+      priceConstraint: "below_current",
+      usedLlm: true,
+    },
+    currentCatalogProduct: {
+      id: "MLB-1",
+      nome: "Saleiro De Porcelana",
+    },
+    recentProducts: [],
+  })
+  assert.equal(cheaperAlternativeDecision?.kind, "catalog_alternative_search")
+  assert.equal(cheaperAlternativeDecision?.priceConstraint, "below_current")
+  assert.equal(cheaperAlternativeDecision?.excludeCurrentProduct, true)
+
+  const cheaperAlternativeIntent = resolveCatalogIntentState({
+    latestUserMessage: "tem mais barato?",
+    context: {
+      catalogo: {
+        produtoAtual: {
+          id: "MLB-1",
+          nome: "Saleiro De Porcelana",
+          categoriaLabel: "Saleiros",
+          preco: 220,
+        },
+        ultimosProdutos: [],
+      },
+      conversation: { mode: "product_detail" },
+      storefront: { pageKind: "product_detail" },
+      ui: { productDetailPreferred: true },
+    },
+    catalogDecision: cheaperAlternativeDecision,
+    detectProductSearch: () => false,
+    buildProductSearchCandidates: () => [],
+    isCatalogListingIntent: () => false,
+  })
+  assert.equal(cheaperAlternativeIntent.forceNewSearch, true)
+  assert.equal(cheaperAlternativeIntent.currentCatalogProduct, null)
+  assert.equal(cheaperAlternativeIntent.excludeCurrentProductFromSearch, true)
+  assert.equal(cheaperAlternativeIntent.priceMaxExclusive, 220)
+  assert.equal(cheaperAlternativeIntent.productSearchTerm, "Saleiros")
+
+  let mercadoLivreSearchOptions: any = null
+  const cheaperAlternativeState = await resolveMercadoLivreHeuristicState({
+    context: {
+      catalogo: {
+        produtoAtual: {
+          id: "MLB-1",
+          nome: "Saleiro De Porcelana",
+          categoriaLabel: "Saleiros",
+          preco: 220,
+        },
+      },
+      conversation: { mode: "product_detail" },
+      storefront: { pageKind: "product_detail" },
+      ui: { productDetailPreferred: true },
+    },
+    project: {
+      id: "project-1",
+      directConnections: {
+        mercadoLivre: 1,
+      },
+    },
+    latestUserMessage: "tem mais barato?",
+    productSearchRequested: cheaperAlternativeIntent.productSearchRequested,
+    genericMercadoLivreListingRequested: false,
+    forceNewSearch: cheaperAlternativeIntent.forceNewSearch,
+    loadMoreCatalogRequested: false,
+    productSearchTerm: cheaperAlternativeIntent.productSearchTerm,
+    excludeCurrentProductFromSearch: cheaperAlternativeIntent.excludeCurrentProductFromSearch,
+    priceMaxExclusive: cheaperAlternativeIntent.priceMaxExclusive,
+    allowEmptyCatalogSearch: cheaperAlternativeIntent.allowEmptyCatalogSearch,
+    catalogFollowUpDecision: cheaperAlternativeDecision,
+    resolveMercadoLivreStoreSettings: async () => ({ chatContextFull: false }),
+    resolveMercadoLivreProductById: async () => null,
+    resolveMercadoLivreSearch: async (_project: any, options: any) => {
+      mercadoLivreSearchOptions = options
+      return {
+        items: [
+          {
+            id: "MLB-2",
+            title: "Saleiro Branco",
+            price: 120,
+            currencyId: "BRL",
+            availableQuantity: 1,
+            permalink: "https://produto.mercadolivre.com.br/MLB-2",
+            thumbnail: "",
+          },
+        ],
+        connector: null,
+        paging: {
+          total: 1,
+          offset: 0,
+          nextOffset: 3,
+          hasMore: false,
+        },
+        error: null,
+      }
+    },
+  })
+  assert.equal(mercadoLivreSearchOptions?.priceMaxExclusive, 220)
+  assert.deepEqual(mercadoLivreSearchOptions?.excludeItemIds, ["MLB-1"])
+  assert.equal(mercadoLivreSearchOptions?.sort, "price_asc")
+  assert.notEqual(cheaperAlternativeState.selectedCatalogProduct?.id, "MLB-1")
+
   const sharedCatalogDecision = resolveCatalogDecisionState({
     latestUserMessage: "gostei desse",
     context: {
@@ -440,7 +557,7 @@ async function main() {
   assert.equal(sequence.length, 4)
   assert.match(sequence[0] ?? "", /mais opcoes/i)
 
-  console.log("15 domain regression checks passed.")
+  console.log("16 domain regression checks passed.")
 }
 
 main().catch((error) => {
