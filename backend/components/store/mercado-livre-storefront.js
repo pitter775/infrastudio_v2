@@ -459,11 +459,17 @@ export function MercadoLivreStorefront({
             </div>
           </section>
 
-          <div className="relative z-10 h-9 bg-slate-50">
-            <div className="absolute left-1/2 top-0 flex w-[190px] -translate-x-1/2 -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] bg-slate-50 px-4 pt-3">
+          <div className="relative z-30 mx-auto max-w-[1228px] px-3 sm:px-4 lg:px-3">
+            <a
+              href="https://www.infrastudio.pro"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="InfraStudio"
+              className="absolute left-3 top-0 flex w-[190px] -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] bg-slate-50 px-4 pt-3 sm:left-4 lg:left-3"
+            >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/vitrini.png" alt="" loading="eager" decoding="async" className="store-vitrine-mark w-[160px] max-w-full object-contain" />
-            </div>
+            </a>
           </div>
 
           <section id="produtos" className="relative z-0 mx-auto max-w-[1228px] scroll-mt-24 px-3 sm:px-4 lg:px-3">

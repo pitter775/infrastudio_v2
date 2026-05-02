@@ -80,8 +80,8 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
         <div className="flex items-center justify-between gap-6 px-1 sm:px-0">
           <Link href={`/loja/${store.slug}`} className="flex items-center gap-3">
             <div
-              className={`flex h-12 w-12 items-center justify-center text-sm font-semibold text-white ${store.logoUrl ? '' : 'rounded-[14px] shadow-[0_16px_30px_-20px_rgba(15,23,42,0.24)]'}`}
-              style={{ backgroundColor: store.logoUrl ? 'transparent' : store.accentColor }}
+              className={`flex h-12 w-12 items-center justify-center rounded-[14px] text-sm font-semibold text-white shadow-[0_16px_30px_-20px_rgba(15,23,42,0.24)] backdrop-blur-md ${store.logoUrl ? 'bg-white/42 p-1.5' : ''}`}
+              style={{ backgroundColor: store.logoUrl ? undefined : store.accentColor }}
             >
               {store.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element

@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
-import { ArrowLeft, ChevronDown, FileText, Images, LayoutGrid, Package, Ruler, ShoppingBag, Sparkles, Tag } from "lucide-react"
+import { ArrowLeft, ChevronDown, FileText, Images, LayoutGrid, Package, Ruler, Sparkles, Tag } from "lucide-react"
 
 import { StoreFooter } from "@/components/store/store-footer"
 import { StoreHeader } from "@/components/store/store-header"
@@ -9,7 +9,7 @@ import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-load
 import { StoreProductCard } from "@/components/store/store-product-card"
 import { StoreProductHeroGallery } from "@/components/store/store-product-hero-gallery"
 import { StoreSnapshotRefresh } from "@/components/store/store-snapshot-refresh"
-import { buildStoreAccentPalette, buildStoreProductExternalUrl, formatStoreCurrency } from "@/components/store/store-utils"
+import { buildStoreAccentPalette, formatStoreCurrency } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
 import { buildStoreProductRef } from "@/lib/mercado-livre-store-core/sanitize"
 import {
@@ -364,17 +364,6 @@ function ProductPurchasePanel({
 
       <div className="mt-6 grid gap-3">
         <div className="rounded-[6px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
-          <a
-            href={buildStoreProductExternalUrl(result.product)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-[6px] border border-[#ffe600] bg-[#ffe600] px-5 text-sm font-semibold text-[#333333] shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:bg-[#fff159] hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
-          >
-            <ShoppingBag className="h-4 w-4" />
-            Comprar agora
-          </a>
-        </div>
-        <div className="rounded-[6px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
           <div className="grid gap-3 text-sm text-slate-700">
             {visibleCategoryLabel ? (
               <div className="flex items-center justify-between gap-4">
@@ -542,8 +531,8 @@ export default async function LojaProdutoPage({ params }) {
           <div className="relative mx-auto max-w-7xl px-5 pb-4 pt-[88px] sm:px-7 md:pt-[88px] lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-white shadow-[0_10px_24px_-18px_rgba(15,23,42,0.36)] transition hover:scale-105"
-              style={{ backgroundColor: palette.accentDark }}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border bg-transparent shadow-[0_10px_24px_-18px_rgba(15,23,42,0.36)] transition hover:scale-105"
+              style={{ borderColor: palette.accentDark, color: palette.accentDark }}
               aria-label="Voltar para a loja"
             >
               <ArrowLeft className="h-5 w-5" />

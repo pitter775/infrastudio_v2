@@ -58,12 +58,12 @@ export function StoreFooter({ store, samePageNavigation = false }) {
               {footerText ? <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{footerText}</div> : null}
               <a href="https://www.infrastudio.pro" target="_blank" rel="noreferrer" className="mt-4 inline-flex opacity-70 transition hover:opacity-90">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/infrastudio-preto.png" alt="InfraStudio" loading="lazy" decoding="async" className="h-2.5 w-auto object-contain" />
+                <img src="/infrastudio-preto.png" alt="InfraStudio" loading="lazy" decoding="async" className="w-[100px] object-contain" />
               </a>
             </div>
           </div>
         </div>
-        <div className="flex flex-wrap gap-3 lg:justify-end">
+        <div className="flex flex-wrap items-start gap-3 lg:justify-end">
           {store.menuLinks.map((item) => {
             const sectionId = item.href.replace('#', '')
             const Icon = menuIconMap[sectionId] || Globe
@@ -73,7 +73,7 @@ export function StoreFooter({ store, samePageNavigation = false }) {
                 key={`${item.label}-${item.href}-footer`}
                 href={resolveFooterHref(store.slug, item.href, samePageNavigation)}
                 onClick={(event) => handleAnchorNavigation(event, item.href)}
-                className="inline-flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm text-slate-700 transition hover:bg-[var(--store-footer-hover)] hover:text-slate-950"
+                className="inline-flex max-h-[43px] items-center gap-2 rounded-[8px] px-3 py-2 text-sm text-slate-700 transition hover:bg-[var(--store-footer-hover)] hover:text-slate-950"
                 style={{ '--store-footer-hover': palette.accentBorder }}
               >
                 <Icon className="h-4 w-4" />
