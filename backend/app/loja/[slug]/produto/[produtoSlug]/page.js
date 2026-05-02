@@ -225,7 +225,7 @@ function buildProductPageBackgroundStyle(hero) {
           backgroundImage: `url(${hero.imageUrl})`,
           backgroundPosition: "center",
           backgroundRepeat: imageMode === "repeat-x" ? "repeat-x" : "no-repeat",
-          backgroundSize: imageMode === "repeat-x" ? "auto 100%" : "cover",
+          backgroundSize: imageMode === "repeat-x" ? "auto max(238px, 100%)" : "cover",
           opacity: Number(hero?.imageOpacity ?? 1),
         }
       : null,
@@ -524,11 +524,11 @@ export default async function LojaProdutoPage({ params }) {
         />
       ) : null}
       <div className="min-h-screen bg-slate-50 text-slate-900">
-        <section className="relative min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
+        <section className="relative min-h-[138px] overflow-hidden pt-[70px]" style={heroStyle.base}>
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
           <StoreHeader store={result.store} activeSection="produtos" />
-          <div className="relative mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10" />
+          <div className="relative mx-auto max-w-7xl px-5 py-3 sm:px-7 lg:px-10" />
         </section>
 
         <main>

@@ -200,7 +200,7 @@ function buildHeroBackgroundStyle(hero) {
           backgroundImage: `url(${hero.imageUrl})`,
           backgroundPosition: 'center',
           backgroundRepeat: imageMode === 'repeat-x' ? 'repeat-x' : 'no-repeat',
-          backgroundSize: imageMode === 'repeat-x' ? 'auto 100%' : 'cover',
+          backgroundSize: imageMode === 'repeat-x' ? 'auto max(238px, 100%)' : 'cover',
           opacity: Number(hero?.imageOpacity ?? 1),
         }
       : null,
