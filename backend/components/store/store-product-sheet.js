@@ -5,7 +5,7 @@ import { useMemo, useState } from 'react'
 
 import { StoreProductActions } from '@/components/store/store-product-actions'
 import { StoreProductCard } from '@/components/store/store-product-card'
-import { buildStoreProductHref, formatStoreCurrency, getStoreProductImages } from '@/components/store/store-utils'
+import { buildStoreProductHref, formatStoreCurrency, formatStoreInstallmentText, getStoreProductImages } from '@/components/store/store-utils'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 
 export function StoreProductSheet({
@@ -19,6 +19,7 @@ export function StoreProductSheet({
   const product = data?.product || null
   const relatedProducts = Array.isArray(data?.relatedProducts) ? data.relatedProducts : []
   const images = useMemo(() => getStoreProductImages(product), [product])
+  const installmentText = formatStoreInstallmentText(product)
   const [activeImageState, setActiveImageState] = useState({ productId: null, index: 0 })
   const activeImageIndex = activeImageState.productId === product?.id ? activeImageState.index : 0
 
@@ -121,6 +122,9 @@ export function StoreProductSheet({
                   <div className="mt-4 text-xl font-semibold sm:text-2xl" style={{ color: store.accentColor }}>
                     {formatStoreCurrency(product.price, product.currencyId)}
                   </div>
+                  {installmentText ? (
+                    <div className="mt-1 text-sm font-medium text-slate-700 sm:text-base">{installmentText}</div>
+                  ) : null}
                   {product.originalPrice > product.price ? (
                     <div className="mt-2 text-sm text-slate-500 line-through">
                       {formatStoreCurrency(product.originalPrice, product.currencyId)}

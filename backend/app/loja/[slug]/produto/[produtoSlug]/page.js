@@ -9,7 +9,7 @@ import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-load
 import { StoreProductHeroGallery } from "@/components/store/store-product-hero-gallery"
 import { StoreRelatedProducts } from "@/components/store/store-related-products"
 import { StoreSnapshotRefresh } from "@/components/store/store-snapshot-refresh"
-import { buildStoreAccentPalette, formatStoreCurrency } from "@/components/store/store-utils"
+import { buildStoreAccentPalette, formatStoreCurrency, formatStoreInstallmentText } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
 import { buildStoreProductRef } from "@/lib/mercado-livre-store-core/sanitize"
 import {
@@ -196,16 +196,6 @@ function buildDescriptionBlocks(product) {
     .split(/\n{2,}/)
     .map((block) => block.trim())
     .filter(Boolean)
-}
-
-function formatInstallmentText(product) {
-  const quantity = Number(product?.installmentQuantity ?? 0) || 0
-  const amount = Number(product?.installmentAmount ?? 0) || 0
-  if (quantity <= 1 || amount <= 0) {
-    return ""
-  }
-
-  return `${quantity}x ${formatStoreCurrency(amount, product?.currencyId)}`
 }
 
 function buildProductPageBackgroundStyle(hero) {
@@ -459,7 +449,7 @@ export default async function LojaProdutoPage({ params }) {
   const attributeGroups = groupProductAttributes(result.product.attributes)
   const palette = buildStoreAccentPalette(result.store.accentColor)
   const heroStyle = buildProductPageBackgroundStyle(result.store.visualConfig?.hero || {})
-  const installmentText = formatInstallmentText(result.product)
+  const installmentText = formatStoreInstallmentText(result.product)
   const chatProductContext = buildChatProductContext(result.product, result.store, visibleCategoryLabel)
   const widgetConfig = result.store.widget
     ? {

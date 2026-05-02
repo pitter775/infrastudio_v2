@@ -5,19 +5,10 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide-react'
 
-import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, formatStoreInstallmentText, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
-}
-
-function formatMarketplaceInstallment(price, currencyId) {
-  const installmentValue = Number(price || 0) / 12
-  if (!Number.isFinite(installmentValue) || installmentValue <= 0) {
-    return ''
-  }
-
-  return `12x ${formatStoreCurrency(installmentValue, currencyId)}`
 }
 
 export function StoreProductCard({ storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card', variant = 'default' }) {
@@ -39,7 +30,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
     (visibleCategoryLabel
       ? `Produto publicado na categoria ${visibleCategoryLabel.toLowerCase()} com checkout final no Mercado Livre.`
       : 'Produto publicado com checkout final no Mercado Livre e atendimento direto pela loja.')
-  const marketplaceInstallment = formatMarketplaceInstallment(product.price, product.currencyId)
+  const marketplaceInstallment = formatStoreInstallmentText(product)
 
   if (variant === 'marketplace') {
     return (

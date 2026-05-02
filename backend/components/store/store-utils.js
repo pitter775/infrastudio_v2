@@ -5,6 +5,16 @@ export function formatStoreCurrency(price, currencyId = 'BRL') {
   })
 }
 
+export function formatStoreInstallmentText(product, fallbackQuantity = 12) {
+  const quantity = Number(product?.installmentQuantity ?? 0) || Number(fallbackQuantity ?? 0) || 0
+  const amount = Number(product?.installmentAmount ?? 0) || Number(product?.price ?? 0) / quantity
+  if (quantity <= 1 || !Number.isFinite(amount) || amount <= 0) {
+    return ''
+  }
+
+  return `${quantity}x ${formatStoreCurrency(amount, product?.currencyId)}`
+}
+
 function normalizeHexColor(value, fallback = '#155eef') {
   const input = String(value || '').trim()
   if (/^#[0-9a-f]{6}$/i.test(input)) {
