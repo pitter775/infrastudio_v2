@@ -72,15 +72,15 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
               />
             ) : null}
 
-            <div className="absolute left-2 top-2 flex max-w-[calc(100%-16px)] flex-wrap gap-1.5">
-              {visibleStatusLabel ? (
-                <span className="inline-flex rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur" style={{ backgroundColor: `${palette.accentDark}99` }}>
-                  {visibleStatusLabel}
+            <div className="absolute left-1 top-1 flex max-w-[calc(100%-8px)] flex-wrap gap-1">
+              {visibleCategoryLabel ? (
+                <span className="inline-flex max-w-full truncate rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md" style={{ backgroundColor: `${palette.accentDark}d9` }}>
+                  {visibleCategoryLabel}
                 </span>
               ) : null}
-              {visibleCategoryLabel ? (
-                <span className="inline-flex max-w-full truncate rounded-full px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.12em] text-white backdrop-blur" style={{ backgroundColor: `${palette.accent}8c` }}>
-                  {visibleCategoryLabel}
+              {!visibleCategoryLabel && visibleStatusLabel ? (
+                <span className="inline-flex rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white backdrop-blur-md" style={{ backgroundColor: `${palette.accentDark}d9` }}>
+                  {visibleStatusLabel}
                 </span>
               ) : null}
             </div>
@@ -103,13 +103,13 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
-                <div className="absolute bottom-2 left-2 right-2 flex justify-center gap-1 overflow-hidden rounded-[4px] bg-white/42 p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)] backdrop-blur-md">
-                  {images.slice(0, 6).map((thumbnail, index) => (
+                <div className="absolute bottom-2 left-2 right-2 grid grid-cols-5 gap-1 overflow-hidden rounded-[4px] bg-white/42 p-1 shadow-[0_4px_12px_rgba(0,0,0,0.08)] backdrop-blur-md">
+                  {images.slice(0, 5).map((thumbnail, index) => (
                     <button
                       type="button"
                       key={`${product.id}-marketplace-thumb-${index}`}
                       onClick={(event) => showImage(event, index)}
-                      className="relative h-8 w-8 shrink-0 overflow-hidden rounded-[3px] bg-white"
+                      className="relative aspect-square min-w-0 overflow-hidden rounded-[3px] bg-white"
                       aria-label={`Ver imagem ${index + 1}`}
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -198,15 +198,15 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
             <img src={image} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.06]" />
           ) : null}
 
-          <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-            {statusLabel ? (
-              <span className="inline-flex rounded-[10px] bg-[#155eef] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
-                {statusLabel}
+          <div className="absolute left-1 top-1 flex max-w-[calc(100%-8px)] flex-wrap gap-1">
+            {visibleCategoryLabel ? (
+              <span className="inline-flex max-w-full truncate rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md" style={{ backgroundColor: `${palette.accentDark}d9` }}>
+                {visibleCategoryLabel}
               </span>
             ) : null}
-            {visibleCategoryLabel ? (
-              <span className="inline-flex rounded-[10px] bg-[#3b82f6] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-white">
-                {visibleCategoryLabel}
+            {!visibleCategoryLabel && statusLabel ? (
+              <span className="inline-flex rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white backdrop-blur-md" style={{ backgroundColor: `${palette.accentDark}d9` }}>
+                {statusLabel}
               </span>
             ) : null}
           </div>
@@ -229,13 +229,13 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
-              <div className="absolute bottom-3 left-3 right-3 flex justify-center gap-1.5 overflow-hidden rounded-[6px] bg-white/42 p-1.5 shadow-[0_10px_20px_-14px_rgba(15,23,42,0.24)] backdrop-blur-md">
-                {images.slice(0, 6).map((thumbnail, index) => (
+              <div className="absolute bottom-3 left-3 right-3 grid grid-cols-5 gap-1.5 overflow-hidden rounded-[6px] bg-white/42 p-1.5 shadow-[0_10px_20px_-14px_rgba(15,23,42,0.24)] backdrop-blur-md">
+                {images.slice(0, 5).map((thumbnail, index) => (
                   <button
                     type="button"
                     key={`${product.id}-thumb-${index}`}
                     onClick={(event) => showImage(event, index)}
-                    className="relative h-10 w-10 shrink-0 overflow-hidden rounded-[4px] bg-white"
+                    className="relative aspect-square min-w-0 overflow-hidden rounded-[4px] bg-white"
                     aria-label={`Ver imagem ${index + 1}`}
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}

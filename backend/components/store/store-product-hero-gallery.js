@@ -71,7 +71,7 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
       </div>
 
       {images.length > 1 ? (
-        <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-8">
+        <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-8">
           {images.map((image, index) => (
             <button
               key={`${image}-${index}`}
