@@ -248,6 +248,7 @@ export function MercadoLivreStorefront({
   const [searchTerm, setSearchTerm] = useState(query)
   const [sortValue, setSortValue] = useState(sort)
   const [isSearching, setIsSearching] = useState(false)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
   const recommendedProducts = useMemo(() => {
@@ -299,6 +300,7 @@ export function MercadoLivreStorefront({
 
   useEffect(() => {
     setIsSearching(false)
+    setIsLoadingMore(false)
   }, [query, categoryId, sort, page])
 
   useEffect(() => {
@@ -417,7 +419,7 @@ export function MercadoLivreStorefront({
             {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
             <div className="absolute inset-0" style={heroStyle.overlay} />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
-              <div className="-mt-3 max-w-xl pr-14 lg:mt-0 lg:pr-0">
+              <div className="-mt-8 max-w-xl pr-14 lg:-mt-2 lg:pr-0">
                 <div className="inline-block max-w-full rounded-[10px] bg-white/54 px-5 py-4 shadow-[0_18px_46px_-34px_rgba(15,23,42,0.36)] backdrop-blur-md">
                 <h1
                   className="text-3xl font-normal leading-tight sm:text-4xl"
@@ -519,13 +521,16 @@ export function MercadoLivreStorefront({
                   <div className="mt-5 flex justify-center">
                     <button
                       type="button"
+                      disabled={isLoadingMore}
                       onClick={() => {
+                        setIsLoadingMore(true)
                         setIsSearching(true)
                         navigateStore(searchTerm, categoryId, sortValue, page + 1)
                       }}
-                      className="inline-flex h-10 items-center justify-center rounded-[4px] border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300"
+                      className="inline-flex h-10 items-center justify-center gap-2 rounded-[4px] border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 disabled:cursor-wait disabled:opacity-70"
                     >
-                      Carregar mais
+                      {isLoadingMore ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      {isLoadingMore ? 'Carregando' : 'Carregar mais'}
                     </button>
                   </div>
                 ) : null}
