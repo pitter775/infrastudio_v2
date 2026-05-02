@@ -206,6 +206,7 @@ export function MercadoLivreStorefront({
   const [sortValue, setSortValue] = useState(sort)
   const [isSearching, setIsSearching] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
+  const [autoSyncChecked, setAutoSyncChecked] = useState(false)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
   const recommendedProducts = useMemo(() => {
     return (featuredProducts.length ? featuredProducts : products).slice(0, 10)
@@ -280,6 +281,36 @@ export function MercadoLivreStorefront({
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  useEffect(() => {
+    if (autoSyncChecked || !store?.slug) {
+      return
+    }
+
+    const controller = new AbortController()
+
+    async function requestAutoSync() {
+      try {
+        const response = await fetch(`/api/public/loja/${encodeURIComponent(store.slug)}/snapshot-refresh`, {
+          method: 'POST',
+          cache: 'no-store',
+          signal: controller.signal,
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!controller.signal.aborted && response.ok && data?.changed === true) {
+          router.refresh()
+        }
+      } catch {}
+      finally {
+        if (!controller.signal.aborted) {
+          setAutoSyncChecked(true)
+        }
+      }
+    }
+
+    requestAutoSync()
+    return () => controller.abort()
+  }, [autoSyncChecked, router, store?.slug])
 
   function handleAnchorNavigation(event, href) {
     if (!href || !href.startsWith('#')) {
