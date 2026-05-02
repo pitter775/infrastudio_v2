@@ -1,7 +1,8 @@
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
-import { ChevronDown, ChevronLeft, FileText, Globe, Images, LayoutGrid, Package, Phone, Ruler, ShieldCheck, ShoppingBag, Sparkles, Store, Tag } from "lucide-react"
+import { ArrowLeft, ChevronDown, FileText, Images, LayoutGrid, Package, Ruler, ShoppingBag, Sparkles, Tag } from "lucide-react"
 
+import { StoreFooter } from "@/components/store/store-footer"
 import { StoreHeader } from "@/components/store/store-header"
 import { StoreProductActions } from "@/components/store/store-product-actions"
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
@@ -20,13 +21,6 @@ import {
 } from "@/lib/mercado-livre-store-core/seo"
 
 export const revalidate = 300
-
-const menuIconMap = {
-  topo: Store,
-  produtos: LayoutGrid,
-  sobre: Sparkles,
-  contato: Phone,
-}
 
 const HIDDEN_ATTRIBUTE_NAMES = new Set([
   "syi pymes id",
@@ -204,14 +198,6 @@ function buildDescriptionBlocks(product) {
     .filter(Boolean)
 }
 
-function handleFooterHref(storeSlug, href) {
-  if (!href || !href.startsWith("#")) {
-    return href || `/loja/${storeSlug}`
-  }
-
-  return href === "#topo" ? `/loja/${storeSlug}` : `/loja/${storeSlug}${href}`
-}
-
 function formatInstallmentText(product) {
   const quantity = Number(product?.installmentQuantity ?? 0) || 0
   const amount = Number(product?.installmentAmount ?? 0) || 0
@@ -353,15 +339,9 @@ function ProductPurchasePanel({
             {visibleCategoryLabel}
           </span>
         ) : null}
-        {result.product.status ? (
-          <span className="inline-flex items-center gap-2 rounded-[6px] px-3 py-1 text-[11px] uppercase tracking-[0.18em] shadow-[0_8px_16px_-14px_rgba(15,23,42,0.12)]" style={{ backgroundColor: palette.accentSoft, color: palette.accentDark }}>
-            <ShieldCheck className="h-3.5 w-3.5" />
-            {result.product.status}
-          </span>
-        ) : null}
       </div>
 
-      <h1 className="mt-4 text-2xl font-semibold leading-tight text-slate-950 sm:text-[2.35rem]">
+      <h1 className="mt-4 text-lg font-semibold leading-tight text-slate-950 sm:text-xl">
         {result.product.title}
       </h1>
 
@@ -560,13 +540,14 @@ export default async function LojaProdutoPage({ params }) {
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
           <StoreHeader store={result.store} activeSection="produtos" />
-          <div className="relative mx-auto max-w-7xl px-5 pb-8 pt-[112px] sm:px-7 md:pt-[108px] lg:px-10">
+          <div className="relative mx-auto max-w-7xl px-5 pb-4 pt-[88px] sm:px-7 md:pt-[88px] lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
-              className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full text-white shadow-[0_10px_24px_-18px_rgba(15,23,42,0.36)] transition hover:scale-105"
+              style={{ backgroundColor: palette.accentDark }}
+              aria-label="Voltar para a loja"
             >
-              <ChevronLeft className="h-4 w-4" />
-              Voltar para a loja
+              <ArrowLeft className="h-5 w-5" />
             </Link>
           </div>
         </section>
@@ -662,7 +643,7 @@ export default async function LojaProdutoPage({ params }) {
                 </Link>
               </div>
 
-              <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 {result.relatedProducts.map((product) => (
                   <StoreProductCard
                     key={product.slug}
@@ -678,40 +659,7 @@ export default async function LojaProdutoPage({ params }) {
             </section>
           </div>
         </main>
-        <footer className="mt-16" style={{ backgroundColor: palette.accentSoft }}>
-          <div className="mx-auto grid max-w-7xl gap-8 px-5 py-10 sm:px-7 lg:grid-cols-[1fr_auto] lg:px-10">
-            <div>
-              <div className="text-lg font-semibold text-slate-950">{result.store.name}</div>
-              <div className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">{result.store.footerText}</div>
-              <a
-                href="https://www.infrastudio.pro"
-                target="_blank"
-                rel="noreferrer"
-                className="mt-6 inline-flex flex-col items-start transition hover:opacity-100"
-              >
-                <span className="text-base font-semibold tracking-[-0.02em] text-slate-950">InfraStudio</span>
-                <span className="text-xs uppercase tracking-[0.18em] text-slate-500">Sistema e automacao com IA</span>
-              </a>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {result.store.menuLinks.map((item) => {
-                const sectionId = item.href.replace("#", "")
-                const Icon = menuIconMap[sectionId] || Globe
-
-                return (
-                  <Link
-                    key={`${item.label}-${item.href}-footer`}
-                    href={handleFooterHref(result.store.slug, item.href)}
-                    className="inline-flex items-center gap-2 text-sm text-slate-500 transition hover:text-slate-950"
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-        </footer>
+        <StoreFooter store={result.store} />
       </div>
       <StoreChatWidgetLoader config={widgetConfig} />
     </>

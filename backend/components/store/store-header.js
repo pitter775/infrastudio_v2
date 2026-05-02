@@ -73,7 +73,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
       className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
         resolvedHeaderSolid
           ? 'bg-[#f7f4ee]/92 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.14)] backdrop-blur-xl'
-          : 'bg-transparent shadow-none'
+          : 'bg-white/18 shadow-[0_14px_34px_-30px_rgba(15,23,42,0.28)] backdrop-blur-md'
       }`}
     >
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
@@ -91,7 +91,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
               )}
             </div>
             <div>
-              <div className="text-[1.02rem] font-semibold tracking-[-0.02em]" style={{ color: palette.accentDark }}>{store.name}</div>
+              <div className="text-[1.02rem] font-semibold tracking-[-0.02em]" style={{ color: palette.accentDark, textShadow: '0 2px 8px rgba(0,0,0,0.22)' }}>{store.name}</div>
             </div>
           </Link>
 

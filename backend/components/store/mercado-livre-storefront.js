@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AtSign, Camera, ChevronLeft, ChevronRight, Filter, Globe, LayoutGrid, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Store, Tag, Users } from 'lucide-react'
+import { AtSign, Camera, ChevronLeft, ChevronRight, Filter, Globe, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Tag, Users } from 'lucide-react'
 
 import { StoreHeader } from '@/components/store/store-header'
+import { StoreFooter } from '@/components/store/store-footer'
 import { StoreProductCard } from '@/components/store/store-product-card'
 import { StoreSnapshotRefresh } from '@/components/store/store-snapshot-refresh'
 import { AppSelect } from '@/components/ui/app-select'
@@ -258,12 +259,6 @@ export function MercadoLivreStorefront({
     youtube: Play,
     tiktok: Sparkles,
     x: AtSign,
-  }
-  const menuIconMap = {
-    topo: Store,
-    produtos: LayoutGrid,
-    sobre: Sparkles,
-    contato: Phone,
   }
   const hasCategoryContext = Boolean(categoryId && categoryLabel)
   const hasSearchContext = Boolean(query)
@@ -554,47 +549,7 @@ export function MercadoLivreStorefront({
           </SheetContent>
         </Sheet>
 
-        <footer className="border-t border-black/10" style={{ backgroundColor: palette.accentDark }}>
-          <div className="mx-auto grid max-w-[1228px] gap-6 px-3 py-8 sm:px-4 lg:grid-cols-[1fr_auto]">
-            <div>
-              <div className="flex items-center gap-4">
-                {store.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-16 w-16 rounded-2xl bg-white/10 p-2 object-contain" />
-                ) : (
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/14 text-lg font-semibold text-white">
-                    {store.name.slice(0, 2).toUpperCase()}
-                  </div>
-                )}
-                <div>
-                  <div className="text-lg font-semibold text-white">{store.name}</div>
-                  <div className="mt-2 max-w-2xl text-sm leading-6 text-white/72">{store.footerText}</div>
-                </div>
-              </div>
-              <a href="https://www.infrastudio.pro" target="_blank" rel="noreferrer" className="mt-4 inline-flex flex-col items-start transition hover:opacity-80">
-                <span className="text-sm font-semibold text-white">InfraStudio</span>
-                <span className="text-[11px] uppercase tracking-[0.16em] text-white/60">Sistema e automacao com IA</span>
-              </a>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              {store.menuLinks.map((item) => (
-                <a
-                  key={`${item.label}-${item.href}-footer`}
-                  href={item.href}
-                  onClick={(event) => handleAnchorNavigation(event, item.href)}
-                  className="inline-flex items-center gap-2 text-sm text-white/72 transition hover:text-white"
-                >
-                  {(() => {
-                    const sectionId = item.href.replace('#', '')
-                    const Icon = menuIconMap[sectionId] || Globe
-                    return <Icon className="h-4 w-4" />
-                  })()}
-                  {item.label}
-                </a>
-              ))}
-            </div>
-          </div>
-        </footer>
+        <StoreFooter store={store} samePageNavigation />
       </div>
     </>
   )

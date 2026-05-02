@@ -501,19 +501,19 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
   const related = await listSnapshotProductsByProjectId(storeResult.store.projectId, {
     supabase,
     page: 1,
-    limit: 4,
+    limit: 10,
     excludeSlug: product.slug,
     categoryId: product.categoryId || "",
   })
 
   const fallbackRelated =
-    related.items.length >= 4
+    related.items.length || product.categoryId
       ? related.items
       : (
           await listSnapshotProductsByProjectId(storeResult.store.projectId, {
             supabase,
             page: 1,
-            limit: 4,
+            limit: 10,
             excludeSlug: product.slug,
           })
         ).items
