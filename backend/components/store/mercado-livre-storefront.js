@@ -505,7 +505,7 @@ export function MercadoLivreStorefront({
                 <div className="mb-3 flex items-baseline gap-2.5">
                   <h2 className="text-[20px] font-normal leading-tight text-slate-700">Produtos recomendados</h2>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
                   {visibleProducts.map((product) => (
                     <StoreProductCard
                       key={`grid-${product.id}`}

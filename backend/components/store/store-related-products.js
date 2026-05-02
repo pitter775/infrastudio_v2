@@ -18,7 +18,7 @@ export function StoreRelatedProducts({ accentColor, products, storeSlug }) {
 
   return (
     <>
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="mt-6 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
         {visibleItems.map((product) => (
           <StoreProductCard
             key={product.slug}
