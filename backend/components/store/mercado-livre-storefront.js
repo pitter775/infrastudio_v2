@@ -133,6 +133,7 @@ function StoreSearchFilters({
   onSearchSubmit,
   onSortChange,
   searchTerm,
+  selectMenuPortalDisabled = false,
   setSearchTerm,
   sortOptions,
   sortValue,
@@ -167,6 +168,7 @@ function StoreSearchFilters({
             minHeight={38}
             tone="light"
             accentColor={accentColor}
+            disablePortal={selectMenuPortalDisabled}
           />
         ) : null}
         <AppSelect
@@ -177,6 +179,7 @@ function StoreSearchFilters({
           minHeight={38}
           tone="light"
           accentColor={accentColor}
+          disablePortal={selectMenuPortalDisabled}
         />
       </div>
     </form>
@@ -595,6 +598,7 @@ export function MercadoLivreStorefront({
                 onSearchSubmit={handleSearchSubmit}
                 onSortChange={handleSortChange}
                 searchTerm={searchTerm}
+                selectMenuPortalDisabled
                 setSearchTerm={setSearchTerm}
                 sortOptions={sortOptions}
                 sortValue={sortValue}

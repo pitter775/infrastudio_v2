@@ -92,9 +92,10 @@ export function AppSelect({
   tone = "dark",
   accentColor = "#0ea5e9",
   isSearchable = false,
+  disablePortal = false,
 }) {
   const selectedOption = options.find((option) => option.value === value) ?? null
-  const menuPortalTarget = typeof document !== "undefined" ? document.body : null
+  const menuPortalTarget = !disablePortal && typeof document !== "undefined" ? document.body : null
 
   return (
     <Select
@@ -107,7 +108,7 @@ export function AppSelect({
       isClearable={isClearable}
       isSearchable={isSearchable}
       menuPlacement={menuPlacement}
-      menuPosition="fixed"
+      menuPosition={disablePortal ? "absolute" : "fixed"}
       menuPortalTarget={menuPortalTarget}
       styles={buildStyles({ minHeight, tone, accentColor })}
       noOptionsMessage={() => "Nenhuma opcao"}
