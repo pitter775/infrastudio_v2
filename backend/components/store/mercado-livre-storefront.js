@@ -386,6 +386,27 @@ export function MercadoLivreStorefront({
           border-radius: 999px;
         }
 
+        @keyframes store-vitrine-reveal {
+          0% {
+            clip-path: inset(100% 0 0 0);
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+          }
+          55% {
+            clip-path: inset(0 0 0 0);
+            opacity: 0.28;
+          }
+          100% {
+            clip-path: inset(0 0 0 0);
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        .store-vitrine-mark {
+          animation: store-vitrine-reveal 1.15s ease-out 0.15s both;
+        }
+
       `}</style>
       <div className="min-h-screen scroll-smooth bg-slate-50 text-slate-950">
         <StoreHeader store={store} activeSection={activeSection} headerSolid={headerSolid} samePageNavigation />
@@ -438,7 +459,14 @@ export function MercadoLivreStorefront({
             </div>
           </section>
 
-          <section id="produtos" className="relative z-0 mx-auto -mt-4 max-w-[1228px] scroll-mt-24 px-3 sm:px-4 lg:px-3">
+          <div className="relative z-10 h-9 bg-slate-50">
+            <div className="absolute left-1/2 top-0 flex w-[190px] -translate-x-1/2 -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] bg-slate-50 px-4 pt-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/vitrini.png" alt="" loading="eager" decoding="async" className="store-vitrine-mark w-[160px] max-w-full object-contain" />
+            </div>
+          </div>
+
+          <section id="produtos" className="relative z-0 mx-auto max-w-[1228px] scroll-mt-24 px-3 sm:px-4 lg:px-3">
             {hasSearchContext || hasCategoryContext ? (
               <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
                 {hasSearchContext ? <span className="rounded-full bg-slate-100 px-3 py-1 text-slate-700">Busca: {query}</span> : null}
