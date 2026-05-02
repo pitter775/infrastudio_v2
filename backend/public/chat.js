@@ -68,6 +68,7 @@
         theme: script.getAttribute("data-theme") || "",
         accent: script.getAttribute("data-accent") || "",
         transparent: script.getAttribute("data-transparent"),
+        autoOpen: script.getAttribute("data-auto-open") || script.getAttribute("data-open") || "",
         apiBase: apiBase,
       };
     }
@@ -109,6 +110,7 @@
         payload.ui && typeof payload.ui.transparent === "boolean"
           ? String(payload.ui.transparent)
           : null,
+      autoOpen: script.getAttribute("data-auto-open") || script.getAttribute("data-open") || "",
       apiBase: apiBase,
     };
   }
@@ -148,6 +150,9 @@
     }
     if (config.transparent === "true" || config.transparent === "false") {
       script.setAttribute("data-transparent", config.transparent);
+    }
+    if (config.autoOpen) {
+      script.setAttribute("data-auto-open", config.autoOpen);
     }
 
     document.body.appendChild(script);

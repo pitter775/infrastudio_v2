@@ -547,19 +547,22 @@ export function MercadoLivreStorefront({
 
           <section id="sobre" className="mx-auto mt-12 grid max-w-[1228px] scroll-mt-24 gap-4 border-t border-slate-100 px-3 pt-8 sm:px-4 lg:grid-cols-[1.1fr_0.9fr] lg:px-3">
             <div className="rounded-[6px] bg-white p-4 shadow-[0_12px_30px_-28px_rgba(15,23,42,0.3)]">
-              <div className="flex items-start gap-4">
-                {store.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-20 w-20 shrink-0 rounded-2xl p-2 object-contain" />
-                ) : (
-                  <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-xl font-semibold text-slate-700">
-                    {store.name.slice(0, 2).toUpperCase()}
+              <div className="min-w-0">
+                <div className="text-[20px] font-normal leading-tight text-slate-700">Sobre {store.name}</div>
+                <div className="mt-3 text-sm leading-7 text-slate-700">{store.about}</div>
+                {socialEntries.length ? (
+                  <div className="mt-5 flex flex-wrap gap-2">
+                    {socialEntries.map(([key, value]) => (
+                      <a key={key} href={value} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-sm font-medium capitalize text-slate-900 transition hover:border-slate-300">
+                        {(() => {
+                          const Icon = socialIcons[key] || Globe
+                          return <Icon className="h-4 w-4" />
+                        })()}
+                        {key}
+                      </a>
+                    ))}
                   </div>
-                )}
-                <div className="min-w-0">
-                  <div className="text-[20px] font-normal leading-tight text-slate-700">Sobre {store.name}</div>
-                  <div className="mt-3 text-sm leading-7 text-slate-700">{store.about}</div>
-                </div>
+                ) : null}
               </div>
             </div>
             <div id="contato" className="rounded-[6px] bg-white p-4 shadow-[0_12px_30px_-28px_rgba(15,23,42,0.3)]">
@@ -569,18 +572,6 @@ export function MercadoLivreStorefront({
                 {store.contactPhone ? <div className="inline-flex items-center gap-3"><Phone className="h-4 w-4 text-slate-500" />{store.contactPhone}</div> : null}
                 {store.contactWhatsApp ? <div className="inline-flex items-center gap-3"><MessageCircle className="h-4 w-4 text-slate-500" />{store.contactWhatsApp}</div> : null}
                 {store.contactAddress ? <div className="inline-flex items-center gap-3"><MapPin className="h-4 w-4 text-slate-500" />{store.contactAddress}</div> : null}
-              </div>
-
-              <div className="mt-5 flex flex-wrap gap-2">
-                {socialEntries.map(([key, value]) => (
-                  <a key={key} href={value} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-sm font-medium capitalize text-slate-900 transition hover:border-slate-300">
-                    {(() => {
-                      const Icon = socialIcons[key] || Globe
-                      return <Icon className="h-4 w-4" />
-                    })()}
-                    {key}
-                  </a>
-                ))}
               </div>
             </div>
           </section>
