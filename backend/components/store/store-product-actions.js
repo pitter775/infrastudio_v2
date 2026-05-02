@@ -35,7 +35,7 @@ export function StoreProductActions({
           className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-[#ffe600] bg-[#ffe600] px-5 text-sm font-semibold text-[#333333] shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:bg-[#fff159] hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
         >
           <ExternalLink className="h-4 w-4" />
-          Comprar no Mercado Livre
+          Mercado Livre
         </a>
         <button
           type="button"

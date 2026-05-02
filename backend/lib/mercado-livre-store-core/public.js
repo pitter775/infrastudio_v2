@@ -506,17 +506,25 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
     categoryId: product.categoryId || "",
   })
 
-  const fallbackRelated =
-    related.items.length || product.categoryId
-      ? related.items
-      : (
-          await listSnapshotProductsByProjectId(storeResult.store.projectId, {
-            supabase,
-            page: 1,
-            limit: 10,
-            excludeSlug: product.slug,
-          })
-        ).items
+  let fallbackRelated = Array.isArray(related.items) ? related.items : []
+  if (fallbackRelated.length < 10) {
+    const latestRelated = await listSnapshotProductsByProjectId(storeResult.store.projectId, {
+      supabase,
+      page: 1,
+      limit: 10,
+      excludeSlug: product.slug,
+    })
+    const seenIds = new Set(fallbackRelated.map((item) => sanitizeText(item?.itemId || item?.id || item?.slug, 180)).filter(Boolean))
+    const extraItems = (Array.isArray(latestRelated.items) ? latestRelated.items : []).filter((item) => {
+      const itemKey = sanitizeText(item?.itemId || item?.id || item?.slug, 180)
+      if (!itemKey || seenIds.has(itemKey)) {
+        return false
+      }
+      seenIds.add(itemKey)
+      return true
+    })
+    fallbackRelated = [...fallbackRelated, ...extraItems].slice(0, 10)
+  }
 
   return {
     store: storeResult.store,

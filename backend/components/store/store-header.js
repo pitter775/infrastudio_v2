@@ -91,7 +91,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
               )}
             </div>
             <div>
-              <div className="text-[1.02rem] font-semibold tracking-[-0.02em]" style={{ color: palette.accentDark, textShadow: '0 2px 8px rgba(0,0,0,0.22)' }}>{store.name}</div>
+              <div className="text-[1.02rem] font-semibold tracking-[-0.02em]" style={{ color: palette.accentDark, textShadow: '0 2px 10px rgba(255,255,255,0.78)' }}>{store.name}</div>
             </div>
           </Link>
 

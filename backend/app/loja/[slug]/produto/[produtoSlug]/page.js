@@ -621,7 +621,7 @@ export default async function LojaProdutoPage({ params }) {
               <section className="relative mt-6 rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
                 {result.store.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={result.store.logoUrl} alt={result.store.name} loading="lazy" decoding="async" className="absolute right-6 top-6 hidden h-16 w-16 rounded-[8px] border border-slate-200 bg-white p-2 object-contain shadow-[0_10px_24px_-18px_rgba(15,23,42,0.32)] lg:block" />
+                  <img src={result.store.logoUrl} alt={result.store.name} loading="lazy" decoding="async" className="absolute right-0 top-0 hidden h-24 w-24 rounded-[8px] object-contain shadow-[0_10px_24px_-18px_rgba(15,23,42,0.32)] lg:block" />
                 ) : null}
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <FileText className="h-4 w-4" />

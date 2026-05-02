@@ -73,7 +73,8 @@ export function StoreFooter({ store, samePageNavigation = false }) {
                 key={`${item.label}-${item.href}-footer`}
                 href={resolveFooterHref(store.slug, item.href, samePageNavigation)}
                 onClick={(event) => handleAnchorNavigation(event, item.href)}
-                className="inline-flex items-center gap-2 text-sm text-slate-700 transition hover:text-slate-950"
+                className="inline-flex items-center gap-2 rounded-[8px] px-3 py-2 text-sm text-slate-700 transition hover:bg-[var(--store-footer-hover)] hover:text-slate-950"
+                style={{ '--store-footer-hover': palette.accentBorder }}
               >
                 <Icon className="h-4 w-4" />
                 {item.label}

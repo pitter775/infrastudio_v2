@@ -41,6 +41,7 @@ function buildStoreMetadata(store, options = {}) {
     : `/loja/${store.slug}`
   const canonical = buildAbsoluteStoreUrl(canonicalPath, store)
   const ogImage = buildAbsoluteStoreUrl(`/loja/${store.slug}/opengraph-image`, store)
+  const icon = store.logoUrl || "/favicon.ico"
   const baseDescription =
     String(store.headline || "").trim() ||
     `Conheca ${store.name} e veja os produtos com atendimento direto pelo chat.`
@@ -60,6 +61,11 @@ function buildStoreMetadata(store, options = {}) {
     description,
     alternates: {
       canonical,
+    },
+    icons: {
+      icon,
+      shortcut: icon,
+      apple: icon,
     },
     robots: query
       ? {
@@ -94,12 +100,18 @@ function buildStoreProductMetadata(store, product) {
   const canonical = buildAbsoluteStoreUrl(buildStoreProductPath(store, product), store)
   const description = `Veja preco e detalhes de ${product.title}. Atendimento direto pelo chat.`
   const ogImage = product.thumbnail || store.logoUrl || null
+  const icon = store.logoUrl || "/favicon.ico"
 
   return {
     title: `${product.title} | ${store.name}`,
     description,
     alternates: {
       canonical,
+    },
+    icons: {
+      icon,
+      shortcut: icon,
+      apple: icon,
     },
     openGraph: {
       title: `${product.title} | ${store.name}`,

@@ -21,6 +21,28 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
   const rowRef = useRef(null)
   const palette = buildStoreAccentPalette(accentColor)
 
+  useEffect(() => {
+    if (!products.length) {
+      return
+    }
+
+    const interval = window.setInterval(() => {
+      const row = rowRef.current
+      if (!row) {
+        return
+      }
+
+      const nextLeft = row.scrollLeft + Math.max(260, row.clientWidth * 0.86)
+      const shouldReset = nextLeft + row.clientWidth >= row.scrollWidth - 8
+      row.scrollTo({
+        left: shouldReset ? 0 : nextLeft,
+        behavior: 'smooth',
+      })
+    }, 10000)
+
+    return () => window.clearInterval(interval)
+  }, [products.length])
+
   if (!products.length) {
     return null
   }
@@ -51,7 +73,7 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
 
   return (
     <section className="mt-[30px]">
-      <div className="mb-3 flex items-baseline gap-2.5">
+      <div className="mb-1 flex items-baseline gap-2.5">
         <h2 className="text-[20px] font-normal leading-tight text-slate-700">{title}</h2>
       </div>
       <div className="relative">

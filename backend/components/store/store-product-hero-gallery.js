@@ -63,8 +63,8 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
               key={`${image}-${index}`}
               type="button"
               onClick={() => setActiveIndex(index)}
-              className="overflow-hidden rounded-[6px] border bg-transparent transition hover:shadow-[0_8px_18px_-12px_rgba(15,23,42,0.34)]"
-              style={{ borderColor: index === safeActiveIndex ? `${accentColor}88` : 'transparent' }}
+              className="overflow-hidden rounded-[6px] border-[3px] bg-transparent transition hover:shadow-[0_8px_18px_-12px_rgba(15,23,42,0.34)]"
+              style={{ borderColor: index === safeActiveIndex ? `${accentColor}55` : 'transparent' }}
               aria-label={`Ver imagem ${index + 1}`}
             >
               <div className="aspect-square overflow-hidden rounded-[6px]">
