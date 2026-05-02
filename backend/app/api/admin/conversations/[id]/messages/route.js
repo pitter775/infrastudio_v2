@@ -1,5 +1,5 @@
 import { recordJsonApiUsage } from "@/lib/api-usage-metrics"
-import { appendAdminConversationMessage, getAdminConversationDetail } from "@/lib/admin-conversations"
+import { appendAdminConversationMessage, getAdminConversationDetail, resolveAdminReplyChannel } from "@/lib/admin-conversations"
 import { claimHumanHandoff, touchHumanHandoff } from "@/lib/chat-handoffs"
 import { getChatById } from "@/lib/chats"
 import { getSessionUser } from "@/lib/session"
@@ -137,7 +137,8 @@ export async function POST(request, { params }) {
   })
   await touchHumanHandoff({ chatId: chat.id })
 
-  const message = await appendAdminConversationMessage(id, texto, body.attachments, user)
+  const replyChannel = await resolveAdminReplyChannel(chat)
+  const message = await appendAdminConversationMessage(id, texto, body.attachments, user, { canal: replyChannel })
 
   if (message === false) {
     const payload = { success: false, error: "Acesso negado" }
@@ -169,7 +170,7 @@ export async function POST(request, { params }) {
     return Response.json(payload, { status: 404 })
   }
 
-  const whatsappTarget = chat.canal === "whatsapp" ? getWhatsAppReplyTarget(chat) : null
+  const whatsappTarget = replyChannel === "whatsapp" ? getWhatsAppReplyTarget(chat) : null
   const whatsappDelivery =
     whatsappTarget && texto
       ? await sendWhatsAppTextMessage({

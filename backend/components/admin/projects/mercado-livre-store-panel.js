@@ -32,6 +32,9 @@ const DEFAULT_MENU_LINKS = [
 
 const DEFAULT_VISUAL_CONFIG = {
   logoStoragePath: '',
+  catalog: {
+    useLatestProducts: true,
+  },
   hero: {
     backgroundMode: 'solid',
     imageUrl: '',
@@ -133,8 +136,14 @@ async function optimizeLogoFile(file) {
 
 function buildVisualConfig(store) {
   const hero = store?.visualConfig?.hero || {}
+  const catalog = store?.visualConfig?.catalog || {}
   return {
     logoStoragePath: store?.visualConfig?.logoStoragePath || '',
+    catalog: {
+      ...DEFAULT_VISUAL_CONFIG.catalog,
+      ...catalog,
+      useLatestProducts: catalog.useLatestProducts !== false,
+    },
     hero: {
       ...DEFAULT_VISUAL_CONFIG.hero,
       ...hero,
@@ -760,6 +769,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           catalogLoading={catalogLoading}
           catalogQuery={catalogQuery}
           draft={draft}
+          setDraft={setDraft}
           snapshot={snapshot}
           snapshotLoading={snapshotLoading}
           snapshotSyncing={snapshotSyncing}

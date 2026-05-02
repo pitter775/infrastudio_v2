@@ -339,6 +339,8 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
 
 function MessageBubble({ message, isAdmin = false }) {
   const isAgent = message.autor === "atendente"
+  const originLabel = message.origem === "whatsapp" || message.canal === "whatsapp" ? "WhatsApp" : "Site"
+  const OriginIcon = originLabel === "WhatsApp" ? MessageSquareText : Globe
   const [showAiTrace, setShowAiTrace] = useState(false)
   const trace = message.observability
   const canShowAiTrace = isAdmin && trace
@@ -512,7 +514,13 @@ function MessageBubble({ message, isAdmin = false }) {
             })}
           </div>
         ) : null}
-        <div className={cn("mt-3 text-[10px]", timeClassName)}>{message.horario}</div>
+        <div className={cn("mt-3 flex items-center gap-2 text-[10px]", timeClassName)}>
+          <span>{message.horario}</span>
+          <span className="inline-flex items-center gap-1 rounded-full border border-white/10 px-1.5 py-0.5">
+            <OriginIcon className="h-2.5 w-2.5" />
+            {originLabel}
+          </span>
+        </div>
       </div>
     </div>
   )

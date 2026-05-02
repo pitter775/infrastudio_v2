@@ -11,7 +11,7 @@ const PRODUCT_RELATED_LIMIT = 50
 
 function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
-  return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message)
+  return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message) || /ml_date_created/i.test(message) || /ml_last_updated/i.test(message)
 }
 
 function productNeedsLiveDetails(product) {
@@ -57,8 +57,8 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
           ? snapshotProduct.images.filter(Boolean)
           : []),
     permalink: snapshotProduct.permalink || liveProduct.permalink,
-    status: snapshotProduct.status || liveProduct.status,
-    stock: snapshotProduct.stock || liveProduct.stock || 0,
+    status: liveProduct.status || snapshotProduct.status,
+    stock: Number(liveProduct.availableQuantity ?? liveProduct.stock ?? snapshotProduct.stock ?? 0) || 0,
     categoryId: snapshotProduct.categoryId || liveProduct.categoryId,
     categoryLabel: snapshotProduct.categoryLabel || liveProduct.categoryLabel || liveProduct.categoryName,
     shortDescription: snapshotProduct.shortDescription || liveProduct.shortDescription || "",
@@ -159,7 +159,7 @@ async function resolveFeaturedProducts(project, store, options = {}) {
 
   let { data, error } = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, updated_at")
+    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, ml_date_created, ml_last_updated, updated_at")
     .eq("projeto_id", project.id)
     .in("ml_item_id", itemIds)
     .eq("status", "active")
@@ -500,6 +500,14 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
     }
   }
 
+  if (!isStoreProductAvailable(product)) {
+    return {
+      store: storeResult.store,
+      product: null,
+      relatedProducts: [],
+    }
+  }
+
   const related = await listSnapshotProductsByProjectId(storeResult.store.projectId, {
     supabase,
     page: 1,
@@ -532,6 +540,11 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
     store: storeResult.store,
     product,
     relatedProducts: fallbackRelated,
+    filters: storeResult.filters || {
+      categoryId: "",
+      sort: "recent",
+      categories: [],
+    },
   }
 }
 

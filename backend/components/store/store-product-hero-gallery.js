@@ -36,11 +36,11 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
           animation: store-gallery-fade 220ms ease-out both;
         }
       `}</style>
-      <div className="relative overflow-hidden rounded-[8px]">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-[8px]">
+      <div className="relative overflow-hidden rounded-[8px] bg-white">
+        <div className="relative aspect-[4/3] overflow-hidden rounded-[8px] bg-white">
           {activeImage ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={activeImage} src={activeImage} alt={title} loading="lazy" decoding="async" className="store-gallery-active-image h-full w-full object-cover" />
+            <img key={activeImage} src={activeImage} alt={title} loading="eager" decoding="async" fetchPriority="high" className="store-gallery-active-image h-full w-full object-contain" />
           ) : (
             <div className="flex h-full items-center justify-center text-slate-400">
               <ImageIcon className="h-8 w-8" />

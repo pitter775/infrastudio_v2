@@ -54,6 +54,11 @@ function sanitizeNumber(value, fallback = 0) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function parseMercadoLivreDate(value) {
+  const parsed = Date.parse(sanitizeString(value))
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
 function sanitizePositiveNumber(value) {
   if (value == null || value === "") {
     return null
@@ -61,6 +66,12 @@ function sanitizePositiveNumber(value) {
 
   const parsed = Number(value)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
+}
+
+export function isMercadoLivreSellableItem(item) {
+  const status = sanitizeString(item?.status).toLowerCase()
+  const availableQuantity = sanitizeNumber(item?.availableQuantity, 0)
+  return status === "active" && availableQuantity > 0
 }
 
 function mapSnapshotAttributesToMercadoLivre(attributes = []) {
@@ -108,6 +119,8 @@ function mapSnapshotProductToMercadoLivreItem(product) {
     availableQuantity: sanitizeNumber(product?.stock, 0),
     status: sanitizeString(product?.status || "active"),
     permalink: sanitizeString(product?.permalink),
+    dateCreated: sanitizeString(product?.mercadoLivreDateCreated || product?.dateCreated),
+    lastUpdated: sanitizeString(product?.mercadoLivreLastUpdated || product?.lastUpdated),
     thumbnail: sanitizeString(product?.thumbnail || pictures[0]),
     sellerId: "",
     sellerName: "",
@@ -1422,6 +1435,7 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
 
       const loadedItems = await loadMercadoLivreItems(itemIds, accessToken, deps)
       const rankedItems = loadedItems
+        .filter(isMercadoLivreSellableItem)
         .filter((item) => !excludedItemIds.includes(sanitizeString(item?.id)))
         .filter((item) => priceMaxExclusive == null || sanitizeNumber(item?.price, Number.POSITIVE_INFINITY) < priceMaxExclusive)
         .map((item) => ({
@@ -1435,6 +1449,13 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
           }
           if (priceMaxExclusive != null) {
             return sanitizeNumber(left.price, Number.POSITIVE_INFINITY) - sanitizeNumber(right.price, Number.POSITIVE_INFINITY)
+          }
+          if (sort === "recent") {
+            const rightDate = parseMercadoLivreDate(right.dateCreated || right.lastUpdated)
+            const leftDate = parseMercadoLivreDate(left.dateCreated || left.lastUpdated)
+            if (rightDate !== leftDate) {
+              return rightDate - leftDate
+            }
           }
           return String(left.title || "").localeCompare(String(right.title || ""), "pt-BR")
         })
@@ -1528,10 +1549,12 @@ export async function listMercadoLivreItemsForProject(project, options = {}, dep
         )
       }
 
-      const normalizedItems = items.map((item) => ({
-        ...item,
-        categoryName: item.categoryName || categoryNameMap.get(sanitizeString(item.categoryId)) || "",
-      }))
+      const normalizedItems = items
+        .filter(isMercadoLivreSellableItem)
+        .map((item) => ({
+          ...item,
+          categoryName: item.categoryName || categoryNameMap.get(sanitizeString(item.categoryId)) || "",
+        }))
 
       return {
         items: normalizedItems,
@@ -1614,7 +1637,7 @@ export async function getMercadoLivreLiveProductByProjectId(projectId, itemId, d
       return { item, error: null }
     })
 
-    return result?.item || null
+    return isMercadoLivreSellableItem(result?.item) ? result.item : null
   } catch (error) {
     console.error("[mercado-livre] failed to load live product for public store", error)
     return null

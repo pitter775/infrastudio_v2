@@ -350,6 +350,7 @@ export function StoreFeaturedSection({
   catalogLoading,
   catalogQuery,
   draft,
+  setDraft,
   snapshot,
   snapshotLoading,
   snapshotSyncing,
@@ -361,6 +362,7 @@ export function StoreFeaturedSection({
 }) {
   const latestProducts = Array.isArray(snapshot?.latestProducts) ? snapshot.latestProducts : []
   const isSnapshotEmpty = !snapshotLoading && Number(snapshot?.total || 0) === 0
+  const useLatestProducts = draft.visualConfig?.catalog?.useLatestProducts !== false
 
   return (
     <div className="grid gap-4">
@@ -403,7 +405,33 @@ export function StoreFeaturedSection({
 
       {latestProducts.length ? (
         <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-          <div className="text-sm font-semibold text-white">Ultimos produtos do snapshot</div>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-white">Ultimos produtos do snapshot</div>
+              <div className="mt-1 text-xs leading-5 text-slate-400">
+                Quando ativado, a home usa os ultimos produtos adicionados no Mercado Livre no bloco principal.
+              </div>
+            </div>
+            <StorePanelToggle
+              checked={useLatestProducts}
+              onChange={(value) =>
+                setDraft((current) => ({
+                  ...current,
+                  visualConfig: {
+                    ...(current.visualConfig || {}),
+                    catalog: {
+                      ...(current.visualConfig?.catalog || {}),
+                      useLatestProducts: value,
+                    },
+                  },
+                }))
+              }
+              labelOn="Ligado"
+              labelOff="Desligado"
+            >
+              Usar ultimos adicionados
+            </StorePanelToggle>
+          </div>
           <div className="grid gap-2">
             {latestProducts.map((item) => (
               <div key={item.ml_item_id || item.slug} className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-[#0a1020] px-3 py-3">

@@ -54,7 +54,7 @@ import {
   requestAutoPauseHandoff,
   requestHumanHandoff,
 } from "@/lib/chat-handoffs"
-import { createChat, findActiveChatByChannel, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier } from "@/lib/chats"
+import { createChat, findActiveChatByChannel, findActiveChatByContactPhone, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier } from "@/lib/chats"
 import { getChatWidgetById, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
@@ -471,6 +471,24 @@ export function mergeContext(base, ...extras) {
   )
 }
 
+function mergeStateContext(base, ...extras) {
+  function mergeValue(current, next) {
+    if (!isPlainObject(current) || !isPlainObject(next)) {
+      return next
+    }
+
+    return Object.entries(next).reduce(
+      (accumulator, [key, value]) => ({
+        ...accumulator,
+        [key]: mergeValue(accumulator[key], value),
+      }),
+      { ...current }
+    )
+  }
+
+  return extras.filter(Boolean).reduce((accumulator, extra) => mergeValue(accumulator, extra), base ?? {})
+}
+
 export function normalizeChannelKind(body) {
   if (typeof body?.canal === "string" && body.canal.trim()) {
     return body.canal.trim()
@@ -596,7 +614,7 @@ export function normalizeExternalIdentifier(body, channelKind) {
 }
 
 export function buildNextContext(input) {
-  const mergedCurrentContext = mergeContext(input.currentContext, input.extraContext)
+  const mergedCurrentContext = mergeStateContext(input.currentContext, input.extraContext)
   const enrichedContext = input.enrichLeadContext(
     mergedCurrentContext,
     input.history.map((item) => ({ role: item.role, content: item.conteudo })),
@@ -1473,6 +1491,7 @@ export function buildFallbackChatTitle(input) {
 export async function ensureActiveChatSession(input, deps = {}) {
   const loadChatById = deps.getChatById ?? getChatById
   const findChatByChannel = deps.findActiveChatByChannel ?? findActiveChatByChannel
+  const findChatByContactPhone = deps.findActiveChatByContactPhone ?? findActiveChatByContactPhone
   const findWhatsAppChatByPhone = deps.findActiveWhatsAppChatByPhone ?? findActiveWhatsAppChatByPhone
   const createChatRecord = deps.createChat ?? createChat
 
@@ -1508,6 +1527,17 @@ export async function ensureActiveChatSession(input, deps = {}) {
           agenteId: preferredAgentId,
           phone: fallbackPhone,
           channelScopeId: input.whatsappChannelId ?? null,
+        })
+      }
+    }
+
+    if (!chat) {
+      const fallbackPhone = input.contactSnapshot?.contatoTelefone ?? input.normalizedExternalIdentifier
+      if (fallbackPhone) {
+        chat = await findChatByContactPhone({
+          projetoId: input.resolved.projeto.id,
+          agenteId: preferredAgentId,
+          phone: fallbackPhone,
         })
       }
     }

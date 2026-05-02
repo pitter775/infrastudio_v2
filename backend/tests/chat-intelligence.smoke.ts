@@ -61,6 +61,7 @@ import {
   finalizeV2AiTurn,
   findChatByChannelScope,
   findChatByWhatsAppPhone,
+  findActiveChatByContactPhone,
   filterAdminLogs,
   getAdminTestAgentId,
   getChatContext,
@@ -70,6 +71,8 @@ import {
   hasSupabaseServerEnv,
   isCatalogLoadMoreMessage,
   isCatalogSearchMessage,
+  isMercadoLivreSellableItem,
+  isStoreProductAvailable,
   isGreetingOrAckMessage,
   isHumanHandoffIntent,
   isLikelyLeadNameReply,
@@ -116,6 +119,7 @@ import {
   requestRuntimeHumanHandoff,
   estimateOpenAICostUsd,
   resolvePricingModel,
+  resolveAdminReplyChannelFromMessages,
   sortFeedbacks,
 } from "@/tests/chat-source";
 import {
@@ -4605,6 +4609,14 @@ const tests: TestCase[] = [
           },
         } as never,
         {
+          classifySemanticIntentStage: async () => ({
+            intent: "current_product_question",
+            confidence: 0.94,
+            reason: "Cliente perguntou sobre entrega do produto em foco.",
+            targetFactHints: ["frete"],
+            factScope: "shipping",
+            usedLlm: true,
+          }),
           resolveMercadoLivreProductById: async () => ({
             item: {
               id: "MLB2",
@@ -4934,6 +4946,150 @@ const tests: TestCase[] = [
       assert.equal(receivedSearchTerm, "Saleiros")
       assert.deepEqual(receivedExcludeItemIds, ["MLB-SALEIRO-ATUAL"])
       assert.match(result.reply, /encontrei 1 produto/i)
+    },
+  },
+  {
+    name: "whatsapp busca outros produtos pelo tipo sem repetir produto atual",
+    run: async () => {
+      let receivedSearchTerm = ""
+      let receivedExcludeItemIds: string[] = []
+
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem outros produtos de jogo de jantar ?" }] as never,
+        {
+          agente: {
+            id: "agent-mercado-livre-whatsapp-alternatives",
+            nome: "Loja Reliquias",
+            promptBase: "Venda de forma consultiva.",
+          },
+          projeto: {
+            id: "proj-mercado-livre-whatsapp-alternatives",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          channel: {
+            kind: "whatsapp",
+            external_id: "5511999999999",
+          },
+          whatsapp: {
+            phone: "5511999999999",
+            contactName: "Cliente WhatsApp",
+          },
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "product_detail",
+            productSlug: "jogo-bule-leiteira-cha-porcelana-renner-floral",
+          },
+          conversation: {
+            mode: "product_detail",
+          },
+          ui: {
+            productDetailPreferred: true,
+          },
+          catalogo: {
+            focusMode: "product_focus",
+            catalogState: "product_locked",
+            produtoAtual: {
+              id: "MLB-ATUAL-JANTAR",
+              nome: "Jogo Bule E Leiteira E Cha Porcelana Renner Floral Laranja Branco Floral",
+              descricao: "R$ 550,00 - 1 unidade em estoque",
+              preco: 550,
+              categoriaLabel: "Jogo de jantar",
+              atributos: [{ nome: "Material", valor: "Porcelana" }],
+            },
+            productFocus: {
+              productId: "MLB-ATUAL-JANTAR",
+              source: "mercado_livre",
+              sourceListingSessionId: "listing-jantar-1",
+            },
+            listingSession: {
+              id: "listing-jantar-1",
+              searchTerm: "jogo de jantar",
+              total: 1,
+              nextOffset: 24,
+              poolLimit: 24,
+              hasMore: true,
+            },
+            ultimosProdutos: [
+              {
+                id: "MLB-ATUAL-JANTAR",
+                nome: "Jogo Bule E Leiteira E Cha Porcelana Renner Floral Laranja Branco Floral",
+                preco: 550,
+              },
+            ],
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "catalog_alternative_search",
+            confidence: 0.96,
+            reason: "Cliente pediu outras opcoes do mesmo tipo no WhatsApp.",
+            targetType: "jogo de jantar",
+            relation: "same_type",
+            priceConstraint: "any",
+            excludeCurrentProduct: true,
+            usedLlm: true,
+          }),
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            receivedSearchTerm = String(options.searchTerm || "")
+            receivedExcludeItemIds = Array.isArray(options.excludeItemIds) ? options.excludeItemIds.map(String) : []
+            return {
+              items: [
+                {
+                  id: "MLB-JANTAR-2",
+                  title: "Jogo De Jantar Porcelana Floral 20 Pecas",
+                  price: 489.9,
+                  currencyId: "BRL",
+                  availableQuantity: 2,
+                  permalink: "https://example.com/jogo-jantar-2",
+                  thumbnail: "https://example.com/jogo-jantar-2.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Reliquias",
+                  attributes: [{ id: "TIPO", name: "Tipo", valueName: "Jogo de jantar" }],
+                },
+                {
+                  id: "MLB-JANTAR-3",
+                  title: "Aparelho De Jantar Porcelana Vintage",
+                  price: 529.9,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/jogo-jantar-3",
+                  thumbnail: "https://example.com/jogo-jantar-3.jpg",
+                  sellerId: "seller-1",
+                  sellerName: "Reliquias",
+                  attributes: [{ id: "TIPO", name: "Tipo", valueName: "Jogo de jantar" }],
+                },
+              ],
+              connector: {
+                config: {
+                  oauthNickname: "Reliquias",
+                },
+              },
+              paging: {
+                total: 2,
+                offset: 0,
+                nextOffset: 24,
+                poolLimit: 24,
+                hasMore: false,
+              },
+              error: null,
+            }
+          },
+        },
+      )
+
+      assert.equal(result.metadata.domainStage, "catalog")
+      assert.equal(result.metadata.semanticIntent?.intent, "catalog_alternative_search")
+      assert.equal(result.metadata.catalogDiagnostics?.catalogDecision?.kind, "catalog_alternative_search")
+      assert.equal(receivedSearchTerm, "jogo de jantar")
+      assert.deepEqual(receivedExcludeItemIds, ["MLB-ATUAL-JANTAR"])
+      assert.match(result.reply, /encontrei 2 opcoes/i)
+      assert.equal(result.assets?.[0]?.nome, "Jogo De Jantar Porcelana Floral 20 Pecas")
+      assert.equal(result.assets?.[0]?.targetUrl, "https://example.com/jogo-jantar-2")
+      assert.doesNotMatch(result.reply, /Jogo Bule E Leiteira/i)
     },
   },
   {
@@ -6846,6 +7002,77 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "whatsapp renderiza alternativas curtas sem repetir produto atual",
+    run: () => {
+      const currentProductId = "MLB-ATUAL-JANTAR"
+      const sequence = buildWhatsAppMessageSequence(
+        "Encontrei 2 opcoes.",
+        [
+          {
+            id: "MLB-JANTAR-2",
+            kind: "product",
+            provider: "mercado_livre",
+            nome: "Jogo De Jantar Porcelana Floral 20 Pecas",
+            targetUrl: "https://produto.mercadolivre.com.br/MLB-JANTAR-2",
+            metadata: { availableQuantity: 2 },
+          },
+          {
+            id: "MLB-JANTAR-3",
+            kind: "product",
+            provider: "mercado_livre",
+            nome: "Aparelho De Jantar Porcelana Vintage",
+            targetUrl: "https://produto.mercadolivre.com.br/MLB-JANTAR-3",
+            metadata: { availableQuantity: 1 },
+          },
+        ].filter((asset) => asset.id !== currentProductId)
+      )
+
+      const joined = sequence.join("\n\n")
+      assert.equal(sequence.length, 4)
+      assert.match(sequence[1], /^\*1\.\s+Jogo De Jantar Porcelana Floral 20 Pecas\*/i)
+      assert.match(sequence[2], /^\*2\.\s+Aparelho De Jantar Porcelana Vintage\*/i)
+      assert.match(joined, /https:\/\/produto\.mercadolivre\.com\.br\/MLB-JANTAR-2/)
+      assert.doesNotMatch(joined, /MLB-ATUAL-JANTAR/)
+      assert.match(sequence[3], /responda MAIS/i)
+    },
+  },
+  {
+    name: "mercado livre disponibilidade publica bloqueia pausado e vendido",
+    run: () => {
+      assert.equal(isStoreProductAvailable({ status: "active", stock: 1 }), true)
+      assert.equal(isStoreProductAvailable({ status: "paused", stock: 4 }), false)
+      assert.equal(isStoreProductAvailable({ status: "closed", stock: 4 }), false)
+      assert.equal(isStoreProductAvailable({ status: "active", stock: 0 }), false)
+      assert.equal(isMercadoLivreSellableItem({ status: "active", availableQuantity: 1 }), true)
+      assert.equal(isMercadoLivreSellableItem({ status: "paused", availableQuantity: 5 }), false)
+      assert.equal(isMercadoLivreSellableItem({ status: "active", availableQuantity: 0 }), false)
+    },
+  },
+  {
+    name: "atendimento admin mostra origem da mensagem e responde pelo canal mais recente",
+    run: () => {
+      const message = mapAdminConversationMessage({
+        id: "msg-wa-1",
+        role: "user",
+        conteudo: "tem outros produtos?",
+        canal: "whatsapp",
+        metadata: {},
+        createdAt: "2026-05-02T10:00:00.000Z",
+      })
+
+      const replyChannel = resolveAdminReplyChannelFromMessages(
+        { id: "chat-1", canal: "web" },
+        [
+          { canal: "whatsapp", createdAt: "2026-05-02T10:00:00.000Z" },
+        ]
+      )
+
+      assert.equal(message.canal, "whatsapp")
+      assert.equal(message.origem, "whatsapp")
+      assert.equal(replyChannel, "whatsapp")
+    },
+  },
+  {
     name: "whatsapp envia produto de api com link limpo e comentario comercial",
     run: () => {
       const sequence = buildWhatsAppMessageSequence(
@@ -6990,6 +7217,7 @@ const tests: TestCase[] = [
           lead: { identificado: false },
         },
         {
+          lead: { telefone: "5511999999999" },
           whatsapp: {
             contactName: "Julia Rodrigues",
             profilePicUrl: "https://example.com/julia.jpg",
@@ -7004,6 +7232,27 @@ const tests: TestCase[] = [
       assert.equal(avatar, "https://example.com/julia.jpg")
       assert.equal(snapshot.contatoNome, "Julia Rodrigues")
       assert.equal(snapshot.contatoTelefone, "5511999999999")
+
+      const nextContext = buildNextContext({
+        currentContext: {
+          catalogo: {
+            listingSession: { id: "list-1", searchTerm: "jogo de jantar" },
+            productFocus: { productId: "MLB123" },
+          },
+        },
+        extraContext: {
+          lead: { telefone: "5511999999999" },
+          catalogo: {},
+        },
+        history: [],
+        message: "oi",
+        channelKind: "whatsapp",
+        normalizedExternalIdentifier: "5511999999999",
+        enrichLeadContext: (context: any) => context,
+      })
+
+      assert.equal(nextContext.catalogo.listingSession.id, "list-1")
+      assert.equal(nextContext.catalogo.productFocus.productId, "MLB123")
     },
   },
   {
@@ -7488,6 +7737,7 @@ const tests: TestCase[] = [
           }),
           findActiveChatByChannel: async () => null,
           findActiveWhatsAppChatByPhone: async () => null,
+          findActiveChatByContactPhone: async () => null,
           createChat: async (payload: any) => ({ id: "chat-11", projetoId: "proj-11", ...payload }),
           uploadChatAttachmentPayloads: async () => [],
           appendMessage: async () => ({ id: "msg-user-11" }),
@@ -7966,6 +8216,7 @@ const tests: TestCase[] = [
         {
           findActiveChatByChannel: async () => ({ id: "chat-existing" }),
           findActiveWhatsAppChatByPhone: async () => null,
+          findActiveChatByContactPhone: async () => null,
           createChat: async () => ({ id: "chat-created" }),
         }
       )
@@ -7983,6 +8234,7 @@ const tests: TestCase[] = [
         {
           findActiveChatByChannel: async () => null,
           findActiveWhatsAppChatByPhone: async () => null,
+          findActiveChatByContactPhone: async () => null,
           createChat: async (payload: any) => ({
             id: "chat-created",
             ...payload,
@@ -8001,6 +8253,49 @@ const tests: TestCase[] = [
       assert.equal(created.chat.id, "chat-created")
       assert.equal(created.created, true)
       assert.equal(created.initialContext.channel.external_id, "5511999999999")
+
+      const crossChannel = await ensureActiveChatSession(
+        {
+          resolved,
+          channelKind: "whatsapp",
+          normalizedExternalIdentifier: "11999999999",
+          whatsappChannelId: "wa-20",
+          contactSnapshot,
+          message: "tem outros produtos desse tipo?",
+          extraContext: {
+            whatsapp: {
+              channelId: "wa-20",
+              remotePhone: "5511999999999",
+              contactName: "Julia Rodrigues",
+            },
+          },
+        },
+        {
+          findActiveChatByChannel: async () => null,
+          findActiveWhatsAppChatByPhone: async () => null,
+          findActiveChatByContactPhone: async (payload: any) => {
+            assert.equal(payload.projetoId, "proj-20")
+            assert.equal(payload.agenteId, "agent-20")
+            assert.equal(payload.phone, "5511999999999")
+            return {
+              id: "chat-widget-existing",
+              canal: "web",
+              contexto: {
+                catalogo: {
+                  listingSession: { id: "list-1", searchTerm: "jogo de cha" },
+                  productFocus: { productId: "MLB123" },
+                },
+              },
+            }
+          },
+          createChat: async () => {
+            throw new Error("nao deveria criar chat quando telefone ja existe")
+          },
+        }
+      )
+
+      assert.equal(crossChannel.chat.id, "chat-widget-existing")
+      assert.equal(crossChannel.created, false)
     },
   },
   {

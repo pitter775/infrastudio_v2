@@ -3,36 +3,42 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { isStoreProductAvailable, normalizeSnapshotProduct, parseStoreProductRef, sanitizeText, slugifyProduct } from "./sanitize"
 
 const SNAPSHOT_SELECT_WITH_IMAGES =
-  "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, updated_at"
+  "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, ml_date_created, ml_last_updated, updated_at"
 const SNAPSHOT_SELECT_LEGACY =
   "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at"
 const MERCADO_LIVRE_PUBLIC_API = "https://api.mercadolibre.com"
 
 function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
-  return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message)
+  return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message) || /ml_date_created/i.test(message) || /ml_last_updated/i.test(message)
 }
 
-function applySnapshotSort(query, sort) {
+function applySnapshotSort(query, sort, options = {}) {
+  const dateColumn = options.withMercadoLivreDates === false ? "updated_at" : "ml_date_created"
   if (sort === "price_asc") {
     return query
       .order("preco", { ascending: true, nullsFirst: false })
+      .order(dateColumn, { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false, nullsFirst: false })
   }
 
   if (sort === "price_desc") {
     return query
       .order("preco", { ascending: false, nullsFirst: false })
+      .order(dateColumn, { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false, nullsFirst: false })
   }
 
   if (sort === "title") {
     return query
       .order("titulo", { ascending: true, nullsFirst: false })
+      .order(dateColumn, { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false, nullsFirst: false })
   }
 
-  return query.order("updated_at", { ascending: false, nullsFirst: false })
+  return query
+    .order(dateColumn, { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false, nullsFirst: false })
 }
 
 function applySnapshotAvailabilityFilters(query) {
@@ -184,7 +190,8 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
         })
         .eq("projeto_id", projectId)
     ),
-    sort
+    sort,
+    { withMercadoLivreDates: true }
   )
 
   if (excludeSlug) {
@@ -216,7 +223,8 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
           })
           .eq("projeto_id", projectId)
       ),
-      sort
+      sort,
+      { withMercadoLivreDates: false }
     )
 
     if (excludeSlug) {

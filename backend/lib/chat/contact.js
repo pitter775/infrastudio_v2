@@ -50,12 +50,35 @@ export function normalizeInboundPhoneCandidate(value) {
 }
 
 export function getWhatsAppContactNameFromContext(context) {
+  const leadName = isPlainObject(context?.lead) && typeof context.lead.nome === "string" ? context.lead.nome.trim() : ""
+  if (leadName) {
+    return leadName
+  }
+
   if (!isPlainObject(context?.whatsapp)) {
     return null
   }
 
-  const value = context.whatsapp.contactName
-  return typeof value === "string" && value.trim() ? value.trim() : null
+  const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
+  const candidates = [
+    context.whatsapp.contactName,
+    context.whatsapp.pushName,
+    context.whatsapp.shortName,
+    context.whatsapp.displayName,
+    rawContact?.name,
+    rawContact?.pushname,
+    rawContact?.shortName,
+    rawContact?.verifiedName,
+  ]
+
+  for (const candidate of candidates) {
+    const value = typeof candidate === "string" ? candidate.trim() : ""
+    if (value) {
+      return value
+    }
+  }
+
+  return null
 }
 
 export function getWhatsAppContactPhoneFromContext(context) {
@@ -63,7 +86,7 @@ export function getWhatsAppContactPhoneFromContext(context) {
     return null
   }
 
-  const leadPhone = isPlainObject(context?.lead) ? context.lead.telefone : null
+  const leadPhone = isPlainObject(context?.lead) ? context.lead.telefone ?? context.lead.phone : null
   const normalizedLeadPhone = normalizeInboundPhoneCandidate(typeof leadPhone === "string" ? leadPhone : null)
   if (normalizedLeadPhone) {
     return normalizedLeadPhone

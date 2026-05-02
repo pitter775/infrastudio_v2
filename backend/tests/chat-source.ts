@@ -116,7 +116,12 @@ export {
 export {
   buildAiObservability,
   mapAdminConversationMessage,
+  resolveAdminReplyChannelFromMessages,
+  resolveAdminReplyChannel,
 } from "@/lib/admin-conversations";
+
+export { isStoreProductAvailable } from "@/lib/mercado-livre-store-core/sanitize";
+export { isMercadoLivreSellableItem } from "@/lib/mercado-livre-connector";
 
 export {
   getChatHandoffByChatId,
@@ -174,6 +179,7 @@ export {
   extractChatContactSnapshot,
   findChatByChannelScope,
   findChatByWhatsAppPhone,
+  findActiveChatByContactPhone,
   getChatContext,
   mapChat,
   mapMensagem,

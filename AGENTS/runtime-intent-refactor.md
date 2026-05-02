@@ -132,6 +132,13 @@ Ja feito:
 - snapshot da loja Mercado Livre ficou mais resiliente no refresh
 - produto em foco do Mercado Livre ja responde varios fatos de forma deterministica
 - busca por "outro do mesmo tipo" no Mercado Livre ja usa classificacao semantica
+- WhatsApp agora tem cobertura de continuidade catalogal usando a mesma decisao estruturada do widget:
+  - `catalog_alternative_search` cobre pedido de outros produtos a partir de produto em foco
+  - o handler preserva `productFocus`/`listingSession`, deriva termo estruturado e exclui o produto atual sem nova regex de frase
+  - a sessao de atendimento pode ser retomada entre widget e WhatsApp pelo telefone canonico, preservando contexto catalogal
+  - a renderizacao final do WhatsApp tem cobertura para lista curta, links limpos e exclusao do produto atual
+  - o atendimento admin agora carrega origem por mensagem e usa o canal mais recente para resposta manual em conversas mistas
+  - buscas/listagens Mercado Livre usadas por chat e loja publica filtram item ativo com estoque, evitando produto vendido, pausado ou fechado
 - pricing estruturado do agente voltou a responder `plano mais caro` e `me passa os valores` pelo `runtimeConfig.pricingCatalog`
 - quando o agente nao trouxer `runtimeConfig.pricingCatalog`, o orquestrador agora pode extrair um catalogo estruturado de pricing a partir do proprio texto do agente (`promptBase`/descricao) antes de classificar billing
 - isso fecha o caso de deploy em que os valores estao descritos no agente, mas ainda nao foram migrados para `runtimeConfig`

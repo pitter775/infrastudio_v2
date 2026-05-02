@@ -74,10 +74,13 @@ export function buildAiObservability(metadata = {}, message = {}) {
 
 export function mapAdminConversationMessage(message) {
   const observability = message.role === "assistant" ? buildAiObservability(message.metadata, message) : null
+  const canal = typeof message.canal === "string" && message.canal.trim() ? message.canal.trim() : "web"
   return {
     id: message.id,
     autor: mapRoleToAutor(message.role),
     texto: message.conteudo,
+    canal,
+    origem: canal === "whatsapp" ? "whatsapp" : "site",
     horario: formatTime(message.createdAt),
     createdAt: message.createdAt,
     attachments: Array.isArray(message.metadata?.attachments) ? message.metadata.attachments : [],
@@ -385,7 +388,22 @@ export async function getAdminConversationDetail(input, user) {
   }
 }
 
-export async function appendAdminConversationMessage(chatId, texto, attachments = [], user) {
+export function resolveAdminReplyChannelFromMessages(chat, messages = []) {
+  const latestChannel = (Array.isArray(messages) ? messages : [])
+    .find((message) => message?.canal && message.canal !== "admin_agent_test")?.canal
+  return latestChannel || chat?.canal || "web"
+}
+
+export async function resolveAdminReplyChannel(chat) {
+  if (!chat?.id) {
+    return "web"
+  }
+
+  const latestMessages = await listChatMessages(chat.id, { limit: 1, ascending: false })
+  return resolveAdminReplyChannelFromMessages(chat, latestMessages)
+}
+
+export async function appendAdminConversationMessage(chatId, texto, attachments = [], user, options = {}) {
   const chat = await getChatById(chatId)
 
   if (!chat) {
@@ -411,7 +429,7 @@ export async function appendAdminConversationMessage(chatId, texto, attachments 
     chatId,
     role: "assistant",
     conteudo: content,
-    canal: chat.canal,
+    canal: options.canal || (await resolveAdminReplyChannel(chat)),
     identificadorExterno: chat.identificadorExterno,
     metadata: {
       source: "admin_attendance",

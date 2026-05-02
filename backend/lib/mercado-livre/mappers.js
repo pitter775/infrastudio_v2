@@ -65,6 +65,8 @@ export function mapMercadoLivreItem(payload) {
     availableQuantity: Number(payload?.available_quantity ?? 0),
     status: sanitizeString(payload?.status),
     permalink: sanitizeString(payload?.permalink),
+    dateCreated: sanitizeString(payload?.date_created || payload?.start_time),
+    lastUpdated: sanitizeString(payload?.last_updated),
     thumbnail: normalizeMercadoLivreImageUrl(payload?.thumbnail),
     sellerId: sanitizeString(payload?.seller_id),
     sellerName: sanitizeString(payload?.seller_name),

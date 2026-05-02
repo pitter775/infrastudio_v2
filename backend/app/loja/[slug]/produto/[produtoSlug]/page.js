@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound, permanentRedirect } from "next/navigation"
-import { ArrowLeft, ChevronDown, FileText, Images, LayoutGrid, Package, Ruler, Sparkles, Tag } from "lucide-react"
+import { ArrowLeft, ChevronDown, FileText, LayoutGrid, Package, Sparkles, Tag } from "lucide-react"
 
 import { StoreFooter } from "@/components/store/store-footer"
 import { StoreHeader } from "@/components/store/store-header"
@@ -9,6 +9,7 @@ import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-load
 import { StoreProductHeroGallery } from "@/components/store/store-product-hero-gallery"
 import { StoreRelatedProducts } from "@/components/store/store-related-products"
 import { StoreSnapshotRefresh } from "@/components/store/store-snapshot-refresh"
+import { StoreProductTopSearch } from "@/components/store/store-product-top-search"
 import { buildStoreAccentPalette, formatStoreCurrency, formatStoreInstallmentText } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
 import { buildStoreProductRef } from "@/lib/mercado-livre-store-core/sanitize"
@@ -337,6 +338,13 @@ function ProductPurchasePanel({
       {installmentText ? (
         <div className="mt-2 text-base font-normal text-slate-700 sm:text-lg">{installmentText}</div>
       ) : null}
+      {typeof result.product.stock === "number" && result.product.stock > 0 ? (
+        <div className="mt-3 inline-flex items-center gap-2 text-sm font-medium text-slate-700">
+          <Package className="h-4 w-4" style={{ color: palette.accentDark }} aria-hidden="true" />
+          <span>Estoque</span>
+          <span className="font-semibold text-slate-950">{result.product.stock}</span>
+        </div>
+      ) : null}
       {Number(result.product.unitPrice ?? 0) > 0 ? (
         <div className="mt-1 text-sm text-slate-500">
           Preco por unidade: {formatStoreCurrency(result.product.unitPrice, result.product.currencyId)}
@@ -347,49 +355,6 @@ function ProductPurchasePanel({
           {formatStoreCurrency(result.product.originalPrice, result.product.currencyId)}
         </div>
       ) : null}
-
-      <div className="mt-6 grid gap-3">
-        <div className="rounded-[6px] bg-[#fbf8f2] px-4 py-4 shadow-[0_10px_20px_-18px_rgba(15,23,42,0.16)]">
-          <div className="grid gap-3 text-sm text-slate-700">
-            {visibleCategoryLabel ? (
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <Tag className="h-4 w-4" style={{ color: palette.accentDark }} />
-                  Categoria
-                </div>
-                <span className="font-medium text-slate-950">{visibleCategoryLabel}</span>
-              </div>
-            ) : null}
-            {typeof result.product.stock === "number" && result.product.stock > 0 ? (
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4" style={{ color: palette.accentDark }} />
-                  Estoque informado
-                </div>
-                <span className="font-medium text-slate-950">{result.product.stock}</span>
-              </div>
-            ) : null}
-            {attributeGroups.length ? (
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <Ruler className="h-4 w-4" style={{ color: palette.accentDark }} />
-                  Caracteristicas
-                </div>
-                <span className="font-medium text-slate-950">
-                  {attributeGroups.reduce((total, group) => total + group.items.length, 0)}
-                </span>
-              </div>
-            ) : null}
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <Images className="h-4 w-4" style={{ color: palette.accentDark }} />
-                Galeria
-              </div>
-              <span className="font-medium text-slate-950">{(result.product.images || []).length || 1} imagens</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
       <StoreProductActions
         accentColor={palette.accentDark}
@@ -528,7 +493,16 @@ export default async function LojaProdutoPage({ params }) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div className="relative mx-auto max-w-7xl px-5 py-3 sm:px-7 lg:px-10" />
+          <div className="relative mx-auto flex max-w-7xl items-start justify-between gap-4 px-5 py-3 sm:px-7 lg:px-10">
+            <div className="hidden flex-1 lg:block" />
+            <div className="absolute bottom-[-20px] left-5 z-20 sm:left-7 lg:static lg:z-auto lg:w-[430px]">
+              <StoreProductTopSearch
+                accentColor={palette.accentDark}
+                categories={result.filters?.categories || []}
+                storeSlug={result.store.slug}
+              />
+            </div>
+          </div>
         </section>
 
         <main>

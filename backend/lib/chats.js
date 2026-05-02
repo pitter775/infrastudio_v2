@@ -513,3 +513,42 @@ export async function findActiveWhatsAppChatByPhone(input) {
 
   return findChatByWhatsAppPhone(data, input)
 }
+
+export async function findActiveChatByContactPhone(input) {
+  const normalizedPhone = normalizeWhatsAppLookupPhone(input.phone)
+  if (!normalizedPhone) {
+    return null
+  }
+
+  const supabase = getSupabaseAdminClient()
+  let query = supabase
+    .from("chats")
+    .select(
+      "id, titulo, contato_nome, contato_telefone, contato_avatar_url, status, created_at, updated_at, total_tokens, total_custo, agente_id, usuario_id, projeto_id, canal, identificador_externo, contexto"
+    )
+    .eq("status", "ativo")
+    .neq("canal", "admin_agent_test")
+    .order("updated_at", { ascending: false })
+    .limit(50)
+
+  if (input.projetoId) {
+    query = query.eq("projeto_id", input.projetoId)
+  }
+
+  if (input.agenteId) {
+    query = query.eq("agente_id", input.agenteId)
+  }
+
+  const { data, error } = await query
+  if (error || !data) {
+    if (error) {
+      console.error("[chats] failed to find active chats by contact phone", error)
+    }
+    return null
+  }
+
+  return findChatByWhatsAppPhone(data, {
+    phone: normalizedPhone,
+    channelScopeId: null,
+  })
+}

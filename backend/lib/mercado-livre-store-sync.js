@@ -68,6 +68,8 @@ function buildIncrementalSnapshotPatch(projectId, item, previousRow = null) {
     estoque: Number(item?.availableQuantity ?? previousRow?.estoque ?? 0) || 0,
     categoria_id: sanitizeText(item?.categoryId || previousRow?.categoria_id, 80),
     categoria_nome: sanitizeText(item?.categoryName || previousRow?.categoria_nome, 160),
+    ml_date_created: toIsoString(item?.dateCreated || previousRow?.ml_date_created),
+    ml_last_updated: toIsoString(item?.lastUpdated || previousRow?.ml_last_updated),
     ultima_sincronizacao_em: now,
     updated_at: now,
   }
@@ -87,7 +89,9 @@ function hasIncrementalRowChanged(nextRow, previousRow = null) {
     sanitizeText(nextRow?.status, 40) !== sanitizeText(previousRow?.status, 40) ||
     Number(nextRow?.estoque ?? 0) !== Number(previousRow?.estoque ?? 0) ||
     sanitizeText(nextRow?.categoria_id, 80) !== sanitizeText(previousRow?.categoria_id, 80) ||
-    sanitizeText(nextRow?.categoria_nome, 160) !== sanitizeText(previousRow?.categoria_nome, 160)
+    sanitizeText(nextRow?.categoria_nome, 160) !== sanitizeText(previousRow?.categoria_nome, 160) ||
+    toIsoString(nextRow?.ml_date_created) !== toIsoString(previousRow?.ml_date_created) ||
+    toIsoString(nextRow?.ml_last_updated) !== toIsoString(previousRow?.ml_last_updated)
   )
 }
 
@@ -214,6 +218,8 @@ function buildSnapshotRow(projectId, item) {
     estoque: Number(item?.availableQuantity ?? 0) || 0,
     categoria_id: sanitizeText(item?.categoryId, 80),
     categoria_nome: sanitizeText(item?.categoryName, 160),
+    ml_date_created: toIsoString(item?.dateCreated),
+    ml_last_updated: toIsoString(item?.lastUpdated),
     descricao_curta: sanitizeText(item?.shortDescription, 2000),
     descricao_longa: sanitizeText(item?.descriptionPlain, 12000),
     atributos_json: Array.isArray(item?.attributes) ? item.attributes : [],
@@ -287,8 +293,9 @@ export async function getMercadoLivreSnapshotStatus(projectId, deps = {}) {
     supabase.from("mercadolivre_produtos_snapshot").select("id", { count: "exact", head: true }).eq("projeto_id", projectId),
     supabase
       .from("mercadolivre_produtos_snapshot")
-      .select("ml_item_id, titulo, slug, updated_at")
+      .select("ml_item_id, titulo, slug, ml_date_created, updated_at")
       .eq("projeto_id", projectId)
+      .order("ml_date_created", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false, nullsFirst: false })
       .limit(5),
   ])
@@ -335,7 +342,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
 
   const existingResult = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("ml_item_id, titulo, slug, preco, thumbnail_url, permalink, status, estoque, categoria_id, categoria_nome")
+    .select("ml_item_id, titulo, slug, preco, thumbnail_url, permalink, status, estoque, categoria_id, categoria_nome, ml_date_created, ml_last_updated")
     .eq("projeto_id", project.id)
 
   if (existingResult.error) {

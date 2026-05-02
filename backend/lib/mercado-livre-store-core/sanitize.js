@@ -121,6 +121,7 @@ function sanitizeHeroImageMode(value) {
 function sanitizeVisualConfig(value) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {}
   const inputHero = source.hero && typeof source.hero === "object" && !Array.isArray(source.hero) ? source.hero : source
+  const inputCatalog = source.catalog && typeof source.catalog === "object" && !Array.isArray(source.catalog) ? source.catalog : {}
 
   return {
     logoStoragePath: sanitizeText(source.logoStoragePath, 500),
@@ -135,6 +136,9 @@ function sanitizeVisualConfig(value) {
       gradientTo: sanitizeColor(inputHero.gradientTo || "#f5f5f5"),
       overlayColor: sanitizeColor(inputHero.overlayColor || "#ffffff"),
       overlayOpacity: clampNumber(inputHero.overlayOpacity, 0.18, 0, 1),
+    },
+    catalog: {
+      useLatestProducts: inputCatalog.useLatestProducts !== false,
     },
   }
 }
@@ -241,6 +245,8 @@ function normalizeSnapshotProduct(row) {
     shortDescription: sanitizeText(row.descricao_curta, 2000),
     descriptionLong: sanitizeText(row.descricao_longa, 12000),
     attributes: Array.isArray(row.atributos_json) ? row.atributos_json : [],
+    mercadoLivreDateCreated: row.ml_date_created || null,
+    mercadoLivreLastUpdated: row.ml_last_updated || null,
     updatedAt: row.updated_at || null,
   }
 }

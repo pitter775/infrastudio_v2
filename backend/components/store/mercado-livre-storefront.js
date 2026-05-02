@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AtSign, Camera, ChevronLeft, ChevronRight, Filter, Globe, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Tag, Users } from 'lucide-react'
+import { AtSign, Camera, ChevronLeft, ChevronRight, ExternalLink, Filter, Globe, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Tag, Users } from 'lucide-react'
 
 import { StoreHeader } from '@/components/store/store-header'
 import { StoreFooter } from '@/components/store/store-footer'
@@ -251,12 +251,17 @@ export function MercadoLivreStorefront({
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
+  const useLatestProducts = store.visualConfig?.catalog?.useLatestProducts !== false
   const recommendedProducts = useMemo(() => {
-    return (featuredProducts.length ? featuredProducts : products).slice(0, 10)
-  }, [featuredProducts, products])
+    return (useLatestProducts ? products : featuredProducts.length ? featuredProducts : products).slice(0, 10)
+  }, [featuredProducts, products, useLatestProducts])
   const visibleProducts = useMemo(() => {
-    return shouldSkipRepeatedRecommendedProducts(featuredProducts, products) ? products.slice(5) : products
-  }, [featuredProducts, products])
+    if (useLatestProducts && recommendedProducts.length) {
+      return products.slice(5)
+    }
+
+    return shouldSkipRepeatedRecommendedProducts(recommendedProducts, products) ? products.slice(5) : products
+  }, [recommendedProducts, products, useLatestProducts])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],
@@ -284,6 +289,13 @@ export function MercadoLivreStorefront({
     youtube: Play,
     tiktok: Sparkles,
     x: AtSign,
+  }
+  const socialLabels = {
+    instagram: 'Instagram',
+    facebook: 'Facebook',
+    youtube: 'YouTube',
+    tiktok: 'TikTok',
+    x: 'X',
   }
   const hasCategoryContext = Boolean(categoryId && categoryLabel)
   const hasSearchContext = Boolean(query)
@@ -493,7 +505,7 @@ export function MercadoLivreStorefront({
             ) : null}
 
             <ProductRow
-              title="Em destaque"
+              title={useLatestProducts ? 'Ultimos adicionados' : 'Em destaque'}
               products={recommendedProducts}
               storeSlug={store.slug}
               accentColor={store.accentColor}
@@ -551,14 +563,27 @@ export function MercadoLivreStorefront({
                 <div className="text-[20px] font-normal leading-tight text-slate-700">Sobre {store.name}</div>
                 <div className="mt-3 text-sm leading-7 text-slate-700">{store.about}</div>
                 {socialEntries.length ? (
-                  <div className="mt-5 flex flex-wrap gap-2">
+                  <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
                     {socialEntries.map(([key, value]) => (
-                      <a key={key} href={value} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center gap-2 rounded-[4px] border border-slate-200 bg-white px-3 text-sm font-medium capitalize text-slate-900 transition hover:border-slate-300">
-                        {(() => {
-                          const Icon = socialIcons[key] || Globe
-                          return <Icon className="h-4 w-4" />
-                        })()}
-                        {key}
+                      <a
+                        key={key}
+                        href={value}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="group inline-flex min-h-11 items-center justify-between gap-3 rounded-[8px] border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-3 text-sm font-semibold text-slate-900 shadow-[0_10px_22px_-20px_rgba(15,23,42,0.34)] transition hover:-translate-y-0.5 hover:border-[var(--store-social-accent)] hover:bg-white hover:shadow-[0_16px_26px_-22px_rgba(15,23,42,0.42)] sm:min-w-[142px]"
+                        style={{ '--store-social-accent': palette.accentDark }}
+                        aria-label={`Abrir ${socialLabels[key] || key}`}
+                      >
+                        <span className="inline-flex min-w-0 items-center gap-2">
+                          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] bg-[var(--store-social-soft)] text-[var(--store-social-accent)] transition group-hover:bg-[var(--store-social-accent)] group-hover:text-white" style={{ '--store-social-soft': palette.accentMuted, '--store-social-accent': palette.accentDark }}>
+                            {(() => {
+                              const Icon = socialIcons[key] || Globe
+                              return <Icon className="h-4 w-4" />
+                            })()}
+                          </span>
+                          <span className="truncate">{socialLabels[key] || key}</span>
+                        </span>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-slate-400 transition group-hover:text-[var(--store-social-accent)]" />
                       </a>
                     ))}
                   </div>

@@ -429,9 +429,24 @@ CREATE TABLE public.mercadolivre_lojas (
   dominio_ativo boolean NOT NULL DEFAULT false,
   dominio_status character varying NOT NULL DEFAULT 'pending'::character varying,
   dominio_observacoes text,
+  chat_contexto_completo boolean NOT NULL DEFAULT false,
+  visual_config jsonb NOT NULL DEFAULT '{}'::jsonb,
   CONSTRAINT mercadolivre_lojas_pkey PRIMARY KEY (id),
   CONSTRAINT mercadolivre_lojas_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
   CONSTRAINT mercadolivre_lojas_chat_widget_id_fkey FOREIGN KEY (chat_widget_id) REFERENCES public.chat_widgets(id)
+);
+CREATE TABLE public.mercadolivre_lojas_sync (
+  project_id uuid NOT NULL,
+  sync_in_progress boolean NOT NULL DEFAULT false,
+  sync_mode text NOT NULL DEFAULT 'manual_full'::text,
+  last_sync_at timestamp with time zone,
+  last_sync_started_at timestamp with time zone,
+  last_sync_finished_at timestamp with time zone,
+  last_sync_error text NOT NULL DEFAULT ''::text,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT mercadolivre_lojas_sync_pkey PRIMARY KEY (project_id),
+  CONSTRAINT mercadolivre_lojas_sync_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projetos(id)
 );
 CREATE TABLE public.mercadolivre_produtos_snapshot (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
