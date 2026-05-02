@@ -524,18 +524,18 @@ export default async function LojaProdutoPage({ params }) {
         />
       ) : null}
       <div className="min-h-screen bg-slate-50 text-slate-900">
-        <section className="relative overflow-hidden" style={heroStyle.base}>
+        <section className="relative min-h-[238px] overflow-hidden pt-[86px]" style={heroStyle.base}>
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
           <StoreHeader store={result.store} activeSection="produtos" />
-          <div className="relative mx-auto max-w-7xl px-5 pb-1 pt-[74px] sm:px-7 md:pt-[76px] lg:px-10" />
+          <div className="relative mx-auto max-w-7xl px-5 py-8 sm:px-7 lg:px-10" />
         </section>
 
         <main>
-          <div className="mx-auto max-w-7xl px-5 pb-8 pt-0 sm:px-7 lg:px-10">
+          <div className="mx-auto max-w-7xl px-5 pb-8 pt-2 sm:px-7 lg:px-10">
             <Link
               href={`/loja/${result.store.slug}`}
-              className="-mt-5 mb-5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105"
+              className="-mt-7 mb-5 inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105"
               style={{ color: palette.accentDark }}
               aria-label="Voltar para a loja"
             >
