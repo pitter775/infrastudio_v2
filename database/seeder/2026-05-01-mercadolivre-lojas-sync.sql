@@ -1,5 +1,5 @@
 create table if not exists public.mercadolivre_lojas_sync (
-  project_id text primary key references public.projetos(id) on delete cascade,
+  project_id uuid primary key references public.projetos(id) on delete cascade,
   sync_in_progress boolean not null default false,
   sync_mode text not null default 'manual_full',
   last_sync_at timestamptz null,

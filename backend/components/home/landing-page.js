@@ -466,7 +466,7 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
       <div
         className="absolute inset-x-0 bottom-0 top-0 hidden opacity-95 md:block"
         style={{
-          backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 24%, rgba(0,0,0,0.18) 100%), url('/bginfra.png')",
+          backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 24%, rgba(0,0,0,0.18) 50%), url('/bginfra.png')",
           backgroundPosition: 'center calc(100% + 18px)',
           backgroundRepeat: 'no-repeat',
           backgroundSize: '96% auto',

@@ -4,7 +4,7 @@ import { getMercadoLivreProductByIdForProject, listMercadoLivreItemsForProject }
 import { slugifyProduct } from "@/lib/mercado-livre-store"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
-const AUTO_SYNC_INTERVAL_MS = 60 * 60 * 1000
+const AUTO_SYNC_INTERVAL_MS = 30 * 60 * 1000
 const AUTO_SYNC_STALE_LOCK_MS = 15 * 60 * 1000
 const SYNC_STATE_TABLE = "mercadolivre_lojas_sync"
 
@@ -54,33 +54,20 @@ function normalizeSyncState(row) {
   }
 }
 
-function buildIncrementalSnapshotRow(projectId, item, previousRow = null) {
+function buildIncrementalSnapshotPatch(projectId, item, previousRow = null) {
   const now = new Date().toISOString()
-  const previousImages = Array.isArray(previousRow?.imagens_json) ? previousRow.imagens_json : []
-  const images = sanitizeImageList(item?.pictures).length ? sanitizeImageList(item?.pictures) : sanitizeImageList(previousImages)
-  const thumbnail =
-    sanitizeText(item?.thumbnail, 500) ||
-    sanitizeText(item?.pictures?.[0], 500) ||
-    sanitizeText(previousRow?.thumbnail_url, 500) ||
-    sanitizeText(images[0], 500)
-
   return {
     projeto_id: projectId,
     ml_item_id: sanitizeText(item?.id, 60),
     titulo: sanitizeText(item?.title || previousRow?.titulo, 180),
     slug: sanitizeText(slugifyProduct(item?.title || previousRow?.titulo), 180),
     preco: Number(item?.price ?? previousRow?.preco ?? 0) || 0,
-    preco_original: Number(previousRow?.preco_original ?? 0) || 0,
-    thumbnail_url: thumbnail,
-    imagens_json: images,
+    thumbnail_url: sanitizeText(item?.thumbnail || item?.pictures?.[0] || previousRow?.thumbnail_url, 500),
     permalink: sanitizeText(item?.permalink || previousRow?.permalink, 500),
     status: sanitizeText(item?.status || previousRow?.status, 40),
     estoque: Number(item?.availableQuantity ?? previousRow?.estoque ?? 0) || 0,
     categoria_id: sanitizeText(item?.categoryId || previousRow?.categoria_id, 80),
     categoria_nome: sanitizeText(item?.categoryName || previousRow?.categoria_nome, 160),
-    descricao_curta: sanitizeText(previousRow?.descricao_curta, 2000),
-    descricao_longa: sanitizeText(previousRow?.descricao_longa, 12000),
-    atributos_json: Array.isArray(previousRow?.atributos_json) ? previousRow.atributos_json : [],
     ultima_sincronizacao_em: now,
     updated_at: now,
   }
@@ -348,7 +335,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
 
   const existingResult = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json")
+    .select("ml_item_id, titulo, slug, preco, thumbnail_url, permalink, status, estoque, categoria_id, categoria_nome")
     .eq("projeto_id", project.id)
 
   if (existingResult.error) {
@@ -364,7 +351,8 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
   const existingMap = new Map(existingRows.map((row) => [sanitizeText(row?.ml_item_id, 60), row]))
   const eligibleItems = collectedItems.filter(isSnapshotEligibleItem)
   const eligibleIdSet = new Set(eligibleItems.map((item) => sanitizeText(item?.id, 60)).filter(Boolean))
-  const rowsToUpsert = []
+  const rowsToPatch = []
+  const rowsToInsert = []
   const newItemIds = []
 
   for (const item of eligibleItems) {
@@ -379,9 +367,9 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
       continue
     }
 
-    const nextRow = buildIncrementalSnapshotRow(project.id, item, previousRow)
+    const nextRow = buildIncrementalSnapshotPatch(project.id, item, previousRow)
     if (hasIncrementalRowChanged(nextRow, previousRow)) {
-      rowsToUpsert.push(nextRow)
+      rowsToPatch.push(nextRow)
     }
   }
 
@@ -401,7 +389,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
       const basicItem = eligibleItems.find((item) => sanitizeText(item?.id, 60) === itemId)
       const row = buildSnapshotRow(project.id, detailedItem || basicItem)
       if (row.ml_item_id && row.titulo && row.slug) {
-        rowsToUpsert.push(row)
+        rowsToInsert.push(row)
       }
     }
   }
@@ -410,16 +398,32 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
     .map((row) => sanitizeText(row?.ml_item_id, 60))
     .filter((itemId) => itemId && !eligibleIdSet.has(itemId))
 
-  if (rowsToUpsert.length) {
+  if (rowsToPatch.length) {
     const { error } = await supabase
       .from("mercadolivre_produtos_snapshot")
-      .upsert(rowsToUpsert, { onConflict: "projeto_id,ml_item_id" })
+      .upsert(rowsToPatch, { onConflict: "projeto_id,ml_item_id" })
 
     if (error) {
       console.error("[mercado-livre-store-sync] failed to upsert incremental snapshot rows", error)
       return buildSyncError("Nao foi possivel atualizar o snapshot incremental.", "upsert_incremental_rows", {
         paging: lastPaging,
-        rows: rowsToUpsert.length,
+        rows: rowsToPatch.length,
+        error: error.message || "unknown_error",
+        errorCode: error.code || null,
+      })
+    }
+  }
+
+  if (rowsToInsert.length) {
+    const { error } = await supabase
+      .from("mercadolivre_produtos_snapshot")
+      .upsert(rowsToInsert, { onConflict: "projeto_id,ml_item_id" })
+
+    if (error) {
+      console.error("[mercado-livre-store-sync] failed to upsert new snapshot rows", error)
+      return buildSyncError("Nao foi possivel adicionar produtos novos ao snapshot.", "upsert_new_rows_incremental", {
+        paging: lastPaging,
+        rows: rowsToInsert.length,
         error: error.message || "unknown_error",
         errorCode: error.code || null,
       })
@@ -446,9 +450,9 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
   }
 
   return {
-    synced: rowsToUpsert.length,
+    synced: rowsToPatch.length + rowsToInsert.length,
     deleted: idsToDelete.length,
-    changed: rowsToUpsert.length > 0 || idsToDelete.length > 0,
+    changed: rowsToPatch.length > 0 || rowsToInsert.length > 0 || idsToDelete.length > 0,
     paging: lastPaging,
     error: null,
   }

@@ -7,6 +7,7 @@ import { StoreProductActions } from "@/components/store/store-product-actions"
 import { StoreChatWidgetLoader } from "@/components/store/store-chat-widget-loader"
 import { StoreProductCard } from "@/components/store/store-product-card"
 import { StoreProductHeroGallery } from "@/components/store/store-product-hero-gallery"
+import { StoreSnapshotRefresh } from "@/components/store/store-snapshot-refresh"
 import { buildStoreAccentPalette, buildStoreProductExternalUrl, formatStoreCurrency } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
 import { buildStoreProductRef } from "@/lib/mercado-livre-store-core/sanitize"
@@ -512,6 +513,7 @@ export default async function LojaProdutoPage({ params }) {
 
   return (
     <>
+      <StoreSnapshotRefresh storeSlug={result.store.slug} />
       {structuredData ? (
         <script
           type="application/ld+json"

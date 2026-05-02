@@ -7,6 +7,7 @@ import { AtSign, Camera, ChevronLeft, ChevronRight, Filter, Globe, LayoutGrid, L
 
 import { StoreHeader } from '@/components/store/store-header'
 import { StoreProductCard } from '@/components/store/store-product-card'
+import { StoreSnapshotRefresh } from '@/components/store/store-snapshot-refresh'
 import { AppSelect } from '@/components/ui/app-select'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { buildStoreAccentPalette, buildStoreUrl } from '@/components/store/store-utils'
@@ -187,6 +188,23 @@ function buildHeroBackgroundStyle(hero) {
   }
 }
 
+function getProductIdentity(product) {
+  return String(product?.itemId || product?.id || product?.slug || '').trim()
+}
+
+function shouldSkipRepeatedRecommendedProducts(featuredProducts, products) {
+  if (!featuredProducts.length || products.length < 5) {
+    return false
+  }
+
+  const featuredIds = new Set(featuredProducts.slice(0, 5).map(getProductIdentity).filter(Boolean))
+  if (!featuredIds.size) {
+    return false
+  }
+
+  return products.slice(0, 5).some((product) => featuredIds.has(getProductIdentity(product)))
+}
+
 export function MercadoLivreStorefront({
   store,
   featuredProducts,
@@ -206,12 +224,13 @@ export function MercadoLivreStorefront({
   const [sortValue, setSortValue] = useState(sort)
   const [isSearching, setIsSearching] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
-  const [autoSyncChecked, setAutoSyncChecked] = useState(false)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
   const recommendedProducts = useMemo(() => {
     return (featuredProducts.length ? featuredProducts : products).slice(0, 10)
   }, [featuredProducts, products])
-  const visibleProducts = useMemo(() => products, [products])
+  const visibleProducts = useMemo(() => {
+    return shouldSkipRepeatedRecommendedProducts(featuredProducts, products) ? products.slice(5) : products
+  }, [featuredProducts, products])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],
@@ -282,36 +301,6 @@ export function MercadoLivreStorefront({
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
-  useEffect(() => {
-    if (autoSyncChecked || !store?.slug) {
-      return
-    }
-
-    const controller = new AbortController()
-
-    async function requestAutoSync() {
-      try {
-        const response = await fetch(`/api/public/loja/${encodeURIComponent(store.slug)}/snapshot-refresh`, {
-          method: 'POST',
-          cache: 'no-store',
-          signal: controller.signal,
-        })
-        const data = await response.json().catch(() => ({}))
-        if (!controller.signal.aborted && response.ok && data?.changed === true) {
-          router.refresh()
-        }
-      } catch {}
-      finally {
-        if (!controller.signal.aborted) {
-          setAutoSyncChecked(true)
-        }
-      }
-    }
-
-    requestAutoSync()
-    return () => controller.abort()
-  }, [autoSyncChecked, router, store?.slug])
-
   function handleAnchorNavigation(event, href) {
     if (!href || !href.startsWith('#')) {
       return
@@ -360,6 +349,7 @@ export function MercadoLivreStorefront({
 
   return (
     <>
+      <StoreSnapshotRefresh storeSlug={store.slug} />
       <style jsx global>{`
         html {
           scrollbar-color: #d1d5db #ffffff;
@@ -390,17 +380,19 @@ export function MercadoLivreStorefront({
             <div className="pointer-events-none absolute inset-x-0 bottom-[-12px] h-[28px] bg-[radial-gradient(ellipse_at_center,rgba(15,23,42,0.18),rgba(15,23,42,0.04)_58%,rgba(15,23,42,0)_78%)] blur-md" />
             <div className="relative mx-auto grid max-w-[1228px] gap-5 px-3 py-8 sm:px-4 lg:grid-cols-[minmax(0,1fr)_minmax(320px,430px)] lg:items-start lg:px-3">
               <div className="max-w-xl pr-14 lg:pr-0">
+                <div className="inline-block max-w-full rounded-[10px] bg-white/54 px-5 py-4 shadow-[0_18px_46px_-34px_rgba(15,23,42,0.36)] ring-1 ring-white/55 backdrop-blur-md">
                 <h1
-                  className="mt-1 text-3xl font-bold leading-tight sm:text-4xl"
-                  style={{ color: palette.accentDark, textShadow: '0 12px 28px rgba(255,255,255,0.55), 0 3px 12px rgba(15,23,42,0.16)' }}
+                  className="text-3xl font-normal leading-tight sm:text-4xl"
+                  style={{ color: palette.accentDark, textShadow: '0 12px 28px rgba(255,255,255,0.68), 0 2px 8px rgba(15,23,42,0.10)' }}
                 >
                   {store.name}
                 </h1>
                 {store.headline ? (
-                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700" style={{ textShadow: '0 8px 22px rgba(255,255,255,0.42), 0 2px 8px rgba(15,23,42,0.08)' }}>
+                  <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-700" style={{ textShadow: '0 8px 22px rgba(255,255,255,0.56), 0 2px 8px rgba(15,23,42,0.06)' }}>
                     {store.headline}
                   </p>
                 ) : null}
+                </div>
               </div>
               <div className="hidden w-full justify-self-end lg:block">
                 <StoreSearchFilters
