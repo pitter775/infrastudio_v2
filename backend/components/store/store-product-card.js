@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
 
 import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, formatStoreInstallmentText, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
 
@@ -257,7 +257,8 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
               {formatStoreCurrency(product.price, product.currencyId)}
             </span>
             <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-              <MapPin className="h-3.5 w-3.5" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/icomercado.png" alt="" className="h-4 w-5 object-contain" />
               {locationLabel}
             </span>
           </div>

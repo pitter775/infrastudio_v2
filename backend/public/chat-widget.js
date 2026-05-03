@@ -588,18 +588,29 @@
       ".chat-day-divider-label { display: inline-flex; align-items: center; justify-content: center; border: " + (theme === "light" ? "0" : "1px solid rgba(148,163,184,0.12)") + "; background: " + (theme === "light" ? "transparent" : "rgba(15,23,42,0.24)") + "; border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }",
       ".chat-assets { margin-top: 10px; display: grid; gap: 10px; }",
       ".chat-assets.catalog-products { display: block; overflow: visible; }",
+      ".chat-product-carousel-shell { position: relative; margin: -6px -12px -8px; }",
       ".chat-product-carousel { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 8px 12px 16px; margin: -6px -12px -8px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; scroll-snap-type: x proximity; cursor: grab; }",
+      ".chat-product-carousel-shell .chat-product-carousel { margin: 0; }",
       ".chat-product-carousel.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }",
+      ".chat-product-carousel a, .chat-product-carousel img { -webkit-user-drag: none; user-select: none; }",
+      ".chat-product-carousel.is-single { display: block; overflow: visible; cursor: default; }",
+      ".chat-product-carousel-nav { position: absolute; top: 50%; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; margin-top: -18px; border: 1px solid rgba(148,163,184,0.22); border-radius: 999px; background: " + (theme === "light" ? "rgba(255,255,255,0.72)" : "rgba(15,23,42,0.52)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.92)") + "; box-shadow: 0 10px 24px rgba(15,23,42,0.16); backdrop-filter: blur(10px); cursor: pointer; transition: transform .18s ease, background-color .18s ease, opacity .18s ease; }",
+      ".chat-product-carousel-nav:hover { transform: translateY(-1px); background: " + (theme === "light" ? "rgba(255,255,255,0.9)" : "rgba(30,41,59,0.72)") + "; }",
+      ".chat-product-carousel-nav.prev { left: 4px; }",
+      ".chat-product-carousel-nav.next { right: 4px; }",
+      ".chat-product-carousel-nav.is-hidden { opacity: 0; pointer-events: none; }",
       ".chat-catalog-loading { margin-top: 10px; display: inline-flex; width: fit-content; max-width: 100%; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.04)") + "; color: " + (theme === "light" ? "rgba(28,41,59,0.72)" : "rgba(226,232,240,0.74)") + "; font-size: 11px; line-height: 1.3; }",
       ".chat-catalog-loading .chat-typing-dots span { width: 6px; height: 6px; }",
       ".chat-asset { display: block; overflow: hidden; border-radius: 12px; border: 1px solid " + headerBorder + "; background: color-mix(in srgb, " + panelBackground + " 88%, transparent); color: inherit; text-decoration: none; }",
       ".chat-product-carousel .chat-asset { flex: 0 0 148px; width: 148px; scroll-snap-align: start; transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease; }",
+      ".chat-product-carousel.is-single .chat-asset { width: 100%; max-width: none; }",
       ".chat-product-carousel .chat-asset:hover { transform: translateY(-1px); border-color: color-mix(in srgb, " + accent + " 26%, " + headerBorder + "); box-shadow: 0 10px 22px rgba(15,23,42,0.16); }",
       ".chat-asset.image, .chat-asset.video, .chat-asset.preview { padding: 0; }",
       ".chat-asset.image img, .chat-asset.video video { display: block; width: 100%; max-height: 210px; object-fit: cover; background: rgba(15,23,42,.35); }",
       ".chat-product-media { position: relative; overflow: hidden; background: rgba(15,23,42,.18); touch-action: pan-y; }",
       ".chat-product-carousel .chat-product-media { touch-action: pan-x pan-y pinch-zoom; }",
       ".chat-product-media img { display: block; width: 100%; height: 112px; max-height: 112px; object-fit: cover; background: rgba(15,23,42,.35); user-select: none; -webkit-user-drag: none; }",
+      ".chat-product-carousel.is-single .chat-product-media img { height: 188px; max-height: 188px; }",
       ".chat-product-gallery-dots { position: absolute; left: 50%; bottom: 7px; z-index: 1; display: inline-flex; gap: 4px; transform: translateX(-50%); padding: 4px 6px; border-radius: 999px; background: rgba(15,23,42,0.26); backdrop-filter: blur(6px); }",
       ".chat-product-gallery-dot { width: 5px; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.42); transition: transform .18s ease, background-color .18s ease; }",
       ".chat-product-gallery-dot.is-active { background: rgba(255,255,255,0.96); transform: scale(1.15); }",
@@ -618,18 +629,16 @@
       ".chat-asset-action { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 28px; padding: 6px 8px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: rgba(255,255,255,0.05); color: inherit; font-size: 10px; font-weight: 700; text-decoration: none; transition: transform .18s ease, background-color .18s ease; }",
       ".chat-asset-action:hover { transform: translateY(-1px); background: rgba(255,255,255,0.09); }",
       ".chat-asset-action.primary { border-color: color-mix(in srgb, " + accent + " 40%, transparent); background: color-mix(in srgb, " + accent + " 18%, transparent); color: white; }",
-      ".chat-asset-action.mercado-livre { flex: 0 0 30px; width: 30px; min-height: 28px; padding: 0; overflow: hidden; border-color: rgba(250,204,21,0.48); background: #fff159; color: #1f2937; box-shadow: 0 8px 16px -14px rgba(234,179,8,0.9); }",
-      ".chat-asset-action.mercado-livre:hover { background: #fff36d; }",
-      ".chat-asset-action.mercado-livre img { display: block; width: 18px; height: 18px; object-fit: contain; }",
-      ".chat-asset-action.detail { border-color: color-mix(in srgb, " + accent + " 28%, rgba(148,163,184,0.2)); background: " + (theme === "light" ? "rgba(255,255,255,0.94)" : "rgba(255,255,255,0.06)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.92)") + "; }",
-      ".chat-asset-action.detail:hover { background: " + (theme === "light" ? "rgba(248,250,252,1)" : "rgba(255,255,255,0.1)") + "; }",
+      ".chat-mercado-link { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: auto; height: auto; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; outline: 0; background: transparent; box-shadow: none; color: inherit; text-decoration: none; line-height: 0; }",
+      ".chat-mercado-link:hover { background: transparent; box-shadow: none; transform: none; }",
+      ".chat-mercado-link img { display: block; width: 35px; height: 24px; object-fit: contain; background: transparent; }",
       ".chat-asset-action.ask { flex: 1 1 auto; border-color: " + (theme === "light" ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.18)") + "; background: " + (theme === "light" ? "rgba(241,245,249,0.92)" : "rgba(255,255,255,0.06)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.92)") + "; }",
       ".chat-asset-action.ask:hover { background: " + (theme === "light" ? "rgba(226,232,240,0.96)" : "rgba(255,255,255,0.1)") + "; }",
       ".chat-asset-action .chat-icon { width: 13px; height: 13px; }",
       ".chat-asset-list-footer { margin-top: 10px; display: flex; justify-content: center; }",
       ".chat-asset-list-more { display: inline-flex; align-items: center; gap: 6px; min-height: 0; padding: 8px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, " + accent + " 28%, rgba(148,163,184,0.24)); background: color-mix(in srgb, " + accent + " 12%, " + (theme === "light" ? "rgba(255,255,255,0.96)" : "rgba(15,23,42,0.56)") + "); color: " + (theme === "light" ? "#0f172a" : "white") + "; font-size: 11px; font-weight: 700; cursor: pointer; transition: transform .18s ease, background-color .18s ease, border-color .18s ease; }",
       ".chat-asset-list-more:hover { transform: translateY(-1px); background: color-mix(in srgb, " + accent + " 18%, " + (theme === "light" ? "rgba(255,255,255,1)" : "rgba(15,23,42,0.7)") + "); }",
-      ".chat-asset-title { font-size: 11px; line-height: 1.25; font-weight: 700; color: inherit; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }",
+      ".chat-asset-title { font-size: 11px; line-height: 1.25; font-weight: 500; color: inherit; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }",
       ".chat-asset-subtitle { margin-top: 4px; font-size: 10px; line-height: 1.25; color: #94a3b8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }",
       ".chat-asset-open { font-size: 10px; font-weight: 700; color: " + accent + "; white-space: nowrap; }",
       ".chat-typing { display: inline-flex; width: fit-content; max-width: 88%; align-items: center; gap: 10px; color: rgba(148,163,184,0.88); padding: 4px 2px; animation: chatBubbleIn .22s ease both; }",
@@ -1536,6 +1545,11 @@
         state.startX = event.clientX;
         state.startScrollLeft = element.scrollLeft;
         state.dragging = false;
+        if (typeof element.setPointerCapture === "function") {
+          try {
+            element.setPointerCapture(event.pointerId);
+          } catch (error) {}
+        }
       });
 
       element.addEventListener("pointermove", function (event) {
@@ -1547,11 +1561,6 @@
         if (!state.dragging && Math.abs(delta) > 6) {
           state.dragging = true;
           element.classList.add("is-dragging");
-          if (typeof element.setPointerCapture === "function") {
-            try {
-              element.setPointerCapture(event.pointerId);
-            } catch (error) {}
-          }
         }
 
         if (!state.dragging) {
@@ -1580,6 +1589,9 @@
 
       element.addEventListener("pointerup", releaseDrag);
       element.addEventListener("pointercancel", releaseDrag);
+      element.addEventListener("dragstart", function (event) {
+        event.preventDefault();
+      });
       element.addEventListener("click", function (event) {
         if (!state.suppressClick) {
           return;
@@ -1592,6 +1604,28 @@
         state.dragging = false;
         element.classList.remove("is-dragging");
       });
+    }
+
+    function createProductCarouselNavButton(direction, rail) {
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "chat-product-carousel-nav " + direction;
+      button.setAttribute("aria-label", direction === "prev" ? "Produtos anteriores" : "Proximos produtos");
+      button.textContent = direction === "prev" ? "‹" : "›";
+      addListener(button, "click", function () {
+        rail.scrollBy({
+          left: direction === "prev" ? -Math.max(160, rail.clientWidth * 0.78) : Math.max(160, rail.clientWidth * 0.78),
+          behavior: "smooth",
+        });
+      });
+      return button;
+    }
+
+    function syncProductCarouselNav(rail, previousButton, nextButton) {
+      var maxScroll = Math.max(0, rail.scrollWidth - rail.clientWidth - 2);
+      var hasOverflow = maxScroll > 8;
+      previousButton.classList.toggle("is-hidden", !hasOverflow || rail.scrollLeft <= 4);
+      nextButton.classList.toggle("is-hidden", !hasOverflow || rail.scrollLeft >= maxScroll);
     }
 
     function createUiBlocks(ui) {
@@ -1800,9 +1834,25 @@
         if (isCatalogProductAsset(asset)) {
           hasCatalogProducts = true;
           if (!productRail) {
+            var carouselShell = document.createElement("div");
+            carouselShell.className = "chat-product-carousel-shell";
             productRail = document.createElement("div");
             productRail.className = "chat-product-carousel";
+            productRail.classList.toggle("is-single", productAssetCount === 1);
             enableHorizontalDragScroll(productRail);
+            var previousButton = createProductCarouselNavButton("prev", productRail);
+            var nextButton = createProductCarouselNavButton("next", productRail);
+            carouselShell.appendChild(productRail);
+            if (productAssetCount > 1) {
+              carouselShell.appendChild(previousButton);
+              carouselShell.appendChild(nextButton);
+              addListener(productRail, "scroll", function () {
+                syncProductCarouselNav(productRail, previousButton, nextButton);
+              }, { passive: true });
+              window.requestAnimationFrame(function () {
+                syncProductCarouselNav(productRail, previousButton, nextButton);
+              });
+            }
             var carouselKey = String(message?.catalogListingSessionId || message?.serverId || message?.id || "");
             if (carouselKey) {
               productRail.dataset.carouselKey = carouselKey;
@@ -1815,7 +1865,7 @@
               });
             }
             wrap.classList.add("catalog-products");
-            wrap.appendChild(productRail);
+            wrap.appendChild(carouselShell);
           }
           productRail.appendChild(createProductAssetCard(asset, { compact: productAssetCount > 1 }));
           return;
@@ -1933,18 +1983,6 @@
       textWrap.appendChild(title);
       meta.appendChild(textWrap);
 
-      var summaryText =
-        settings.compact === true
-          ? ""
-          : ((typeof asset.resumo === "string" ? asset.resumo.trim() : "") ||
-              (asset.metadata && typeof asset.metadata.summary === "string" ? asset.metadata.summary.trim() : ""));
-      if (summaryText) {
-        var summary = document.createElement("div");
-        summary.className = "chat-asset-subtitle";
-        summary.textContent = summaryText;
-        meta.appendChild(summary);
-      }
-
       var priceWrap = detailUrl ? document.createElement("a") : document.createElement("div");
       priceWrap.className = "chat-product-price";
       if (detailUrl) {
@@ -1956,9 +1994,7 @@
       priceMain.className = "chat-product-price-main";
       priceMain.textContent = asset.priceLabel || "Ver produto";
       priceWrap.appendChild(priceMain);
-      var installmentLabel =
-        (typeof asset.installmentLabel === "string" ? asset.installmentLabel.trim() : "") ||
-        (asset.metadata && typeof asset.metadata.installmentLabel === "string" ? asset.metadata.installmentLabel.trim() : "");
+      var installmentLabel = buildTwelveInstallmentLabel(asset);
       if (installmentLabel) {
         var installment = document.createElement("span");
         installment.className = "chat-product-installment";
@@ -1972,12 +2008,6 @@
       var actions = document.createElement("div");
       actions.className = "chat-asset-actions";
       actions.appendChild(createProductAssetAction(asset));
-      if (settings.compact !== true) {
-        var detailAction = createProductDetailAction(asset);
-        if (detailAction) {
-          actions.appendChild(detailAction);
-        }
-      }
       var askAction = createProductAskAction(asset);
       if (askAction) {
         actions.appendChild(askAction);
@@ -2230,7 +2260,7 @@
 
     function createProductAssetAction(asset) {
       var action = document.createElement("a");
-      action.className = "chat-asset-action mercado-livre";
+      action.className = "chat-mercado-link";
       action.href = asset.targetUrl || asset.publicUrl || "#";
       action.target = "_blank";
       action.rel = "noreferrer noopener";
@@ -2242,6 +2272,53 @@
       icon.loading = "lazy";
       action.appendChild(icon);
       return action;
+    }
+
+    function parseCurrencyValue(value) {
+      var raw = String(value || "").replace(/[^\d,.-]/g, "").trim();
+      if (!raw) {
+        return null;
+      }
+      var normalized = raw.replace(/\./g, "").replace(",", ".");
+      var parsed = Number(normalized);
+      return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    }
+
+    function formatCurrencyLabel(value) {
+      try {
+        return new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        }).format(value);
+      } catch (error) {
+        return "R$ " + Number(value || 0).toFixed(2).replace(".", ",");
+      }
+    }
+
+    function resolveProductPriceValue(asset) {
+      var candidates = [
+        asset && asset.priceValue,
+        asset && asset.preco,
+        asset && asset.price,
+        asset && asset.metadata ? asset.metadata.priceValue : null,
+        asset && asset.metadata ? asset.metadata.preco : null,
+        asset && asset.metadata ? asset.metadata.price : null,
+      ];
+      for (var index = 0; index < candidates.length; index += 1) {
+        var parsed = Number(candidates[index]);
+        if (Number.isFinite(parsed) && parsed > 0) {
+          return parsed;
+        }
+      }
+      return parseCurrencyValue(asset && asset.priceLabel);
+    }
+
+    function buildTwelveInstallmentLabel(asset) {
+      var price = resolveProductPriceValue(asset);
+      if (!price) {
+        return "";
+      }
+      return "12x de " + formatCurrencyLabel(price / 12);
     }
 
     function slugifyProduct(value) {
@@ -2281,21 +2358,6 @@
       }
 
       return baseOrigin + "/loja/" + encodeURIComponent(storeSlug) + "/produto/" + encodeURIComponent(productSlug);
-    }
-
-    function createProductDetailAction(asset) {
-      var detailUrl = resolveProductDetailUrl(asset);
-      if (!detailUrl) {
-        return null;
-      }
-
-      var action = document.createElement("a");
-      action.className = "chat-asset-action detail";
-      action.href = detailUrl;
-      action.target = "_blank";
-      action.rel = "noreferrer noopener";
-      action.textContent = "Detalhe";
-      return action;
     }
 
     function createProductAskAction(asset) {
