@@ -119,6 +119,8 @@ import {
   requestRuntimeHumanHandoff,
   estimateOpenAICostUsd,
   resolvePricingModel,
+  validateMercadoPagoWebhookSignature,
+  shouldThrottleSessionSync,
   resolveAdminReplyChannelFromMessages,
   sortFeedbacks,
 } from "@/tests/chat-source";
@@ -417,6 +419,30 @@ const tests: TestCase[] = [
       assert.equal(snapshot.currentCycle.usagePercent.totalTokens, 50)
       assert.equal(snapshot.topUps.totalTokens, 300)
       assert.equal(snapshot.status.blocked, false)
+    },
+  },
+  {
+    name: "mercado pago webhook rejeita assinatura com tamanho invalido sem quebrar",
+    run: () => {
+      const previousSecret = process.env.MERCADO_PAGO_WEBHOOK_SECRET
+      process.env.MERCADO_PAGO_WEBHOOK_SECRET = "test-secret"
+
+      try {
+        const result = validateMercadoPagoWebhookSignature({
+          xSignature: "ts=1700000000,v1=curta",
+          xRequestId: "request-1",
+          dataId: "payment-1",
+        })
+
+        assert.equal(result.valid, false)
+        assert.equal(result.reason, "invalid_signature")
+      } finally {
+        if (previousSecret == null) {
+          delete process.env.MERCADO_PAGO_WEBHOOK_SECRET
+        } else {
+          process.env.MERCADO_PAGO_WEBHOOK_SECRET = previousSecret
+        }
+      }
     },
   },
   {
@@ -2007,6 +2033,69 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "catalogo aceita load_more estruturado em vitrine ampla sem termo textual",
+    run: async () => {
+      const state = await resolveMercadoLivreHeuristicState({
+        latestUserMessage: "Ver mais opcoes",
+        project: {
+          id: "proj-catalog-empty-listing",
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        context: {
+          ui: {
+            catalogAction: "load_more",
+            listingSessionId: "sessao-vitrine",
+          },
+          catalogo: {
+            ultimaBusca: "",
+            ultimosProdutos: [{ id: "MLB1", nome: "Prato Floral" }],
+            listingSession: {
+              id: "sessao-vitrine",
+              snapshotId: "snapshot-vitrine",
+              searchTerm: "",
+              matchedProductIds: ["MLB1"],
+              offset: 0,
+              nextOffset: 1,
+              poolLimit: 24,
+              hasMore: true,
+              total: 3,
+              source: "storefront_snapshot",
+            },
+          },
+        },
+        loadMoreCatalogRequested: true,
+        allowEmptyCatalogSearch: true,
+        paginationOffset: 1,
+        resolveMercadoLivreSearch: async (_project, options = {}) => {
+          assert.equal(options.allowEmptySearch, true);
+          assert.equal(options.offset, 1);
+          return {
+            items: [
+              {
+                id: "MLB2",
+                title: "Travessa Floral",
+                price: 120,
+                currencyId: "BRL",
+                availableQuantity: 1,
+                permalink: "https://example.com/travessa",
+                thumbnail: "https://example.com/travessa.jpg",
+              },
+            ],
+            connector: { config: { oauthNickname: "Mesa Posta" } },
+            paging: { total: 3, filteredTotal: 3, offset: 1, nextOffset: 2, poolLimit: 24, hasMore: true },
+            error: null,
+          };
+        },
+      } as never);
+
+      assert.match(state.mercadoLivreHeuristicReply || "", /encontrei mais 1 produto desta busca/i);
+      assert.equal(state.mercadoLivreAssets.length, 1);
+      assert.equal(state.catalogSearchState?.listingSession?.id, "sessao-vitrine");
+    },
+  },
+  {
     name: "catalogo aceita acao explicita do widget para detalhe do produto sem texto livre",
     run: () => {
       const context = {
@@ -2485,6 +2574,44 @@ const tests: TestCase[] = [
 
       assert.match(reply, /encontrei 2 opcoes/i);
       assert.doesNotMatch(reply, /encontrei 1 produto/i);
+    },
+  },
+  {
+    name: "catalogo nao usa total bruto do Mercado Livre como total filtrado pelo termo",
+    run: async () => {
+      const state = await resolveMercadoLivreHeuristicState({
+        latestUserMessage: "tem prato floral?",
+        project: {
+          id: "proj-catalog-raw-total",
+          directConnections: {
+            mercadoLivre: 1,
+          },
+        },
+        context: {
+          catalogo: {},
+        },
+        productSearchRequested: true,
+        productSearchTerm: "prato floral",
+        resolveMercadoLivreSearch: async () => ({
+          items: [
+            {
+              id: "MLB1",
+              title: "Prato Floral",
+              price: 120,
+              currencyId: "BRL",
+              availableQuantity: 1,
+              permalink: "https://example.com/prato",
+              thumbnail: "https://example.com/prato.jpg",
+            },
+          ],
+          connector: { config: { oauthNickname: "Mesa Posta" } },
+          paging: { total: 1338, rawTotal: 1338, filteredTotal: 1, offset: 0, nextOffset: 24, poolLimit: 24, hasMore: true },
+          error: null,
+        }),
+      } as never);
+
+      assert.match(state.mercadoLivreHeuristicReply || "", /encontrei 1 produto/i);
+      assert.doesNotMatch(state.mercadoLivreHeuristicReply || "", /1338/);
     },
   },
   {
@@ -6971,6 +7098,40 @@ const tests: TestCase[] = [
 
       assert.equal(canonical, "5511978510655");
       assert.equal(sequence.length, 4);
+    },
+  },
+  {
+    name: "whatsapp sync ignora snapshot transitorio repetido dentro da janela",
+    run: () => {
+      const recent = new Date().toISOString();
+
+      assert.equal(
+        shouldThrottleSessionSync(
+          {
+            connectionStatus: "connecting",
+            notes: "Conectando",
+            workerUpdatedAt: recent,
+          },
+          {
+            connectionStatus: "connecting",
+            notes: "Conectando",
+          },
+        ),
+        true,
+      );
+
+      assert.equal(
+        shouldThrottleSessionSync(
+          {
+            connectionStatus: "connecting",
+            workerUpdatedAt: recent,
+          },
+          {
+            connectionStatus: "connected",
+          },
+        ),
+        false,
+      );
     },
   },
   {

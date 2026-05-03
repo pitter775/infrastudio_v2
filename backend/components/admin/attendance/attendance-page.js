@@ -653,6 +653,9 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
 
       if (messageData.success) {
         onMessageSent(conversation.id, messageData.message)
+        if (messageData.deliveryFailureMessage) {
+          onMessageSent(conversation.id, messageData.deliveryFailureMessage)
+        }
         onStatusChanged?.(conversation.id, messageData.status || "humano", messageData.handoff ?? null)
         setTexto("")
         setAttachments([])
@@ -790,6 +793,16 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
   const humanInControl = conversation.status === "humano"
   const loopPaused = conversation.status === "pausado_loop"
+  const autoPause = conversation.handoff?.metadata?.autoPause
+  const autoPauseReason = typeof autoPause?.reason === "string" ? autoPause.reason.trim() : ""
+  const autoPauseDetails =
+    typeof autoPause?.details === "string"
+      ? autoPause.details.trim()
+      : typeof autoPause?.details?.message === "string"
+        ? autoPause.details.message.trim()
+        : typeof autoPause?.details?.error === "string"
+          ? autoPause.details.error.trim()
+          : ""
   const statusLabel = resolveConversationStatusLabel(conversation)
   const compactMobileHeader = Boolean(onCloseMobile)
   const [detailsOpen, setDetailsOpen] = useState(false)
@@ -1097,7 +1110,9 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
             <div className="flex flex-col gap-1.5 text-[11px] text-amber-100 sm:flex-row sm:items-center sm:justify-between">
               <div className="font-semibold uppercase tracking-[0.16em]">Pausado por loop</div>
               <div className="text-amber-50/80">
-                O bot foi pausado automaticamente por suspeita de conversa automatica em ciclo.
+                {autoPauseReason
+                  ? `Motivo tecnico: ${autoPauseReason}${autoPauseDetails ? ` - ${autoPauseDetails}` : ""}`
+                  : "O bot foi pausado automaticamente por suspeita de conversa automatica em ciclo."}
               </div>
             </div>
           </div>

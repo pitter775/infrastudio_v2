@@ -212,7 +212,14 @@ function buildMercadoLivreSearchReply(products, searchTerm, connector, paging, o
       : "Posso te mostrar produtos da loja. Me diga o que voce procura e eu busco aqui."
   }
 
-  const matchedCount = Math.max(sanitizeNumber(paging?.total, 0), products.length)
+  const searchTermText = sanitizeString(searchTerm)
+  const matchedCount = Math.max(
+    sanitizeNumber(
+      paging?.filteredTotal ?? (searchTermText ? products.length : paging?.total),
+      products.length
+    ),
+    products.length
+  )
   const visibleCount = products.length
   const countLabel = matchedCount === 1 ? "1 produto" : `${matchedCount} opcoes`
   const hasMore = paging?.hasMore === true
@@ -408,6 +415,9 @@ function buildSelectedProductReply(product, userMessage = "") {
   if (product.status && product.status !== "active") {
     pushUniqueSentence(pieces, `Status atual no Mercado Livre: ${product.status}.`)
   }
+  if (product.link) {
+    pushUniqueSentence(pieces, `Link direto: ${product.link}`)
+  }
   pushUniqueSentence(pieces, "Se quiser, eu tambem comparo com outra opcao da lista.")
 
   return pieces.join(" ")
@@ -590,7 +600,13 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   const structuredCatalogAction = String(input.context?.ui?.catalogAction || input.context?.catalogAction || "").trim().toLowerCase()
   const listingSession = input.context?.catalogo?.listingSession ?? null
 
-  if (structuredCatalogAction === "load_more" && !sanitizeString(listingSession?.searchTerm)) {
+  const hasStructuredListingSession =
+    Boolean(sanitizeString(listingSession?.id || listingSession?.snapshotId)) ||
+    sanitizeNumber(listingSession?.nextOffset, 0) > 0 ||
+    sanitizeNumber(listingSession?.total, 0) > 0 ||
+    listingSession?.hasMore === true
+
+  if (structuredCatalogAction === "load_more" && !sanitizeString(listingSession?.searchTerm) && !hasStructuredListingSession) {
     return {
       selectedProductSalesReply: null,
       mercadoLivreHeuristicReply:
@@ -753,7 +769,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   const refinementSearchTerm =
     sanitizeString(input.catalogFollowUpDecision?.uncoveredTokens?.[0]) ||
     sanitizeString(input.catalogFollowUpDecision?.searchCandidates?.[0])
-  const allowEmptyCatalogSearch = input.allowEmptyCatalogSearch === true
+  const allowEmptyCatalogSearch = input.allowEmptyCatalogSearch === true || (input.loadMoreCatalogRequested && !sanitizeString(listingSession?.searchTerm))
   const freshSearchTerm =
     refinementSearchTerm ||
     sanitizeString(input.productSearchTerm) ||

@@ -6,7 +6,22 @@ import { saveWhatsAppHandoffContactForUser } from "@/lib/whatsapp-handoff-contat
 const channelFields =
   "id, projeto_id, agente_id, numero, session_data, status, created_at, updated_at"
 const TRANSIENT_CONNECTION_STATUSES = new Set(["connecting", "aguardando_qr", "reconnecting"])
+const TRANSIENT_SESSION_FIELDS = new Set([
+  "connectionStatus",
+  "status",
+  "clientStatus",
+  "currentClientState",
+  "clientState",
+  "state",
+  "notes",
+  "lastError",
+  "autoReconnectScheduled",
+  "lastReconnectRequestAt",
+  "reconnectAttempt",
+  "workerUpdatedAt",
+])
 const AUTO_RECONNECT_REQUEST_INTERVAL_MS = 180_000
+const WHATSAPP_SESSION_SYNC_MIN_INTERVAL_MS = 5_000
 
 function isPlainObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value))
@@ -178,6 +193,66 @@ function sanitizeSessionForPersistence(sessionData) {
   }
 
   return nextSession
+}
+
+function buildStableSessionFingerprint(sessionData) {
+  if (!isPlainObject(sessionData)) {
+    return {}
+  }
+
+  return Object.fromEntries(
+    Object.entries(sanitizeSessionForPersistence(sessionData))
+      .filter(([key]) => !TRANSIENT_SESSION_FIELDS.has(key))
+      .sort(([left], [right]) => left.localeCompare(right))
+  )
+}
+
+function shouldPersistTransientSessionPatch(currentSession, normalizedPatch) {
+  const nextConnectionStatus = String(normalizedPatch.connectionStatus || "").trim().toLowerCase()
+
+  if (normalizedPatch.manualDisconnect === true || normalizedPatch.terminalDisconnect === true) {
+    return true
+  }
+
+  if (isConnectedConnectionStatus(nextConnectionStatus) || isDisconnectedConnectionStatus(nextConnectionStatus)) {
+    const currentConnectionStatus = String(currentSession?.connectionStatus || "").trim().toLowerCase()
+    if (nextConnectionStatus && nextConnectionStatus !== currentConnectionStatus) {
+      return true
+    }
+  }
+
+  if (typeof normalizedPatch.lastError === "string" && normalizedPatch.lastError.trim()) {
+    const currentLastError = String(currentSession?.lastError || "").trim()
+    if (sanitizeWorkerMessage(normalizedPatch.lastError) !== sanitizeWorkerMessage(currentLastError)) {
+      return true
+    }
+  }
+
+  if (typeof normalizedPatch.notes === "string" && normalizedPatch.notes.trim()) {
+    const currentNotes = String(currentSession?.notes || "").trim()
+    if (sanitizeWorkerMessage(normalizedPatch.notes) !== sanitizeWorkerMessage(currentNotes)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+export function shouldThrottleSessionSync(currentSession, normalizedPatch) {
+  if (!isPlainObject(currentSession) || !isPlainObject(normalizedPatch)) {
+    return false
+  }
+
+  if (shouldPersistTransientSessionPatch(currentSession, normalizedPatch)) {
+    return false
+  }
+
+  const lastSyncAt = Date.parse(String(currentSession.workerUpdatedAt || currentSession.updatedAt || ""))
+  if (!Number.isFinite(lastSyncAt)) {
+    return false
+  }
+
+  return Date.now() - lastSyncAt < WHATSAPP_SESSION_SYNC_MIN_INTERVAL_MS
 }
 
 function resolveWorkerSnapshotStatus(snapshot) {
@@ -894,6 +969,11 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
     const session = current.session_data && typeof current.session_data === "object" ? current.session_data : {}
     const normalizedPatch = normalizeSessionPatch(patch)
     const shouldResetSession = normalizedPatch.resetSession === true
+
+    if (!shouldResetSession && shouldThrottleSessionSync(session, normalizedPatch)) {
+      return mergeRuntimeSnapshotIntoChannel(mapChannel(current), normalizedPatch)
+    }
+
     const nextSession = shouldResetSession
       ? {}
       : {
@@ -908,11 +988,28 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
               }
             : {}),
         }
+    if (!shouldResetSession) {
+      nextSession.workerUpdatedAt = new Date().toISOString()
+    }
     const nextStatus = shouldKeepChannelActive(nextSession) ? "ativo" : "inativo"
     const persistedSession = sanitizeSessionForPersistence(nextSession)
     const currentPersistedSession = sanitizeSessionForPersistence(session)
+    const stableSessionChanged = !areJsonObjectsEqual(
+      buildStableSessionFingerprint(persistedSession),
+      buildStableSessionFingerprint(currentPersistedSession)
+    )
+    const shouldPersistTransient = shouldPersistTransientSessionPatch(session, normalizedPatch)
 
-    if (areJsonObjectsEqual(persistedSession, currentPersistedSession) && nextStatus === current.status) {
+    if (
+      nextStatus === current.status &&
+      !stableSessionChanged &&
+      !shouldPersistTransient &&
+      areJsonObjectsEqual(persistedSession, currentPersistedSession)
+    ) {
+      return mergeRuntimeSnapshotIntoChannel(mapChannel(current), normalizedPatch)
+    }
+
+    if (nextStatus === current.status && !stableSessionChanged && !shouldPersistTransient) {
       return mergeRuntimeSnapshotIntoChannel(mapChannel(current), normalizedPatch)
     }
 

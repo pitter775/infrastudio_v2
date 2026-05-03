@@ -1,5 +1,10 @@
 import { recordJsonApiUsage } from "@/lib/api-usage-metrics"
-import { appendAdminConversationMessage, getAdminConversationDetail, resolveAdminReplyChannel } from "@/lib/admin-conversations"
+import {
+  appendAdminConversationMessage,
+  appendAdminConversationSystemMessage,
+  getAdminConversationDetail,
+  resolveAdminReplyChannel,
+} from "@/lib/admin-conversations"
 import { claimHumanHandoff, touchHumanHandoff } from "@/lib/chat-handoffs"
 import { getChatById } from "@/lib/chats"
 import { getSessionUser } from "@/lib/session"
@@ -179,10 +184,26 @@ export async function POST(request, { params }) {
           message: texto,
         })
       : null
+  const deliveryFailureMessage =
+    whatsappDelivery?.ok === false
+      ? await appendAdminConversationSystemMessage(
+          id,
+          `Falha ao enviar mensagem manual no WhatsApp: ${whatsappDelivery.error || "erro desconhecido"}`,
+          {
+            whatsappDelivery: {
+              ok: false,
+              error: whatsappDelivery.error || "erro desconhecido",
+              channelId: whatsappTarget?.channelId ?? null,
+              to: whatsappTarget?.to ?? null,
+            },
+          },
+        )
+      : null
 
   const payload = {
     success: true,
     message,
+    deliveryFailureMessage,
     handoff,
     status: handoff?.status === "human" ? "humano" : "ia",
     whatsappDelivery,

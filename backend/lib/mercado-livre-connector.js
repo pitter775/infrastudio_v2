@@ -161,6 +161,7 @@ async function searchSnapshotMercadoLivreProductsForProject(projectId, options =
   const maxPagesToScan = Math.max(2, Math.ceil(Math.max(Number(options.poolLimit ?? requestedLimit) || requestedLimit, requestedLimit) / requestedLimit))
   let scanOffset = offset
   let snapshotHasMore = false
+  let snapshotTotal = 0
   let pagesScanned = 0
 
   while (pagesScanned < maxPagesToScan) {
@@ -173,6 +174,7 @@ async function searchSnapshotMercadoLivreProductsForProject(projectId, options =
       sort,
       priceMaxExclusive,
     })
+    snapshotTotal = Math.max(snapshotTotal, Number(listing?.total ?? 0) || 0)
     const pageItems = Array.isArray(listing?.items) ? listing.items : []
 
     for (const product of pageItems) {
@@ -201,7 +203,8 @@ async function searchSnapshotMercadoLivreProductsForProject(projectId, options =
   return {
     items: collectedItems.slice(0, requestedLimit),
     paging: {
-      total: 0,
+      total: snapshotTotal || collectedItems.length,
+      filteredTotal: snapshotTotal || collectedItems.length,
       offset,
       poolLimit: requestedLimit,
       requestedLimit,
@@ -955,21 +958,25 @@ async function fetchMercadoLivreProductPageHtml(productUrl, deps = {}) {
     return ""
   }
 
-  const fetchImpl = deps.fetchImpl ?? fetch
-  const response = await fetchImpl(normalizedUrl, {
-    headers: {
-      Accept: "text/html,application/xhtml+xml",
-      "User-Agent":
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
-    },
-    cache: "no-store",
-  })
+  try {
+    const fetchImpl = deps.fetchImpl ?? fetch
+    const response = await fetchImpl(normalizedUrl, {
+      headers: {
+        Accept: "text/html,application/xhtml+xml",
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
+      },
+      cache: "no-store",
+    })
 
-  if (!response.ok) {
+    if (!response.ok) {
+      return ""
+    }
+
+    return response.text().catch(() => "")
+  } catch {
     return ""
   }
-
-  return response.text().catch(() => "")
 }
 
 function extractMercadoLivreGalleryFromHtml(html) {
@@ -1042,21 +1049,25 @@ async function fetchMercadoLivreCategoryName(categoryId, accessToken, deps = {})
     return ""
   }
 
-  const fetchImpl = deps.fetchImpl ?? fetch
-  const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/categories/${encodeURIComponent(normalizedCategoryId)}`, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      Accept: "application/json",
-    },
-    cache: "no-store",
-  })
+  try {
+    const fetchImpl = deps.fetchImpl ?? fetch
+    const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/categories/${encodeURIComponent(normalizedCategoryId)}`, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: "application/json",
+      },
+      cache: "no-store",
+    })
 
-  const payload = await response.json().catch(() => ({}))
-  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}))
+    if (!response.ok) {
+      return ""
+    }
+
+    return sanitizeString(payload?.name)
+  } catch {
     return ""
   }
-
-  return sanitizeString(payload?.name)
 }
 
 async function listMercadoLivreOrders(userId, accessToken, options = {}, deps = {}) {
@@ -1466,7 +1477,9 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
         items: rankedItems,
         connector: resolvedConnector,
         paging: {
-          total: Number(paging?.total ?? 0) || 0,
+          total: searchTerm ? rankedItems.length : Number(paging?.total ?? 0) || rankedItems.length,
+          rawTotal: Number(paging?.total ?? 0) || 0,
+          filteredTotal: searchTerm ? rankedItems.length : null,
           offset,
           poolLimit,
           requestedLimit,

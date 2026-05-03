@@ -638,7 +638,9 @@ export function resolveCatalogIntentState(input = {}) {
           : sanitizeNumber(alternativePriceReferenceProduct.preco, null)
         : null,
     allowEmptyCatalogSearch:
-      inferredDecision?.kind === "catalog_alternative_search" || inferredDecision?.kind === "catalog_browse",
+      inferredDecision?.kind === "catalog_alternative_search" ||
+      inferredDecision?.kind === "catalog_browse" ||
+      (loadMoreCatalogRequested && !sanitizeString(listingSession?.searchTerm || contextCatalog.ultimaBusca)),
     lastSearchTerm: sanitizeString(listingSession?.searchTerm || contextCatalog.ultimaBusca),
     paginationOffset: forceNewSearch
       ? 0

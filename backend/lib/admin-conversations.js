@@ -441,6 +441,28 @@ export async function appendAdminConversationMessage(chatId, texto, attachments 
   return message ? mapAdminConversationMessage(message) : null
 }
 
+export async function appendAdminConversationSystemMessage(chatId, content, metadata = {}) {
+  const chat = await getChatById(chatId)
+
+  if (!chat) {
+    return null
+  }
+
+  const message = await appendMessage({
+    chatId,
+    role: "system",
+    conteudo: String(content ?? "").trim(),
+    canal: "admin",
+    identificadorExterno: chat.identificadorExterno,
+    metadata: {
+      source: "admin_attendance",
+      ...metadata,
+    },
+  })
+
+  return message ? mapAdminConversationMessage(message) : null
+}
+
 export function userCanAccessAdminConversation(user, chat) {
   return canAccessConversation(user, chat)
 }

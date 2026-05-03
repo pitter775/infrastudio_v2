@@ -264,6 +264,7 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
   return {
     items: paginatedItems,
     hasMore: totalCount > offset + paginatedItems.length,
+    total: totalCount,
   }
 }
 

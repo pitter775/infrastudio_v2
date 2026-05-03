@@ -197,3 +197,10 @@ export {
   buildBillingReplyResult,
   getStructuredPricingItems,
 } from "@/lib/chat/billing-intent-handler";
+
+export { validateMercadoPagoWebhookSignature } from "@/lib/mercado-pago-billing";
+
+export {
+  shouldThrottleSessionSync,
+  updateWhatsAppChannelSession,
+} from "@/lib/whatsapp-channels";

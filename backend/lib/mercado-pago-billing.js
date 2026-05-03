@@ -526,7 +526,11 @@ export function validateMercadoPagoWebhookSignature(input) {
   })
 
   const expected = crypto.createHmac("sha256", secret).update(manifest).digest("hex")
-  const valid = crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(String(v1)))
+  const expectedBuffer = Buffer.from(expected)
+  const receivedBuffer = Buffer.from(String(v1))
+  const valid =
+    expectedBuffer.length === receivedBuffer.length &&
+    crypto.timingSafeEqual(expectedBuffer, receivedBuffer)
 
   return {
     valid,
