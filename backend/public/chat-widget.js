@@ -586,23 +586,27 @@
       ".chat-day-divider::before, .chat-day-divider::after { content: ''; height: 1px; flex: 1; background: " + (theme === "light" ? "rgba(148,163,184,0.1)" : "rgba(148,163,184,0.12)") + "; }",
       ".chat-day-divider-label { display: inline-flex; align-items: center; justify-content: center; border: " + (theme === "light" ? "0" : "1px solid rgba(148,163,184,0.12)") + "; background: " + (theme === "light" ? "transparent" : "rgba(15,23,42,0.24)") + "; border-radius: 999px; padding: 4px 10px; font-size: 10px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; white-space: nowrap; }",
       ".chat-assets { margin-top: 10px; display: grid; gap: 10px; }",
+      ".chat-assets.catalog-products { display: block; overflow: visible; }",
+      ".chat-product-carousel { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 2px 2px 8px; margin: 0 -2px; scrollbar-width: thin; -webkit-overflow-scrolling: touch; touch-action: pan-y pinch-zoom; scroll-snap-type: x proximity; }",
       ".chat-catalog-loading { margin-top: 10px; display: inline-flex; width: fit-content; max-width: 100%; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.04)") + "; color: " + (theme === "light" ? "rgba(28,41,59,0.72)" : "rgba(226,232,240,0.74)") + "; font-size: 11px; line-height: 1.3; }",
       ".chat-catalog-loading .chat-typing-dots span { width: 6px; height: 6px; }",
-      ".chat-asset { display: block; overflow: hidden; border-radius: 16px; border: 1px solid " + headerBorder + "; background: color-mix(in srgb, " + panelBackground + " 88%, transparent); color: inherit; text-decoration: none; }",
+      ".chat-asset { display: block; overflow: hidden; border-radius: 12px; border: 1px solid " + headerBorder + "; background: color-mix(in srgb, " + panelBackground + " 88%, transparent); color: inherit; text-decoration: none; }",
+      ".chat-product-carousel .chat-asset { flex: 0 0 148px; width: 148px; scroll-snap-align: start; }",
       ".chat-asset.image, .chat-asset.video, .chat-asset.preview { padding: 0; }",
       ".chat-asset.image img, .chat-asset.video video { display: block; width: 100%; max-height: 210px; object-fit: cover; background: rgba(15,23,42,.35); }",
       ".chat-product-media { position: relative; overflow: hidden; background: rgba(15,23,42,.18); touch-action: pan-y; }",
-      ".chat-product-media img { display: block; width: 100%; max-height: 210px; object-fit: cover; background: rgba(15,23,42,.35); user-select: none; -webkit-user-drag: none; }",
-      ".chat-product-gallery-dots { position: absolute; left: 50%; bottom: 10px; z-index: 1; display: inline-flex; gap: 6px; transform: translateX(-50%); padding: 6px 8px; border-radius: 999px; background: rgba(15,23,42,0.26); backdrop-filter: blur(6px); }",
-      ".chat-product-gallery-dot { width: 6px; height: 6px; border-radius: 999px; background: rgba(255,255,255,0.42); transition: transform .18s ease, background-color .18s ease; }",
+      ".chat-product-carousel .chat-product-media { touch-action: pan-y pinch-zoom; }",
+      ".chat-product-media img { display: block; width: 100%; height: 112px; max-height: 112px; object-fit: cover; background: rgba(15,23,42,.35); user-select: none; -webkit-user-drag: none; }",
+      ".chat-product-gallery-dots { position: absolute; left: 50%; bottom: 7px; z-index: 1; display: inline-flex; gap: 4px; transform: translateX(-50%); padding: 4px 6px; border-radius: 999px; background: rgba(15,23,42,0.26); backdrop-filter: blur(6px); }",
+      ".chat-product-gallery-dot { width: 5px; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.42); transition: transform .18s ease, background-color .18s ease; }",
       ".chat-product-gallery-dot.is-active { background: rgba(255,255,255,0.96); transform: scale(1.15); }",
       ".chat-asset-preview { display: flex; align-items: center; justify-content: center; min-height: 138px; padding: 18px; background: linear-gradient(135deg, color-mix(in srgb, " + accent + " 22%, #0f172a 78%), rgba(15,23,42,.94)); }",
       ".chat-asset-preview-badge { display: inline-flex; align-items: center; justify-content: center; min-width: 72px; padding: 10px 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.14); background: rgba(255,255,255,0.08); color: white; font-size: 12px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; }",
       ".chat-asset.file { padding: 12px; }",
       ".chat-asset-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }",
-      ".chat-asset-body { padding: 12px; }",
-      ".chat-asset-actions { margin-top: 10px; display: flex; gap: 8px; }",
-      ".chat-asset-action { display: inline-flex; align-items: center; justify-content: center; min-width: 78px; padding: 8px 12px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: rgba(255,255,255,0.05); color: inherit; font-size: 11px; font-weight: 700; text-decoration: none; transition: transform .18s ease, background-color .18s ease; }",
+      ".chat-asset-body { padding: 9px; }",
+      ".chat-asset-actions { margin-top: 8px; display: flex; gap: 6px; }",
+      ".chat-asset-action { display: inline-flex; align-items: center; justify-content: center; min-width: 0; padding: 7px 9px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: rgba(255,255,255,0.05); color: inherit; font-size: 10px; font-weight: 700; text-decoration: none; transition: transform .18s ease, background-color .18s ease; }",
       ".chat-asset-action:hover { transform: translateY(-1px); background: rgba(255,255,255,0.09); }",
       ".chat-asset-action.primary { border-color: color-mix(in srgb, " + accent + " 40%, transparent); background: color-mix(in srgb, " + accent + " 18%, transparent); color: white; }",
       ".chat-asset-action.mercado-livre { min-width: 0; width: 38px; padding: 8px 0; border-color: rgba(250,204,21,0.48); background: linear-gradient(180deg, rgba(250,204,21,0.96), rgba(234,179,8,0.96)); color: #1f2937; box-shadow: 0 8px 16px -14px rgba(234,179,8,0.9); }",
@@ -615,9 +619,9 @@
       ".chat-asset-list-footer { margin-top: 10px; display: flex; justify-content: center; }",
       ".chat-asset-list-more { display: inline-flex; align-items: center; gap: 6px; min-height: 0; padding: 8px 12px; border-radius: 999px; border: 1px solid color-mix(in srgb, " + accent + " 28%, rgba(148,163,184,0.24)); background: color-mix(in srgb, " + accent + " 12%, " + (theme === "light" ? "rgba(255,255,255,0.96)" : "rgba(15,23,42,0.56)") + "); color: " + (theme === "light" ? "#0f172a" : "white") + "; font-size: 11px; font-weight: 700; cursor: pointer; transition: transform .18s ease, background-color .18s ease, border-color .18s ease; }",
       ".chat-asset-list-more:hover { transform: translateY(-1px); background: color-mix(in srgb, " + accent + " 18%, " + (theme === "light" ? "rgba(255,255,255,1)" : "rgba(15,23,42,0.7)") + "); }",
-      ".chat-asset-title { font-size: 12px; font-weight: 700; color: inherit; }",
-      ".chat-asset-subtitle { margin-top: 4px; font-size: 11px; color: #94a3b8; }",
-      ".chat-asset-open { font-size: 11px; font-weight: 700; color: " + accent + "; white-space: nowrap; }",
+      ".chat-asset-title { font-size: 11px; line-height: 1.25; font-weight: 700; color: inherit; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }",
+      ".chat-asset-subtitle { margin-top: 4px; font-size: 10px; line-height: 1.25; color: #94a3b8; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }",
+      ".chat-asset-open { font-size: 10px; font-weight: 700; color: " + accent + "; white-space: nowrap; }",
       ".chat-typing { display: inline-flex; width: fit-content; max-width: 88%; align-items: center; gap: 10px; color: rgba(148,163,184,0.88); padding: 4px 2px; animation: chatBubbleIn .22s ease both; }",
       ".chat-typing-dots { display: inline-flex; gap: 4px; }",
       ".chat-typing-dots span { width: 7px; height: 7px; border-radius: 999px; background: currentColor; animation: chatDotsPulse 1.2s infinite ease-in-out; }",
@@ -1759,18 +1763,31 @@
 
       var wrap = document.createElement("div");
       wrap.className = "chat-assets";
+      var productRail = null;
       var hasCatalogProducts = false;
+      var renderedRegularAssets = 0;
 
-      assets.slice(0, 3).forEach(function (asset) {
+      assets.forEach(function (asset) {
         if (!asset || (!asset.publicUrl && !asset.targetUrl)) {
           return;
         }
 
         if (isCatalogProductAsset(asset)) {
           hasCatalogProducts = true;
-          wrap.appendChild(createProductAssetCard(asset));
+          if (!productRail) {
+            productRail = document.createElement("div");
+            productRail.className = "chat-product-carousel";
+            wrap.classList.add("catalog-products");
+            wrap.appendChild(productRail);
+          }
+          productRail.appendChild(createProductAssetCard(asset, { compact: true }));
           return;
         }
+
+        if (renderedRegularAssets >= 3) {
+          return;
+        }
+        renderedRegularAssets += 1;
 
         var previewKind = getAssetPreviewKind(asset);
         var card = document.createElement("div");
@@ -1840,11 +1857,12 @@
       return wrap;
     }
 
-    function createProductAssetCard(asset) {
+    function createProductAssetCard(asset, options) {
+      var settings = options && typeof options === "object" ? options : {};
       var card = document.createElement("div");
       card.className = "chat-asset image";
 
-      card.appendChild(createProductAssetMedia(asset));
+      card.appendChild(createProductAssetMedia(asset, { compact: settings.compact === true }));
 
       var body = document.createElement("div");
       body.className = "chat-asset-body";
@@ -1924,8 +1942,12 @@
       }).slice(0, 6);
     }
 
-    function createProductAssetMedia(asset) {
+    function createProductAssetMedia(asset, options) {
+      var settings = options && typeof options === "object" ? options : {};
       var images = normalizeProductImages(asset);
+      if (settings.compact === true) {
+        images = images.slice(0, 1);
+      }
       if (!images.length) {
         return createAssetPreviewBadge({ arquivoNome: "PROD", mimeType: "", categoria: "preview" });
       }
@@ -3187,13 +3209,6 @@
         return -1;
       }
 
-      if (candidate.isAi && candidate.catalogMessageMode === "replace_listing") {
-        var catalogListingIndex = findCatalogListingMessageIndexBySessionId(candidate.catalogListingSessionId);
-        if (catalogListingIndex !== -1) {
-          return catalogListingIndex;
-        }
-      }
-
       for (var index = messages.length - 1; index >= 0; index -= 1) {
         var current = messages[index];
         if (!current || current.isAi !== candidate.isAi) {
@@ -3348,23 +3363,12 @@
       }
       requestInFlight = true;
 
-      if (
+      var isCatalogLoadMore =
         settings.extraContext &&
         typeof settings.extraContext === "object" &&
         settings.extraContext.ui &&
         typeof settings.extraContext.ui === "object" &&
-        settings.extraContext.ui.catalogAction === "load_more"
-      ) {
-        var targetListingIndex = findCatalogListingMessageIndexBySessionId(settings.extraContext.ui.listingSessionId);
-        if (targetListingIndex !== -1) {
-          messages[targetListingIndex] = {
-            ...messages[targetListingIndex],
-            catalogLoading: true,
-          };
-          persist();
-          renderMessages({ preservePosition: true });
-        }
-      }
+        settings.extraContext.ui.catalogAction === "load_more";
 
       if (!shouldSkipUserBubble(settings)) {
         messages.push(assignMessageOrder({
@@ -3387,7 +3391,7 @@
       attachments = [];
       renderAttachmentsPreview();
       autoResizeInput();
-      setLoading(true, { forceScroll: true, smooth: true });
+      setLoading(true, { forceScroll: !isCatalogLoadMore, smooth: true });
 
       try {
         var response = await fetch(apiBase + "/api/chat", {
@@ -3432,9 +3436,12 @@
             cta: payload.whatsapp && payload.whatsapp.url ? payload.whatsapp : null,
             actions: Array.isArray(payload.actions) ? payload.actions : [],
             ui: payload.ui && typeof payload.ui === "object" ? payload.ui : null,
-            catalogContinuation: payload.catalogContinuation === true,
-            catalogMessageMode: typeof payload.catalogMessageMode === "string" ? payload.catalogMessageMode : null,
+            catalogContinuation: !isCatalogLoadMore && payload.catalogContinuation === true,
+            catalogMessageMode: isCatalogLoadMore
+              ? "append_listing"
+              : (typeof payload.catalogMessageMode === "string" ? payload.catalogMessageMode : null),
             catalogListingSessionId: typeof payload.catalogListingSessionId === "string" ? payload.catalogListingSessionId : null,
+            catalogAppendOnly: isCatalogLoadMore,
             catalogLoading: false,
             handoffAction: createHumanHandoffAction(payload.handoff),
             assets: Array.isArray(payload.assets) ? payload.assets : [],
