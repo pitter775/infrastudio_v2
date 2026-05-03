@@ -148,7 +148,7 @@ async function searchSnapshotMercadoLivreProductsForProject(projectId, options =
     return null
   }
 
-  const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 6)
+  const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 10)
   const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
   const excludedItemIds = Array.isArray(options.excludeItemIds)
     ? options.excludeItemIds.map((itemId) => sanitizeString(itemId)).filter(Boolean)
@@ -1374,7 +1374,7 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
-    const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 6)
+    const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 10)
     const poolLimit = Math.min(Math.max(Number(options.poolLimit ?? 24) || 24, requestedLimit), 50)
     const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
     const searchTerm = sanitizeString(options.searchTerm)

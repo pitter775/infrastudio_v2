@@ -576,6 +576,7 @@ export function resolveCatalogIntentState(input = {}) {
     inferredDecision?.kind === "same_type_search" ||
     inferredDecision?.kind === "similar_items_search" ||
     inferredDecision?.kind === "catalog_alternative_search" ||
+    inferredDecision?.kind === "catalog_browse" ||
     shouldContinueListing
 
   const stayOnCurrentProduct =
@@ -590,7 +591,8 @@ export function resolveCatalogIntentState(input = {}) {
       inferredDecision?.kind === "catalog_search_refinement" ||
       inferredDecision?.kind === "same_type_search" ||
       inferredDecision?.kind === "similar_items_search" ||
-      inferredDecision?.kind === "catalog_alternative_search") &&
+      inferredDecision?.kind === "catalog_alternative_search" ||
+      inferredDecision?.kind === "catalog_browse") &&
     !stayOnCurrentProduct
   const shouldPreserveCurrentCatalogProduct =
     !forceNewSearch && inferredDecision?.kind !== "catalog_load_more"
@@ -635,7 +637,8 @@ export function resolveCatalogIntentState(input = {}) {
           ? null
           : sanitizeNumber(alternativePriceReferenceProduct.preco, null)
         : null,
-    allowEmptyCatalogSearch: inferredDecision?.kind === "catalog_alternative_search",
+    allowEmptyCatalogSearch:
+      inferredDecision?.kind === "catalog_alternative_search" || inferredDecision?.kind === "catalog_browse",
     lastSearchTerm: sanitizeString(listingSession?.searchTerm || contextCatalog.ultimaBusca),
     paginationOffset: forceNewSearch
       ? 0

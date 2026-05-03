@@ -198,7 +198,35 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
     }
   }
 
+  if (semanticIntent.intent === "catalog_browse") {
+    return {
+      kind: "catalog_browse",
+      confidence: semanticIntent.confidence,
+      reason: semanticIntent.reason ?? "Cliente pediu sugestoes amplas do catalogo.",
+      matchedProducts: [],
+      usedLlm: Boolean(semanticIntent.usedLlm),
+      shouldBlockNewSearch: false,
+      searchCandidates: [],
+      uncoveredTokens: [],
+      excludeCurrentProduct: false,
+    }
+  }
+
   if (semanticIntent.intent === "catalog_load_more") {
+    if (sanitizeString(semanticIntent.targetType)) {
+      return {
+        kind: "catalog_search_refinement",
+        confidence: semanticIntent.confidence,
+        reason: semanticIntent.reason ?? "Cliente pediu uma busca de catalogo com tipo concreto.",
+        matchedProducts: [],
+        usedLlm: Boolean(semanticIntent.usedLlm),
+        shouldBlockNewSearch: false,
+        searchCandidates: [sanitizeString(semanticIntent.targetType)],
+        uncoveredTokens: [sanitizeString(semanticIntent.targetType)],
+        excludeCurrentProduct: false,
+      }
+    }
+
     return {
       kind: "catalog_load_more",
       confidence: semanticIntent.confidence,
@@ -542,7 +570,7 @@ export async function classifySemanticIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de catalogo Mercado Livre.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"current_product_question|current_product_commercial_advice|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_alternative_search|catalog_search_refinement|new_catalog_search|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false,"targetFactHints":["string"],"factScope":"product|package|shipping|commercial|general|","adviceType":"price_objection|improvement_suggestion|value_assessment|fit_advice|other|","relation":"same_type|similar|storewide|","priceConstraint":"below_current|any|"}.',
+            'Schema: {"intent":"current_product_question|current_product_commercial_advice|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_alternative_search|catalog_search_refinement|new_catalog_search|catalog_browse|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false,"targetFactHints":["string"],"factScope":"product|package|shipping|commercial|general|","adviceType":"price_objection|improvement_suggestion|value_assessment|fit_advice|other|","relation":"same_type|similar|storewide|","priceConstraint":"below_current|any|"}.',
             "Use current_product_commercial_advice quando o cliente pedir uma avaliacao consultiva do produto atual, questionar custo-beneficio, reclamar que esta caro, perguntar o que melhorar/validar antes de comprar ou pedir opiniao comercial sem pedir um campo factual isolado.",
             "Para current_product_commercial_advice, preencha adviceType com price_objection, improvement_suggestion, value_assessment, fit_advice ou other e deixe targetFactHints vazio, exceto se o cliente tambem pedir um dado factual especifico.",
             "Use same_type_search apenas quando o cliente pedir outro item do mesmo tipo ou da mesma classe do produto atual.",
@@ -554,7 +582,9 @@ export async function classifySemanticIntentStage(input = {}) {
             "Use catalog_search_refinement quando o cliente refinar a ultima lista com um atributo novo ou filtro novo, por exemplo inox, azul, madeira, vintage, grande.",
             "Quando usar catalog_search_refinement, extraia targetType curto e literal com o termo novo principal da busca.",
             "Use new_catalog_search quando o cliente iniciar uma nova busca de catalogo, inclusive na vitrine, com um tipo ou termo curto claro, por exemplo saleiro azul, xicara vintage, vaso amarelo.",
+            "Use catalog_browse quando o cliente pedir sugestoes amplas, ideias, presentes, algo bom/interessante ou recomendacao sem informar um tipo concreto de produto. Nao use presente, bom, bonito ou interessante como targetType.",
             "Use catalog_load_more quando o cliente pedir mais opcoes, mais modelos, outras opcoes, perguntar se tem mais, se sao so aqueles itens ou o que tiver, sem mudar o tipo principal da busca.",
+            "Nao use catalog_load_more quando a mensagem tiver um tipo concreto de produto, como prato, xicara, vaso, saleiro ou bandeja. Nesses casos use new_catalog_search ou catalog_search_refinement com targetType concreto.",
             "Se existir contexto de busca/listagem recente e a conversa estiver em pagina de detalhe, pedidos como tem mais, so esses, quero ver mais ou me mostra outras opcoes continuam sendo catalog_load_more, nao current_product_question.",
             "Use recent_product_reference quando o cliente estiver se referindo a um item da lista recente e for possivel identificar qual item e.",
             "Use recent_product_reference_ambiguous quando a fala apontar para mais de um item recente de forma plausivel.",
@@ -626,6 +656,7 @@ export async function classifySemanticIntentStage(input = {}) {
                   "catalog_alternative_search",
                   "catalog_search_refinement",
                   "new_catalog_search",
+                  "catalog_browse",
                   "catalog_load_more",
                   "other",
                 ],

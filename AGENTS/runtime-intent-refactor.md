@@ -653,3 +653,17 @@ Ainda errado / fragil:
   - `load_more` e `catalog_alternative_search` agora excluem os produtos ja exibidos na lista recente antes de buscar novos itens
   - quando o cliente pede alternativa mais barata sem produto unico em foco, o handler usa a menor opcao recente como referencia de preco e continua pela `listingSession`
   - se nao houver opcao nova/mais barata, a resposta falha fechado com aviso explicito em vez de repetir a mesma lista
+- sugestoes amplas de catalogo agora entram por intent semantico proprio
+  - `catalog_browse` cobre pedidos consultivos sem tipo concreto de produto, como ideias de presente ou algo bom/interessante da loja
+  - esse fluxo faz busca ampla controlada no catalogo em vez de buscar literalmente termos vagos como `presente`
+  - a UI do widget voltou a permitir gesto horizontal e vertical no carrossel mobile via contrato de touch nativo
+- quantidade de itens de catalogo agora respeita o canal
+  - widget/site recebe ate 10 produtos por listagem, pois o carrossel horizontal absorve a quantidade sem poluir a conversa
+  - WhatsApp continua limitado a 3 itens na mensagem vertical com URL, evitando excesso de texto no canal
+- mini cards do widget ficaram mais orientados a vitrine
+  - card compacto da lista mostra imagem, titulo, preco/parcelamento e apenas Mercado Livre + Saber mais
+  - detalhe de produto acionado pelo widget volta a renderizar card unico com resumo e botoes Mercado Livre + Detalhe + Saber mais
+  - o carrossel preserva melhor o scroll horizontal durante re-render e suporta arraste de mouse
+- o stage semantico de catalogo ficou mais fail-closed para `catalog_load_more`
+  - se a classificacao vier como `catalog_load_more` carregando `targetType` concreto, o runtime converte para busca/refinamento de catalogo
+  - o prompt tambem orienta que tipos concretos como prato, xicara, vaso e similares nao devem virar continuidade de lista

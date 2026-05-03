@@ -63,10 +63,17 @@ function formatCurrency(value, currencyId = "BRL") {
 
 function buildMercadoLivreAsset(item, index = 0) {
   const priceLabel = formatCurrency(item?.price, item?.currencyId || "BRL")
+  const installmentQuantity = sanitizeNumber(item?.installmentQuantity, 0)
+  const installmentAmount = sanitizeNumber(item?.installmentAmount, 0)
+  const installmentLabel =
+    installmentQuantity > 1 && installmentAmount > 0
+      ? `${installmentQuantity}x de ${formatCurrency(installmentAmount, item?.currencyId || "BRL")}`
+      : ""
   const stockQuantity = sanitizeNumber(item?.availableQuantity, 0)
   const stockLabel = stockQuantity > 0 ? `${stockQuantity} em estoque` : ""
   const productSlug = sanitizeString(item?.slug) || slugifyProduct(item?.title)
   const images = [...new Set([sanitizeString(item?.thumbnail), ...(Array.isArray(item?.pictures) ? item.pictures : [])].filter(Boolean))].slice(0, 6)
+  const summary = sanitizeString(item?.descriptionPlain || item?.shortDescription || item?.descricaoLonga || item?.description)
 
   return {
     id: sanitizeString(item?.id || `mercado-livre-${index + 1}`),
@@ -76,7 +83,9 @@ function buildMercadoLivreAsset(item, index = 0) {
     nome: sanitizeString(item?.title || "Produto"),
     slug: productSlug,
     descricao: [priceLabel, stockLabel].filter(Boolean).join(" - "),
+    resumo: summary,
     priceLabel,
+    installmentLabel,
     targetUrl: sanitizeString(item?.permalink),
     publicUrl: images[0] ?? "",
     images,
@@ -86,6 +95,10 @@ function buildMercadoLivreAsset(item, index = 0) {
       sellerName: sanitizeString(item?.sellerName),
       status: sanitizeString(item?.status),
       availableQuantity: stockQuantity,
+      installmentQuantity,
+      installmentAmount,
+      installmentLabel,
+      summary,
       currencyId: sanitizeString(item?.currencyId || "BRL"),
       condition: sanitizeString(item?.condition),
       warranty: sanitizeString(item?.warranty),
@@ -350,9 +363,6 @@ function buildSelectedProductReply(product, userMessage = "") {
         `No momento eu vejo ${sanitizeNumber(product.availableQuantity, 0)} unidade${sanitizeNumber(product.availableQuantity, 0) > 1 ? "s" : ""} disponivel${sanitizeNumber(product.availableQuantity, 0) > 1 ? "is" : ""}.`
       )
     }
-    if (product.link) {
-      pushUniqueSentence(pieces, "Se quiser, eu mando o link do anuncio para voce conferir o envio direto por la.")
-    }
     return pieces.join(" ")
   }
 
@@ -395,9 +405,6 @@ function buildSelectedProductReply(product, userMessage = "") {
   }
   if (product.status && product.status !== "active") {
     pushUniqueSentence(pieces, `Status atual no Mercado Livre: ${product.status}.`)
-  }
-  if (product.link) {
-    pushUniqueSentence(pieces, "Se quiser, eu mando o link direto do anuncio.")
   }
   pushUniqueSentence(pieces, "Se quiser, eu tambem comparo com outra opcao da lista.")
 
@@ -457,6 +464,11 @@ function buildCatalogSearchState({ searchTerm, paging, products, currentListingS
 
 function normalizeRecentCatalogProducts(context) {
   return Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos.filter(Boolean) : []
+}
+
+function isWhatsAppCatalogChannel(context = {}) {
+  const channelKind = String(context?.canal || context?.channel?.kind || "").trim().toLowerCase()
+  return channelKind === "whatsapp"
 }
 
 export function isMercadoLivrePurchaseIntent(message) {
@@ -644,10 +656,18 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     }
   }
 
-  if (currentProduct && (isMercadoLivreDetailIntent(input.latestUserMessage) || isMercadoLivrePurchaseIntent(input.latestUserMessage))) {
+  if (
+    currentProduct &&
+    (structuredCatalogAction === "product_detail" ||
+      isMercadoLivreDetailIntent(input.latestUserMessage) ||
+      isMercadoLivrePurchaseIntent(input.latestUserMessage))
+  ) {
     const factualReply = buildFocusedProductFactualReply(currentProduct, input.latestUserMessage)
-    const shouldAttachAsset = isMercadoLivreLinkIntent(input.latestUserMessage) || isMercadoLivrePurchaseIntent(input.latestUserMessage)
-    const productAsset = currentProduct.link
+    const shouldAttachAsset =
+      structuredCatalogAction === "product_detail" ||
+      isMercadoLivreLinkIntent(input.latestUserMessage) ||
+      isMercadoLivrePurchaseIntent(input.latestUserMessage)
+    const productAsset = currentProduct.link || currentProduct.imagem
       ? [
           buildMercadoLivreAsset(
             {
@@ -658,6 +678,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
               availableQuantity: currentProduct.availableQuantity ?? 0,
               permalink: currentProduct.link,
               thumbnail: currentProduct.imagem,
+              descriptionPlain: currentProduct.descricaoLonga,
               sellerId: currentProduct.sellerId,
             sellerName: currentProduct.sellerName,
             status: currentProduct.status,
@@ -746,6 +767,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       sanitizeString(input.context?.catalogo?.ultimaBusca)
 
   const searchOffset = input.loadMoreCatalogRequested && !input.forceNewSearch ? sanitizeNumber(input.paginationOffset, 0) : 0
+  const productDisplayLimit = isWhatsAppCatalogChannel(input.context) ? 3 : 10
   const poolLimit = input.loadMoreCatalogRequested
     ? Math.max(12, sanitizeNumber(input.paginationPoolLimit, 24))
     : Math.max(18, sanitizeNumber(input.paginationPoolLimit, 24))
@@ -762,7 +784,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     input.project,
     {
       searchTerm,
-      limit: 3,
+      limit: productDisplayLimit,
       offset: searchOffset,
       poolLimit,
       excludeItemIds: effectiveExcludeItemIds,
@@ -792,7 +814,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   }
 
   const products = Array.isArray(items) ? items : []
-  const assets = products.slice(0, 3).map((item, index) => buildMercadoLivreAsset(item, index))
+  const assets = products.slice(0, productDisplayLimit).map((item, index) => buildMercadoLivreAsset(item, index))
   const catalogSearchState = buildCatalogSearchState({
     searchTerm,
     paging,
