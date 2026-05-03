@@ -188,6 +188,10 @@ function buildCatalogProductFromItem(item, options = {}) {
 
 function buildMercadoLivreSearchReply(products, searchTerm, connector, paging, options = {}) {
   if (!Array.isArray(products) || products.length === 0) {
+    if (options?.isAlternativeSearch === true && options?.priceMaxExclusive != null) {
+      return "Nao encontrei outra opcao mais barata nessa mesma busca agora. Posso tentar outro termo ou ampliar a busca se voce quiser."
+    }
+
     return searchTerm
       ? "Nao achei itens da loja com esse perfil agora. Se quiser, me diga outro termo e eu tento uma nova busca."
       : "Posso te mostrar produtos da loja. Me diga o que voce procura e eu busco aqui."
@@ -749,6 +753,10 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     input.excludeCurrentProductFromSearch && currentProduct?.id
       ? [sanitizeString(currentProduct.id)].filter(Boolean)
       : []
+  const shownCatalogProductIds = Array.isArray(input.excludeCatalogProductIds)
+    ? input.excludeCatalogProductIds.map((itemId) => sanitizeString(itemId)).filter(Boolean)
+    : []
+  const effectiveExcludeItemIds = [...new Set([...excludeItemIds, ...shownCatalogProductIds])]
 
   const { items, connector, paging, error } = await (input.resolveMercadoLivreSearch ?? searchMercadoLivreProductsForProject)(
     input.project,
@@ -757,7 +765,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       limit: 3,
       offset: searchOffset,
       poolLimit,
-      excludeItemIds,
+      excludeItemIds: effectiveExcludeItemIds,
       priceMaxExclusive: input.priceMaxExclusive,
       sort: input.priceMaxExclusive != null ? "price_asc" : undefined,
       allowEmptySearch: allowEmptyCatalogSearch,
@@ -817,6 +825,8 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     mercadoLivreHeuristicReply: enforceMercadoLivreSearchReplyCoherence(
       buildMercadoLivreSearchReply(products, searchTerm, connector, paging, {
         isLoadMore: input.loadMoreCatalogRequested,
+        isAlternativeSearch: input.catalogFollowUpDecision?.kind === "catalog_alternative_search",
+        priceMaxExclusive: input.priceMaxExclusive,
       }),
       products,
       searchTerm,
@@ -824,6 +834,8 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       paging,
       {
         isLoadMore: input.loadMoreCatalogRequested,
+        isAlternativeSearch: input.catalogFollowUpDecision?.kind === "catalog_alternative_search",
+        priceMaxExclusive: input.priceMaxExclusive,
       }
     ),
     mercadoLivreProducts: products,

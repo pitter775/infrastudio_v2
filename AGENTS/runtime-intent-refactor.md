@@ -649,3 +649,7 @@ Ainda errado / fragil:
   - a decisao carrega `relation`, `priceConstraint` e `excludeCurrentProduct`, permitindo buscar outros produtos sem repetir o item em foco
   - para alternativa mais barata, o handler usa o preco estruturado do produto atual como `priceMaxExclusive` e ordena por `price_asc`
   - Mercado Livre/snapshot agora aceitam busca vazia controlada para alternativas amplas, filtro por preco e exclusao do item atual como contrato de dados, sem novo matcher textual
+- continuidade de lista e alternativa mais barata passaram a proteger contra repeticao visual
+  - `load_more` e `catalog_alternative_search` agora excluem os produtos ja exibidos na lista recente antes de buscar novos itens
+  - quando o cliente pede alternativa mais barata sem produto unico em foco, o handler usa a menor opcao recente como referencia de preco e continua pela `listingSession`
+  - se nao houver opcao nova/mais barata, a resposta falha fechado com aviso explicito em vez de repetir a mesma lista

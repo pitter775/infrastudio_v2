@@ -24,6 +24,31 @@ function sanitizeStringArray(values = []) {
   return [...new Set((Array.isArray(values) ? values : []).map((item) => sanitizeString(item)).filter(Boolean))]
 }
 
+function getCatalogProductId(product) {
+  return sanitizeString(product?.id || product?.productId || product?.itemId)
+}
+
+function getPricedRecentCatalogProducts(products = []) {
+  return (Array.isArray(products) ? products : []).filter((product) => Number.isFinite(Number(product?.preco)))
+}
+
+function getLowestPricedCatalogProduct(products = []) {
+  return getPricedRecentCatalogProducts(products).reduce((selected, product) => {
+    if (!selected) {
+      return product
+    }
+
+    return Number(product.preco) < Number(selected.preco) ? product : selected
+  }, null)
+}
+
+function buildShownCatalogProductIds(products = [], listingSession = null) {
+  return sanitizeStringArray([
+    ...(Array.isArray(products) ? products.map(getCatalogProductId) : []),
+    ...(Array.isArray(listingSession?.matchedProductIds) ? listingSession.matchedProductIds : []),
+  ])
+}
+
 function normalizeMessage(value) {
   return String(value || "")
     .normalize("NFD")
@@ -523,6 +548,10 @@ export function resolveCatalogIntentState(input = {}) {
 
   const candidateCurrentCatalogProduct =
     referencedCatalogProducts?.[0] ?? contextCatalog.produtoAtual ?? implicitSingleRecentProduct ?? null
+  const alternativePriceReferenceProduct =
+    inferredDecision?.kind === "catalog_alternative_search" && inferredDecision?.priceConstraint === "below_current"
+      ? candidateCurrentCatalogProduct ?? getLowestPricedCatalogProduct(recentCatalogProducts)
+      : candidateCurrentCatalogProduct
 
   const semanticSearchCandidates =
     inferredDecision?.kind === "similar_items_search" ||
@@ -596,11 +625,15 @@ export function resolveCatalogIntentState(input = {}) {
           productSearchCandidates[0] ??
           "",
     excludeCurrentProductFromSearch: inferredDecision?.excludeCurrentProduct === true,
+    excludeCatalogProductIds:
+      loadMoreCatalogRequested || inferredDecision?.kind === "catalog_alternative_search"
+        ? buildShownCatalogProductIds(recentCatalogProducts, listingSession)
+        : [],
     priceMaxExclusive:
       inferredDecision?.kind === "catalog_alternative_search" && inferredDecision?.priceConstraint === "below_current"
-        ? candidateCurrentCatalogProduct?.preco == null
+        ? alternativePriceReferenceProduct?.preco == null
           ? null
-          : sanitizeNumber(candidateCurrentCatalogProduct.preco, null)
+          : sanitizeNumber(alternativePriceReferenceProduct.preco, null)
         : null,
     allowEmptyCatalogSearch: inferredDecision?.kind === "catalog_alternative_search",
     lastSearchTerm: sanitizeString(listingSession?.searchTerm || contextCatalog.ultimaBusca),
