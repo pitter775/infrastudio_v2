@@ -218,19 +218,6 @@ function getProductIdentity(product) {
   return String(product?.itemId || product?.id || product?.slug || '').trim()
 }
 
-function shouldSkipRepeatedRecommendedProducts(featuredProducts, products) {
-  if (!featuredProducts.length || products.length < 5) {
-    return false
-  }
-
-  const featuredIds = new Set(featuredProducts.slice(0, 5).map(getProductIdentity).filter(Boolean))
-  if (!featuredIds.size) {
-    return false
-  }
-
-  return products.slice(0, 5).some((product) => featuredIds.has(getProductIdentity(product)))
-}
-
 export function MercadoLivreStorefront({
   store,
   featuredProducts,
@@ -256,12 +243,14 @@ export function MercadoLivreStorefront({
     return (useLatestProducts ? products : featuredProducts.length ? featuredProducts : products).slice(0, 10)
   }, [featuredProducts, products, useLatestProducts])
   const visibleProducts = useMemo(() => {
-    if (useLatestProducts && recommendedProducts.length) {
-      return products.slice(5)
-    }
-
-    return shouldSkipRepeatedRecommendedProducts(recommendedProducts, products) ? products.slice(5) : products
-  }, [recommendedProducts, products, useLatestProducts])
+    const recommendedIds = new Set(recommendedProducts.map(getProductIdentity).filter(Boolean))
+    const dedupedProducts = products.filter((product) => {
+      const identity = getProductIdentity(product)
+      return !identity || !recommendedIds.has(identity)
+    })
+    const fallbackProducts = dedupedProducts.length ? dedupedProducts : products
+    return fallbackProducts.slice(0, Math.max(10, page * 10))
+  }, [recommendedProducts, products, page])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],

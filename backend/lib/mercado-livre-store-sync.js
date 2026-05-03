@@ -28,6 +28,25 @@ function isMissingSyncStateTableError(error) {
   return code === "42P01" || message.includes(SYNC_STATE_TABLE) || message.includes("does not exist")
 }
 
+function isMissingSnapshotDateColumnError(error) {
+  const code = String(error?.code || "").trim()
+  const message = String(error?.message || error?.details || error || "").toLowerCase()
+  return code === "PGRST204" && (message.includes("ml_date_created") || message.includes("ml_last_updated"))
+}
+
+function omitSnapshotDateColumns(row) {
+  if (!row || typeof row !== "object") {
+    return row
+  }
+
+  const { ml_date_created: _mlDateCreated, ml_last_updated: _mlLastUpdated, ...rest } = row
+  return rest
+}
+
+function omitSnapshotDateColumnsFromRows(rows) {
+  return Array.isArray(rows) ? rows.map((row) => omitSnapshotDateColumns(row)) : []
+}
+
 function toIsoString(value) {
   const normalized = sanitizeText(value, 64)
   return normalized || null
@@ -265,6 +284,13 @@ async function replaceSnapshotRowsForProject(supabase, projectId, rows) {
     const insertResult = await supabase.from("mercadolivre_produtos_snapshot").insert(batch)
 
     if (insertResult.error) {
+      if (isMissingSnapshotDateColumnError(insertResult.error)) {
+        const legacyInsertResult = await supabase.from("mercadolivre_produtos_snapshot").insert(omitSnapshotDateColumnsFromRows(batch))
+        if (!legacyInsertResult.error) {
+          continue
+        }
+      }
+
       console.error("[mercado-livre-store-sync] failed to insert snapshot rows in replace sync", insertResult.error)
       return {
         ok: false,
@@ -289,21 +315,28 @@ export async function getMercadoLivreSnapshotStatus(projectId, deps = {}) {
   }
 
   const supabase = deps.supabase ?? getSupabaseAdminClient()
-  const [{ count }, latestResult] = await Promise.all([
-    supabase.from("mercadolivre_produtos_snapshot").select("id", { count: "exact", head: true }).eq("projeto_id", projectId),
-    supabase
+  const countResult = await supabase.from("mercadolivre_produtos_snapshot").select("id", { count: "exact", head: true }).eq("projeto_id", projectId)
+  let latestResult = await supabase
+    .from("mercadolivre_produtos_snapshot")
+    .select("ml_item_id, titulo, slug, ml_date_created, updated_at")
+    .eq("projeto_id", projectId)
+    .order("ml_date_created", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(5)
+
+  if (latestResult.error && isMissingSnapshotDateColumnError(latestResult.error)) {
+    latestResult = await supabase
       .from("mercadolivre_produtos_snapshot")
-      .select("ml_item_id, titulo, slug, ml_date_created, updated_at")
+      .select("ml_item_id, titulo, slug, updated_at")
       .eq("projeto_id", projectId)
-      .order("ml_date_created", { ascending: false, nullsFirst: false })
       .order("updated_at", { ascending: false, nullsFirst: false })
-      .limit(5),
-  ])
+      .limit(5)
+  }
 
   const latestProducts = Array.isArray(latestResult.data) ? latestResult.data : []
   const syncStateResult = await getMercadoLivreSyncState(projectId, { supabase })
   return {
-    total: Number(count || 0) || 0,
+    total: Number(countResult.count || 0) || 0,
     lastSyncAt: latestProducts[0]?.updated_at || null,
     latestProducts,
     syncState: syncStateResult.state,
@@ -340,10 +373,19 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
     currentOffset += Number(result.paging?.limit || limit) || limit
   }
 
-  const existingResult = await supabase
+  let supportsSnapshotDateColumns = true
+  let existingResult = await supabase
     .from("mercadolivre_produtos_snapshot")
     .select("ml_item_id, titulo, slug, preco, thumbnail_url, permalink, status, estoque, categoria_id, categoria_nome, ml_date_created, ml_last_updated")
     .eq("projeto_id", project.id)
+
+  if (existingResult.error && isMissingSnapshotDateColumnError(existingResult.error)) {
+    supportsSnapshotDateColumns = false
+    existingResult = await supabase
+      .from("mercadolivre_produtos_snapshot")
+      .select("ml_item_id, titulo, slug, preco, thumbnail_url, permalink, status, estoque, categoria_id, categoria_nome")
+      .eq("projeto_id", project.id)
+  }
 
   if (existingResult.error) {
     console.error("[mercado-livre-store-sync] failed to load snapshot rows for incremental sync", existingResult.error)
@@ -408,9 +450,25 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
   if (rowsToPatch.length) {
     const { error } = await supabase
       .from("mercadolivre_produtos_snapshot")
-      .upsert(rowsToPatch, { onConflict: "projeto_id,ml_item_id" })
+      .upsert(supportsSnapshotDateColumns ? rowsToPatch : omitSnapshotDateColumnsFromRows(rowsToPatch), { onConflict: "projeto_id,ml_item_id" })
 
     if (error) {
+      if (isMissingSnapshotDateColumnError(error)) {
+        const retryResult = await supabase
+          .from("mercadolivre_produtos_snapshot")
+          .upsert(omitSnapshotDateColumnsFromRows(rowsToPatch), { onConflict: "projeto_id,ml_item_id" })
+        if (!retryResult.error) {
+          supportsSnapshotDateColumns = false
+        } else {
+          console.error("[mercado-livre-store-sync] failed to upsert incremental snapshot rows", retryResult.error)
+          return buildSyncError("Nao foi possivel atualizar o snapshot incremental.", "upsert_incremental_rows", {
+            paging: lastPaging,
+            rows: rowsToPatch.length,
+            error: retryResult.error.message || "unknown_error",
+            errorCode: retryResult.error.code || null,
+          })
+        }
+      } else {
       console.error("[mercado-livre-store-sync] failed to upsert incremental snapshot rows", error)
       return buildSyncError("Nao foi possivel atualizar o snapshot incremental.", "upsert_incremental_rows", {
         paging: lastPaging,
@@ -418,15 +476,32 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
         error: error.message || "unknown_error",
         errorCode: error.code || null,
       })
+      }
     }
   }
 
   if (rowsToInsert.length) {
     const { error } = await supabase
       .from("mercadolivre_produtos_snapshot")
-      .upsert(rowsToInsert, { onConflict: "projeto_id,ml_item_id" })
+      .upsert(supportsSnapshotDateColumns ? rowsToInsert : omitSnapshotDateColumnsFromRows(rowsToInsert), { onConflict: "projeto_id,ml_item_id" })
 
     if (error) {
+      if (isMissingSnapshotDateColumnError(error)) {
+        const retryResult = await supabase
+          .from("mercadolivre_produtos_snapshot")
+          .upsert(omitSnapshotDateColumnsFromRows(rowsToInsert), { onConflict: "projeto_id,ml_item_id" })
+        if (!retryResult.error) {
+          supportsSnapshotDateColumns = false
+        } else {
+          console.error("[mercado-livre-store-sync] failed to upsert new snapshot rows", retryResult.error)
+          return buildSyncError("Nao foi possivel adicionar produtos novos ao snapshot.", "upsert_new_rows_incremental", {
+            paging: lastPaging,
+            rows: rowsToInsert.length,
+            error: retryResult.error.message || "unknown_error",
+            errorCode: retryResult.error.code || null,
+          })
+        }
+      } else {
       console.error("[mercado-livre-store-sync] failed to upsert new snapshot rows", error)
       return buildSyncError("Nao foi possivel adicionar produtos novos ao snapshot.", "upsert_new_rows_incremental", {
         paging: lastPaging,
@@ -434,6 +509,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
         error: error.message || "unknown_error",
         errorCode: error.code || null,
       })
+      }
     }
   }
 
@@ -573,7 +649,22 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
         .upsert(rows, { onConflict: "projeto_id,ml_item_id" })
 
       if (error) {
-        if (shouldFallbackToReplaceSync(error)) {
+        if (isMissingSnapshotDateColumnError(error)) {
+          const retryResult = await supabase
+            .from("mercadolivre_produtos_snapshot")
+            .upsert(omitSnapshotDateColumnsFromRows(rows), { onConflict: "projeto_id,ml_item_id" })
+
+          if (retryResult.error) {
+            console.error("[mercado-livre-store-sync] failed to upsert snapshot rows without date columns", retryResult.error)
+            await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Nao foi possivel atualizar o snapshot da loja.", { supabase })
+            return buildSyncError("Nao foi possivel atualizar o snapshot da loja.", "upsert_rows", {
+              paging: lastPaging,
+              error: retryResult.error.message || "unknown_error",
+              errorCode: retryResult.error.code || null,
+              rows: rows.length,
+            })
+          }
+        } else if (shouldFallbackToReplaceSync(error)) {
           const replaceResult = await replaceSnapshotRowsForProject(supabase, project.id, rows)
           if (!replaceResult.ok) {
             await releaseMercadoLivreSyncStateOnError(project.id, syncMode, replaceResult.error, { supabase })
