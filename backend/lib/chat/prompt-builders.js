@@ -252,6 +252,32 @@ function buildCompactAgentBaseInstruction(agent = {}, runtimeContext = {}) {
   return compact.join("\n")
 }
 
+function formatRuntimeApiPromptContext(api) {
+  const fields = Array.isArray(api?.campos) ? api.campos.filter(Boolean).slice(0, 8) : []
+  const fieldLines = fields
+    .map((field) => {
+      const name = String(field?.nome || "").trim()
+      const value = String(field?.valor ?? "").trim()
+      if (!name || !value) {
+        return ""
+      }
+
+      return `- ${name}: ${value.slice(0, 220)}`
+    })
+    .filter(Boolean)
+
+  return [
+    `API: ${api.nome}`,
+    api.descricao ? `Descricao: ${String(api.descricao).slice(0, 220)}` : "",
+    `Status: ${api.status}`,
+    fieldLines.length
+      ? `Campos factuais:\n${fieldLines.join("\n")}`
+      : `Resumo: ${String(api.preview || "").slice(0, 500)}`,
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
 export function buildSystemPrompt(agent = {}, context = {}, structured = false) {
   const name = agent.nome || agent.name || "Assistente"
   const projetoNome = context?.projeto?.nome || context?.projetoNome
@@ -271,16 +297,7 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
   const apiContext = Array.isArray(context?.runtimeApis) && context.runtimeApis.length
     ? [
         "Dados externos consultados agora:",
-        ...context.runtimeApis.map((api) =>
-          [
-            `API: ${api.nome}`,
-            api.descricao ? `Descricao: ${api.descricao}` : "",
-            `Status: ${api.status}`,
-            `Resposta: ${String(api.preview || "").slice(0, 1200)}`,
-          ]
-            .filter(Boolean)
-            .join("\n"),
-        ),
+        ...context.runtimeApis.map((api) => formatRuntimeApiPromptContext(api)),
         "Use estes dados quando forem relevantes e diga que nao encontrou informacao se eles nao responderem a pergunta.",
       ].join("\n\n")
     : ""

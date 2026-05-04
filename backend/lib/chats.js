@@ -80,6 +80,17 @@ export function mapMensagemPreview(row) {
   }
 }
 
+export function mapMensagemRuntime(row) {
+  return {
+    id: row.id,
+    chatId: row.chat_id ?? "",
+    role: row.role === "assistant" ? "assistant" : row.role === "system" ? "system" : "user",
+    conteudo: row.conteudo,
+    canal: row.canal?.trim() || "web",
+    createdAt: row.created_at ?? new Date().toISOString(),
+  }
+}
+
 export function normalizeWhatsAppLookupPhone(value) {
   const digits = String(value || "").replace(/\D/g, "")
   if (!digits) {
@@ -304,6 +315,33 @@ export async function listChatMessages(chatId, options = {}) {
   return messages
 }
 
+export async function listChatRuntimeMessages(chatId, options = {}) {
+  const supabase = getSupabaseAdminClient()
+  const ascending = options.ascending !== false
+  let query = supabase
+    .from("mensagens")
+    .select("id, chat_id, role, conteudo, canal, created_at")
+    .eq("chat_id", chatId)
+    .order("created_at", { ascending })
+
+  if (options.before) {
+    query = query.lt("created_at", options.before)
+  }
+
+  if (Number.isFinite(options.limit) && options.limit > 0) {
+    query = query.limit(options.limit)
+  }
+
+  const { data, error } = await query
+
+  if (error || !data) {
+    console.error("[chats] failed to list runtime messages", error)
+    return []
+  }
+
+  return data.map((row) => mapMensagemRuntime(row))
+}
+
 export async function listLatestChatMessages(chatIds, options = {}) {
   const normalizedChatIds = Array.from(
     new Set((Array.isArray(chatIds) ? chatIds : []).map((item) => String(item || "").trim()).filter(Boolean)),
@@ -468,7 +506,7 @@ export async function listRecentMessagesByExternalIdentifier(input) {
 
   const { data, error } = await supabase
     .from("mensagens")
-    .select("id, chat_id, role, conteudo, canal, identificador_externo, tokens_input, tokens_output, custo, metadata, created_at")
+    .select("id, chat_id, role, conteudo, canal, created_at")
     .in("chat_id", chats.map((chat) => chat.id))
     .order("created_at", { ascending: false })
     .limit(input?.limit ?? 18)
@@ -478,7 +516,7 @@ export async function listRecentMessagesByExternalIdentifier(input) {
     return []
   }
 
-  return data.map((row) => mapMensagem(row)).reverse()
+  return data.map((row) => mapMensagemRuntime(row)).reverse()
 }
 
 export async function updateChatContext(chatId, contexto) {

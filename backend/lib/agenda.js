@@ -135,6 +135,12 @@ function mapReservation(row) {
   }
 }
 
+const agendaSlotFields =
+  "id, projeto_id, agente_id, titulo, dia_semana, data_inicio, data_fim, hora_inicio, hora_fim, timezone, capacidade, ativo, configuracoes, created_at, updated_at"
+
+const agendaReservationFields =
+  "id, projeto_id, agente_id, horario_id, chat_id, status, contato_nome, contato_email, contato_telefone, resumo_conversa, dados_contato, origem, canal, horario_reservado, timezone, metadata, created_at, updated_at"
+
 async function loadNotificationContext(projectId, agentId = null) {
   const supabase = getSupabaseAdminClient()
   const [projectResult, membersResult, recipients, channel] = await Promise.all([
@@ -370,10 +376,14 @@ export async function listAgendaForUser({ user, projetoId }) {
 
   let slotsQuery = supabase
     .from("agenda_horarios")
-    .select("*")
+    .select(agendaSlotFields)
     .order("data_inicio", { ascending: true, nullsFirst: false })
     .order("hora_inicio")
-  let reservationsQuery = supabase.from("agenda_reservas").select("*").order("horario_reservado", { ascending: false }).limit(80)
+  let reservationsQuery = supabase
+    .from("agenda_reservas")
+    .select(agendaReservationFields)
+    .order("horario_reservado", { ascending: false })
+    .limit(80)
 
   if (Array.isArray(projectIds)) {
     slotsQuery = slotsQuery.in("projeto_id", projectIds)
@@ -517,7 +527,7 @@ export async function generateAgendaSlotsForUser({ user, input }) {
     return { slots: [], created: 0, skipped: existingKeys.size, error: null }
   }
 
-  const { data, error } = await supabase.from("agenda_horarios").insert(payload).select("*")
+  const { data, error } = await supabase.from("agenda_horarios").insert(payload).select(agendaSlotFields)
   if (error) {
     return { slots: [], created: 0, skipped: 0, error: error.message }
   }
@@ -544,7 +554,7 @@ export async function replicateAgendaToProject({ user, input }) {
   const [{ data: sourceRows, error: sourceError }, { data: targetRows, error: targetError }] = await Promise.all([
     supabase
       .from("agenda_horarios")
-      .select("*")
+      .select(agendaSlotFields)
       .eq("projeto_id", sourceProjectId)
       .order("data_inicio", { ascending: true, nullsFirst: false })
       .order("hora_inicio"),
@@ -578,7 +588,7 @@ export async function replicateAgendaToProject({ user, input }) {
 
   let inserted = []
   if (payload.length) {
-    const { data, error } = await supabase.from("agenda_horarios").insert(payload).select("*")
+    const { data, error } = await supabase.from("agenda_horarios").insert(payload).select(agendaSlotFields)
     if (error) {
       return { slots: [], created: 0, skipped: 0, error: error.message }
     }
@@ -614,7 +624,7 @@ export async function updateAgendaSlotsStatusForUser({ user, input }) {
     })
     .eq("projeto_id", projetoId)
     .in("id", ids)
-    .select("*")
+    .select(agendaSlotFields)
 
   if (error) {
     return { slots: [], error: error.message }
@@ -636,7 +646,7 @@ export async function reserveAgendaSlotsForUser({ user, input }) {
   const supabase = getSupabaseAdminClient()
   const { data: slots, error: slotsError } = await supabase
     .from("agenda_horarios")
-    .select("*")
+    .select("id, agente_id, data_inicio, hora_inicio, timezone, ativo")
     .eq("projeto_id", projetoId)
     .in("id", ids)
 
@@ -675,7 +685,7 @@ export async function reserveAgendaSlotsForUser({ user, input }) {
     return { reservations: [], error: "Horarios selecionados ja estao reservados ou bloqueados." }
   }
 
-  const { data, error } = await supabase.from("agenda_reservas").insert(payload).select("*")
+  const { data, error } = await supabase.from("agenda_reservas").insert(payload).select(agendaReservationFields)
   if (error) {
     return { reservations: [], error: error.message }
   }
@@ -830,7 +840,7 @@ export async function updateAgendaReservationForUser({ user, input }) {
     })
     .eq("id", input.id)
     .eq("projeto_id", projetoId)
-    .select("*")
+    .select(agendaReservationFields)
     .single()
 
   if (error || !data) {
@@ -846,7 +856,7 @@ export async function listPublicAgendaAvailability({ projetoId, agenteId, date =
   const normalizedDate = normalizeText(date)?.slice(0, 10)
   let query = supabase
     .from("agenda_horarios")
-    .select("*")
+    .select(agendaSlotFields)
     .eq("projeto_id", projetoId)
     .eq("ativo", true)
     .gte("data_inicio", todayStartIso)
@@ -952,7 +962,7 @@ export async function createAgendaReservation(input) {
       timezone: normalizeText(input.timezone) || "America/Sao_Paulo",
       metadata: input.metadata && typeof input.metadata === "object" ? input.metadata : {},
     })
-    .select("*")
+    .select(agendaReservationFields)
     .single()
 
   if (error || !data) {

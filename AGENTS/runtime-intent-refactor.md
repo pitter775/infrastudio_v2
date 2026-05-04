@@ -218,6 +218,14 @@ Ja feito:
 - o fallback heuristico de pricing no orquestrador foi estreitado:
   - so entra quando o roteamento ja estiver em billing
   - nao deve mais vazar para conversa geral por palavra generica
+- egress do Mercado Livre no chat foi reduzido sem alterar intent:
+  - listagem de catalogo por snapshot usa select compacto no runtime
+  - resposta baseada em snapshot nao carrega mais conector completo
+  - detalhe de produto tenta snapshot local antes de conector/OAuth/API externa
+  - config de loja para chat le apenas `chat_contexto_completo`
+  - busca de snapshot no chat nao usa mais `count: exact`
+  - `chats.contexto` agora persiste catalogo compactado, mantendo estado estrutural sem gravar payload grande de produto/lista
+  - logs redundantes de runtime foram reduzidos e contexto de API no prompt passou a preferir campos compactos em vez de preview bruto longo
 - o fallback residual de pricing em `sales-heuristics.js` tambem foi estreitado:
   - exige noun billing explicito ou nome real de plano do catalogo
   - nao deve mais disparar so por `valor`, `preco`, `quanto custa`, `me passa`

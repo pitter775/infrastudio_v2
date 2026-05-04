@@ -114,8 +114,74 @@ export {
   stripAssistantMetaReply,
 } from "@/lib/chat/reply-formatting"
 
+const CHAT_CHANNEL_RESOLUTION_CACHE_TTL_MS = 20_000
+const CHAT_CHANNEL_RESOLUTION_CACHE_MAX = 250
+
 function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function getChatChannelResolutionCache() {
+  if (!globalThis.__infrastudioChatChannelResolutionCache) {
+    globalThis.__infrastudioChatChannelResolutionCache = new Map()
+  }
+
+  return globalThis.__infrastudioChatChannelResolutionCache
+}
+
+function buildChatChannelCacheKey(input = {}) {
+  return [
+    input.channelKind || "",
+    input.projetoIdentifier || "",
+    input.agenteIdentifier || "",
+    input.widgetId || "",
+    input.widgetSlug || "",
+  ].join("::")
+}
+
+function readChatChannelCache(key) {
+  if (!key) {
+    return null
+  }
+
+  const cache = getChatChannelResolutionCache()
+  const cached = cache.get(key)
+  if (!cached || cached.expiresAt <= Date.now()) {
+    cache.delete(key)
+    return null
+  }
+
+  return cached.value
+}
+
+function writeChatChannelCache(key, value) {
+  if (!key || !value) {
+    return
+  }
+
+  const cache = getChatChannelResolutionCache()
+  if (cache.size >= CHAT_CHANNEL_RESOLUTION_CACHE_MAX) {
+    const oldestKey = cache.keys().next().value
+    if (oldestKey) {
+      cache.delete(oldestKey)
+    }
+  }
+
+  cache.set(key, {
+    value,
+    expiresAt: Date.now() + CHAT_CHANNEL_RESOLUTION_CACHE_TTL_MS,
+  })
+}
+
+function withResolvedChannelIdentity(resolved = {}, body = {}) {
+  const channel = resolved.channel && typeof resolved.channel === "object" ? resolved.channel : {}
+  return {
+    ...resolved,
+    channel: {
+      ...channel,
+      identificador_externo: body?.identificadorExterno?.trim() || null,
+    },
+  }
 }
 
 function sanitizeCatalogString(value) {
@@ -1291,6 +1357,32 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   const adminTestProjectId = channelKind === "admin_agent_test" ? getAdminTestProjectId(body) : null
   const projetoIdentifier = adminTestProjectId ?? (typeof body?.projeto === "string" ? body.projeto.trim() : null)
   const agenteIdentifier = adminTestAgentId ?? (typeof body?.agente === "string" ? body.agente.trim() : null)
+  const widgetId = typeof body?.widgetId === "string" && body.widgetId.trim() ? body.widgetId.trim() : null
+  const widgetSlug = typeof body?.widgetSlug === "string" && body.widgetSlug.trim() ? body.widgetSlug.trim() : null
+  const canUseResolutionCache =
+    channelKind !== "admin_agent_test" &&
+    !deps.skipChannelResolutionCache &&
+    !deps.getProjetoByIdentifier &&
+    !deps.getAgenteByIdentifier &&
+    !deps.getChatWidgetById &&
+    !deps.getChatWidgetBySlug &&
+    !deps.getChatWidgetByProjetoAgente &&
+    !deps.getProjetoById &&
+    !deps.getAgenteById &&
+    !deps.getActiveWhatsAppChannelByProjectAgent
+  const cacheKey = canUseResolutionCache
+    ? buildChatChannelCacheKey({
+        channelKind,
+        projetoIdentifier,
+        agenteIdentifier,
+        widgetId,
+        widgetSlug,
+      })
+    : null
+  const cachedResolution = readChatChannelCache(cacheKey)
+  if (cachedResolution) {
+    return withResolvedChannelIdentity(cachedResolution, body)
+  }
   const getProjeto = deps.getProjetoByIdentifier ?? getProjetoRuntimeByIdentifier
   const getAgente = deps.getAgenteByIdentifier ?? getAgenteByIdentifier
   const getWidgetById = deps.getChatWidgetById ?? getChatWidgetById
@@ -1315,7 +1407,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     const whatsappChannel =
       projeto?.id && agente?.id ? await getActiveWhatsAppChannel({ projetoId: projeto.id, agenteId: agente.id }) : null
 
-    return {
+    const resolved = {
       projeto,
       agente,
       widget,
@@ -1328,10 +1420,10 @@ export async function resolveChatChannel(body = {}, deps = {}) {
         identificador_externo: body?.identificadorExterno?.trim() || null,
       },
     }
+    writeChatChannelCache(cacheKey, resolved)
+    return withResolvedChannelIdentity(resolved, body)
   }
 
-  const widgetId = typeof body?.widgetId === "string" && body.widgetId.trim() ? body.widgetId.trim() : null
-  const widgetSlug = typeof body?.widgetSlug === "string" && body.widgetSlug.trim() ? body.widgetSlug.trim() : null
   if (!widgetId && !widgetSlug) {
     return {
       projeto: null,
@@ -1372,7 +1464,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   const whatsappChannel =
     projeto?.id && agente?.id ? await getActiveWhatsAppChannel({ projetoId: projeto.id, agenteId: agente.id }) : null
 
-  return {
+  const resolved = {
     projeto,
     agente,
     widget,
@@ -1385,6 +1477,8 @@ export async function resolveChatChannel(body = {}, deps = {}) {
       identificador_externo: body?.identificadorExterno?.trim() || null,
     },
   }
+  writeChatChannelCache(cacheKey, resolved)
+  return withResolvedChannelIdentity(resolved, body)
 }
 
 export async function resolveProjectAgent(input = {}) {
@@ -1770,6 +1864,18 @@ async function recordChatRuntimeEvent(runtimeState, entry = {}) {
     entry?.payload && typeof entry.payload === "object" && !Array.isArray(entry.payload)
       ? entry.payload
       : {}
+  const compactCatalogDiagnostics =
+    payload.catalogDiagnostics && typeof payload.catalogDiagnostics === "object" && !Array.isArray(payload.catalogDiagnostics)
+      ? {
+          catalogAction: payload.catalogDiagnostics.catalogAction ?? null,
+          catalogDecisionKind: payload.catalogDiagnostics.catalogDecision?.kind ?? null,
+          productSearchTerm: payload.catalogDiagnostics.productSearchTerm ?? "",
+          paginationOffset: payload.catalogDiagnostics.paginationOffset ?? 0,
+          paginationNextOffset: payload.catalogDiagnostics.paginationNextOffset ?? 0,
+          matchedCount: payload.catalogDiagnostics.matchedCount ?? 0,
+          replyAssetsCount: payload.catalogDiagnostics.replyAssetsCount ?? 0,
+        }
+      : null
 
   return createLogEntry({
     projectId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
@@ -1779,6 +1885,7 @@ async function recordChatRuntimeEvent(runtimeState, entry = {}) {
     description: entry?.description || "Evento do runtime do chat.",
     payload: {
       ...payload,
+      ...(compactCatalogDiagnostics ? { catalogDiagnostics: compactCatalogDiagnostics } : {}),
       stage: runtimeState?.stage ?? null,
       projetoId: runtimeState?.resolved?.projeto?.id ?? runtimeState?.session?.chat?.projetoId ?? null,
       agenteId: runtimeState?.resolved?.agente?.id ?? runtimeState?.session?.chat?.agenteId ?? null,
@@ -2395,7 +2502,7 @@ export async function processChatRequest(body, options = {}) {
           })
         : []
 
-    if (runtimeState.resolved?.agente?.id || runtimeState.resolved?.projeto?.id) {
+    if (Array.isArray(runtimeApis) && runtimeApis.length > 0) {
       await recordChatRuntimeEvent(runtimeState, {
         type: "api_runtime_event",
         origin: "chat_runtime",
@@ -2506,17 +2613,6 @@ export async function processChatRequest(body, options = {}) {
     })
 
     const finalResult = await finalizeV2AiTurn(runtimeState, effectiveAiResult, options)
-
-    await recordChatRuntimeEvent(runtimeState, {
-      type: "chat_runtime_event",
-      origin: "chat_runtime",
-      level: "info",
-      description: "Turno da assistente persistido com sucesso.",
-      payload: {
-        finalReplyHasAssets: Array.isArray(finalResult.assets) && finalResult.assets.length > 0,
-        messageSequenceCount: Array.isArray(finalResult.messageSequence) ? finalResult.messageSequence.length : 0,
-      },
-    })
 
     return attachRuntimeDiagnostics(finalResult, runtimeState, {
       aiResult: escalationState.aiResult,

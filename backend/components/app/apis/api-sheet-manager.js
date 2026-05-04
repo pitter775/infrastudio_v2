@@ -232,7 +232,7 @@ function normalizeInitialApi(api) {
     description: api.description || "",
     active: api.active !== false,
     method: api.method || "GET",
-    config: api.config || {},
+    config: api.config ?? null,
   }
 }
 
@@ -520,14 +520,38 @@ export function ApiSheetManager({
     setStatus({ type: "idle", message: "" })
   }
 
-  function startEdit(api) {
-    setForm(buildFormFromApi(api))
+  async function loadApiDetail(api) {
+    if (api?.config !== null) {
+      return api
+    }
+
+    const response = await fetch(`${endpoint}/${api.id}`)
+    const data = await response.json().catch(() => ({}))
+
+    if (!response.ok || !data.api) {
+      throw new Error(data.error || "Nao foi possivel carregar a API.")
+    }
+
+    const detailedApi = normalizeInitialApi(data.api)
+    setApis((current) => current.map((item) => (item.id === detailedApi.id ? detailedApi : item)))
+    return detailedApi
+  }
+
+  async function startEdit(api) {
     setMode("editor")
     setEditorTab("body")
     setBodySubtab("fields")
     setResponseResult(null)
     setAgendaDate("")
     setStatus({ type: "idle", message: "" })
+
+    try {
+      const detailedApi = await loadApiDetail(api)
+      setForm(buildFormFromApi(detailedApi))
+    } catch (error) {
+      setMode("list")
+      setStatus({ type: "error", message: error.message })
+    }
   }
 
   async function handleSave(event) {

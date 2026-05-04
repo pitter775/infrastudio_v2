@@ -1,5 +1,5 @@
 import { getMercadoLivreProductByIdForProject, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
-import { getMercadoLivreStoreSettingsForProject } from "@/lib/mercado-livre-store"
+import { getMercadoLivreStoreChatSettingsForProject } from "@/lib/mercado-livre-store"
 import {
   buildCatalogProductFacts,
   buildFocusedCatalogProductCommercialReply,
@@ -662,7 +662,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     const storeSettings =
       typeof input.resolveMercadoLivreStoreSettings === "function"
         ? await input.resolveMercadoLivreStoreSettings(input.project)
-        : await getMercadoLivreStoreSettingsForProject(input.project)
+        : await getMercadoLivreStoreChatSettingsForProject(input.project)
     const detailedProductResponse = await (input.resolveMercadoLivreProductById ?? getMercadoLivreProductByIdForProject)(
       input.project,
       currentProduct.id

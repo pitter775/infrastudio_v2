@@ -5,6 +5,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const apiFields =
   "id, projeto_id, nome, url, metodo, descricao, ativo, configuracoes, created_at, updated_at"
+const apiListFields =
+  "id, projeto_id, nome, url, metodo, descricao, ativo, created_at, updated_at"
 const apiRuntimeFieldSchemaWithApiId = "api_id, id, nome, tipo, descricao"
 const apiVersionFields =
   "id, api_id, projeto_id, version_number, nome, url, metodo, descricao, configuracoes, ativo, source, note, created_by, created_at"
@@ -39,6 +41,23 @@ function mapApi(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     versions: Array.isArray(row.versions) ? row.versions : [],
+  }
+}
+
+function mapApiSummary(row) {
+  return {
+    id: row.id,
+    projetoId: row.projeto_id,
+    name: row.nome || "API sem nome",
+    url: row.url || "",
+    method: row.metodo || "GET",
+    description: row.descricao || "",
+    active: row.ativo !== false,
+    config: null,
+    fieldSchema: [],
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    versions: [],
   }
 }
 
@@ -558,7 +577,7 @@ export async function listApisForUser(projetoId, user) {
     const supabase = getSupabaseAdminClient()
     const { data, error } = await supabase
       .from("apis")
-      .select(apiFields)
+      .select(apiListFields)
       .eq("projeto_id", projetoId)
       .order("updated_at", { ascending: false, nullsFirst: false })
 
@@ -567,19 +586,38 @@ export async function listApisForUser(projetoId, user) {
       return []
     }
 
-    const apis = data.map(mapApi)
-    const versionsByApi = await Promise.all(
-      apis.map(async (api) => [api.id, await listApiVersionsForUser({ apiId: api.id, projetoId, limit: 6 }, user)]),
-    )
-    const versionsMap = new Map(versionsByApi)
-
-    return apis.map((api) => ({
-      ...api,
-      versions: versionsMap.get(api.id) ?? [],
-    }))
+    return data.map(mapApiSummary)
   } catch (error) {
     console.error("[apis] failed to list project apis", error)
     return []
+  }
+}
+
+export async function getApiForUser(apiId, projetoId, user) {
+  if (!apiId || !projetoId || !userCanAccessProject(user, projetoId)) {
+    return { api: null, error: "Acesso negado." }
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("apis")
+      .select(apiFields)
+      .eq("id", apiId)
+      .eq("projeto_id", projetoId)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[apis] failed to get api", error)
+      }
+      return { api: null, error: "API nao encontrada." }
+    }
+
+    return { api: mapApi(data), error: null }
+  } catch (error) {
+    console.error("[apis] failed to get api", error)
+    return { api: null, error: "Nao foi possivel carregar a API." }
   }
 }
 

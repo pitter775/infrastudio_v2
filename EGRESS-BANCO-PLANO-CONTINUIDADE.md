@@ -41,17 +41,61 @@ Parcialmente concluido em 2026-05-04:
 - Catalogo de planos do billing ganhou cache curto de `60s` no runtime.
 - `loadAgentRuntimeApis` deixou de carregar `api_campos` via join para todas as APIs; agora carrega campos em segunda query apenas quando a API nao tem `runtime.fields` configurado.
 - Extracao de planos mensais descritos no texto do agente ganhou parser deterministico antes da chamada semantica por LLM, reduzindo custo/egress de runtime e evitando que valor de projeto sob medida substitua planos mensais.
+- Metadata persistida em `mensagens` para respostas da IA passou a salvar diagnostico compacto, sem duplicar `catalogDiagnostics` completo, contexto de catalogo ou payloads grandes de decisao.
+- Logs do runtime passaram a compactar `catalogDiagnostics`, mantendo contadores, offsets e decisao principal sem gravar `contextCatalogo` completo.
+- Resolucao de canal/projeto/agente/widget do `/api/chat` ganhou cache curto em memoria (`20s`) fora do teste de agente, reduzindo releituras iguais em mensagens consecutivas.
+- Busca de canal WhatsApp ativo no runtime passou a limitar linhas e filtrar por agente/fallback nulo, evitando ler todos os canais ativos do projeto em toda mensagem.
+- Historico recente usado pelo runtime passou a usar query lean, sem `metadata`, tokens, custo, assets, anexos ou payloads de UI.
+- Importacao de historico por `identificador_externo` tambem passou a retornar apenas campos usados pelo cerebro (`id`, `chat_id`, `role`, `conteudo`, `canal`, `created_at`).
+- Busca de catalogo Mercado Livre no chat passou a usar select compacto do snapshot, sem descricao longa, atributos e galeria completa na listagem.
+- Quando a busca vem do snapshot local, o chat nao carrega mais o conector completo do Mercado Livre so para montar a resposta.
+- Detalhe de produto do chat tenta resolver primeiro pelo snapshot local antes de cair em conector/OAuth/API externa.
+- Configuracao da loja usada no chat passou a ler apenas `chat_contexto_completo`, sem carregar toda a loja.
+- Busca de snapshot do Mercado Livre no chat deixou de pedir `count: exact`; usa uma linha extra para estimar `hasMore`.
+- Billing runtime passou a carregar apenas recargas avulsas ainda disponiveis para validar/registrar uso, evitando varrer creditos ja usados em toda mensagem.
+- Registro de uso do billing deixou de buscar destinatarios de alerta, canal WhatsApp central e emails em toda mensagem; agora so carrega isso quando cruza 80%, 100% ou bloqueio.
+- `chats.contexto` passou a compactar estado de catalogo antes de persistir: lista recente limitada, produto em foco resumido, imagens/atributos/descricao longa capados e somente campos operacionais de paginacao/foco.
+- Logs redundantes do runtime foram reduzidos: nao grava mais evento de APIs carregadas quando nao ha APIs e nao grava evento separado de "turno persistido" em todo atendimento.
+- Contexto de APIs externas no prompt passou a priorizar campos factuais compactos e limitar preview bruto, reduzindo tokens enviados quando a API retorna payload grande.
+- Auditoria de `select *` em `backend/lib` e `backend/app` nao encontrou mais ocorrencias apos ajuste.
+- Agenda deixou de usar `select *`; horarios e reservas agora usam selects explicitos, inclusive inserts/updates que retornam dados.
+- Handoffs do chat deixaram de usar `select *`; leituras, insert e update retornam apenas campos usados pelo mapper.
+- Dashboard deixou de carregar `logs.payload` inteiro; usa JSON paths compactos para nivel, evento, erro, status e dados minimos de filtro/preview.
+- Listagem de APIs do projeto deixou de carregar `configuracoes` e versoes em cascata; detalhes/config completa agora carregam sob demanda ao abrir a API no editor.
+
+Mapa atual das leituras completas/pesadas restantes:
+
+- `agentes`: nao ha `select *`, mas `agenteFields` ainda inclui `prompt_base` e `configuracoes` em fluxos de editor/detalhe; listagem leve ainda deve ser separada quando a tela nao precisar editar.
+- `apis`: listagem simples ja esta enxuta; `apiFields` com `configuracoes` ficou restrito a detalhe/editor/teste/runtime.
+- `chat_widgets`: sem `select *`; campos ja enxutos para config publica/CRUD.
+- `whatsapp`: sem `select *`; `channelFields` inclui `session_data`, necessario para manager/runtime, mas listagens simples podem ganhar select compacto depois.
+- `dashboard`: chats e logs estao compactos; billing ainda pode ser separado em preview leve em etapa propria.
+- `agenda`: sem `select *`; disponibilidade publica ainda pode ganhar limite por janela/data quando nao houver `date`.
+- `logs`: funcoes administrativas ainda podem carregar `payload` completo quando a tela pede detalhe/limpeza; usar modo `compact` nas listagens sempre que possivel.
 
 Arquivos principais:
 
 - `backend/lib/projetos.js`
 - `backend/lib/chat/service.js`
 - `backend/lib/chat/persistence.js`
+- `backend/lib/whatsapp-channels.js`
 - `backend/lib/chats.js`
 - `backend/app/api/chat/route.js`
 - `backend/lib/billing.js`
+- `backend/lib/chat/prompt-builders.js`
 - `backend/lib/apis.js`
 - `backend/lib/chat/semantic-intent-stage.js`
+- `backend/lib/chat/mercado-livre.js`
+- `backend/lib/mercado-livre-connector.js`
+- `backend/lib/mercado-livre-store-core/snapshot.js`
+- `backend/lib/mercado-livre-store-core/store-config.js`
+- `backend/lib/billing.js`
+- `backend/lib/agenda.js`
+- `backend/lib/chat-handoffs.js`
+- `backend/lib/dashboard.js`
+- `backend/lib/apis.js`
+- `backend/app/api/app/projetos/[id]/apis/[apiId]/route.js`
+- `backend/components/app/apis/api-sheet-manager.js`
 
 Arquivos principais:
 

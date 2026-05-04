@@ -9,7 +9,7 @@ import {
   mapMercadoLivreQuestion,
   scoreMercadoLivreItem,
 } from "@/lib/mercado-livre/mappers"
-import { listSnapshotProductsByProjectId } from "@/lib/mercado-livre-store-core/snapshot"
+import { getSnapshotProductBySlug, listSnapshotProductsByProjectId } from "@/lib/mercado-livre-store-core/snapshot"
 import { resolveMercadoLivreProductInternal } from "@/lib/mercado-livre/resolve-product"
 import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl, resolvePublicAppUrl } from "@/lib/mercado-livre-webhook"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
@@ -173,6 +173,8 @@ async function searchSnapshotMercadoLivreProductsForProject(projectId, options =
       limit: requestedLimit,
       sort,
       priceMaxExclusive,
+      selectMode: options.selectMode,
+      countMode: options.countMode,
     })
     snapshotTotal = Math.max(snapshotTotal, Number(listing?.total ?? 0) || 0)
     const pageItems = Array.isArray(listing?.items) ? listing.items : []
@@ -1404,15 +1406,16 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
         priceMaxExclusive,
         sort: sanitizeString(options.sort) || (priceMaxExclusive != null ? "price_asc" : "recent"),
         allowEmptySearch: options.allowEmptySearch === true,
+        selectMode: "chat_list",
+        countMode: "none",
       },
       { ...deps, supabase }
     )
 
     if (snapshotSearch && (snapshotSearch.items.length > 0 || snapshotSearch.paging?.hasMore === true)) {
-      const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
       return {
         items: snapshotSearch.items,
-        connector,
+        connector: null,
         paging: snapshotSearch.paging,
         error: null,
       }
@@ -1606,6 +1609,17 @@ export async function getMercadoLivreProductByIdForProject(project, itemId, deps
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const snapshotProduct = await getSnapshotProductBySlug(project.id, normalizedItemId, { supabase })
+    const snapshotItem = mapSnapshotProductToMercadoLivreItem(snapshotProduct)
+    if (snapshotItem) {
+      return {
+        item: snapshotItem,
+        connector: null,
+        source: "snapshot",
+        error: null,
+      }
+    }
+
     const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
     if (!connector?.id) {
       return { item: null, connector: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }

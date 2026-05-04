@@ -796,12 +796,20 @@ export async function getActiveWhatsAppChannelByProjectAgent(input, deps = {}) {
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
-    const { data, error } = await supabase
+    const selectFields = "id, projeto_id, agente_id, numero, session_data, status, updated_at"
+    let query = supabase
       .from("canais_whatsapp")
-      .select(channelFields)
+      .select(selectFields)
       .eq("projeto_id", input.projetoId)
       .eq("status", "ativo")
       .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(4)
+
+    if (input.agenteId) {
+      query = query.or(`agente_id.eq.${input.agenteId},agente_id.is.null`)
+    }
+
+    const { data, error } = await query
 
     if (error || !Array.isArray(data)) {
       if (error) {

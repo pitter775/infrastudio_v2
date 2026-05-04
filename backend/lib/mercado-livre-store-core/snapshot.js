@@ -4,6 +4,8 @@ import { isStoreProductAvailable, normalizeSnapshotProduct, parseStoreProductRef
 
 const SNAPSHOT_SELECT_WITH_IMAGES =
   "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, ml_date_created, ml_last_updated, updated_at"
+const SNAPSHOT_SELECT_CHAT_LIST =
+  "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, ml_date_created, ml_last_updated, updated_at"
 const SNAPSHOT_SELECT_LEGACY =
   "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, updated_at"
 const MERCADO_LIVRE_PUBLIC_API = "https://api.mercadolibre.com"
@@ -178,16 +180,18 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
   const priceMaxExclusive = Number(options.priceMaxExclusive)
   const requiresClientSearch = Boolean(searchTerm)
   const searchOrFilter = buildSnapshotSearchOrFilter(searchTerm)
-  const fetchLimit = requiresClientSearch ? Math.min(Math.max(limit * 10, 60), 180) : limit
+  const selectFields = options.selectMode === "chat_list" ? SNAPSHOT_SELECT_CHAT_LIST : SNAPSHOT_SELECT_WITH_IMAGES
+  const skipExactCount = options.countMode === "none"
+  const fetchLimit = requiresClientSearch
+    ? Math.min(Math.max(offset + limit + (skipExactCount ? 1 : 0), limit * 10, 60), 180)
+    : limit + (skipExactCount ? 1 : 0)
   const fetchOffset = requiresClientSearch ? 0 : offset
 
   let query = applySnapshotSort(
     applySnapshotAvailabilityFilters(
-      supabase
-        .from("mercadolivre_produtos_snapshot")
-        .select(SNAPSHOT_SELECT_WITH_IMAGES, {
-          count: "exact",
-        })
+        supabase
+          .from("mercadolivre_produtos_snapshot")
+          .select(selectFields, skipExactCount ? undefined : { count: "exact" })
         .eq("projeto_id", projectId)
     ),
     sort,
@@ -218,9 +222,7 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
       applySnapshotAvailabilityFilters(
         supabase
           .from("mercadolivre_produtos_snapshot")
-          .select(SNAPSHOT_SELECT_LEGACY, {
-            count: "exact",
-          })
+          .select(SNAPSHOT_SELECT_LEGACY, skipExactCount ? undefined : { count: "exact" })
           .eq("projeto_id", projectId)
       ),
       sort,
@@ -258,12 +260,17 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
 
   const normalizedItems = Array.isArray(data) ? data.map(normalizeSnapshotProduct).filter(isStoreProductAvailable) : []
   const filteredItems = requiresClientSearch ? normalizedItems.filter((item) => matchesSnapshotSearch(item, searchTerm)) : normalizedItems
-  const paginatedItems = requiresClientSearch ? filteredItems.slice(offset, offset + limit) : filteredItems
-  const totalCount = requiresClientSearch ? filteredItems.length : Number(count || 0)
+  const paginatedItems = (requiresClientSearch ? filteredItems.slice(offset, offset + limit) : filteredItems.slice(0, limit))
+  const inferredHasMore = requiresClientSearch ? filteredItems.length > offset + paginatedItems.length : filteredItems.length > paginatedItems.length
+  const totalCount = skipExactCount
+    ? offset + paginatedItems.length + (inferredHasMore ? 1 : 0)
+    : requiresClientSearch
+      ? filteredItems.length
+      : Number(count || 0)
 
   return {
     items: paginatedItems,
-    hasMore: totalCount > offset + paginatedItems.length,
+    hasMore: skipExactCount ? inferredHasMore : totalCount > offset + paginatedItems.length,
     total: totalCount,
   }
 }

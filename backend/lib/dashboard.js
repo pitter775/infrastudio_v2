@@ -107,9 +107,25 @@ async function listScopedLogs(scopeProjectIds, user) {
   }
 
   const supabase = getSupabaseAdminClient()
+  const compactLogSelect = [
+    "id",
+    "projeto_id",
+    "tipo",
+    "origem",
+    "descricao",
+    "created_at",
+    "payload_level:payload->>level",
+    "payload_event:payload->>event",
+    "payload_error:payload->>error",
+    "payload_status:payload->>status",
+    "payload_chat_id:payload->>chatId",
+    "payload_channel_kind:payload->>channelKind",
+    "payload_canal:payload->>canal",
+    "payload_source_hint:payload->>sourceHint",
+  ].join(", ")
   let query = supabase
     .from("logs")
-    .select("id, projeto_id, tipo, origem, descricao, created_at, payload")
+    .select(compactLogSelect)
     .order("created_at", { ascending: false, nullsFirst: false })
     .limit(100)
 
@@ -132,8 +148,17 @@ async function listScopedLogs(scopeProjectIds, user) {
       origin: item.origem?.trim() || "system",
       description: item.descricao?.trim() || "Evento operacional",
       createdAt: item.created_at ?? null,
-      level: String(item.payload?.level || "").trim().toLowerCase() || "info",
-      payload: item.payload ?? {},
+      level: String(item.payload_level || "").trim().toLowerCase() || "info",
+      payload: {
+        level: String(item.payload_level || "").trim().toLowerCase() || "info",
+        event: item.payload_event || null,
+        error: item.payload_error || null,
+        status: item.payload_status || null,
+        chatId: item.payload_chat_id || null,
+        channelKind: item.payload_channel_kind || null,
+        canal: item.payload_canal || null,
+        sourceHint: item.payload_source_hint || null,
+      },
     }))
     .filter((item) => !isNoisyOperationalLog(item))
 }

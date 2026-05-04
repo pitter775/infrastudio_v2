@@ -284,6 +284,41 @@ async function getMercadoLivreStoreSettingsForProject(project, options = {}) {
   return normalizeStore(row, project)
 }
 
+async function getMercadoLivreStoreChatSettingsForProject(project, options = {}) {
+  if (!project?.id) {
+    return null
+  }
+
+  const supabase = options.supabase ?? getSupabaseAdminClient()
+  let { data, error } = await supabase
+    .from("mercadolivre_lojas")
+    .select("id, projeto_id, chat_contexto_completo")
+    .eq("projeto_id", project.id)
+    .maybeSingle()
+
+  if (error && isMissingStoreDomainColumnError(error)) {
+    const fallbackResult = await supabase
+      .from("mercadolivre_lojas")
+      .select("id, projeto_id")
+      .eq("projeto_id", project.id)
+      .maybeSingle()
+
+    data = fallbackResult.data
+    error = fallbackResult.error
+  }
+
+  if (error) {
+    console.error("[mercado-livre-store] failed to load store chat settings", error)
+    return null
+  }
+
+  return {
+    id: data?.id ?? null,
+    projectId: data?.projeto_id ?? project.id,
+    chatContextFull: data?.chat_contexto_completo === true,
+  }
+}
+
 async function upsertMercadoLivreStoreForProject(project, input = {}, options = {}) {
   if (!project?.id) {
     return { store: null, error: "Projeto nao encontrado." }
@@ -450,6 +485,7 @@ async function restoreMercadoLivreStoreDefaultsForProject(project, options = {})
 
 export {
   getMercadoLivreStoreByProjectId,
+  getMercadoLivreStoreChatSettingsForProject,
   getMercadoLivreStoreSettingsForProject,
   restoreMercadoLivreStoreDefaultsForProject,
   upsertMercadoLivreStoreForProject,

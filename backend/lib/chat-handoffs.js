@@ -3,6 +3,8 @@ import "server-only"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const HUMAN_HANDOFF_IDLE_TIMEOUT_MS = 5 * 60 * 1000
+const chatHandoffFields =
+  "id, chat_id, projeto_id, canal_whatsapp_id, status, motivo, requested_by, requested_by_usuario_id, claimed_by_usuario_id, released_by_usuario_id, requested_at, claimed_at, released_at, last_alert_at, alert_message, metadata, created_at, updated_at"
 
 function mapChatHandoff(row) {
   return {
@@ -69,7 +71,7 @@ export async function getChatHandoffByChatId(chatId) {
   const supabase = getSupabaseAdminClient()
   const { data, error } = await supabase
     .from("chat_handoffs")
-    .select("*")
+    .select(chatHandoffFields)
     .eq("chat_id", chatId)
     .maybeSingle()
 
@@ -91,7 +93,7 @@ export async function listChatHandoffsByChatIds(chatIds) {
   }
 
   const supabase = getSupabaseAdminClient()
-  const { data, error } = await supabase.from("chat_handoffs").select("*").in("chat_id", normalizedChatIds)
+  const { data, error } = await supabase.from("chat_handoffs").select(chatHandoffFields).in("chat_id", normalizedChatIds)
 
   if (error || !Array.isArray(data)) {
     if (error) {
@@ -124,7 +126,7 @@ async function ensureChatHandoff(input) {
       created_at: now,
       updated_at: now,
     })
-    .select("*")
+    .select(chatHandoffFields)
     .single()
 
   if (error || !data) {
@@ -144,7 +146,7 @@ async function updateChatHandoffRecord(input) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.handoffId)
-    .select("*")
+    .select(chatHandoffFields)
     .single()
 
   if (error || !data) {

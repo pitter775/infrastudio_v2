@@ -241,11 +241,18 @@ function mapPendingCheckout(row) {
 
 async function listTopUpsWithFallback(projectId, deps = {}) {
   const supabase = deps.supabase ?? getSupabaseAdminClient()
-  const primary = await supabase
+  const runtimeOnly = deps.runtimeOnly === true
+  let primaryQuery = supabase
     .from("tokens_avulsos")
     .select("id, tokens, custo, origem, utilizado, tokens_utilizados, created_at")
     .eq("projeto_id", projectId)
     .order("created_at", { ascending: true })
+
+  if (runtimeOnly) {
+    primaryQuery = primaryQuery.or("utilizado.is.null,utilizado.eq.false")
+  }
+
+  const primary = await primaryQuery
 
   const hasSchemaError =
     primary.error &&
@@ -262,11 +269,17 @@ async function listTopUpsWithFallback(projectId, deps = {}) {
     }
   }
 
-  const fallback = await supabase
+  let fallbackQuery = supabase
     .from("tokens_avulsos")
     .select("id, tokens, custo, origem, utilizado, created_at")
     .eq("projeto_id", projectId)
     .order("created_at", { ascending: true })
+
+  if (runtimeOnly) {
+    fallbackQuery = fallbackQuery.or("utilizado.is.null,utilizado.eq.false")
+  }
+
+  const fallback = await fallbackQuery
 
   return {
     data: (fallback.data ?? []).map((item) => ({
@@ -532,7 +545,7 @@ async function loadProjectBillingRuntime(projectId, deps = {}) {
       .limit(1)
       .maybeSingle(),
     listBillingPlans({ cache: true }),
-    listTopUpsWithFallback(projectId, { supabase }),
+    listTopUpsWithFallback(projectId, { supabase, runtimeOnly: true }),
   ])
 
   const selectedPlanId = projectPlanResult.data?.plano_id ?? cycleResult.data?.plano_id ?? null
@@ -1491,7 +1504,7 @@ export async function registerProjectBillingUsage(projectId, tokens, cost, detai
     supabase,
   })
 
-  const refreshedTopUpsResult = await listTopUpsWithFallback(projectId, { supabase })
+  const refreshedTopUpsResult = await listTopUpsWithFallback(projectId, { supabase, runtimeOnly: true })
   const refreshedTopUps = mapTopUps(refreshedTopUpsResult.data ?? [])
 
   const { error: cycleUpdateError } = await supabase
@@ -1513,11 +1526,6 @@ export async function registerProjectBillingUsage(projectId, tokens, cost, detai
     return null
   }
 
-  const [recipients, senderChannel, emailContext] = await Promise.all([
-    listBillingAlertRecipientsByProjectId(projectId, { supabase }),
-    getPrimaryWhatsAppChannelByProjectId(INFRASTUDIO_BILLING_ALERT_PROJECT_ID, { supabase }),
-    listBillingEmailRecipientsByProjectId(projectId, { supabase }),
-  ])
   const summary = {
     totalTokens: nextUsage.totalTokens,
     totalCost: nextCost,
@@ -1525,6 +1533,18 @@ export async function registerProjectBillingUsage(projectId, tokens, cost, detai
     effectiveTokenLimit: status.effectiveLimits.totalTokens,
     effectiveCostLimit: status.effectiveLimits.monthlyCost,
   }
+  const shouldNotifyBillingTransition =
+    (!status.previousWarning80 && status.warning80) ||
+    (!status.previousWarning100 && status.warning100) ||
+    (!status.previousBlocked && status.blocked)
+  const alertContext = shouldNotifyBillingTransition
+    ? await Promise.all([
+        listBillingAlertRecipientsByProjectId(projectId, { supabase }),
+        getPrimaryWhatsAppChannelByProjectId(INFRASTUDIO_BILLING_ALERT_PROJECT_ID, { supabase }),
+        listBillingEmailRecipientsByProjectId(projectId, { supabase }),
+      ])
+    : [[], null, { recipients: [], projectName: "Projeto", projectSlug: "" }]
+  const [recipients, senderChannel, emailContext] = alertContext
 
   if (!status.previousWarning80 && status.warning80) {
     await logBillingTransition({
