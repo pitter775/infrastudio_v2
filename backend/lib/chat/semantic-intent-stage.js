@@ -3,6 +3,116 @@ function sanitizeString(value) {
   return normalized || ""
 }
 
+function normalizeText(value = "") {
+  return sanitizeString(value)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+}
+
+function slugifyPricingName(value = "") {
+  return normalizeText(value)
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+}
+
+function parsePriceAmountFromLabel(value = "") {
+  const match = sanitizeString(value).match(/r\$\s*([\d.]+(?:,\d{1,2})?)/i)
+  if (!match?.[1]) {
+    return null
+  }
+
+  const amount = Number(match[1].replace(/\./g, "").replace(",", "."))
+  return Number.isFinite(amount) ? amount : null
+}
+
+function parseCreditLimitFromLines(lines = []) {
+  const creditLine = lines.find((line) => /\bcreditos?\b/i.test(normalizeText(line)))
+  const match = normalizeText(creditLine).match(/([\d.]+)\s*creditos?/i)
+  if (!match?.[1]) {
+    return null
+  }
+
+  const amount = Number(match[1].replace(/\./g, ""))
+  return Number.isFinite(amount) ? amount : null
+}
+
+function extractMonthlyPlansSection(sourceText = "") {
+  const text = sanitizeString(sourceText)
+  const sectionStart = text.search(/planos?\s+mensais/i)
+  if (sectionStart < 0) {
+    return text
+  }
+
+  const tail = text.slice(sectionStart)
+  const sectionEnd = tail.search(/\n\s*(regras importantes|desenvolvimento sob medida|projetos sob medida|quando o cliente demonstrar)/i)
+  return sectionEnd > 0 ? tail.slice(0, sectionEnd) : tail
+}
+
+export function extractDeterministicPricingCatalogFromAgentText(sourceText = "") {
+  const section = extractMonthlyPlansSection(sourceText)
+  const lines = section
+    .split(/\r?\n/)
+    .map((line) => sanitizeString(line))
+    .filter(Boolean)
+  const items = []
+
+  for (let index = 0; index < lines.length; index += 1) {
+    const name = lines[index]
+    const priceLabel = lines[index + 1]
+    if (!/^[\p{L}\d][\p{L}\d\s._-]{1,40}$/u.test(name) || !/^r\$\s*[\d.]+(?:,\d{1,2})?\s*(?:\/\s*mes|por\s+mes)?$/i.test(normalizeText(priceLabel))) {
+      continue
+    }
+
+    const slug = slugifyPricingName(name)
+    if (!slug) {
+      continue
+    }
+
+    const detailLines = []
+    for (let detailIndex = index + 2; detailIndex < lines.length; detailIndex += 1) {
+      if (/^r\$\s*/i.test(normalizeText(lines[detailIndex]))) {
+        break
+      }
+      if (
+        detailIndex + 1 < lines.length &&
+        /^[\p{L}\d][\p{L}\d\s._-]{1,40}$/u.test(lines[detailIndex]) &&
+        /^r\$\s*[\d.]+(?:,\d{1,2})?/i.test(normalizeText(lines[detailIndex + 1]))
+      ) {
+        break
+      }
+      detailLines.push(lines[detailIndex])
+    }
+
+    items.push({
+      slug,
+      name,
+      matchAny: [name, slug],
+      priceLabel,
+      attendanceLimit: null,
+      agentLimit: null,
+      creditLimit: parseCreditLimitFromLines(detailLines),
+      whatsappIncluded: null,
+      supportLevel: "",
+      features: detailLines.slice(0, 4),
+      channels: [],
+    })
+  }
+
+  const uniqueItems = [...new Map(items.map((item) => [item.slug, item])).values()]
+    .filter((item) => item.name && item.priceLabel && parsePriceAmountFromLabel(item.priceLabel) != null)
+
+  if (uniqueItems.length < 2) {
+    return null
+  }
+
+  return {
+    enabled: true,
+    items: uniqueItems,
+    extractionMode: "deterministic_agent_text",
+  }
+}
+
 function extractResponseText(payload) {
   return (
     payload?.output_text ??
@@ -311,7 +421,16 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
   const openAiKey = sanitizeString(input?.openAiKey)
   const model = sanitizeString(input?.model) || "gpt-4o-mini"
 
-  if (!sourceText || !openAiKey) {
+  if (!sourceText) {
+    return null
+  }
+
+  const deterministicCatalog = extractDeterministicPricingCatalogFromAgentText(sourceText)
+  if (deterministicCatalog?.items?.length) {
+    return deterministicCatalog
+  }
+
+  if (!openAiKey) {
     return null
   }
 

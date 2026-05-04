@@ -544,6 +544,8 @@
       ".chat-bubble.ai .chat-rich { color: " + aiBubbleText + "; }",
       ".chat-message-meta { margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 9px; line-height: 1; color: rgba(148,163,184,0.72); }",
       ".chat-message-meta .chat-icon { width: 10px; height: 10px; }",
+      ".chat-token-button { margin-left: 4px; display: inline-flex; align-items: center; gap: 4px; min-height: 0; border-radius: 999px; border: 1px solid rgba(56,189,248,0.22); background: rgba(14,165,233,0.1); padding: 3px 6px; color: " + (theme === "light" ? "#0369a1" : "rgba(125,211,252,0.95)") + "; font-size: 9px; line-height: 1; font-weight: 800; cursor: default; }",
+      ".chat-token-button .chat-icon { width: 10px; height: 10px; }",
       ".chat-rich { white-space: normal; }",
       ".chat-rich p { margin: 0; }",
       ".chat-rich p + p, .chat-rich p + ul, .chat-rich p + ol, .chat-rich ul + p, .chat-rich ol + p, .chat-rich ul + ul, .chat-rich ol + ol { margin-top: 10px; }",
@@ -3151,6 +3153,52 @@
       return divider;
     }
 
+    function normalizeDebugUsage(usage) {
+      if (!usage || typeof usage !== "object") {
+        return null;
+      }
+
+      var inputTokens = Math.max(0, Number(usage.inputTokens || 0) || 0);
+      var outputTokens = Math.max(0, Number(usage.outputTokens || 0) || 0);
+      var totalTokens = Math.max(0, Number(usage.totalTokens || inputTokens + outputTokens) || 0);
+      if (!inputTokens && !outputTokens && !totalTokens) {
+        return null;
+      }
+
+      return {
+        inputTokens: inputTokens,
+        outputTokens: outputTokens,
+        totalTokens: totalTokens,
+        estimatedCostUsd: Math.max(0, Number(usage.estimatedCostUsd || 0) || 0),
+        provider: String(usage.provider || "").trim(),
+        model: String(usage.model || "").trim(),
+      };
+    }
+
+    function createDebugTokenButton(message) {
+      if (!isAdminAgentTestMode() || !message || !message.isAi) {
+        return null;
+      }
+
+      var usage = normalizeDebugUsage(message.debugUsage);
+      if (!usage) {
+        return null;
+      }
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "chat-token-button";
+      button.title = [
+        "Tokens totais: " + usage.totalTokens,
+        "Entrada: " + usage.inputTokens,
+        "Saida: " + usage.outputTokens,
+        "Custo estimado: US$ " + usage.estimatedCostUsd.toFixed(6),
+        usage.model ? "Modelo: " + usage.model : "",
+      ].filter(Boolean).join("\n");
+      button.innerHTML = createClockIcon() + "<span>" + escapeHtml(String(usage.totalTokens)) + "</span>";
+      return button;
+    }
+
     async function syncWidgetUiConfig() {
       if (!widgetId && !widgetSlug) {
         return;
@@ -3244,6 +3292,10 @@
           var meta = document.createElement("div");
           meta.className = "chat-message-meta";
           meta.innerHTML = createClockIcon() + "<span>" + escapeHtml(formatMessageTime(message)) + "</span>";
+          var tokenButton = createDebugTokenButton(message);
+          if (tokenButton) {
+            meta.appendChild(tokenButton);
+          }
           bubble.appendChild(meta);
           if (message.isAi && shouldRenderWhatsAppCta(message)) {
             var cta = createWhatsAppButton(message.cta);
@@ -3434,6 +3486,7 @@
         catalogContinuation: !isUser && message.catalogContinuation === true,
         catalogMessageMode: !isUser && typeof message.catalogMessageMode === "string" ? message.catalogMessageMode : null,
         catalogListingSessionId: !isUser && typeof message.catalogListingSessionId === "string" ? message.catalogListingSessionId : null,
+        debugUsage: !isUser && message.debugUsage && typeof message.debugUsage === "object" ? message.debugUsage : null,
         catalogLoading: false,
         createdAt: message.createdAt || new Date().toISOString(),
         manual: !isUser && message.manual === true,
@@ -3685,6 +3738,7 @@
             catalogListingSessionId: typeof payload.catalogListingSessionId === "string" ? payload.catalogListingSessionId : null,
             catalogAppendOnly: isCatalogLoadMore,
             catalogLoading: false,
+            debugUsage: payload.debugUsage && typeof payload.debugUsage === "object" ? payload.debugUsage : null,
             handoffAction: createHumanHandoffAction(payload.handoff),
             assets: Array.isArray(payload.assets) ? payload.assets : [],
           });

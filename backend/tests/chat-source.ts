@@ -190,6 +190,7 @@ export {
   buildApiDecisionFromSemanticIntent,
   buildBillingDecisionFromSemanticIntent,
   buildCatalogDecisionFromSemanticIntent,
+  extractDeterministicPricingCatalogFromAgentText,
 } from "@/lib/chat/semantic-intent-stage";
 
 export {

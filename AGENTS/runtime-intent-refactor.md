@@ -143,6 +143,9 @@ Ja feito:
 - quando o agente nao trouxer `runtimeConfig.pricingCatalog`, o orquestrador agora pode extrair um catalogo estruturado de pricing a partir do proprio texto do agente (`promptBase`/descricao) antes de classificar billing
 - isso fecha o caso de deploy em que os valores estao descritos no agente, mas ainda nao foram migrados para `runtimeConfig`
 - essa extracao agora tambem fica em cache em memoria por agente/prompt para evitar custo repetido em toda pergunta de billing
+- prompts com secao clara de planos mensais agora passam por parser deterministico antes da extracao semantica por LLM
+  - isso preserva planos como Free, Basic, Plus e Pro quando o mesmo prompt tambem cita projeto sob medida a partir de R$ 300,00
+  - tambem reduz chamada externa/custo quando os planos ja estao estruturados no texto do agente
 - a chave desse cache foi reduzida para `agentId + hash(promptBase)` para nao carregar o prompt inteiro em memoria como chave
 - a extracao de pricing pelo texto do agente agora tambem so roda quando o roteamento inicial nao ja estiver claramente em `catalog`, `api_runtime`, `agenda` ou `handoff`
 - o `runtimeConfig` efetivo enriquecido por extracao semantica agora tambem e repassado para o gerador downstream, nao fica preso apenas aos handlers locais do billing

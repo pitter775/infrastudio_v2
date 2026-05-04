@@ -1948,6 +1948,17 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     catalogMessageMode: replyPayload.catalogMessageMode ?? null,
     catalogListingSessionId: replyPayload.catalogListingSessionId ?? null,
     handoff: aiResult?.handoff ?? null,
+    debugUsage:
+      runtimeState.prelude.channelKind === "admin_agent_test"
+        ? {
+            inputTokens: aiResult?.usage?.inputTokens ?? 0,
+            outputTokens: aiResult?.usage?.outputTokens ?? 0,
+            totalTokens: (aiResult?.usage?.inputTokens ?? 0) + (aiResult?.usage?.outputTokens ?? 0),
+            estimatedCostUsd: usagePayloadWithReference.estimatedCostUsd ?? 0,
+            provider: aiResult?.metadata?.provider ?? null,
+            model: aiResult?.metadata?.model ?? null,
+          }
+        : null,
   })
 }
 

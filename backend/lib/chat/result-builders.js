@@ -63,5 +63,6 @@ export function buildFinalChatResult(input) {
     catalogMessageMode: typeof input.catalogMessageMode === "string" ? input.catalogMessageMode : null,
     catalogListingSessionId: typeof input.catalogListingSessionId === "string" ? input.catalogListingSessionId : null,
     handoff: input.handoff ?? null,
+    debugUsage: input.debugUsage ?? null,
   }
 }

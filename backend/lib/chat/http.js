@@ -61,5 +61,9 @@ export function formatPublicChatResult(result) {
     actions: Array.isArray(result?.actions) ? result.actions : [],
     ui: result?.ui && typeof result.ui === "object" && !Array.isArray(result.ui) ? result.ui : null,
     handoff: result?.handoff ?? null,
+    debugUsage:
+      result?.debugUsage && typeof result.debugUsage === "object" && !Array.isArray(result.debugUsage)
+        ? result.debugUsage
+        : null,
   }
 }

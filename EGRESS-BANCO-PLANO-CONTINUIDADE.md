@@ -40,6 +40,7 @@ Parcialmente concluido em 2026-05-04:
 - POST `/api/chat` em WhatsApp reaproveita o canal/projeto/agente ja resolvido na validacao de contato salvo, evitando resolver o mesmo canal duas vezes na mesma mensagem.
 - Catalogo de planos do billing ganhou cache curto de `60s` no runtime.
 - `loadAgentRuntimeApis` deixou de carregar `api_campos` via join para todas as APIs; agora carrega campos em segunda query apenas quando a API nao tem `runtime.fields` configurado.
+- Extracao de planos mensais descritos no texto do agente ganhou parser deterministico antes da chamada semantica por LLM, reduzindo custo/egress de runtime e evitando que valor de projeto sob medida substitua planos mensais.
 
 Arquivos principais:
 
@@ -50,6 +51,7 @@ Arquivos principais:
 - `backend/app/api/chat/route.js`
 - `backend/lib/billing.js`
 - `backend/lib/apis.js`
+- `backend/lib/chat/semantic-intent-stage.js`
 
 Arquivos principais:
 
@@ -64,6 +66,7 @@ Validacao feita:
 - `cd backend && npm run lint`
 - `cd backend && npm run build`
 - `git diff --check`
+- `cd backend && npm run test:chat-intelligence:domain-regression`
 
 ## Proximo ponto de recomeco
 

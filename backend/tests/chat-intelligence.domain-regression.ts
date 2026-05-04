@@ -23,6 +23,8 @@ import {
   resolveCatalogExecutionState,
   resolveCatalogComparisonDecisionState,
   buildCatalogDecisionFromSemanticIntent,
+  buildBillingReplyResult,
+  extractDeterministicPricingCatalogFromAgentText,
   resolveMercadoLivreHeuristicState,
   resolveRecentCatalogReferenceDecision,
   resolveRecentCatalogProductReference,
@@ -47,6 +49,42 @@ const handoffFixture = loadHandoffFixture()
 const whatsappContextFixture = loadWhatsAppContextFixture()
 
 async function main() {
+  const infraStudioAgentPrompt = [
+    "Projetos sob medida partem de R$ 300,00, tanto para sites quanto para sistemas.",
+    "",
+    "Planos mensais da plataforma:",
+    "",
+    "Free",
+    "R$ 0/mês",
+    "40.000 créditos por mês para testar a plataforma.",
+    "",
+    "Basic",
+    "R$ 29,90/mês",
+    "300.000 créditos por mês para uso leve.",
+    "",
+    "Plus",
+    "R$ 79,90/mês",
+    "800.000 créditos por mês com melhor custo-benefício.",
+    "",
+    "Pro",
+    "R$ 149,90/mês",
+    "2.000.000 créditos por mês para uso mais pesado.",
+    "",
+    "Regras importantes sobre os planos:",
+  ].join("\n")
+  const extractedPricing = extractDeterministicPricingCatalogFromAgentText(infraStudioAgentPrompt)
+  assert.equal(extractedPricing?.enabled, true)
+  assert.deepEqual(extractedPricing?.items.map((item) => item.name), ["Free", "Basic", "Plus", "Pro"])
+  assert.deepEqual(extractedPricing?.items.map((item) => item.creditLimit), [40000, 300000, 800000, 2000000])
+  const extractedPricingReply = buildBillingReplyResult(
+    { pricingCatalog: extractedPricing },
+    { channel: { kind: "web" } },
+    { kind: "pricing_overview" }
+  )
+  assert.match(extractedPricingReply?.reply ?? "", /Basic: R\$ 29,90\/mês/)
+  assert.match(extractedPricingReply?.reply ?? "", /Pro: R\$ 149,90\/mês/)
+  assert.doesNotMatch(extractedPricingReply?.reply ?? "", /300,00/)
+
   const strongReference = resolveDeterministicCatalogFollowUpDecision("gostei da sopeira que mandou", catalogContext, deps)
   assert.equal(strongReference?.kind, "recent_product_reference")
   const bareTitleReference = resolveRecentCatalogReferenceDecision("floral", catalogContext as never)
