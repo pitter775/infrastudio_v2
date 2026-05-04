@@ -353,6 +353,10 @@ function MessageBubble({ message, isAdmin = false }) {
     ? "text-white [&_a]:text-white/90 [&_code]:font-mono [&_em]:italic [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-white [&_s]:line-through"
     : "text-[rgba(226,232,240,0.86)] [&_a]:text-sky-300 [&_code]:font-mono [&_em]:italic [&_pre]:whitespace-pre-wrap [&_strong]:font-semibold [&_strong]:text-white [&_s]:line-through"
   const timeClassName = isAgent ? "text-sky-100/60" : "text-slate-500"
+  const productAssets = (message.assets || [])
+    .filter((asset) => asset?.kind === "product" || asset?.provider === "mercado_livre" || asset?.provider === "api_runtime")
+    .slice(0, 6)
+  const hasMultipleProductAssets = productAssets.length > 1
 
   return (
     <div className={cn("flex", isAgent ? "justify-end" : "justify-start")}>
@@ -473,40 +477,65 @@ function MessageBubble({ message, isAdmin = false }) {
             })}
           </div>
         ) : null}
-        {message.assets?.length ? (
-          <div className="mt-3 grid gap-3">
-            {message.assets.slice(0, 3).map((asset, index) => {
-              const isProduct = asset?.kind === "product" || asset?.provider === "mercado_livre"
-              if (!isProduct) {
-                return null
-              }
-
+        {productAssets.length ? (
+          <div
+            className={cn(
+              "mt-3",
+              hasMultipleProductAssets
+                ? "-mx-1 flex gap-3 overflow-x-auto px-1 pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                : "w-[270px] max-w-full",
+            )}
+          >
+            {productAssets.map((asset, index) => {
               return (
                 <a
                   key={`${message.id}-asset-${asset.id || index}`}
                   href={asset.targetUrl || asset.publicUrl || "#"}
                   target="_blank"
                   rel="noreferrer noopener"
-                  className="overflow-hidden rounded-2xl border border-sky-400/20 bg-sky-500/10 transition hover:border-sky-300/30 hover:bg-sky-500/15"
+                  className={cn(
+                    "block shrink-0 overflow-hidden rounded-xl border border-sky-400/20 bg-sky-500/10 transition hover:border-sky-300/30 hover:bg-sky-500/15",
+                    hasMultipleProductAssets ? "w-[240px] sm:w-[260px]" : "w-full",
+                  )}
                 >
                   {asset.publicUrl ? (
-                    <img
-                      src={asset.publicUrl}
-                      alt={asset.nome || "Produto"}
-                      className="h-40 w-full object-cover"
-                    />
+                    <div className="aspect-[4/3] w-full overflow-hidden bg-slate-950/45">
+                      <img
+                        src={asset.publicUrl}
+                        alt={asset.nome || "Produto"}
+                        className="h-full w-full object-cover"
+                      />
+                    </div>
                   ) : null}
-                  <div className="space-y-2 px-3 py-3">
-                    <div className="text-sm font-semibold text-white">{asset.nome || "Produto"}</div>
+                  <div className="space-y-2 p-3">
+                    <div
+                      className="overflow-hidden text-sm font-semibold leading-5 text-white"
+                      style={{
+                        display: "-webkit-box",
+                        WebkitBoxOrient: "vertical",
+                        WebkitLineClamp: 2,
+                      }}
+                    >
+                      {asset.nome || "Produto"}
+                    </div>
                     {asset.descricao ? (
-                      <div className="text-xs leading-5 text-slate-300">{asset.descricao}</div>
+                      <div
+                        className="overflow-hidden text-xs leading-5 text-slate-300"
+                        style={{
+                          display: "-webkit-box",
+                          WebkitBoxOrient: "vertical",
+                          WebkitLineClamp: 2,
+                        }}
+                      >
+                        {asset.descricao}
+                      </div>
                     ) : null}
                     <div className="flex items-center justify-between gap-3">
-                      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
+                      <div className="min-w-0 truncate text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
                         {asset.priceLabel || "Ver produto"}
                       </div>
-                      <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
-                        Mercado Livre
+                      <div className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
+                        {asset.provider === "mercado_livre" ? "Mercado Livre" : "Catalogo"}
                       </div>
                     </div>
                   </div>
