@@ -541,7 +541,7 @@
       ".chat-ui-text.is-body { font-size: 13px; line-height: 1.58; color: inherit; }",
       ".chat-ui-badges { display: flex; flex-wrap: wrap; gap: 6px; }",
       ".chat-ui-badge { display: inline-flex; align-items: center; min-height: 0; padding: 5px 9px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: " + subtleBg + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.9)") + "; font-size: 10px; line-height: 1; font-weight: 700; letter-spacing: .03em; }",
-      ".chat-ui-rail { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; -ms-overflow-style: none; cursor: grab; -webkit-overflow-scrolling: touch; touch-action: pan-x; scroll-snap-type: x proximity; }",
+      ".chat-ui-rail { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; touch-action: pan-x; scroll-snap-type: x proximity; }",
       ".chat-ui-rail::-webkit-scrollbar { display: none; }",
       ".chat-ui-rail.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }",
       ".chat-ui-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }",
@@ -589,14 +589,14 @@
       ".chat-assets { margin-top: 10px; display: grid; gap: 10px; }",
       ".chat-assets.catalog-products { display: block; overflow: visible; }",
       ".chat-product-carousel-shell { position: relative; margin: -6px -12px -8px; }",
-      ".chat-product-carousel { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 8px 18px 16px; margin: -6px -12px -8px; scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; scroll-snap-type: x proximity; cursor: grab; }",
+      ".chat-product-carousel { display: flex; gap: 8px; overflow-x: auto; overflow-y: hidden; padding: 8px 18px 16px; margin: -6px -12px -8px; scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y pinch-zoom; scroll-snap-type: x proximity; }",
       ".chat-product-carousel::-webkit-scrollbar { display: none; }",
       ".chat-product-carousel-shell .chat-product-carousel { margin: 0; }",
       ".chat-product-carousel.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }",
       ".chat-product-carousel a, .chat-product-carousel img { -webkit-user-drag: none; user-select: none; }",
       ".chat-product-carousel.is-single { display: block; overflow: visible; cursor: default; }",
-      ".chat-product-carousel-nav { position: absolute; top: 50%; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin-top: -18px; border: 1px solid " + (theme === "light" ? "rgba(255,255,255,0.72)" : "rgba(148,163,184,0.2)") + "; border-radius: 999px; background: " + (theme === "light" ? "rgba(255,255,255,0.62)" : "rgba(15,23,42,0.58)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.94)") + "; box-shadow: 0 14px 30px rgba(15,23,42,0.18), inset 0 1px 0 rgba(255,255,255,0.26); backdrop-filter: blur(14px) saturate(1.25); -webkit-backdrop-filter: blur(14px) saturate(1.25); cursor: pointer; transition: transform .18s ease, background-color .18s ease, opacity .18s ease; }",
-      ".chat-product-carousel-nav:hover { transform: translateY(-1px) scale(1.03); background: " + (theme === "light" ? "rgba(255,255,255,0.82)" : "rgba(30,41,59,0.76)") + "; }",
+      ".chat-product-carousel-nav { position: absolute; top: 50%; z-index: 2; display: inline-flex; align-items: center; justify-content: center; width: 34px; height: 34px; margin-top: -18px; border: 0; border-radius: 999px; background: transparent; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.94)") + "; box-shadow: none; cursor: pointer; transition: transform .18s ease, opacity .18s ease; }",
+      ".chat-product-carousel-nav:hover { transform: translateY(-1px) scale(1.03); background: transparent; }",
       ".chat-product-carousel-nav.prev { left: 2px; }",
       ".chat-product-carousel-nav.next { right: 2px; }",
       ".chat-product-carousel-nav.is-hidden { opacity: 0; pointer-events: none; }",
@@ -607,10 +607,10 @@
       ".chat-product-carousel.is-single .chat-asset { width: 100%; max-width: none; }",
       ".chat-product-carousel .chat-asset:hover { transform: translateY(-1px); border-color: color-mix(in srgb, " + accent + " 26%, " + headerBorder + "); box-shadow: 0 10px 22px rgba(15,23,42,0.16); }",
       ".chat-asset.image, .chat-asset.video, .chat-asset.preview { padding: 0; }",
-      ".chat-asset.image img, .chat-asset.video video { display: block; width: 100%; max-height: 210px; object-fit: cover; background: rgba(15,23,42,.35); }",
+      ".chat-asset.image img, .chat-asset.video video { display: block; width: 100%; max-height: 210px; object-fit: cover; }",
       ".chat-product-media { position: relative; overflow: hidden; background: rgba(15,23,42,.18); touch-action: pan-y; }",
       ".chat-product-carousel .chat-product-media { touch-action: pan-x pan-y pinch-zoom; }",
-      ".chat-product-media img { display: block; width: 100%; height: 112px; max-height: 112px; object-fit: cover; background: rgba(15,23,42,.35); user-select: none; -webkit-user-drag: none; }",
+      ".chat-product-media img { display: block; width: 100%; height: 112px; max-height: 112px; object-fit: cover; user-select: none; -webkit-user-drag: none; }",
       ".chat-product-carousel.is-single .chat-product-media img { height: 188px; max-height: 188px; }",
       ".chat-product-gallery-dots { position: absolute; left: 50%; bottom: 7px; z-index: 1; display: inline-flex; gap: 4px; transform: translateX(-50%); padding: 4px 6px; border-radius: 999px; background: rgba(15,23,42,0.26); backdrop-filter: blur(6px); }",
       ".chat-product-gallery-dot { width: 5px; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.42); transition: transform .18s ease, background-color .18s ease; }",
@@ -1538,7 +1538,7 @@
       };
 
       element.addEventListener("pointerdown", function (event) {
-        if (event.pointerType === "mouse" && event.button !== 0) {
+        if (event.pointerType === "mouse" || event.button !== 0) {
           return;
         }
 
@@ -2563,37 +2563,7 @@
     function scrollToBottom(behavior) {
       cancelScrollAnimation();
       if (behavior === "smooth") {
-        var startTop = messagesWrap.scrollTop;
-        var targetTop = messagesWrap.scrollHeight;
-        var distance = targetTop - startTop;
-        if (Math.abs(distance) < 2) {
-          messagesWrap.scrollTop = targetTop;
-          window.requestAnimationFrame(updateScrollBottomButton);
-          return;
-        }
-
-        var duration = 140;
-        var startedAt = null;
-        var easeOutCubic = function (progress) {
-          return 1 - Math.pow(1 - progress, 3);
-        };
-
-        var step = function (timestamp) {
-          if (startedAt === null) {
-            startedAt = timestamp;
-          }
-          var elapsed = timestamp - startedAt;
-          var progress = Math.min(1, elapsed / duration);
-          messagesWrap.scrollTop = startTop + distance * easeOutCubic(progress);
-          if (progress < 1) {
-            scrollAnimationFrame = window.requestAnimationFrame(step);
-            return;
-          }
-          scrollAnimationFrame = null;
-          window.requestAnimationFrame(updateScrollBottomButton);
-        };
-
-        scrollAnimationFrame = window.requestAnimationFrame(step);
+        animateMessagesScrollTo(messagesWrap.scrollHeight);
         return;
       }
 
@@ -2608,6 +2578,43 @@
       window.requestAnimationFrame(updateScrollBottomButton);
     }
 
+    function animateMessagesScrollTo(targetTop) {
+      cancelScrollAnimation();
+      var startTop = messagesWrap.scrollTop;
+      var safeTargetTop = Math.max(0, Number(targetTop || 0));
+      var distance = safeTargetTop - startTop;
+      if (Math.abs(distance) < 2) {
+        messagesWrap.scrollTop = safeTargetTop;
+        window.requestAnimationFrame(updateScrollBottomButton);
+        return;
+      }
+
+      var duration = Math.min(760, Math.max(420, Math.abs(distance) * 1.8));
+      var startedAt = null;
+      var easeInOutCubic = function (progress) {
+        return progress < 0.5
+          ? 4 * progress * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+      };
+
+      var step = function (timestamp) {
+        if (startedAt === null) {
+          startedAt = timestamp;
+        }
+        var elapsed = timestamp - startedAt;
+        var progress = Math.min(1, elapsed / duration);
+        messagesWrap.scrollTop = startTop + distance * easeInOutCubic(progress);
+        if (progress < 1) {
+          scrollAnimationFrame = window.requestAnimationFrame(step);
+          return;
+        }
+        scrollAnimationFrame = null;
+        window.requestAnimationFrame(updateScrollBottomButton);
+      };
+
+      scrollAnimationFrame = window.requestAnimationFrame(step);
+    }
+
     function scrollToMessageStart(element, behavior) {
       if (!messagesWrap || !element) {
         return;
@@ -2615,15 +2622,12 @@
 
       cancelScrollAnimation();
       var targetTop = Math.max(0, element.offsetTop - 12);
-      if (behavior === "smooth" && typeof messagesWrap.scrollTo === "function") {
-        messagesWrap.scrollTo({
-          top: targetTop,
-          behavior: "smooth",
-        });
+      if (behavior === "smooth") {
+        animateMessagesScrollTo(targetTop);
       } else {
         messagesWrap.scrollTop = targetTop;
+        window.requestAnimationFrame(updateScrollBottomButton);
       }
-      window.requestAnimationFrame(updateScrollBottomButton);
     }
 
     function autoResizeInput() {
