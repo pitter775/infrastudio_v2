@@ -2,6 +2,7 @@ import { recordJsonApiUsage } from "@/lib/api-usage-metrics"
 import {
   appendAdminConversationMessage,
   appendAdminConversationSystemMessage,
+  deleteAdminConversation,
   getAdminConversationDetail,
   resolveAdminReplyChannel,
 } from "@/lib/admin-conversations"
@@ -219,4 +220,50 @@ export async function POST(request, { params }) {
     payload,
   })
   return Response.json(payload)
+}
+
+export async function DELETE(request, { params }) {
+  const startedAt = Date.now()
+  const user = await getSessionUser()
+
+  if (!user) {
+    const payload = { success: false, error: "Nao autenticado." }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "DELETE",
+      status: 401,
+      elapsedMs: Date.now() - startedAt,
+      source: "admin_attendance_clear",
+      payload,
+    })
+    return Response.json(payload, { status: 401 })
+  }
+
+  const { id } = await params
+  const body = await request.json().catch(() => ({}))
+  const chatIds = Array.isArray(body.chatIds) ? body.chatIds : []
+  const result = await deleteAdminConversation(
+    {
+      chatId: id,
+      chatIds,
+      confirmation: body.confirmation,
+    },
+    user,
+  )
+
+  const payload = result.ok
+    ? { success: true, deleted: result.deleted }
+    : { success: false, error: result.error || "Nao foi possivel excluir a conversa." }
+
+  recordJsonApiUsage({
+    route: "/api/admin/conversations/[id]/messages",
+    method: "DELETE",
+    status: result.status,
+    elapsedMs: Date.now() - startedAt,
+    userId: user.id,
+    source: "admin_attendance_clear",
+    payload,
+  })
+
+  return Response.json(payload, { status: result.status })
 }

@@ -2,7 +2,7 @@ import "server-only"
 
 import { listChatHandoffsByChatIds } from "@/lib/chat-handoffs"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
-import { appendMessage, getChatById, listChatMessages, listLatestChatMessages } from "@/lib/chats"
+import { appendMessage, deleteChatsByIds, getChatById, listChatMessages, listLatestChatMessages } from "@/lib/chats"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 function formatTime(value) {
@@ -386,6 +386,35 @@ export async function getAdminConversationDetail(input, user) {
     mensagens: mergedMessages,
     updatedAt: primaryChat.chat.updatedAt,
   }
+}
+
+export async function deleteAdminConversation(input, user) {
+  const primaryChatId = String(input?.chatId || "").trim()
+  if (!primaryChatId) {
+    return { ok: false, status: 400, error: "Conversa nao informada." }
+  }
+
+  const confirmation = String(input?.confirmation || "").trim().toLowerCase()
+  if (confirmation !== "remover tudo") {
+    return { ok: false, status: 400, error: "Digite remover tudo para confirmar." }
+  }
+
+  const conversation = await getAdminConversationDetail(input, user)
+  if (!conversation) {
+    return { ok: false, status: 404, error: "Conversa nao encontrada." }
+  }
+
+  const chats = await listChatsByIds(conversation.chatIds)
+  if (!chats.length || chats.some((chat) => !canAccessConversation(user, chat))) {
+    return { ok: false, status: 403, error: "Acesso negado." }
+  }
+
+  const result = await deleteChatsByIds(conversation.chatIds)
+  if (!result.ok) {
+    return { ok: false, status: 500, error: result.error || "Nao foi possivel excluir a conversa." }
+  }
+
+  return { ok: true, status: 200, deleted: result.deleted }
 }
 
 export function resolveAdminReplyChannelFromMessages(chat, messages = []) {

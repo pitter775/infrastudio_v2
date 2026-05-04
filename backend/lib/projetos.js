@@ -1,9 +1,9 @@
 import "server-only"
 
-import { listAgentVersionsForUser } from "@/lib/agentes"
+import { createDefaultAgenteForUser, listAgentVersionsForUser } from "@/lib/agentes"
 import { listAgentApiIdsForUser } from "@/lib/apis"
 import { getProjectBillingSnapshot } from "@/lib/billing"
-import { ensureProjectHasDefaultWidget, listChatWidgetsForUser } from "@/lib/chat-widgets"
+import { ensureDefaultChatWidgetForAgent, ensureProjectHasDefaultWidget, listChatWidgetsForUser } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { getOrCreateDefaultModelId } from "@/lib/modelos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
@@ -447,6 +447,67 @@ async function createInitialProjectBilling(supabase, projectId, user) {
   }
 }
 
+function buildProjectBootstrapUser(user, projectId) {
+  if (user?.role === "admin") {
+    return user
+  }
+
+  const memberships = Array.isArray(user?.memberships) ? user.memberships : []
+  const hasMembership = memberships.some((item) => item.projetoId === projectId)
+
+  return {
+    ...user,
+    memberships: hasMembership
+      ? memberships
+      : [
+          ...memberships,
+          {
+            projetoId: projectId,
+            papel: "viewer",
+          },
+        ],
+  }
+}
+
+async function rollbackNewProjectBootstrap(supabase, projectId) {
+  if (!projectId) {
+    return
+  }
+
+  await supabase.from("chat_widgets").delete().eq("projeto_id", projectId)
+  await supabase.from("agentes").delete().eq("projeto_id", projectId)
+  await supabase.from("projetos_assinaturas").delete().eq("projeto_id", projectId)
+  await supabase.from("projetos_planos").delete().eq("projeto_id", projectId)
+  await supabase.from("usuarios_projetos").delete().eq("projeto_id", projectId)
+  await supabase.from("projetos").delete().eq("id", projectId)
+}
+
+async function createInitialProjectAgentAndWidget(project, user) {
+  const bootstrapUser = buildProjectBootstrapUser(user, project.id)
+  const agent = await createDefaultAgenteForUser(
+    {
+      projetoId: project.id,
+      projectName: project.name,
+      nome: `${project.name} Assistente`,
+      descricao: project.description,
+      businessContext: project.description,
+    },
+    bootstrapUser,
+  )
+
+  if (!agent) {
+    return { ok: false, error: "Nao foi possivel criar o agente padrao." }
+  }
+
+  const { widget, error } = await ensureDefaultChatWidgetForAgent({ ...project, agent }, agent, bootstrapUser)
+
+  if (error || !widget) {
+    return { ok: false, error: error || "Nao foi possivel criar o chat widget padrao." }
+  }
+
+  return { ok: true, agent, widget }
+}
+
 export async function createProject(input, user) {
   const payload = sanitizeProjectPayload(input)
 
@@ -493,14 +554,24 @@ export async function createProject(input, user) {
 
   if (!billingResult.ok) {
     console.error("[projetos] failed to create initial billing", billingResult.error)
-    await supabase.from("projetos_assinaturas").delete().eq("projeto_id", data.id)
-    await supabase.from("projetos_planos").delete().eq("projeto_id", data.id)
-    await supabase.from("usuarios_projetos").delete().eq("projeto_id", data.id)
-    await supabase.from("projetos").delete().eq("id", data.id)
+    await rollbackNewProjectBootstrap(supabase, data.id)
     return null
   }
 
-  return normalizeProject(data)
+  const project = normalizeProject(data)
+  const bootstrapResult = await createInitialProjectAgentAndWidget(project, user)
+
+  if (!bootstrapResult.ok) {
+    console.error("[projetos] failed to create initial agent/widget", bootstrapResult.error)
+    await rollbackNewProjectBootstrap(supabase, data.id)
+    return null
+  }
+
+  return {
+    ...project,
+    agent: bootstrapResult.agent,
+    chatWidgets: [bootstrapResult.widget],
+  }
 }
 
 export async function updateProject(input) {

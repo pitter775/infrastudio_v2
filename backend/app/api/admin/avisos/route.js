@@ -37,8 +37,8 @@ function getFeedbackItems(feedbacks, user) {
     .map((item) => ({
       id: `feedback-${item.id}`,
       kind: "feedback",
-      title: item.assunto || "Feedback",
-      description: item.ultimaMensagem || "Feedback com atualizacao pendente.",
+      title: item.assunto || "Solicitação",
+      description: item.ultimaMensagem || "Solicitação com atualização pendente.",
       href: `/admin/feedback/${item.id}`,
       readKey: `feedback:${item.id}:${item.ultimaMensagemAt || item.updatedAt || item.createdAt || ""}`,
       count: isAdmin ? item.mensagensNaoLidasAdmin || 1 : item.mensagensNaoLidasUsuario || 1,

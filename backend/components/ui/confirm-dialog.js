@@ -14,7 +14,9 @@ export function ConfirmDialog({
   cancelLabel = "Cancelar",
   onConfirm,
   loading = false,
+  confirmDisabled = false,
   danger = false,
+  children,
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -30,6 +32,8 @@ export function ConfirmDialog({
             ) : null}
           </div>
 
+          {children}
+
           <div className="flex items-center justify-end gap-2 border-t border-white/10 bg-[#0f172a] px-5 py-4">
             <Button type="button" variant="ghost" onClick={() => onOpenChange?.(false)} disabled={loading}>
               {cancelLabel}
@@ -37,7 +41,7 @@ export function ConfirmDialog({
             <Button
               type="button"
               variant="ghost"
-              disabled={loading}
+              disabled={loading || confirmDisabled}
               onClick={onConfirm}
               className={cn(
                 "border px-4",

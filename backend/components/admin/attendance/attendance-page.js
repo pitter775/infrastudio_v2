@@ -23,6 +23,7 @@ import {
 import { AdminPageHeader } from "@/components/admin/page-header"
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { cn } from "@/lib/utils"
 
@@ -787,7 +788,7 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
   )
 }
 
-function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile, isAdmin = false }) {
+function ChatPanel({ conversation, onMessageSent, onStatusChanged, onConversationDeleted, onCloseMobile, isAdmin = false }) {
   const initials = getInitials(conversation.cliente.nome)
   const lastMessage = getLastMessage(conversation)
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
@@ -810,6 +811,10 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
   const [traceStageFilter, setTraceStageFilter] = useState("")
   const [traceCostFilter, setTraceCostFilter] = useState("")
   const [traceErrorFilter, setTraceErrorFilter] = useState("")
+  const [clearDialogOpen, setClearDialogOpen] = useState(false)
+  const [clearConfirmation, setClearConfirmation] = useState("")
+  const [clearError, setClearError] = useState("")
+  const [clearing, setClearing] = useState(false)
   const feedRef = useRef(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const detailsHistoryActiveRef = useRef(false)
@@ -991,6 +996,34 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
     }
   }
 
+  async function handleClearConversation() {
+    setClearing(true)
+    setClearError("")
+
+    const response = await fetch(`/api/admin/conversations/${conversation.id}/messages`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        chatIds: conversation.chatIds || [conversation.id],
+        confirmation: clearConfirmation,
+      }),
+    })
+    const data = await response.json().catch(() => null)
+
+    if (!response.ok) {
+      setClearError(data?.error || "Nao foi possivel limpar a conversa.")
+      setClearing(false)
+      return
+    }
+
+    setClearing(false)
+    setClearDialogOpen(false)
+    setClearConfirmation("")
+    onConversationDeleted?.(conversation)
+  }
+
   function handleDetailsOpenChange(nextOpen) {
     if (!nextOpen && compactMobileHeader && detailsHistoryActiveRef.current && !detailsPopClosingRef.current) {
       window.history.back()
@@ -1092,6 +1125,11 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
               </Button>
               <Button
                 variant="ghost"
+                onClick={() => {
+                  setClearError("")
+                  setClearConfirmation("")
+                  setClearDialogOpen(true)
+                }}
                 className="h-8 rounded-lg px-2.5 text-[11px] text-rose-200 hover:bg-rose-500/16 hover:text-white"
               >
                 <Trash2 className="mr-1.5 h-3.5 w-3.5" />
@@ -1159,6 +1197,43 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onCloseMobile
           onMessageSent={onMessageSent}
           onStatusChanged={onStatusChanged}
         />
+
+        <ConfirmDialog
+          open={clearDialogOpen}
+          onOpenChange={(open) => {
+            setClearDialogOpen(open)
+            if (!open) {
+              setClearConfirmation("")
+              setClearError("")
+            }
+          }}
+          title="Limpar conversa"
+          description="Isso vai excluir todas as mensagens e remover a conversa da listagem. O consumo de tokens ja registrado sera mantido."
+          confirmLabel={clearing ? "Limpando..." : "Remover tudo"}
+          cancelLabel="Cancelar"
+          danger
+          loading={clearing}
+          confirmDisabled={clearConfirmation.trim().toLowerCase() !== "remover tudo"}
+          onConfirm={handleClearConversation}
+        >
+          <div className="px-5 pb-5">
+            <label className="block space-y-2">
+              <span className="text-sm font-medium text-slate-300">Digite remover tudo para confirmar</span>
+              <input
+                value={clearConfirmation}
+                onChange={(event) => setClearConfirmation(event.target.value)}
+                className="h-10 w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-rose-400/40"
+                placeholder="remover tudo"
+                autoComplete="off"
+              />
+            </label>
+            {clearError ? (
+              <div className="mt-3 rounded-lg border border-rose-500/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+                {clearError}
+              </div>
+            ) : null}
+          </div>
+        </ConfirmDialog>
 
         <Sheet open={detailsOpen} onOpenChange={handleDetailsOpenChange}>
           <SheetContent
@@ -1774,6 +1849,31 @@ export default function AttendancePage() {
     }))
   }
 
+  function handleConversationDeleted(conversation) {
+    const removedIds = new Set([conversation.id, ...(conversation.chatIds || [])])
+    setConversations((current) => current.filter((item) => !removedIds.has(item.id)))
+    setConversationDetails((current) => {
+      const next = { ...current }
+      removedIds.forEach((id) => {
+        delete next[id]
+      })
+      return next
+    })
+    setSelectedConversationId((currentId) => {
+      if (!removedIds.has(currentId)) {
+        return currentId
+      }
+
+      const nextConversation = filteredConversations.find((item) => !removedIds.has(item.id))
+      setConversationQuery(nextConversation?.id || null)
+      return nextConversation?.id || null
+    })
+
+    if (isMobile) {
+      setMobileChatOpen(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="grid h-full min-h-[420px] place-items-center">
@@ -1941,6 +2041,7 @@ export default function AttendancePage() {
               conversation={activeConversation}
               onMessageSent={updateConversation}
               onStatusChanged={updateConversationStatus}
+              onConversationDeleted={handleConversationDeleted}
               isAdmin={currentUser?.role === "admin"}
             />
           </section>
@@ -1960,6 +2061,7 @@ export default function AttendancePage() {
                   conversation={activeConversation}
                   onMessageSent={updateConversation}
                   onStatusChanged={updateConversationStatus}
+                  onConversationDeleted={handleConversationDeleted}
                   onCloseMobile={handleMobileClose}
                   isAdmin={currentUser?.role === "admin"}
                 />

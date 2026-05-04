@@ -231,15 +231,15 @@ export function buildDashboardOverviewSummary({
       { label: isAdmin ? "Projetos" : "Meus projetos", value: projects.length, detail: `${activeProjects} ativos` },
       { label: isAdmin ? "Usuarios" : "Perfil", value: usersCount, detail: isAdmin ? "com acesso ao contexto" : "dados da sua conta" },
       { label: isAdmin ? "Chats" : "Meus chats", value: chats.length, detail: `${whatsappChats} WhatsApp / ${siteChats} web` },
-      { label: isAdmin ? "Feedback" : "Meus feedbacks", value: feedbacks.length, detail: `${pendingFeedbacks} pendentes` },
+      { label: isAdmin ? "Solicitações" : "Minhas solicitações", value: feedbacks.length, detail: `${pendingFeedbacks} pendentes` },
       { label: "Billing", value: blockedBilling, detail: warningBilling ? `${warningBilling} em alerta` : "sem alerta" },
       { label: "Erros", value: recentErrors, detail: isAdmin ? "ultimos eventos do laboratorio" : "restrito ao admin" },
     ],
     practicalSummary:
       projects.length > 0
         ? isAdmin
-          ? `Base com ${projects.length} projeto(s), ${chats.length} chat(s) recentes e ${pendingFeedbacks} feedback(s) pendente(s) para o admin.`
-          : `Seu painel mostra ${projects.length} projeto(s), ${chats.length} chat(s) e ${feedbacks.length} feedback(s) ligados ao seu acesso.`
+          ? `Base com ${projects.length} projeto(s), ${chats.length} chat(s) recentes e ${pendingFeedbacks} solicitação(ões) pendente(s) para o admin.`
+          : `Seu painel mostra ${projects.length} projeto(s), ${chats.length} chat(s) e ${feedbacks.length} solicitação(ões) ligadas ao seu acesso.`
         : "Ainda nao existem projetos suficientes para consolidar um dashboard operacional.",
     latestChat,
     channelUsage: buildChannelUsage(chats),

@@ -75,7 +75,7 @@ export function AdminNotificationsPage() {
     <div className="min-h-0">
       <AdminPageHeader
         title="Avisos"
-        description="Historico consolidado de atendimento, feedback e billing."
+        description="Historico consolidado de atendimento, solicitações e billing."
         actions={
           <Button
             type="button"
@@ -92,7 +92,7 @@ export function AdminNotificationsPage() {
       <div className="grid gap-3 md:grid-cols-3">
         {[
           ["Atendimento", summary.attendance],
-          ["Feedback", summary.feedback],
+          ["Solicitações", summary.feedback],
           ["Total", summary.notifications],
         ].map(([label, value]) => (
           <div key={label} className="rounded-2xl border border-white/10 bg-[#0d1424] p-4">

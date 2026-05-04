@@ -118,7 +118,7 @@ export function AdminFeedbackPage({
     const data = await response.json().catch(() => null)
 
     if (!response.ok) {
-      setFeedback(data?.error ?? "Nao foi possivel carregar os feedbacks.")
+      setFeedback(data?.error ?? "Nao foi possivel carregar as solicitações.")
       setFeedbacks([])
       setLoading(false)
       return
@@ -144,7 +144,7 @@ export function AdminFeedbackPage({
     const data = await response.json().catch(() => null)
 
     if (!response.ok || !data?.feedback?.id) {
-      setFeedback(data?.error ?? "Nao foi possivel abrir o feedback.")
+      setFeedback(data?.error ?? "Nao foi possivel abrir a solicitação.")
       setSaving(false)
       return
     }
@@ -156,8 +156,8 @@ export function AdminFeedbackPage({
   return (
     <div>
       <AdminPageHeader
-        title="Feedback"
-        description={isAdmin ? "Central administrativa para abrir, acompanhar e responder feedbacks e chamados internos." : "Acompanhe seus feedbacks e chamados."}
+        title="Solicitações"
+        description={isAdmin ? "Central administrativa para abrir, acompanhar e responder solicitações e chamados internos." : "Acompanhe suas solicitações e chamados."}
         actions={
           <>
             <Button
@@ -166,7 +166,7 @@ export function AdminFeedbackPage({
               className="h-8 rounded-lg border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-medium text-sky-100 hover:bg-sky-500/15"
             >
               <Plus className="mr-1.5 h-3.5 w-3.5" />
-              Criar feedback
+              Criar solicitação
             </Button>
             <Button
               type="button"
@@ -243,8 +243,8 @@ export function AdminFeedbackPage({
                 <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.03] text-slate-300">
                   <MessageSquareDashed className="h-5 w-5" />
                 </div>
-                <h2 className="mt-5 text-xl font-semibold text-white">Nenhum feedback encontrado</h2>
-                <p className="mt-2 text-sm text-slate-400">Ajuste os filtros ou abra um novo feedback para iniciar o atendimento.</p>
+                <h2 className="mt-5 text-xl font-semibold text-white">Nenhuma solicitação encontrada</h2>
+                <p className="mt-2 text-sm text-slate-400">Ajuste os filtros ou abra uma nova solicitação para iniciar o atendimento.</p>
               </div>
             ) : null}
 
@@ -305,7 +305,7 @@ export function AdminFeedbackPage({
         <SheetContent side="right" className="w-[92vw] max-w-[460px] border-l border-white/5">
           <form onSubmit={handleCreate} className="flex h-full flex-col">
             <div className="border-b border-white/5 px-5 py-5">
-              <SheetTitle className="text-left text-lg font-semibold text-white">Novo feedback</SheetTitle>
+              <SheetTitle className="text-left text-lg font-semibold text-white">Nova solicitação</SheetTitle>
               <SheetDescription className="mt-1 text-left text-sm text-slate-400">
                 Abre uma conversa nova diretamente no fluxo administrativo.
               </SheetDescription>
@@ -345,7 +345,7 @@ export function AdminFeedbackPage({
                 className="h-10 w-full rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
               >
                 {saving ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
-                Criar feedback
+                Criar solicitação
               </Button>
             </div>
           </form>

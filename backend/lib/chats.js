@@ -204,6 +204,39 @@ export async function getChatById(chatId) {
   return mapChat(data)
 }
 
+export async function deleteChatsByIds(chatIds) {
+  const normalizedChatIds = Array.from(
+    new Set((Array.isArray(chatIds) ? chatIds : [chatIds]).map((item) => String(item || "").trim()).filter(Boolean)),
+  ).slice(0, 25)
+
+  if (!normalizedChatIds.length) {
+    return { ok: false, deleted: 0, error: "Nenhuma conversa informada." }
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const { error: messagesError } = await supabase.from("mensagens").delete().in("chat_id", normalizedChatIds)
+
+  if (messagesError) {
+    console.error("[chats] failed to delete chat messages", messagesError)
+    return { ok: false, deleted: 0, error: "Nao foi possivel excluir as mensagens." }
+  }
+
+  const { error: handoffsError } = await supabase.from("chat_handoffs").delete().in("chat_id", normalizedChatIds)
+
+  if (handoffsError) {
+    console.error("[chats] failed to delete chat handoffs", handoffsError)
+  }
+
+  const { error: chatsError } = await supabase.from("chats").delete().in("id", normalizedChatIds)
+
+  if (chatsError) {
+    console.error("[chats] failed to delete chats", chatsError)
+    return { ok: false, deleted: 0, error: "Nao foi possivel excluir a conversa." }
+  }
+
+  return { ok: true, deleted: normalizedChatIds.length, error: null }
+}
+
 export async function appendMessage(input) {
   const supabase = getSupabaseAdminClient()
   const now = new Date().toISOString()

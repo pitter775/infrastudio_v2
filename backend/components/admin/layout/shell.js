@@ -46,7 +46,7 @@ const navItems = [
   { label: 'Projetos', icon: LayoutGrid, href: '/admin/projetos' },
   { label: 'Atendimento', icon: MessageSquareText, href: '/admin/atendimento', badgeKey: 'attendance' },
   { label: 'Agenda', icon: CalendarClock, href: '/admin/agenda' },
-  { label: 'Feedback', icon: MessageSquareQuote, href: '/admin/feedback', badgeKey: 'feedback' },
+  { label: 'Solicitações', icon: MessageSquareQuote, href: '/admin/feedback', badgeKey: 'feedback' },
   { label: 'Avisos', icon: Bell, href: '/admin/avisos', badgeKey: 'notifications' },
   { label: 'Template', icon: PanelsTopLeft, href: '/admin/template', adminOnly: true },
   { label: 'Perfil', icon: UserCog, href: '/admin/perfil' },

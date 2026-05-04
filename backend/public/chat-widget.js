@@ -63,15 +63,18 @@
 
     var widgetSlug = (script.getAttribute("data-widget") || "").trim();
     var widgetId = (script.getAttribute("data-widget-id") || "").trim();
-    if (!widgetId && !widgetSlug) {
-      return;
-    }
-    var instanceKey = widgetId || widgetSlug;
-
     var projeto = (script.getAttribute("data-projeto") || "").trim();
     var agente = (script.getAttribute("data-agente") || "").trim();
+    var canal = (script.getAttribute("data-canal") || "").trim();
+    var requestSource = (script.getAttribute("data-source") || "").trim();
+    var requestedInstanceKey = (script.getAttribute("data-instance-key") || "").trim();
     var externalIdentifier = (script.getAttribute("data-identificador-externo") || "").trim();
     var rawContext = script.getAttribute("data-context") || "";
+    if (!widgetId && !widgetSlug && !(canal === "admin_agent_test" && projeto && agente)) {
+      return;
+    }
+    var instanceKey = widgetId || widgetSlug || requestedInstanceKey || ["admin-agent-test", projeto, agente, externalIdentifier || Date.now()].join(":");
+
     var widgetTitle = script.getAttribute("data-title") || "Chat";
     var apiBase = script.getAttribute("data-api-base") || new URL(script.src).origin;
     var assetBase = new URL(script.src).origin;
@@ -89,6 +92,7 @@
     var storageKey = null;
     var chatId = null;
     var messages = [];
+    var simulatorContext = null;
     var attachments = [];
     var leadContact = null;
     var leadCaptureDismissed = false;
@@ -228,7 +232,17 @@
 
       rawContext = currentScript.getAttribute("data-context") || "";
       widgetContext = parseContext(rawContext);
+      canal = (currentScript.getAttribute("data-canal") || canal || "").trim();
+      requestSource = (currentScript.getAttribute("data-source") || requestSource || "").trim();
       return true;
+    }
+
+    function isAdminAgentTestMode() {
+      return (
+        canal === "admin_agent_test" ||
+        (widgetContext && widgetContext.channel && widgetContext.channel.kind === "admin_agent_test") ||
+        (widgetContext && widgetContext.admin && widgetContext.admin.source === "agent_simulator")
+      );
     }
 
     function getLocationSignature() {
@@ -301,20 +315,22 @@
       window.addEventListener("popstate", emitUrlChange);
       window.addEventListener("hashchange", emitUrlChange);
     }
-    storageKey = "infrastudio-chat:" + instanceKey + ":" + (externalIdentifier || "anon");
-    try {
-      var savedState = JSON.parse(window.localStorage.getItem(storageKey) || "null");
-      if (savedState && typeof savedState === "object") {
-        chatId = typeof savedState.chatId === "string" ? savedState.chatId : null;
-        messages = Array.isArray(savedState.messages) ? savedState.messages : [];
-        leadContact = savedState.leadContact && typeof savedState.leadContact === "object" ? savedState.leadContact : null;
-        leadCaptureDismissed = savedState.leadCaptureDismissed === true;
-        if (hasLeadIdentity(leadContact)) {
-          externalIdentifier = getLeadIdentifier(leadContact);
+    if (!isAdminAgentTestMode()) {
+      storageKey = "infrastudio-chat:" + instanceKey + ":" + (externalIdentifier || "anon");
+      try {
+        var savedState = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+        if (savedState && typeof savedState === "object") {
+          chatId = typeof savedState.chatId === "string" ? savedState.chatId : null;
+          messages = Array.isArray(savedState.messages) ? savedState.messages : [];
+          leadContact = savedState.leadContact && typeof savedState.leadContact === "object" ? savedState.leadContact : null;
+          leadCaptureDismissed = savedState.leadCaptureDismissed === true;
+          if (hasLeadIdentity(leadContact)) {
+            externalIdentifier = getLeadIdentifier(leadContact);
+          }
+          lastSyncedMessageAt = typeof savedState.lastSyncedMessageAt === "string" ? savedState.lastSyncedMessageAt : null;
         }
-        lastSyncedMessageAt = typeof savedState.lastSyncedMessageAt === "string" ? savedState.lastSyncedMessageAt : null;
-      }
-    } catch (error) {}
+      } catch (error) {}
+    }
 
     function assignMessageOrder(message, preferredOrder) {
       if (!message || typeof message !== "object") {
@@ -2829,12 +2845,59 @@
       updateComposerState();
     }
 
-    function buildEffectiveContext(extraContext) {
+    function buildAdminAgentTestHistory(currentText) {
+      var normalizedCurrentText = normalizeMessageSignature(currentText);
+      var history = (Array.isArray(messages) ? messages : [])
+        .map(function (message) {
+          var content = String(message && (message.text || message.content || "") || "").trim();
+          if (!content) {
+            return null;
+          }
+
+          return {
+            role: message.isAi ? "assistant" : "user",
+            content: content,
+          };
+        })
+        .filter(Boolean)
+        .slice(-8);
+      var last = history[history.length - 1];
+      if (last && last.role === "user" && normalizedCurrentText && normalizeMessageSignature(last.content) === normalizedCurrentText) {
+        history.pop();
+      }
+      return history;
+    }
+
+    function buildEffectiveContext(extraContext, currentText) {
       var baseContext = widgetContext && typeof widgetContext === "object" ? { ...widgetContext } : {};
       if (extraContext && typeof extraContext === "object") {
         baseContext = {
           ...baseContext,
           ...extraContext,
+        };
+      }
+      if (isAdminAgentTestMode()) {
+        baseContext = {
+          ...baseContext,
+          channel: {
+            ...(baseContext.channel && typeof baseContext.channel === "object" ? baseContext.channel : {}),
+            kind: "admin_agent_test",
+          },
+          admin: {
+            ...(baseContext.admin && typeof baseContext.admin === "object" ? baseContext.admin : {}),
+            source: "agent_simulator",
+            history: buildAdminAgentTestHistory(currentText),
+            simulatorContext: simulatorContext || undefined,
+          },
+          laboratory: {
+            ...(baseContext.laboratory && typeof baseContext.laboratory === "object" ? baseContext.laboratory : {}),
+            origin: "agent_admin_test",
+            persistAsRealConversation: false,
+          },
+          ui: {
+            ...(baseContext.ui && typeof baseContext.ui === "object" ? baseContext.ui : {}),
+            structured_response: true,
+          },
         };
       }
       if (!hasLeadIdentity(leadContact)) {
@@ -3579,9 +3642,10 @@
             widgetSlug: widgetSlug,
             projeto: projeto || undefined,
             agente: agente || undefined,
-            source: settings.source || undefined,
+            canal: canal || undefined,
+            source: settings.source || requestSource || undefined,
             identificadorExterno: getLeadIdentifier(leadContact) || externalIdentifier || undefined,
-            context: buildEffectiveContext(settings.extraContext),
+            context: buildEffectiveContext(settings.extraContext, trimmed),
             attachments: outboundAttachments,
           }),
         });
@@ -3590,7 +3654,12 @@
         if (!response.ok) {
           throw new Error(normalizeChatErrorMessage(payload && payload.error, response.status));
         }
-        if (payload.chatId) {
+        if (payload && payload.ephemeral === true) {
+          chatId = null;
+          if (payload.simulatorContext && typeof payload.simulatorContext === "object") {
+            simulatorContext = payload.simulatorContext;
+          }
+        } else if (payload.chatId) {
           chatId = payload.chatId;
         }
         if (payload.createdAt) {

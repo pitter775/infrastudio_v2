@@ -50,7 +50,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
     const data = await response.json().catch(() => null)
 
     if (!response.ok || !data?.feedback) {
-      setFeedback(data?.error ?? "Nao foi possivel carregar o feedback.")
+      setFeedback(data?.error ?? "Nao foi possivel carregar a solicitação.")
       setLoading(false)
       return
     }
@@ -75,7 +75,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
     const data = await response.json().catch(() => null)
 
     if (!response.ok || !data?.feedback) {
-      setFeedback(data?.error ?? "Nao foi possivel atualizar o feedback.")
+      setFeedback(data?.error ?? "Nao foi possivel atualizar a solicitação.")
       setLoading(false)
       return
     }
@@ -133,7 +133,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
     const data = await response.json().catch(() => null)
 
     if (!response.ok || !data?.feedback) {
-      setFeedback(data?.error ?? "Nao foi possivel reabrir o feedback.")
+      setFeedback(data?.error ?? "Nao foi possivel reabrir a solicitação.")
       setLoading(false)
       return
     }
@@ -147,7 +147,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
     <div>
       <AdminPageHeader
         title={detail.assunto}
-        description={`Feedback ${detail.id} • ${detail.projeto?.nome || "Nao vinculado"}`}
+        description={`Solicitação ${detail.id} • ${detail.projeto?.nome || "Nao vinculado"}`}
         actions={
           <>
             <Button
@@ -231,7 +231,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
                 disabled={loading}
                 className="h-10 w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200"
               >
-                Reabrir feedback
+                Reabrir solicitação
               </Button>
             ) : null}
           </form>
@@ -273,7 +273,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
             <textarea
               value={mensagem}
               onChange={(event) => setMensagem(event.target.value)}
-              placeholder={detail.status === "fechado" ? "Feedback fechado." : isAdmin ? "Escreva a resposta administrativa" : "Escreva sua mensagem"}
+              placeholder={detail.status === "fechado" ? "Solicitação fechada." : isAdmin ? "Escreva a resposta administrativa" : "Escreva sua mensagem"}
               rows={5}
               disabled={detail.status === "fechado" || loading}
               className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 disabled:opacity-60"
