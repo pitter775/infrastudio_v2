@@ -50,6 +50,17 @@ Regra:
 
 ## Alto
 
+- Egress do banco: seguir plano de continuidade.
+  Documento principal:
+  1. `EGRESS-BANCO-PLANO-CONTINUIDADE.md`
+  Estado atual:
+  1. primeira otimização do Atendimento concluida
+  2. listagem leve, detalhe sob demanda, paginacao de mensagens e indices criados
+  Pendente:
+  1. atacar `/api/chat` e runtime do chat
+  2. depois Mercado Livre/catalogo
+  3. depois billing/dashboard, agentes/APIs, WhatsApp manager e agenda
+
 - WhatsApp-service: reduzir volume de sync com backend e Supabase.
   Estado atual:
   1. existe tratamento de snapshot e estados transitorios no backend

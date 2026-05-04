@@ -51,7 +51,11 @@ export async function persistUserTurn(input, deps = {}) {
 
 export async function loadChatHistory(chatId, deps = {}) {
   const listMessages = deps.listChatMessages ?? listChatMessages
-  return listMessages(chatId)
+  const limit = Math.min(Math.max(Number(deps.historyLimit ?? 28) || 28, 6), 60)
+  const messages = await listMessages(chatId, { limit, ascending: false })
+  return messages.every((message) => message?.createdAt)
+    ? [...messages].sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime())
+    : messages
 }
 
 export async function persistAssistantTurn(input, deps = {}) {

@@ -69,6 +69,17 @@ export function mapMensagem(row) {
   }
 }
 
+export function mapMensagemPreview(row) {
+  return {
+    id: row.id,
+    chatId: row.chat_id ?? "",
+    role: row.role === "assistant" ? "assistant" : row.role === "system" ? "system" : "user",
+    conteudo: row.conteudo,
+    canal: row.canal?.trim() || "web",
+    createdAt: row.created_at ?? new Date().toISOString(),
+  }
+}
+
 export function normalizeWhatsAppLookupPhone(value) {
   const digits = String(value || "").replace(/\D/g, "")
   if (!digits) {
@@ -267,11 +278,16 @@ export async function appendMessage(input) {
 
 export async function listChatMessages(chatId, options = {}) {
   const supabase = getSupabaseAdminClient()
+  const ascending = options.ascending !== false
   let query = supabase
     .from("mensagens")
     .select("id, chat_id, role, conteudo, canal, identificador_externo, tokens_input, tokens_output, custo, metadata, created_at")
     .eq("chat_id", chatId)
-    .order("created_at", { ascending: options.ascending !== false })
+    .order("created_at", { ascending })
+
+  if (options.before) {
+    query = query.lt("created_at", options.before)
+  }
 
   if (Number.isFinite(options.limit) && options.limit > 0) {
     query = query.limit(options.limit)
@@ -285,7 +301,7 @@ export async function listChatMessages(chatId, options = {}) {
   }
 
   const messages = data.map((row) => mapMensagem(row))
-  return options.ascending === false ? messages : messages
+  return messages
 }
 
 export async function listLatestChatMessages(chatIds, options = {}) {
@@ -356,6 +372,64 @@ export async function listLatestChatMessages(chatIds, options = {}) {
       ((collected.get(chatId) ?? []).slice(0, perChatLimit)).reverse(),
     ]),
   )
+}
+
+export async function listLatestChatMessagePreviews(chatIds, options = {}) {
+  const normalizedChatIds = Array.from(
+    new Set((Array.isArray(chatIds) ? chatIds : []).map((item) => String(item || "").trim()).filter(Boolean)),
+  )
+
+  if (!normalizedChatIds.length) {
+    return new Map()
+  }
+
+  const batchSize = Math.min(Math.max(Number(options.batchSize ?? normalizedChatIds.length * 2) || normalizedChatIds.length * 2, normalizedChatIds.length), 250)
+  const maxRounds = Math.min(Math.max(Number(options.maxRounds ?? 4) || 4, 1), 6)
+  const supabase = getSupabaseAdminClient()
+  const collected = new Map()
+  let cursor = null
+
+  for (let round = 0; round < maxRounds; round += 1) {
+    let query = supabase
+      .from("mensagens")
+      .select("id, chat_id, role, conteudo, canal, created_at")
+      .in("chat_id", normalizedChatIds)
+      .order("created_at", { ascending: false })
+      .limit(batchSize)
+
+    if (cursor) {
+      query = query.lt("created_at", cursor)
+    }
+
+    const { data, error } = await query
+
+    if (error || !Array.isArray(data) || !data.length) {
+      if (error) {
+        console.error("[chats] failed to list latest message previews", error)
+      }
+      break
+    }
+
+    for (const row of data) {
+      const chatId = String(row.chat_id || "").trim()
+      if (!chatId || collected.has(chatId)) {
+        continue
+      }
+
+      collected.set(chatId, mapMensagemPreview(row))
+    }
+
+    if (normalizedChatIds.every((chatId) => collected.has(chatId))) {
+      break
+    }
+
+    cursor = data.at(-1)?.created_at ?? null
+    if (!cursor) {
+      break
+    }
+  }
+
+  return new Map(normalizedChatIds.map((chatId) => [chatId, collected.get(chatId) ? [collected.get(chatId)] : []]))
 }
 
 export async function listRecentMessagesByExternalIdentifier(input) {

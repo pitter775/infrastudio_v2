@@ -5,7 +5,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 const apiFields =
   "id, projeto_id, nome, url, metodo, descricao, ativo, configuracoes, created_at, updated_at"
-const apiRuntimeFieldSchema = "id, nome, tipo, descricao"
+const apiRuntimeFieldSchemaWithApiId = "api_id, id, nome, tipo, descricao"
 const apiVersionFields =
   "id, api_id, projeto_id, version_number, nome, url, metodo, descricao, configuracoes, ativo, source, note, created_by, created_at"
 const runtimeApiCache = new Map()
@@ -1086,7 +1086,7 @@ export async function loadAgentRuntimeApis({ agenteId, projetoId, limit = 4, con
     const supabase = getSupabaseAdminClient()
     const { data, error } = await supabase
       .from("agente_api")
-      .select(`api_id, apis!inner(${apiFields}, api_campos(${apiRuntimeFieldSchema}))`)
+      .select(`api_id, apis!inner(${apiFields})`)
       .eq("agente_id", agenteId)
       .eq("apis.projeto_id", projetoId)
       .eq("apis.ativo", true)
@@ -1098,6 +1098,39 @@ export async function loadAgentRuntimeApis({ agenteId, projetoId, limit = 4, con
     }
 
     const apis = data.map((item) => mapApi(item.apis)).filter((api) => api.active).slice(0, limit)
+    const apiIdsNeedingFieldSchema = apis
+      .filter((api) => !Array.isArray(api?.config?.runtime?.fields) || api.config.runtime.fields.length === 0)
+      .map((api) => api.id)
+
+    if (apiIdsNeedingFieldSchema.length) {
+      const { data: fields, error: fieldsError } = await supabase
+        .from("api_campos")
+        .select(apiRuntimeFieldSchemaWithApiId)
+        .in("api_id", apiIdsNeedingFieldSchema)
+
+      if (fieldsError) {
+        console.error("[apis] failed to load runtime api fields", fieldsError)
+      } else {
+        const fieldsByApiId = new Map()
+        ;(fields ?? []).forEach((field) => {
+          const current = fieldsByApiId.get(field.api_id) ?? []
+          current.push({
+            id: field.id,
+            nome: field.nome,
+            tipo: field.tipo,
+            descricao: field.descricao || "",
+          })
+          fieldsByApiId.set(field.api_id, current)
+        })
+
+        apis.forEach((api) => {
+          if (fieldsByApiId.has(api.id)) {
+            api.fieldSchema = fieldsByApiId.get(api.id)
+          }
+        })
+      }
+    }
+
     return Promise.all(apis.map((api) => fetchApiPreview(api, 5000, context)))
   } catch (error) {
     console.error("[apis] failed to load runtime apis", error)

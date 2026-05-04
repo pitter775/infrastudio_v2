@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
@@ -51,7 +51,7 @@ function getInitials(name) {
 }
 
 function getLastMessage(conversation) {
-  return conversation.mensagens[conversation.mensagens.length - 1]
+  return conversation?.mensagens?.[conversation.mensagens.length - 1] ?? null
 }
 
 function getConversationPhone(conversation) {
@@ -286,7 +286,6 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
   const lastMessage = getLastMessage(conversation)
   const initials = getInitials(conversation.cliente.nome)
   const loopPaused = conversation.status === "pausado_loop"
-  const totalMessages = Number(conversation.totalMensagens ?? conversation.mensagens.length)
   const subtitle = getConversationSubtitle(conversation)
 
   return (
@@ -317,11 +316,6 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
         <div className="shrink-0 text-right">
           <div className="text-[10px] text-slate-500">{lastMessage?.horario}</div>
           <div className="mt-1 flex flex-col items-end gap-1">
-            {totalMessages > 0 ? (
-              <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-sky-400">
-                {totalMessages} msg
-              </div>
-            ) : null}
             {loopPaused ? (
               <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-200">
                 Loop
@@ -817,7 +811,16 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
   )
 }
 
-function ChatPanel({ conversation, onMessageSent, onStatusChanged, onConversationDeleted, onCloseMobile, isAdmin = false }) {
+function ChatPanel({
+  conversation,
+  onMessageSent,
+  onStatusChanged,
+  onConversationDeleted,
+  onLoadOlderMessages,
+  loadingOlder = false,
+  onCloseMobile,
+  isAdmin = false,
+}) {
   const initials = getInitials(conversation.cliente.nome)
   const lastMessage = getLastMessage(conversation)
   const originLabel = conversation.origem === "whatsapp" ? "WhatsApp" : "Site"
@@ -1187,6 +1190,19 @@ function ChatPanel({ conversation, onMessageSent, onStatusChanged, onConversatio
 
         <div ref={feedRef} className="min-h-0 flex-1 overflow-y-auto" style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}>
           <div className="space-y-5 px-3 py-4 lg:px-4">
+            {conversation.hasMore ? (
+              <div className="flex justify-center">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={loadingOlder}
+                  onClick={() => onLoadOlderMessages?.(conversation)}
+                  className="h-8 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-[11px] text-slate-300 hover:border-sky-400/20 hover:bg-sky-500/10 hover:text-white"
+                >
+                  {loadingOlder ? "Carregando..." : "Carregar anteriores"}
+                </Button>
+              </div>
+            ) : null}
             {timelineItems.map((item) =>
               item.type === "day" ? (
                 <MessageDayDivider key={item.id} label={item.label} />
@@ -1484,6 +1500,8 @@ export default function AttendancePage() {
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
+  const [loadingDetailId, setLoadingDetailId] = useState(null)
+  const [loadingOlderId, setLoadingOlderId] = useState(null)
   const [accessSheetOpen, setAccessSheetOpen] = useState(false)
   const [accessRequest, setAccessRequest] = useState({
     featureKey: "",
@@ -1506,14 +1524,18 @@ export default function AttendancePage() {
     return data.conversations ?? []
   }
 
-  async function fetchConversationDetail(conversation) {
+  async function fetchConversationDetail(conversation, options = {}) {
     if (!conversation?.id) {
       return null
     }
 
     const params = new URLSearchParams()
+    params.set("limit", String(options.limit ?? 30))
     if (Array.isArray(conversation.chatIds) && conversation.chatIds.length) {
       params.set("chatIds", conversation.chatIds.join(","))
+    }
+    if (options.before) {
+      params.set("before", options.before)
     }
 
     const response = await fetch(
@@ -1550,7 +1572,6 @@ export default function AttendancePage() {
         setLoadError(null)
         const nextConversations = await fetchConversationList()
         setConversations(nextConversations)
-        setSelectedConversationId((current) => current || nextConversations[0]?.id || null)
       } catch (error) {
         setLoadError(error.message || "Nao foi possivel carregar as conversas.")
       } finally {
@@ -1571,7 +1592,6 @@ export default function AttendancePage() {
         const nextConversations = await fetchConversationList()
         setLoadError(null)
         setConversations(nextConversations)
-        setSelectedConversationId((current) => current || nextConversations[0]?.id || null)
       } catch (error) {
         setLoadError(error.message || "Nao foi possivel atualizar as conversas.")
       }
@@ -1583,6 +1603,7 @@ export default function AttendancePage() {
   useEffect(() => {
     async function loadConversationDetail() {
       if (!selectedConversationId) {
+        setLoadingDetailId(null)
         return
       }
 
@@ -1603,6 +1624,7 @@ export default function AttendancePage() {
       }
 
       try {
+        setLoadingDetailId(selectedConversationId)
         const detail = await fetchConversationDetail(selectedPreview)
         if (!detail) {
           return
@@ -1629,7 +1651,10 @@ export default function AttendancePage() {
               : conversation,
           ),
         )
-      } catch {}
+      } catch {
+      } finally {
+        setLoadingDetailId((current) => (current === selectedConversationId ? null : current))
+      }
     }
 
     void loadConversationDetail()
@@ -1707,23 +1732,27 @@ export default function AttendancePage() {
 
   const activeConversation =
     (() => {
+      if (!selectedConversationId) {
+        return null
+      }
+
       const selectedPreview =
         filteredConversations.find((conversation) => conversation.id === selectedConversationId) ??
-        filteredConversations[0] ??
-        conversations[0] ??
+        conversations.find((conversation) => conversation.id === selectedConversationId) ??
         null
 
       if (!selectedPreview) {
         return null
       }
 
-      return conversationDetails[selectedPreview.id]
+      const detail = conversationDetails[selectedPreview.id]
+      return detail
         ? {
             ...selectedPreview,
-            ...conversationDetails[selectedPreview.id],
-            projeto: conversationDetails[selectedPreview.id].projeto ?? selectedPreview.projeto ?? null,
+            ...detail,
+            projeto: detail.projeto ?? selectedPreview.projeto ?? null,
           }
-        : selectedPreview
+        : null
     })()
 
   const filterCounts = {
@@ -1732,14 +1761,29 @@ export default function AttendancePage() {
     whatsapp: conversations.filter((conversation) => conversation.origem === "whatsapp").length,
   }
 
+  const setConversationQuery = useCallback((conversationId) => {
+    const params = new URLSearchParams(searchParams.toString())
+
+    if (conversationId) {
+      params.set("conversa", conversationId)
+    } else {
+      params.delete("conversa")
+    }
+
+    const nextQuery = params.toString()
+    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname)
+  }, [pathname, router, searchParams])
+
   useEffect(() => {
     if (
+      selectedConversationId &&
       filteredConversations.length > 0 &&
       !filteredConversations.some((conversation) => conversation.id === selectedConversationId)
     ) {
-      setSelectedConversationId(filteredConversations[0].id)
+      setSelectedConversationId(null)
+      setConversationQuery(null)
     }
-  }, [filteredConversations, selectedConversationId])
+  }, [filteredConversations, selectedConversationId, setConversationQuery])
 
   useEffect(() => {
     const conversationId = searchParams.get("conversa")
@@ -1762,19 +1806,6 @@ export default function AttendancePage() {
       setMobileChatOpen(true)
     }
   }, [conversations, isMobile, searchParams])
-
-  function setConversationQuery(conversationId) {
-    const params = new URLSearchParams(searchParams.toString())
-
-    if (conversationId) {
-      params.set("conversa", conversationId)
-    } else {
-      params.delete("conversa")
-    }
-
-    const nextQuery = params.toString()
-    router.push(nextQuery ? `${pathname}?${nextQuery}` : pathname)
-  }
 
   function updateConversation(conversationId, message) {
     setConversations((currentConversations) =>
@@ -1801,6 +1832,54 @@ export default function AttendancePage() {
           }
         : current[conversationId],
     }))
+  }
+
+  async function loadOlderMessages(conversation) {
+    if (!conversation?.id || loadingOlderId === conversation.id) {
+      return
+    }
+
+    const firstMessage = [...(conversation.mensagens || [])].sort(
+      (left, right) => new Date(left.createdAt ?? 0).getTime() - new Date(right.createdAt ?? 0).getTime(),
+    )[0]
+
+    if (!firstMessage?.createdAt) {
+      return
+    }
+
+    setLoadingOlderId(conversation.id)
+
+    try {
+      const detail = await fetchConversationDetail(conversation, { limit: 30, before: firstMessage.createdAt })
+      const olderMessages = detail?.mensagens || []
+
+      setConversationDetails((current) => {
+        const currentDetail = current[conversation.id]
+        if (!currentDetail) {
+          return current
+        }
+
+        const byId = new Map()
+        olderMessages.forEach((message) => byId.set(message.id, message))
+        ;(currentDetail.mensagens || []).forEach((message) => byId.set(message.id, message))
+
+        const mensagens = Array.from(byId.values()).sort(
+          (left, right) => new Date(left.createdAt ?? 0).getTime() - new Date(right.createdAt ?? 0).getTime(),
+        )
+
+        return {
+          ...current,
+          [conversation.id]: {
+            ...currentDetail,
+            mensagens,
+            hasMore: detail?.hasMore ?? false,
+            nextCursor: detail?.nextCursor ?? mensagens[0]?.createdAt ?? null,
+          },
+        }
+      })
+    } finally {
+      setLoadingOlderId((current) => (current === conversation.id ? null : current))
+    }
   }
 
   function handleConversationSelect(conversation) {
@@ -1893,9 +1972,8 @@ export default function AttendancePage() {
         return currentId
       }
 
-      const nextConversation = filteredConversations.find((item) => !removedIds.has(item.id))
-      setConversationQuery(nextConversation?.id || null)
-      return nextConversation?.id || null
+      setConversationQuery(null)
+      return null
     })
 
     if (isMobile) {
@@ -1919,13 +1997,18 @@ export default function AttendancePage() {
     )
   }
 
-  if (!activeConversation) {
+  if (!conversations.length) {
     return (
       <div className="grid h-full min-h-[420px] place-items-center">
         <p className="text-sm text-slate-500">Nenhuma conversa ativa encontrada.</p>
       </div>
     )
   }
+
+  const selectedPreview = selectedConversationId
+    ? conversations.find((conversation) => conversation.id === selectedConversationId) ?? null
+    : null
+  const detailLoading = Boolean(selectedConversationId && loadingDetailId === selectedConversationId)
 
   return (
     <div className="h-full min-h-0">
@@ -2055,7 +2138,7 @@ export default function AttendancePage() {
                   <ConversationItem
                     key={conversation.id}
                     conversation={conversation}
-                    active={conversation.id === activeConversation.id}
+                    active={conversation.id === selectedConversationId}
                     isMobile={isMobile}
                     onClick={() => handleConversationSelect(conversation)}
                   />
@@ -2065,14 +2148,33 @@ export default function AttendancePage() {
           </section>
 
           <section className="hidden min-h-0 flex-col overflow-hidden rounded-[12px] border border-white/5 bg-[#0c1322] lg:flex">
-            <ChatPanel
-              key={activeConversation.id}
-              conversation={activeConversation}
-              onMessageSent={updateConversation}
-              onStatusChanged={updateConversationStatus}
-              onConversationDeleted={handleConversationDeleted}
-              isAdmin={currentUser?.role === "admin"}
-            />
+            {activeConversation ? (
+              <ChatPanel
+                key={activeConversation.id}
+                conversation={activeConversation}
+                onMessageSent={updateConversation}
+                onStatusChanged={updateConversationStatus}
+                onConversationDeleted={handleConversationDeleted}
+                onLoadOlderMessages={loadOlderMessages}
+                loadingOlder={loadingOlderId === activeConversation.id}
+                isAdmin={currentUser?.role === "admin"}
+              />
+            ) : (
+              <div className="grid h-full place-items-center px-6 text-center">
+                <div>
+                  <div className="text-sm font-semibold text-slate-200">
+                    {detailLoading ? "Carregando conversa..." : "Selecione uma conversa"}
+                  </div>
+                  <p className="mt-2 text-sm text-slate-500">
+                    {detailLoading
+                      ? "Buscando somente as mensagens dessa conversa."
+                      : selectedPreview
+                        ? "A conversa sera carregada aqui."
+                        : "A lista ao lado carrega apenas os dados essenciais."}
+                  </p>
+                </div>
+              </div>
+            )}
           </section>
 
           <AnimatePresence initial={false}>
@@ -2085,15 +2187,39 @@ export default function AttendancePage() {
                 transition={{ duration: 0.24, ease: "easeInOut" }}
                 className="fixed inset-0 z-[70] flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
               >
-                <ChatPanel
-                  key={activeConversation.id}
-                  conversation={activeConversation}
-                  onMessageSent={updateConversation}
-                  onStatusChanged={updateConversationStatus}
-                  onConversationDeleted={handleConversationDeleted}
-                  onCloseMobile={handleMobileClose}
-                  isAdmin={currentUser?.role === "admin"}
-                />
+                {activeConversation ? (
+                  <ChatPanel
+                    key={activeConversation.id}
+                    conversation={activeConversation}
+                    onMessageSent={updateConversation}
+                    onStatusChanged={updateConversationStatus}
+                    onConversationDeleted={handleConversationDeleted}
+                    onLoadOlderMessages={loadOlderMessages}
+                    loadingOlder={loadingOlderId === activeConversation.id}
+                    onCloseMobile={handleMobileClose}
+                    isAdmin={currentUser?.role === "admin"}
+                  />
+                ) : (
+                  <div className="flex h-full flex-col">
+                    <div className="border-b border-white/5 px-3 py-3">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 rounded-xl border border-white/10 bg-white/[0.03] text-slate-300 hover:border-sky-400/20 hover:bg-sky-500/10 hover:text-white"
+                        onClick={handleMobileClose}
+                        aria-label="Voltar para a lista de conversas"
+                      >
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <div className="grid flex-1 place-items-center px-6 text-center">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-200">Carregando conversa...</div>
+                        <p className="mt-2 text-sm text-slate-500">Buscando somente as mensagens dessa conversa.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.section>
             ) : null}
           </AnimatePresence>

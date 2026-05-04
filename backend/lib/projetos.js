@@ -1208,6 +1208,73 @@ function mapLegacyProject(project) {
   }
 }
 
+function mapRuntimeProject(row) {
+  if (!row) {
+    return null
+  }
+
+  const slug = row.slug?.trim() || row.id
+  return {
+    id: row.id,
+    nome: row.nome?.trim() || "Projeto sem nome",
+    name: row.nome?.trim() || "Projeto sem nome",
+    slug,
+    routeKey: buildProjectRouteKey({ id: row.id, slug }),
+    status: row.status?.trim() || "ativo",
+    directConnections: null,
+  }
+}
+
+async function getProjetoRuntimeByField(field, value) {
+  const normalized = String(value || "").trim()
+  if (!normalized) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const { data, error } = await supabase
+      .from("projetos")
+      .select("id, nome, slug, status")
+      .eq(field, normalized)
+      .maybeSingle()
+
+    if (error || !data) {
+      if (error) {
+        console.error("[projetos] failed to get runtime project", error)
+      }
+      return null
+    }
+
+    return mapRuntimeProject(data)
+  } catch (error) {
+    console.error("[projetos] failed to get runtime project", error)
+    return null
+  }
+}
+
+export async function getProjetoRuntimeById(id) {
+  return getProjetoRuntimeByField("id", id)
+}
+
+export async function getProjetoRuntimeByIdentifier(identifier) {
+  const value = String(identifier || "").trim()
+  if (!value) {
+    return null
+  }
+
+  if (isUuid(value)) {
+    return getProjetoRuntimeById(value)
+  }
+
+  const bySlug = await getProjetoRuntimeByField("slug", value)
+  if (bySlug) {
+    return bySlug
+  }
+
+  return getProjetoRuntimeById(value)
+}
+
 export async function getProjetoById(id) {
   if (!id) {
     return null

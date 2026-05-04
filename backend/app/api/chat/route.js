@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import { recordJsonApiUsage } from "@/lib/api-usage-metrics"
 import { buildSilentChatResult } from "@/lib/chat/result-builders"
-import { buildInitialChatContext, isSavedWhatsAppContact, processChatRequest, resolveProjectAgent } from "@/lib/chat/service"
+import { buildInitialChatContext, isSavedWhatsAppContact, processChatRequest, resolveChatChannel, resolveProjectAgent } from "@/lib/chat/service"
 import { buildAiObservability } from "@/lib/admin-conversations"
 import { registerProjectBillingUsage, verifyProjectBillingAccess } from "@/lib/billing"
 import { APP_BUILD_LABEL } from "@/lib/build-info"
@@ -645,10 +645,16 @@ export async function POST(request) {
         })
       : null
     const channelId = getIncomingWhatsAppChannelId(normalizedBody)
-    const resolvedProjectAgent =
+    const resolvedChatChannel =
       normalizedBody?.canal === "whatsapp" && channelId
-        ? await resolveProjectAgent(normalizedBody)
+        ? await resolveChatChannel(normalizedBody)
         : null
+    const resolvedProjectAgent = resolvedChatChannel
+      ? {
+          projeto: resolvedChatChannel.projeto,
+          agente: resolvedChatChannel.agente,
+        }
+      : null
     const whatsappChannel =
       normalizedBody?.canal === "whatsapp" && channelId
         ? await getWhatsAppChannelById(channelId)
@@ -702,6 +708,11 @@ export async function POST(request) {
     const result = await processChatRequest(effectiveBody, {
       verificarLimite: verifyProjectBillingAccess,
       registrarUso: registerProjectBillingUsage,
+      ...(resolvedChatChannel
+        ? {
+            resolveChatChannel: async () => resolvedChatChannel,
+          }
+        : {}),
       ...(adminAgentTestRuntime?.options ?? {}),
     })
     if (isAdminAgentTest) {

@@ -8,6 +8,10 @@ import { getPrimaryWhatsAppChannelByProjectId } from "@/lib/whatsapp-channels"
 
 const INFRASTUDIO_BILLING_ALERT_PROJECT_ID =
   process.env.INFRASTUDIO_HOME_PROJECT_ID?.trim() || "7d965fd5-2487-4efc-b3df-1d28fa3d5377"
+const billingPlansCache = {
+  expiresAt: 0,
+  plans: null,
+}
 
 function normalizeNumber(value, fallback = 0) {
   const parsed = Number(value)
@@ -527,7 +531,7 @@ async function loadProjectBillingRuntime(projectId, deps = {}) {
       .order("data_inicio", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle(),
-    listBillingPlans({ supabase }),
+    listBillingPlans({ cache: true }),
     listTopUpsWithFallback(projectId, { supabase }),
   ])
 
@@ -1041,6 +1045,10 @@ export function buildBillingSnapshot(input) {
 
 export async function listBillingPlans(deps = {}) {
   try {
+    if (deps.cache === true && billingPlansCache.plans && billingPlansCache.expiresAt > Date.now()) {
+      return billingPlansCache.plans
+    }
+
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const { data, error } = await supabase
       .from("planos")
@@ -1054,7 +1062,13 @@ export async function listBillingPlans(deps = {}) {
       return []
     }
 
-    return (data ?? []).map(mapBillingPlan)
+    const plans = (data ?? []).map(mapBillingPlan)
+    if (deps.cache === true) {
+      billingPlansCache.plans = plans
+      billingPlansCache.expiresAt = Date.now() + 60_000
+    }
+
+    return plans
   } catch (error) {
     console.error("[billing] failed to list plans", error)
     return []

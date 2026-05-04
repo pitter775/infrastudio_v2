@@ -57,7 +57,7 @@ import {
 import { createChat, findActiveChatByChannel, findActiveChatByContactPhone, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier } from "@/lib/chats"
 import { getChatWidgetById, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
-import { getProjetoById, getProjetoByIdentifier } from "@/lib/projetos"
+import { getProjetoRuntimeById, getProjetoRuntimeByIdentifier } from "@/lib/projetos"
 import {
   buildActionSuggestionReply,
   buildChatWidgetActions,
@@ -1291,12 +1291,12 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   const adminTestProjectId = channelKind === "admin_agent_test" ? getAdminTestProjectId(body) : null
   const projetoIdentifier = adminTestProjectId ?? (typeof body?.projeto === "string" ? body.projeto.trim() : null)
   const agenteIdentifier = adminTestAgentId ?? (typeof body?.agente === "string" ? body.agente.trim() : null)
-  const getProjeto = deps.getProjetoByIdentifier ?? getProjetoByIdentifier
+  const getProjeto = deps.getProjetoByIdentifier ?? getProjetoRuntimeByIdentifier
   const getAgente = deps.getAgenteByIdentifier ?? getAgenteByIdentifier
   const getWidgetById = deps.getChatWidgetById ?? getChatWidgetById
   const getWidgetBySlug = deps.getChatWidgetBySlug ?? getChatWidgetBySlug
   const getWidgetByProjetoAgente = deps.getChatWidgetByProjetoAgente ?? getChatWidgetByProjetoAgente
-  const getProjetoByIdResolver = deps.getProjetoById ?? getProjetoById
+  const getProjetoByIdResolver = deps.getProjetoById ?? getProjetoRuntimeById
   const getAgenteByIdResolver = deps.getAgenteById ?? getAgenteById
   const getActiveWhatsAppChannel = deps.getActiveWhatsAppChannelByProjectAgent ?? getActiveWhatsAppChannelByProjectAgent
 
@@ -1616,10 +1616,9 @@ export async function requestRuntimeHumanHandoff(input, deps = {}) {
         const attendanceUrl = `${getAppUrl().replace(/\/$/, "")}/admin/atendimento?conversa=${encodeURIComponent(input.chatId)}`
         const customerName = chat.contatoNome?.trim() || chat.titulo?.trim() || "Cliente"
         const customerPhone = chat.contatoTelefone?.trim() || chat.identificadorExterno?.trim() || ""
-        const lastCustomerMessage = await loadChatMessages(input.chatId)
+        const lastCustomerMessage = await loadChatMessages(input.chatId, { limit: 12, ascending: false })
           .then((messages) =>
             [...messages]
-              .reverse()
               .find((message) => message.role === "user" && String(message.conteudo || "").trim())
           )
           .catch(() => null)

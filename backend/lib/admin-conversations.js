@@ -2,7 +2,7 @@ import "server-only"
 
 import { listChatHandoffsByChatIds } from "@/lib/chat-handoffs"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
-import { appendMessage, deleteChatsByIds, getChatById, listChatMessages, listLatestChatMessages } from "@/lib/chats"
+import { appendMessage, deleteChatsByIds, getChatById, listChatMessages, listLatestChatMessagePreviews } from "@/lib/chats"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
 function formatTime(value) {
@@ -89,6 +89,21 @@ export function mapAdminConversationMessage(message) {
     whatsapp: message.metadata?.whatsappCta ?? null,
     ui: message.metadata?.ui ?? null,
     observability,
+  }
+}
+
+function mapAdminConversationMessagePreview(message) {
+  const canal = typeof message.canal === "string" && message.canal.trim() ? message.canal.trim() : "web"
+  const text = String(message.conteudo || "").replace(/\s+/g, " ").trim()
+
+  return {
+    id: message.id,
+    autor: mapRoleToAutor(message.role),
+    texto: text.length > 180 ? `${text.slice(0, 177)}...` : text,
+    canal,
+    origem: canal === "whatsapp" ? "whatsapp" : "site",
+    horario: formatTime(message.createdAt),
+    createdAt: message.createdAt,
   }
 }
 
@@ -202,7 +217,7 @@ export async function listAdminConversations(user) {
     let query = supabase
       .from("chats")
       .select(
-        "id, titulo, contato_nome, contato_telefone, contato_avatar_url, status, created_at, updated_at, total_tokens, total_custo, agente_id, usuario_id, projeto_id, canal, identificador_externo, contexto, projeto:projetos(id, nome, slug)",
+        "id, titulo, contato_nome, contato_telefone, contato_avatar_url, updated_at, projeto_id, canal, identificador_externo, projeto:projetos(id, nome, slug)",
       )
       .neq("canal", "admin_agent_test")
       .order("updated_at", { ascending: false, nullsFirst: false })
@@ -222,7 +237,7 @@ export async function listAdminConversations(user) {
     const chatIds = data.map((row) => row.id)
     const [handoffsByChatId, latestMessagesByChatId] = await Promise.all([
       listChatHandoffsByChatIds(chatIds),
-      listLatestChatMessages(chatIds, { perChatLimit: 1, batchSize: 200, maxRounds: 5 }),
+      listLatestChatMessagePreviews(chatIds, { batchSize: 120, maxRounds: 5 }),
     ])
     const hydratedRows = await Promise.all(
       data.map(async (row) => {
@@ -234,9 +249,8 @@ export async function listAdminConversations(user) {
           contatoAvatarUrl: row.contato_avatar_url,
           updatedAt: row.updated_at,
           canal: row.canal || "web",
-          contexto: row.contexto ?? {},
         }
-        const mensagens = (latestMessagesByChatId.get(chat.id) ?? []).map(mapAdminConversationMessage)
+        const mensagens = (latestMessagesByChatId.get(chat.id) ?? []).map(mapAdminConversationMessagePreview)
         const handoff = loadHandoffFromMap(chat.id, handoffsByChatId)
 
         return { row, chat, mensagens, handoff }
@@ -264,7 +278,6 @@ export async function listAdminConversations(user) {
           },
           origem: item.chat.canal === "whatsapp" ? "whatsapp" : "site",
           status: item.handoff.status,
-          handoff: item.handoff.handoff,
           mensagens: [...item.mensagens],
           updatedAt: item.chat.updatedAt,
           chatIds: [item.chat.id],
@@ -296,7 +309,6 @@ export async function listAdminConversations(user) {
             currentGroup.projeto?.slug ||
             null,
         }
-        currentGroup.handoff = item.handoff.handoff
       }
 
       if (item.chat.canal === "whatsapp") {
@@ -320,8 +332,6 @@ export async function listAdminConversations(user) {
         projeto: conversation.projeto ?? null,
         origem: conversation.origem,
         status: conversation.status,
-        handoff: conversation.handoff,
-        totalMensagens: conversation.chatIds.length,
         mensagens: conversation.mensagens.sort(
           (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
         ),
@@ -340,6 +350,8 @@ export async function getAdminConversationDetail(input, user) {
     return null
   }
 
+  const limit = Math.min(Math.max(Number(input?.limit ?? 30) || 30, 1), 80)
+  const before = String(input?.before || "").trim() || null
   const requestedChatIds = Array.isArray(input?.chatIds)
     ? input.chatIds.map((item) => String(item || "").trim()).filter(Boolean)
     : []
@@ -353,7 +365,7 @@ export async function getAdminConversationDetail(input, user) {
           return null
         }
 
-        const mensagens = await loadMessagesForChat(chat.id, { limit: 80 })
+        const mensagens = await loadMessagesForChat(chat.id, { limit, before, ascending: false })
         const handoff = loadHandoffFromMap(chat.id, handoffsByChatId)
 
         return { chat, mensagens, handoff }
@@ -369,6 +381,7 @@ export async function getAdminConversationDetail(input, user) {
   const mergedMessages = chats
     .flatMap((item) => item.mensagens)
     .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime())
+  const pagedMessages = mergedMessages.slice(-limit)
 
   return {
     id: primaryChat.chat.id,
@@ -382,8 +395,10 @@ export async function getAdminConversationDetail(input, user) {
     origem: primaryChat.chat.canal === "whatsapp" ? "whatsapp" : "site",
     status: primaryChat.handoff.status,
     handoff: primaryChat.handoff.handoff,
-    totalMensagens: mergedMessages.length,
-    mensagens: mergedMessages,
+    totalMensagens: pagedMessages.length,
+    mensagens: pagedMessages,
+    hasMore: chats.some((item) => item.mensagens.length >= limit),
+    nextCursor: pagedMessages[0]?.createdAt ?? null,
     updatedAt: primaryChat.chat.updatedAt,
   }
 }

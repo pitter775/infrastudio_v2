@@ -15,6 +15,7 @@ Ordem recomendada de leitura:
 5. `roadmap.md` se a tarefa exigir continuidade
 6. `melhorias.md` para ideias, backlog e operacao
 7. `../ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md` se a tarefa envolver widget, WhatsApp, Mercado Livre, billing, catalogo ou arquitetura global do chat
+8. `../EGRESS-BANCO-PLANO-CONTINUIDADE.md` se a tarefa envolver performance, egress, payload, consultas Supabase ou reducao de custo de banco
 
 ## Regra critica para o cerebro do chat
 
@@ -33,6 +34,7 @@ Arquivos:
 - [roadmap.md](C:\Projetos\infrastudio_v2\AGENTS\roadmap.md): foco de retomada, backlog principal, bases entregues e ordem de ataque
 - [melhorias.md](C:\Projetos\infrastudio_v2\AGENTS\melhorias.md): melhorias pendentes e oportunidades de produto/operacao
 - [ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md](C:\Projetos\infrastudio_v2\ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md): visao arquitetural alvo do universo chat, widget, WhatsApp, Mercado Livre, billing e catalogo
+- [EGRESS-BANCO-PLANO-CONTINUIDADE.md](C:\Projetos\infrastudio_v2\EGRESS-BANCO-PLANO-CONTINUIDADE.md): plano de continuidade para reduzir egress, payload e consultas desnecessarias
 
 ## Loja real para teste
 
