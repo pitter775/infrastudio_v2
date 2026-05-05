@@ -484,7 +484,7 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
           </div>
 
           <div className="grid min-h-[290px] items-start gap-8 md:grid-cols-[1fr_1fr] md:items-end md:gap-6">
-            <div className="mx-auto max-w-[25rem] pt-2 text-center md:mx-0 md:max-w-[30rem] md:pt-8 md:text-left">
+            <div className="mx-auto max-w-[25rem]  text-center md:mx-0 md:max-w-[30rem] md:pt-8 md:text-left">
               <h2 className="mx-auto max-w-[15.5rem] text-[1.55rem] font-semibold leading-[0.98] tracking-[-0.04em] text-white md:mx-0 md:max-w-none md:text-[2.55rem]">
                 Tecnologia de ponta
                 <br />
