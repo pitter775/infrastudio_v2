@@ -81,6 +81,31 @@ const HERO_CHANNEL_BUTTONS = [
   },
 ]
 
+const HOME_SOCIAL_LINKS = [
+  {
+    key: 'facebook',
+    label: 'Facebook',
+    href: 'https://www.facebook.com/profile.php?id=61575429405827',
+    icon: 'facebook',
+    className: 'hover:border-blue-400/50 hover:text-blue-200 hover:shadow-[0_0_24px_rgba(59,130,246,0.22)]',
+  },
+  {
+    key: 'instagram',
+    label: 'Instagram',
+    href: 'https://www.instagram.com/infrastudio.pro/',
+    icon: 'instagram',
+    className:
+      'hover:border-fuchsia-400/50 hover:text-fuchsia-200 hover:shadow-[0_0_24px_rgba(217,70,239,0.22)]',
+  },
+  {
+    key: 'youtube',
+    label: 'YouTube',
+    href: 'https://www.youtube.com/@InfrastudioPro',
+    icon: 'youtube',
+    className: 'hover:border-red-400/50 hover:text-red-200 hover:shadow-[0_0_24px_rgba(248,113,113,0.22)]',
+  },
+]
+
 const HOME_CHANNEL_SHOWCASE_ITEMS = [
   {
     key: 'whatsapp',
@@ -119,6 +144,52 @@ const HOME_CHANNEL_SHOWCASE_ITEMS = [
       'border-fuchsia-400/35 bg-fuchsia-500/10 text-fuchsia-300 shadow-[0_0_24px_rgba(217,70,239,0.18)]',
   },
 ]
+
+function SocialIcon({ icon, className }) {
+  if (icon === 'facebook') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className={className}>
+        <path
+          fill="currentColor"
+          d="M14 8.2h2.2V4.4c-.4-.1-1.7-.2-3.2-.2-3.2 0-5.3 1.9-5.3 5.5v3.1H4.2v4.3h3.5V24H12v-6.9h3.4l.5-4.3H12v-2.7c0-1.2.3-1.9 2-1.9Z"
+        />
+      </svg>
+    )
+  }
+
+  if (icon === 'instagram') {
+    return (
+      <svg viewBox="0 0 24 24" aria-hidden="true" className={className}>
+        <path
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          d="M7.5 2.8h9A4.7 4.7 0 0 1 21.2 7.5v9a4.7 4.7 0 0 1-4.7 4.7h-9a4.7 4.7 0 0 1-4.7-4.7v-9a4.7 4.7 0 0 1 4.7-4.7Z"
+        />
+        <path
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+          d="M8.6 12a3.4 3.4 0 1 0 6.8 0 3.4 3.4 0 0 0-6.8 0Z"
+        />
+        <path fill="currentColor" d="M17.7 6.9a.7.7 0 1 1-1.4 0 .7.7 0 0 1 1.4 0Z" />
+      </svg>
+    )
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={className}>
+      <path
+        fill="currentColor"
+        d="M21.6 7.2a3 3 0 0 0-2.1-2.1C17.7 4.6 12 4.6 12 4.6s-5.7 0-7.5.5a3 3 0 0 0-2.1 2.1A31 31 0 0 0 1.9 12c0 1.6.1 3.2.5 4.8a3 3 0 0 0 2.1 2.1c1.8.5 7.5.5 7.5.5s5.7 0 7.5-.5a3 3 0 0 0 2.1-2.1c.4-1.6.5-3.2.5-4.8 0-1.6-.1-3.2-.5-4.8ZM10 15.4V8.6l5.8 3.4-5.8 3.4Z"
+      />
+    </svg>
+  )
+}
 
 function HomeNavbar({ currentUser, onLoginClick }) {
   const projectsHref = currentUser?.role === 'admin' ? '/admin/projetos' : '/app/projetos'
@@ -905,7 +976,7 @@ export function LandingPage({ currentUser = null, plans = [] }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="flex items-center justify-center"
+            className="flex flex-col items-center justify-center gap-5"
           >
             <button
               type="button"
@@ -915,6 +986,25 @@ export function LandingPage({ currentUser = null, plans = [] }) {
               <Sparkles size={18} className="animate-pulse text-emerald-500 dark:text-emerald-200" />
               Comece agora no plano gratuito! 
             </button>
+
+            <div className="flex items-center justify-center gap-3">
+              {HOME_SOCIAL_LINKS.map((item) => (
+                <a
+                  key={item.key}
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label={item.label}
+                  title={item.label}
+                  className={cn(
+                    'inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] text-slate-300 shadow-[0_12px_32px_-24px_rgba(15,23,42,0.65)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-white/[0.08]',
+                    item.className,
+                  )}
+                >
+                  <SocialIcon icon={item.icon} className="h-5 w-5" />
+                </a>
+              ))}
+            </div>
           </motion.div>
 
           <motion.div
@@ -1031,6 +1121,20 @@ export function LandingPage({ currentUser = null, plans = [] }) {
               <p className="text-sm leading-relaxed text-slate-500">
                 Tecnologia sob medida para acelerar negócios com inteligência e automação.
               </p>
+              <nav aria-label="Redes sociais da InfraStudio" className="mt-6 flex flex-wrap gap-3">
+                {HOME_SOCIAL_LINKS.map((item) => (
+                  <a
+                    key={item.key}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 rounded-full border border-slate-200/80 bg-white/70 px-3 py-2 text-sm font-medium text-slate-600 transition-all hover:border-blue-400/40 hover:bg-blue-500/10 hover:text-blue-700 dark:border-white/10 dark:bg-white/[0.04] dark:text-slate-400 dark:hover:border-cyan-400/35 dark:hover:bg-cyan-500/10 dark:hover:text-cyan-200"
+                  >
+                    <SocialIcon icon={item.icon} className="h-4 w-4" />
+                    {item.label}
+                  </a>
+                ))}
+              </nav>
             </div>
 
             <div className="grid gap-12 md:grid-cols-3 md:gap-16">
