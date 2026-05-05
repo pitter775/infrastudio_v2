@@ -16,7 +16,6 @@ import {
   MapPin,
   Menu,
   MessageCircle,
-  MessageSquare,
   PackageSearch,
   Phone,
   PlugZap,
@@ -206,23 +205,23 @@ function HomeNavbar({ currentUser, onLoginClick }) {
           </div>
         </Link>
 
-        <div className="hidden items-center space-x-3 md:flex">
+        <div className="hidden items-center space-x-2 md:flex lg:space-x-3">
           {navItems.map((item) => {
             const Icon = item.icon
             return (
               <a
                 key={item.href}
                 href={item.href}
-                className="inline-flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-blue-500/10 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-300"
+                className="inline-flex items-center gap-2 rounded-full px-2.5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-blue-500/10 hover:text-blue-600 lg:px-3 dark:text-slate-300 dark:hover:text-blue-300"
               >
                 <Icon size={15} className="text-slate-400 dark:text-slate-500" />
-                {item.label}
+                <span className="hidden lg:inline">{item.label}</span>
               </a>
             )
           })}
 
           {currentUser ? (
-            <div ref={userMenuRef} className="relative hidden lg:block">
+            <div ref={userMenuRef} className="relative block">
               <button
                 type="button"
                 onClick={() => setUserMenuOpen((value) => !value)}
@@ -241,7 +240,7 @@ function HomeNavbar({ currentUser, onLoginClick }) {
                     className="shrink-0 animate-spin text-cyan-500 dark:text-cyan-100"
                   />
                 ) : (
-                  <span className="max-w-[140px] truncate text-left">{displayName}</span>
+                  <span className="hidden max-w-[140px] truncate text-left xl:inline">{displayName}</span>
                 )}
                 <ChevronDown
                   size={16}
@@ -467,7 +466,7 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
         className="absolute inset-x-0 bottom-0 top-0 hidden opacity-95 md:block"
         style={{
           backgroundImage: "linear-gradient(180deg, rgba(0,0,0,0.96) 0%, rgba(0,0,0,0.72) 24%, rgba(0,0,0,0.18) 50%), url('/bginfra.png')",
-          backgroundPosition: 'center calc(100% + 18px)',
+          backgroundPosition: 'center calc(100% + 70px)',
           backgroundRepeat: 'no-repeat',
           backgroundSize: '96% auto',
         }}
@@ -485,7 +484,7 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
 
           <div className="grid min-h-[290px] items-start gap-8 md:grid-cols-[1fr_1fr] md:items-end md:gap-6">
             <div className="mx-auto max-w-[25rem]  text-center md:mx-0 md:max-w-[30rem] md:pt-8 md:text-left">
-              <h2 className="mx-auto max-w-[15.5rem] text-[1.55rem] font-semibold leading-[0.98] tracking-[-0.04em] text-white md:mx-0 md:max-w-none md:text-[2.55rem]">
+              <h2 className="mx-auto max-w-[15.5rem] text-[1.55rem] font-semibold leading-[0.98] tracking-[-0.04em] text-white md:mx-0 md:max-w-none md:-translate-y-10 md:text-[2.55rem]">
                 Tecnologia de ponta
                 <br />
                 para transformar
@@ -528,13 +527,13 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
               <button
                 type="button"
                 onClick={onLoginClick}
-                className="absolute left-1/2 top-2 z-10 inline-flex -translate-x-1/2 items-center gap-3 rounded-[1rem] border border-emerald-400/45 bg-[#07101f]/88 px-4 py-3 text-left shadow-[0_0_0_1px_rgba(16,185,129,0.16),0_0_42px_rgba(16,185,129,0.08)] transition-all duration-300 hover:-translate-y-1 md:left-auto md:right-[12%] md:top-[4%] md:translate-x-0"
+                className="absolute left-1/2 top-2 z-10 inline-flex -translate-x-1/2 items-center gap-3 rounded-[1rem] border border-emerald-400/45 bg-[#07101f]/88 px-4 py-3 text-left shadow-[0_0_0_1px_rgba(16,185,129,0.16),0_0_42px_rgba(16,185,129,0.08)] transition-all duration-300 hover:-translate-y-1 md:left-auto md:right-[18%] md:top-[18%] md:translate-x-0"
               >
                 <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[#2B6BEE]/40 bg-[#2B6BEE]/10 text-[#2B6BEE]">
                   <Sparkles className="h-4 w-4" />
                 </div>
                 <div>
-                  <div className="text-[1rem] font-semibold leading-none text-white md:text-[1.05rem]">Teste grátis</div>
+                  <div className="text-[1rem] font-semibold leading-none text-white md:text-[1.05rem]">Plano free</div>
                   <div className="mt-1 text-[0.72rem] font-medium leading-none text-emerald-300">infrastudio.pro</div>
                 </div>
               </button>
@@ -553,7 +552,7 @@ function HomeChannelsShowcaseSection({ onChannelClick, onLoginClick }) {
                 <Sparkles className="h-4 w-4" />
               </div>
               <div>
-                <div className="text-[1rem] font-semibold leading-none text-white">Teste grátis</div>
+                <div className="text-[1rem] font-semibold leading-none text-white">Plano free</div>
                 <div className="mt-1 text-[0.72rem] font-medium leading-none text-emerald-300">infrastudio.pro</div>
               </div>
             </button>
@@ -622,7 +621,7 @@ function PricingSection({ plans = [], onPlanSelect }) {
     <section id="planos" className="py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-16 text-center">
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white md:text-4xl">Escolha um plano e inicia seu projeto.</h2>
+          <h2 className="text-3xl font-bold text-slate-900 dark:text-white md:text-4xl">Escolha um plano e inicie seu projeto.</h2>
           <p className="mx-auto mt-4 max-w-3xl leading-relaxed text-slate-600 dark:text-zinc-400">
             O plano free fica restrito ao primeiro projeto criado no cadastro.
           </p>
@@ -737,33 +736,21 @@ function AboutSection({ onLoginClick }) {
               O que você está vendo aqui é reflexo desse trabalho com soluções que já estão
               rodando, sendo usadas e evoluindo continuamente.
             </p>
-            <p>
-              A proposta é simples, automatizar o que é repetitivo, organizar o atendimento
-              e ajudar empresas a crescer com mais controle e menos esforço.
-            </p>
           </div>
 
           <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center">
             <p className="max-w-2xl text-sm font-medium text-cyan-700 dark:text-cyan-200 sm:text-base">
-              Comece testando grátis ou fale direto com representante no WhatsApp.
+              Comece no plano free e veja a automação funcionando no seu projeto.
             </p>
             <div className="flex flex-wrap gap-3">
               <button
                 type="button"
                 onClick={onLoginClick}
-                className="rounded-full border border-cyan-400/30 bg-cyan-500/12 px-5 py-2.5 text-sm font-semibold text-cyan-700 transition-all hover:-translate-y-0.5 hover:border-cyan-300/40 hover:bg-cyan-500/18 dark:text-cyan-50"
+                className="inline-flex items-center gap-2 rounded-full border border-blue-300/70 bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(59,130,246,0.18),0_0_28px_rgba(37,99,235,0.32)] transition-all hover:-translate-y-0.5 hover:border-blue-200 hover:bg-blue-500 hover:shadow-[0_0_0_1px_rgba(96,165,250,0.24),0_0_40px_rgba(37,99,235,0.42)] dark:border-cyan-300/50 dark:bg-blue-500 dark:text-white dark:shadow-[0_0_0_1px_rgba(34,211,238,0.2),0_0_34px_rgba(59,130,246,0.4)]"
               >
-                Testar grátis
+                <Sparkles size={16} className="text-cyan-100" />
+                Plano free
               </button>
-              <a
-                href={`https://wa.me/${WHATSAPP_NUMBER}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-5 py-2.5 text-sm font-semibold text-emerald-700 transition-all hover:-translate-y-0.5 hover:border-emerald-300/35 hover:bg-emerald-500/16 dark:text-emerald-100"
-              >
-                <MessageSquare size={16} />
-                Falar no WhatsApp
-              </a>
             </div>
           </div>
         </div>
@@ -957,6 +944,8 @@ export function LandingPage({ currentUser = null, plans = [] }) {
         onLoginClick={() => setLoginOpen(true)}
       />
 
+      <PricingSection plans={plans} onPlanSelect={openCheckout} />
+
       <section id="como-funciona" className="relative overflow-hidden py-32">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col items-center gap-20 lg:flex-row">
@@ -1026,7 +1015,6 @@ export function LandingPage({ currentUser = null, plans = [] }) {
         </div>
       </section>
 
-      <PricingSection plans={plans} onPlanSelect={openCheckout} />
       <AboutSection onLoginClick={() => setLoginOpen(true)} />
 
       <footer id="contato" className="home-footer-surface relative z-10 border-t py-20">
