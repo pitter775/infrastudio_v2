@@ -85,6 +85,27 @@ async function main() {
   assert.match(extractedPricingReply?.reply ?? "", /Pro: R\$ 149,90\/mês/)
   assert.doesNotMatch(extractedPricingReply?.reply ?? "", /300,00/)
 
+  const compactPromptWithPricing = buildSystemPrompt(
+    {
+      id: "agent-infrastudio-pricing",
+      nome: "InfraStudio",
+      promptBase: infraStudioAgentPrompt,
+    },
+    {
+      agente: {
+        runtimeConfig: {
+          business: {
+            summary: "A InfraStudio cria sistemas e automacoes com IA.",
+          },
+          pricingCatalog: extractedPricing,
+        },
+      },
+    }
+  )
+  assert.match(compactPromptWithPricing, /Catalogo de precos estruturado:/)
+  assert.match(compactPromptWithPricing, /Basic: R\$ 29,90\/mês/)
+  assert.match(compactPromptWithPricing, /Pro: R\$ 149,90\/mês/)
+
   const strongReference = resolveDeterministicCatalogFollowUpDecision("gostei da sopeira que mandou", catalogContext, deps)
   assert.equal(strongReference?.kind, "recent_product_reference")
   const bareTitleReference = resolveRecentCatalogReferenceDecision("floral", catalogContext as never)

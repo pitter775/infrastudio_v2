@@ -4,19 +4,8 @@ import {
   hasConfiguredWhatsAppDestination,
 } from "@/lib/chat/whatsapp-availability"
 
-function agentHasEmbeddedPricingInstructions(agent = {}) {
-  const source = String(agent?.promptBase || agent?.prompt || agent?.descricao || "")
-  return /\br\$\s*\d/i.test(source) || /\bplanos?\b/i.test(source)
-}
-
 function buildRuntimeConfigInstructions(context = {}) {
   const runtimeConfig = context?.agente?.runtimeConfig
-  const runtimeConfigMeta =
-    context?.agente?.runtimeConfigMeta &&
-    typeof context.agente.runtimeConfigMeta === "object" &&
-    !Array.isArray(context.agente.runtimeConfigMeta)
-      ? context.agente.runtimeConfigMeta
-      : null
   const contactProfile =
     context?.agente?.configuracoes?.contactProfile &&
     typeof context.agente.configuracoes.contactProfile === "object" &&
@@ -66,11 +55,7 @@ function buildRuntimeConfigInstructions(context = {}) {
     lines.push(`Politica de lead: ${runtimeConfig.leadCapture.policy}`)
   }
 
-  if (
-    (runtimeConfigMeta?.pricingCatalogDerived === true || !agentHasEmbeddedPricingInstructions(context?.agente)) &&
-    Array.isArray(runtimeConfig?.pricingCatalog?.items) &&
-    runtimeConfig.pricingCatalog.items.length
-  ) {
+  if (Array.isArray(runtimeConfig?.pricingCatalog?.items) && runtimeConfig.pricingCatalog.items.length) {
     lines.push("Catalogo de precos estruturado:")
     lines.push(
       ...runtimeConfig.pricingCatalog.items
@@ -131,7 +116,8 @@ function buildResponseGuardrailInstructions() {
     "Regras de resposta:",
     "- Responda primeiro a pergunta principal do cliente.",
     "- Para perguntas comerciais simples, responda em ate 4 frases curtas.",
-    "- Nao liste varios planos, varias opcoes ou muito contexto sem o cliente pedir comparacao.",
+    "- Nao liste varias opcoes ou muito contexto sem o cliente pedir isso.",
+    "- Quando o cliente pedir valores, precos ou planos em geral, liste os planos estruturados disponiveis.",
     "- Quando houver um melhor encaixe inicial, indique primeiro essa opcao e so depois cite alternativa.",
     "- Nunca despeje campo cru, JSON, rotulo tecnico ou lista de atributos sem interpretar.",
     "- Quando a pergunta for factual, responda com o fato mais relevante primeiro e complemente so com contexto util.",
