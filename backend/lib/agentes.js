@@ -1,7 +1,6 @@
 import "server-only"
 
 import { normalizeAgentRuntimeConfig } from "@/lib/agent-runtime-config"
-import { extractDeterministicPricingCatalogFromAgentText } from "@/lib/chat/semantic-intent-stage"
 import { getOrCreateDefaultModelId } from "@/lib/modelos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
@@ -115,23 +114,6 @@ function userCanAccessProject(user, projectId) {
   return user?.memberships?.some((item) => item.projetoId === projectId) ?? false
 }
 
-function mergePromptPricingCatalog(runtimeConfig = null, promptBase = "") {
-  const extractedPricingCatalog = extractDeterministicPricingCatalogFromAgentText(promptBase)
-  if (!extractedPricingCatalog?.enabled || !Array.isArray(extractedPricingCatalog.items) || extractedPricingCatalog.items.length < 2) {
-    return runtimeConfig
-  }
-
-  return {
-    ...(runtimeConfig ?? {}),
-    pricingCatalog: {
-      ...(runtimeConfig?.pricingCatalog ?? {}),
-      ...extractedPricingCatalog,
-      ctaSingle: runtimeConfig?.pricingCatalog?.ctaSingle ?? extractedPricingCatalog.ctaSingle,
-      ctaMultiple: runtimeConfig?.pricingCatalog?.ctaMultiple ?? extractedPricingCatalog.ctaMultiple,
-    },
-  }
-}
-
 function normalizeAgentUpdate(input, currentConfiguracoes = {}) {
   const hasExplicitConfiguracoes = Object.prototype.hasOwnProperty.call(input, "configuracoes")
   const configuracoes = hasExplicitConfiguracoes
@@ -142,12 +124,10 @@ function normalizeAgentUpdate(input, currentConfiguracoes = {}) {
   if (Object.prototype.hasOwnProperty.call(input, "runtimeConfig")) {
     const normalizedRuntimeConfig = normalizeAgentRuntimeConfig(input.runtimeConfig)
     if (normalizedRuntimeConfig) {
-      configuracoes.runtimeConfig = mergePromptPricingCatalog(normalizedRuntimeConfig, promptBase)
+      configuracoes.runtimeConfig = normalizedRuntimeConfig
     } else {
       delete configuracoes.runtimeConfig
     }
-  } else if (configuracoes.runtimeConfig) {
-    configuracoes.runtimeConfig = mergePromptPricingCatalog(configuracoes.runtimeConfig, promptBase)
   }
 
   return {
