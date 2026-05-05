@@ -242,6 +242,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   const [publicUrlCopied, setPublicUrlCopied] = useState(false)
   const [restoringDefaults, setRestoringDefaults] = useState(false)
   const [assetUploading, setAssetUploading] = useState(null)
+  const [slugAvailability, setSlugAvailability] = useState({ status: 'idle', slug: '', available: false, error: '' })
 
   const publicUrl = useMemo(() => buildPublicStoreUrl(project, draft.slug), [draft.slug, project])
 
@@ -284,6 +285,46 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   }, [project, projectIdentifier])
 
   useEffect(() => {
+    const normalizedSlug = normalizeStoreSlug(draft.slug)
+    if (!normalizedSlug) {
+      setSlugAvailability({ status: 'invalid', slug: '', available: false, error: 'Informe um slug válido.' })
+      return
+    }
+
+    let activeRequest = true
+    setSlugAvailability({ status: 'checking', slug: normalizedSlug, available: false, error: '' })
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store?checkSlug=${encodeURIComponent(normalizedSlug)}`,
+          { cache: 'no-store' },
+        )
+        const data = await response.json().catch(() => ({}))
+        if (!activeRequest) {
+          return
+        }
+
+        setSlugAvailability({
+          status: data.available ? 'available' : 'unavailable',
+          slug: data.slug || normalizedSlug,
+          available: data.available === true,
+          error: data.error || '',
+        })
+      } catch {
+        if (activeRequest) {
+          setSlugAvailability({ status: 'error', slug: normalizedSlug, available: false, error: 'Não foi possível validar o slug.' })
+        }
+      }
+    }, 350)
+
+    return () => {
+      activeRequest = false
+      window.clearTimeout(timeout)
+    }
+  }, [draft.slug, projectIdentifier])
+
+  useEffect(() => {
     let activeRequest = true
 
     async function loadSnapshot() {
@@ -321,6 +362,11 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       const normalizedSlug = normalizeStoreSlug(draft.slug)
       if (!normalizedSlug) {
         setFeedback({ tone: 'error', text: 'Informe um slug valido para publicar a loja.' })
+        return
+      }
+
+      if (slugAvailability.slug === normalizedSlug && slugAvailability.available === false) {
+        setFeedback({ tone: 'error', text: slugAvailability.error || 'Este slug não está disponível.' })
         return
       }
 
@@ -751,6 +797,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           onCopyPublicUrl={handleCopyPublicUrl}
           onRestoreDefaults={handleRestoreDefaults}
           restoringDefaults={restoringDefaults}
+          slugAvailability={slugAvailability}
         />
       ) : null}
 

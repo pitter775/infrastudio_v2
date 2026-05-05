@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 
 import {
+  checkMercadoLivreStoreSlugAvailability,
   getMercadoLivreStoreSettingsForProject,
   restoreMercadoLivreStoreDefaultsForProject,
   upsertMercadoLivreStoreForProject,
@@ -8,7 +9,7 @@ import {
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 
-export async function GET(_request, context) {
+export async function GET(request, context) {
   const user = await getSessionUser()
   if (!user) {
     return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
@@ -18,6 +19,12 @@ export async function GET(_request, context) {
   const project = await getProjectForUser(id, user)
   if (!project) {
     return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
+  }
+
+  const slugToCheck = request.nextUrl.searchParams.get("checkSlug")
+  if (slugToCheck !== null) {
+    const availability = await checkMercadoLivreStoreSlugAvailability(project, slugToCheck)
+    return NextResponse.json(availability, { status: 200 })
   }
 
   const store = await getMercadoLivreStoreSettingsForProject(project)

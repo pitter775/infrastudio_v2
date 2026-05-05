@@ -21,6 +21,7 @@ export default async function Image({ params }) {
 
   const storeName = String(store?.name || "Loja").trim()
   const storeHeadline = String(store?.headline || "Produtos da loja com atendimento direto.").trim()
+  const logoUrl = String(store?.logoUrl || "").trim()
   const accent = sanitizeColor(store?.accentColor, "#0f766e")
   const accentSoft = `${accent}18`
 
@@ -135,10 +136,29 @@ export default async function Image({ params }) {
               width: 132,
               height: 132,
               borderRadius: 28,
-              background: `linear-gradient(135deg, ${accent}, #ffffff)`,
-              boxShadow: "0 20px 40px -24px rgba(15,23,42,0.24)",
+              background: logoUrl ? "#ffffff" : `linear-gradient(135deg, ${accent}, #ffffff)`,
+              boxShadow: logoUrl ? "0 18px 32px -28px rgba(15,23,42,0.28)" : "0 20px 40px -24px rgba(15,23,42,0.24)",
+              border: "0",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              overflow: "hidden",
             }}
-          />
+          >
+            {logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={logoUrl}
+                alt={storeName}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  padding: 18,
+                }}
+              />
+            ) : null}
+          </div>
         </div>
       </div>
     ),

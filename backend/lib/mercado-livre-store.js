@@ -1,6 +1,7 @@
 import "server-only"
 
 export {
+  checkMercadoLivreStoreSlugAvailability,
   getMercadoLivreStoreByProjectId,
   getMercadoLivreStoreChatSettingsForProject,
   getMercadoLivreStoreSettingsForProject,

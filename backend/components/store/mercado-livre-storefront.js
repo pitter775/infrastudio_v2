@@ -218,6 +218,8 @@ function getProductIdentity(product) {
   return String(product?.itemId || product?.id || product?.slug || '').trim()
 }
 
+const MIN_RECOMMENDED_PRODUCTS_OFFSET = 7
+
 export function MercadoLivreStorefront({
   store,
   featuredProducts,
@@ -243,6 +245,11 @@ export function MercadoLivreStorefront({
     return (useLatestProducts ? products : featuredProducts.length ? featuredProducts : products).slice(0, 10)
   }, [featuredProducts, products, useLatestProducts])
   const visibleProducts = useMemo(() => {
+    if (useLatestProducts) {
+      const offset = Math.max(MIN_RECOMMENDED_PRODUCTS_OFFSET, recommendedProducts.length)
+      return products.slice(offset, offset + Math.max(10, page * 10))
+    }
+
     const recommendedIds = new Set(recommendedProducts.map(getProductIdentity).filter(Boolean))
     const dedupedProducts = products.filter((product) => {
       const identity = getProductIdentity(product)
@@ -250,7 +257,7 @@ export function MercadoLivreStorefront({
     })
     const fallbackProducts = dedupedProducts.length ? dedupedProducts : products
     return fallbackProducts.slice(0, Math.max(10, page * 10))
-  }, [recommendedProducts, products, page])
+  }, [recommendedProducts, products, page, useLatestProducts])
   const socialEntries = useMemo(
     () => Object.entries(store.socialLinks || {}).filter(([, value]) => Boolean(value)),
     [store.socialLinks],

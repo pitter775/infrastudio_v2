@@ -40,6 +40,36 @@ async function buildUniqueStoreSlug(supabase, value, currentId = null) {
   }
 }
 
+async function checkMercadoLivreStoreSlugAvailability(project, value, options = {}) {
+  const normalizedSlug = slugify(value)
+  if (!project?.id) {
+    return { slug: normalizedSlug, available: false, error: "Projeto não encontrado." }
+  }
+
+  if (!normalizedSlug) {
+    return { slug: normalizedSlug, available: false, error: "Informe um slug válido para a loja." }
+  }
+
+  const supabase = options.supabase ?? getSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from("mercadolivre_lojas")
+    .select("id, projeto_id")
+    .eq("slug", normalizedSlug)
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error("[mercado-livre-store] failed to check store slug", error)
+    return { slug: normalizedSlug, available: false, error: "Não foi possível validar o slug." }
+  }
+
+  if (!data?.id || data.projeto_id === project.id) {
+    return { slug: normalizedSlug, available: true, error: null }
+  }
+
+  return { slug: normalizedSlug, available: false, error: "Este slug já está em uso." }
+}
+
 async function ensureStoreWidgetActive(supabase, projectId, widgetId) {
   const normalizedProjectId = sanitizeText(projectId, 80)
   const normalizedWidgetId = sanitizeText(widgetId, 80)
@@ -118,14 +148,12 @@ async function ensurePrimaryStoreWidget(supabase, project, currentStore = null) 
     null
   const defaultStoreName = sanitizeText(currentStore?.nome, 120) || sanitizeText(project?.name || project?.nome, 120) || "Loja"
   const defaultWidgetName = `${defaultStoreName} Chat`
-  const defaultWidgetSlug = await buildUniqueWidgetSlug(supabase, `${project?.slug || project?.name || project?.nome || "loja"}-chat`, selectedWidget?.id || null)
 
   if (selectedWidget?.id) {
     const { data: updatedWidget, error: updateError } = await supabase
       .from("chat_widgets")
       .update({
         nome: defaultWidgetName,
-        slug: defaultWidgetSlug,
         agente_id: project?.agent?.id || selectedWidget.agente_id || null,
         ativo: true,
         updated_at: new Date().toISOString(),
@@ -205,7 +233,7 @@ function buildStorePayload(project, input, current = null) {
     visual_config: sanitizeVisualConfig(input?.visualConfig),
     destaques: sanitizeFeaturedProducts(input?.featuredProducts),
     updated_at: new Date().toISOString(),
-    slug: sanitizeText(input?.slug, 80) || current?.slug || `${slugify(project?.slug || project?.name || "loja")}-ml`,
+    slug: slugify(input?.slug) || current?.slug || `${slugify(project?.slug || project?.name || "loja")}-ml`,
   }
 }
 
@@ -341,7 +369,12 @@ async function upsertMercadoLivreStoreForProject(project, input = {}, options = 
     return { store: null, error: validationError }
   }
 
-  payload.slug = await buildUniqueStoreSlug(supabase, payload.slug, current?.id || null)
+  const slugAvailability = await checkMercadoLivreStoreSlugAvailability(project, payload.slug, { supabase })
+  if (!slugAvailability.available) {
+    return { store: null, error: slugAvailability.error || "Este slug não está disponível." }
+  }
+
+  payload.slug = slugAvailability.slug
 
   const basePayload = current?.id
     ? {
@@ -401,9 +434,9 @@ async function restoreMercadoLivreStoreDefaultsForProject(project, options = {})
     return { store: null, error: widgetResult.error || "Nao foi possivel restaurar o widget principal." }
   }
 
-  const defaultSlug = await buildUniqueStoreSlug(
+  const defaultSlug = current?.slug || await buildUniqueStoreSlug(
     supabase,
-    `${project?.slug || project?.name || project?.nome || "loja"}-chat`,
+    `${project?.slug || project?.name || project?.nome || "loja"}-ml`,
     current?.id || null,
   )
   const defaultName = sanitizeText(current?.nome, 120) || sanitizeText(project?.name || project?.nome, 120) || "Loja"
@@ -487,6 +520,7 @@ export {
   getMercadoLivreStoreByProjectId,
   getMercadoLivreStoreChatSettingsForProject,
   getMercadoLivreStoreSettingsForProject,
+  checkMercadoLivreStoreSlugAvailability,
   restoreMercadoLivreStoreDefaultsForProject,
   upsertMercadoLivreStoreForProject,
 }

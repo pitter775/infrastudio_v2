@@ -1,10 +1,20 @@
 'use client'
 
-import { Copy, Database, ExternalLink, Globe, ImageUp, Phone, RefreshCcw, Search } from 'lucide-react'
+import { CheckCircle2, Copy, Database, ExternalLink, Globe, ImageUp, Phone, RefreshCcw, Search, XCircle } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 
 import { StorePanelField, StorePanelInput, StorePanelTextarea, StorePanelToggle } from '@/components/admin/projects/mercado-livre-store-panel-fields'
+
+function normalizeStoreSlugInput(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+/g, '')
+    .slice(0, 80)
+}
 
 export function StoreGeneralSection({
   draft,
@@ -12,11 +22,15 @@ export function StoreGeneralSection({
   project,
   publicUrl,
   publicUrlCopied,
+  slugAvailability,
   snapshotTotal = 0,
   onCopyPublicUrl,
-  onRestoreDefaults,
-  restoringDefaults = false,
 }) {
+  const normalizedSlug = String(slugAvailability?.slug || draft.slug || '').trim()
+  const slugStatus = slugAvailability?.status || 'idle'
+  const isSlugAvailable = slugStatus === 'available'
+  const isSlugUnavailable = ['unavailable', 'invalid', 'error'].includes(slugStatus)
+
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
@@ -52,29 +66,39 @@ export function StoreGeneralSection({
             <Copy className="h-4 w-4" />
             {publicUrlCopied ? 'Link copiado' : 'Copiar link'}
           </button>
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={onRestoreDefaults}
-            disabled={restoringDefaults}
-            className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 text-sm text-amber-100"
-          >
-            <RefreshCcw className={`mr-2 h-4 w-4 ${restoringDefaults ? 'animate-spin' : ''}`} />
-            {restoringDefaults ? 'Restaurando...' : 'Restaurar padroes'}
-          </Button>
         </div>
         <div className="mt-2 text-xs text-slate-400">
           A loja fica ativa por padrão ao salvar. Se desligar manualmente, o link público volta a responder `404`.
         </div>
       </div>
-      <StorePanelInput
-        label="Slug da loja"
-        value={draft.slug}
-        onChange={() => {}}
-        placeholder="minha-loja-ml"
-        readOnly
-        className="cursor-not-allowed opacity-80"
-      />
+      <StorePanelField label="Slug da loja">
+        <div className="grid gap-2">
+          <div className="relative">
+            <input
+              type="text"
+              value={draft.slug}
+              onChange={(event) => setDraft((current) => ({ ...current, slug: normalizeStoreSlugInput(event.target.value) }))}
+              placeholder="minha-loja-ml"
+              className={`h-11 w-full rounded-xl border bg-[#080e1d] px-3 pr-10 text-sm text-white outline-none transition focus:border-sky-400/30 ${
+                isSlugAvailable
+                  ? 'border-emerald-400/40'
+                  : isSlugUnavailable
+                    ? 'border-rose-400/40'
+                    : 'border-white/10'
+              }`}
+            />
+            {isSlugAvailable ? <CheckCircle2 className="absolute right-3 top-3 h-5 w-5 text-emerald-300" /> : null}
+            {isSlugUnavailable ? <XCircle className="absolute right-3 top-3 h-5 w-5 text-rose-300" /> : null}
+          </div>
+          <div className={`text-xs ${isSlugAvailable ? 'text-emerald-200' : isSlugUnavailable ? 'text-rose-200' : 'text-slate-400'}`}>
+            {slugStatus === 'checking'
+              ? 'Verificando disponibilidade...'
+              : isSlugAvailable
+                ? `Disponível: /loja/${normalizedSlug}`
+                : slugAvailability?.error || 'Use letras, números e hifens.'}
+          </div>
+        </div>
+      </StorePanelField>
       <StorePanelInput
         label="Nome da loja"
         value={draft.name}
