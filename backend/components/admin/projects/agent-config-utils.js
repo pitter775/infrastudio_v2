@@ -199,6 +199,119 @@ function slugifyPricingValue(value) {
     .slice(0, 60)
 }
 
+function parsePricingAmount(value) {
+  const match = String(value || '').match(/r\$\s*([\d.]+(?:,\d{1,2})?)/i)
+  if (!match?.[1]) {
+    return null
+  }
+
+  const amount = Number(match[1].replace(/\./g, '').replace(',', '.'))
+  return Number.isFinite(amount) ? amount : null
+}
+
+function parseCreditLimitFromPlanLines(lines) {
+  const creditLine = lines.find((line) =>
+    /\bcreditos?\b/i.test(
+      line
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase(),
+    ),
+  )
+  const match = String(creditLine || '').match(/([\d.]+)\s*cr[eé]ditos?/i)
+  if (!match?.[1]) {
+    return null
+  }
+
+  const amount = Number(match[1].replace(/\./g, ''))
+  return Number.isFinite(amount) ? amount : null
+}
+
+function buildPricingItem(name, priceLabel, detailLines = []) {
+  const normalizedName = String(name || '').trim().replace(/[.:;-]+$/, '')
+  const normalizedPriceLabel = String(priceLabel || '').trim()
+  if (!normalizedName || !normalizedPriceLabel || parsePricingAmount(normalizedPriceLabel) == null) {
+    return null
+  }
+
+  const matchAny = [
+    normalizedName,
+    slugifyPricingValue(normalizedName),
+    ...normalizedName
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}]+/u)
+      .map((item) => item.trim())
+      .filter((item) => item.length >= 3)
+      .slice(0, 4),
+  ].filter(Boolean)
+
+  return {
+    slug: slugifyPricingValue(normalizedName) || 'item',
+    name: normalizedName,
+    matchAny: [...new Set(matchAny)],
+    priceLabel: normalizedPriceLabel,
+    creditLimit: parseCreditLimitFromPlanLines(detailLines),
+    features: detailLines.slice(0, 4),
+  }
+}
+
+function extractMonthlyPricingSection(lines) {
+  const sectionStart = lines.findIndex((line) => /planos?\s+mensais/i.test(line))
+  if (sectionStart < 0) {
+    return lines
+  }
+
+  const tail = lines.slice(sectionStart + 1)
+  const sectionEnd = tail.findIndex((line) =>
+    /^(regras importantes|desenvolvimento sob medida|projetos sob medida|quando o cliente demonstrar)/i.test(line),
+  )
+
+  return sectionEnd >= 0 ? tail.slice(0, sectionEnd) : tail
+}
+
+function buildSequentialPricingItems(lines) {
+  const items = []
+
+  for (let index = 0; index < lines.length - 1; index += 1) {
+    const name = lines[index]
+    const priceLabel = lines[index + 1]
+    const normalizedPrice = String(priceLabel || '').trim()
+    const asciiPrice = normalizedPrice
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+    const isPlanName = /^[\p{L}\d][\p{L}\d\s._-]{1,40}$/u.test(name)
+    const isStandalonePrice = /^r\$\s*[\d.]+(?:,\d{1,2})?\s*(?:\/\s*m[eê]s|por\s+m[eê]s)?$/i.test(normalizedPrice)
+
+    const isStandalonePriceNormalized = /^r\$\s*[\d.]+(?:,\d{1,2})?\s*(?:\/\s*mes|por\s+mes)?$/i.test(asciiPrice)
+
+    if (!isPlanName || (!isStandalonePrice && !isStandalonePriceNormalized)) {
+      continue
+    }
+
+    const detailLines = []
+    for (let detailIndex = index + 2; detailIndex < lines.length; detailIndex += 1) {
+      const nextLine = lines[detailIndex]
+      const nextPrice = lines[detailIndex + 1]
+      if (
+        detailIndex + 1 < lines.length &&
+        /^[\p{L}\d][\p{L}\d\s._-]{1,40}$/u.test(nextLine) &&
+        /^r\$\s*[\d.]+(?:,\d{1,2})?/i.test(nextPrice)
+      ) {
+        break
+      }
+      detailLines.push(nextLine)
+    }
+
+    const item = buildPricingItem(name, normalizedPrice, detailLines)
+    if (item) {
+      items.push(item)
+    }
+  }
+
+  return [...new Map(items.map((item) => [item.slug, item])).values()]
+}
+
 function uniquePromptValues(values, limit = 8) {
   return [...new Set(values.map((item) => String(item || '').trim()).filter(Boolean))].slice(0, limit)
 }
@@ -258,42 +371,32 @@ function buildPricingCatalogFromPrompt(promptText, fallbackPricingCatalog = null
     .map((line) => line.replace(/^[-*]\s+/, '').trim())
     .filter(Boolean)
 
-  const items = []
+  const sequentialItems = buildSequentialPricingItems(extractMonthlyPricingSection(lines))
+  const items = sequentialItems.length >= 2 ? sequentialItems : []
 
-  lines.forEach((line) => {
-    if (!/r\$\s*\d/i.test(line)) {
-      return
-    }
+  if (!items.length) {
+    lines.forEach((line) => {
+      if (!/r\$\s*\d/i.test(line)) {
+        return
+      }
 
-    const match =
-      line.match(/^(.{2,80}?)(?:\s*(?:-|\u2014|\u2013|:)\s*|\s{2,})(R\$\s*.+)$/i) ||
-      line.match(/^(.{2,80}?)\s+(R\$\s*.+)$/i)
+      const match =
+        line.match(/^(.{2,80}?)(?:\s*(?:-|\u2014|\u2013|:)\s*|\s{2,})(R\$\s*.+)$/i) ||
+        line.match(/^(.{2,80}?)\s+(R\$\s*.+)$/i)
 
-    if (!match) {
-      return
-    }
+      if (!match) {
+        return
+      }
 
-    const name = String(match[1] || '').trim().replace(/[.:;-]+$/, '')
-    const priceLabel = String(match[2] || '').trim()
-
-    if (!name || !priceLabel) {
-      return
-    }
-
-    const matchAny = name
-      .toLowerCase()
-      .split(/[^\p{L}\p{N}]+/u)
-      .map((item) => item.trim())
-      .filter((item) => item.length >= 3)
-      .slice(0, 4)
-
-    items.push({
-      slug: slugifyPricingValue(name) || `item-${items.length + 1}`,
-      name,
-      matchAny,
-      priceLabel,
+      const item = buildPricingItem(match[1], match[2])
+      if (item) {
+        items.push({
+          ...item,
+          slug: item.slug || `item-${items.length + 1}`,
+        })
+      }
     })
-  })
+  }
 
   if (!items.length) {
     return fallbackPricingCatalog && typeof fallbackPricingCatalog === 'object' ? fallbackPricingCatalog : null
