@@ -25,7 +25,7 @@ export function AdminTemplatePage() {
     <div>
       <AdminPageHeader
         title="Template"
-        description="Mock visual de botoes, dropdowns e padroes de titulo/subtitulo."
+        description="Mock visual de botões, dropdowns e padrões de titulo/subtitulo."
       />
 
       <div className="space-y-6">
@@ -35,7 +35,7 @@ export function AdminTemplatePage() {
           <div className="mt-5 grid gap-4 lg:grid-cols-2">
             <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-5">
               <div className="text-[11px] uppercase tracking-[0.18em] text-cyan-300">Titulo principal</div>
-              <h1 className="mt-3 text-2xl font-semibold text-white">Painel de operacao</h1>
+              <h1 className="mt-3 text-2xl font-semibold text-white">Painel de operação</h1>
               <p className="mt-2 text-sm text-slate-400">Subtitulo explicando contexto e o que a tela entrega.</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-slate-950/35 p-5">
@@ -47,7 +47,7 @@ export function AdminTemplatePage() {
         </section>
 
         <section className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
-          <BlockTitle title="Botoes" subtitle="Variacoes principais para uso no sistema." />
+          <BlockTitle title="Botões" subtitle="Variações principais para uso no sistema." />
 
           <div className="mt-5 flex flex-wrap gap-3">
             <Button>Primario</Button>
@@ -80,9 +80,9 @@ export function AdminTemplatePage() {
                 onChangeValue={setTemplateValue}
                 placeholder="Selecione um template"
                 options={[
-                  { value: "comercial", label: "Padrao comercial" },
-                  { value: "operacional", label: "Padrao operacional" },
-                  { value: "suporte", label: "Padrao suporte" },
+                  { value: "comercial", label: "Padrão comercial" },
+                  { value: "operacional", label: "Padrão operacional" },
+                  { value: "suporte", label: "Padrão suporte" },
                 ]}
               />
             </div>
@@ -95,7 +95,7 @@ export function AdminTemplatePage() {
               >
                 <span className="inline-flex items-center gap-2">
                   <Search className="h-4 w-4 text-slate-400" />
-                  Buscar acao
+                  Buscar ação
                 </span>
                 <ChevronDown className="h-4 w-4 text-slate-400" />
               </button>
@@ -104,7 +104,7 @@ export function AdminTemplatePage() {
         </section>
 
         <section className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
-          <BlockTitle title="Modal padrao" subtitle="Exemplo do modal de confirmacao para remocao e acoes sensiveis." />
+          <BlockTitle title="Modal padrão" subtitle="Exemplo do modal de confirmação para remoção e ações sensíveis." />
 
           <div className="mt-5">
             <Button
@@ -123,7 +123,7 @@ export function AdminTemplatePage() {
         open={modalOpen}
         onOpenChange={setModalOpen}
         title="Excluir item"
-        description="Use este padrao para remocoes, rollbacks e qualquer acao irreversivel no sistema."
+        description="Use este padrão para remoções, rollbacks e qualquer ação irreversível no sistema."
         confirmLabel="Excluir item"
         danger
         onConfirm={() => setModalOpen(false)}

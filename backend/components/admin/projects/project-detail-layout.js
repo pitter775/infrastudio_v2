@@ -57,9 +57,9 @@ export function buildIntegrationPanels(project) {
       buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
       title: 'Mercado Livre',
       description: 'Conecte sua conta do Mercado Livre e comece a usar',
-      statusLabel: 'Integracao preparada',
+      statusLabel: 'Integração preparada',
       isAvailable: Number(project.directConnections?.mercadoLivre || 0) > 0,
-      items: ['Catalogo', 'Pedidos', 'Reputacao', 'Perguntas'],
+      items: ['Catálogo', 'Pedidos', 'Reputação', 'Perguntas'],
     },
     {
       id: 'apis',
@@ -101,7 +101,7 @@ export function buildIntegrationPanels(project) {
       statusLabel: `${project.integrations.chatWidget} widgets online`,
       isAvailable:
         (project.chatWidgets?.length || 0) > 0 || Number(project.integrations?.chatWidget || 0) > 0,
-      items: ['Fluxo inicial', 'Qualificacao de lead', 'Fallback humano', 'Eventos de conversao'],
+      items: ['Fluxo inicial', 'Qualificação de lead', 'Fallback humano', 'Eventos de conversão'],
     },
   ]
 }

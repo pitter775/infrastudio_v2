@@ -779,7 +779,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   }
 
   if (!context?.agente?.id || !agentName || !agentPromptBase) {
-    throw new Error("Agente do chat sem configuracao valida de prompt.")
+    throw new Error("Agente do chat sem configuração válida de prompt.")
   }
 
   if (leadNameAcknowledgementReply) {
@@ -833,7 +833,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       .filter(Boolean)
 
     if (productNames.length) {
-      return buildHeuristicReplyResult(`Encontrei mais de um item com esse perfil: ${productNames.join(", ")}. Me diga qual deles voce quer seguir.`, {
+      return buildHeuristicReplyResult(`Encontrei mais de um item com esse perfil: ${productNames.join(", ")}. Me diga qual deles você quer seguir.`, {
         ...heuristicMetadata,
         heuristicStage: "catalog_reference_ambiguous",
         domainStage: "catalog",

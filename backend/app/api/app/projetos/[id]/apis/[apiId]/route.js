@@ -8,14 +8,14 @@ export async function GET(_request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id, apiId } = await context.params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   const { api, error } = await getApiForUser(apiId, project.id, user)
@@ -31,14 +31,14 @@ export async function PUT(request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id, apiId } = await context.params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   const body = await request.json()
@@ -55,14 +55,14 @@ export async function POST(request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id, apiId } = await context.params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   const body = await request.json()
@@ -90,14 +90,14 @@ export async function DELETE(_request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id, apiId } = await context.params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   const { ok, error } = await deleteApiForUser(apiId, project.id, user)

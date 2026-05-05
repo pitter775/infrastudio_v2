@@ -123,7 +123,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
       const data = await response.json()
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel carregar os widgets.")
+        throw new Error(data.error || "Não foi possível carregar os widgets.")
       }
 
       const nextWidgets = (data.widgets || []).map(normalizeWidget)
@@ -247,7 +247,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel salvar o widget.")
+        throw new Error(data.error || "Não foi possível salvar o widget.")
       }
 
       const saved = normalizeWidget(data.widget)
@@ -287,7 +287,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-base font-semibold text-zinc-950">Chat widget</h2>
-            <p className="text-sm text-zinc-500">Instalacao publica usando {PUBLIC_DOMAIN}.</p>
+        <p className="text-sm text-zinc-500">Instalação pública usando {PUBLIC_DOMAIN}.</p>
           </div>
         </div>
       </div>
@@ -325,7 +325,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
 
       {!selectedWidget && !loading ? (
         <p className="mt-5 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
-          Nenhum widget padrao encontrado neste projeto.
+          Nenhum widget padrão encontrado neste projeto.
         </p>
       ) : null}
 
@@ -388,7 +388,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
 
           <div className="grid gap-3 pt-1 md:grid-cols-[220px_180px]">
             <div className="flex items-end">
-              <ToggleSwitchButton checked={form.transparent} onChange={(value) => updateForm("transparent", value)} labelOn="Fundo transparente" labelOff="Fundo solido" />
+              <ToggleSwitchButton checked={form.transparent} onChange={(value) => updateForm("transparent", value)} labelOn="Fundo transparente" labelOff="Fundo sólido" />
             </div>
             <div className="flex items-end">
               <ToggleSwitchButton checked={form.active} onChange={(value) => updateForm("active", value)} labelOn="Widget ativo" labelOff="Widget inativo" />
@@ -461,7 +461,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
                     </span>
                   </div>
                   <p className="mt-1 truncate text-zinc-500">
-                    {widget.domain || "Sem dominio restrito"} · {widget.theme} · {widget.transparent ? "transparente" : "solido"}
+                    {widget.domain || "Sem domínio restrito"} · {widget.theme} · {widget.transparent ? "transparente" : "sólido"}
                   </p>
                 </button>
                 <div className="flex flex-wrap items-center gap-2 xl:justify-end">
@@ -549,9 +549,9 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
             ["1. Host no controle", "O chat so deve existir quando o host permitir. Fora do contexto autorizado, a acao esperada e destroy()."],
             ["2. Mount minimo", "No mount inicial use projeto, agente, apiBase e strictHostControl: true."],
             ["3. Contexto certo", "Envie context com tenant, user, resource, route e ui apenas quando esses dados existirem de verdade."],
-            ["4. Politica de exibicao", "Use policy e allowedRoutes para bloquear o widget fora das rotas e cenarios permitidos."],
+            ["4. Política de exibição", "Use policy e allowedRoutes para bloquear o widget fora das rotas e cenários permitidos."],
             ["5. Atualizacao segura", "Se so mudou o recurso na mesma tela, use updateContext(). Se mudou tenant, agente ou perfil, prefira destroy() e mount() limpo."],
-            ["6. Sessao visivel ou oculta", "hide() e show({ open: true }) servem para esconder e reabrir a mesma sessao autorizada sem destruir tudo."],
+            ["6. Sessão visível ou oculta", "hide() e show({ open: true }) servem para esconder e reabrir a mesma sessão autorizada sem destruir tudo."],
           ].map(([title, text]) => (
             <div key={title} className="flex items-start gap-3 border-b border-white/5 pb-3 text-sm">
               <p className="shrink-0 font-semibold text-white">{title}</p>

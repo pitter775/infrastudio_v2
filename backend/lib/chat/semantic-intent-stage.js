@@ -27,8 +27,8 @@ function parsePriceAmountFromLabel(value = "") {
 }
 
 function parseCreditLimitFromLines(lines = []) {
-  const creditLine = lines.find((line) => /\bcreditos?\b/i.test(normalizeText(line)))
-  const match = normalizeText(creditLine).match(/([\d.]+)\s*creditos?/i)
+  const creditLine = lines.find((line) => /\bcréditos?\b/i.test(normalizeText(line)))
+  const match = normalizeText(creditLine).match(/([\d.]+)\s*créditos?/i)
   if (!match?.[1]) {
     return null
   }
@@ -196,7 +196,7 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
       return {
         kind: "recent_product_reference",
         confidence: semanticIntent.confidence,
-        reason: semanticIntent.reason ?? "Cliente referenciou um item recente do catalogo.",
+        reason: semanticIntent.reason ?? "Cliente referenciou um item recente do catálogo.",
         matchedProducts,
         usedLlm: Boolean(semanticIntent.usedLlm),
         shouldBlockNewSearch: true,
@@ -216,7 +216,7 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
       return {
         kind: "recent_product_reference_ambiguous",
         confidence: semanticIntent.confidence,
-        reason: semanticIntent.reason ?? "Cliente referenciou mais de um item recente do catalogo.",
+        reason: semanticIntent.reason ?? "Cliente referenciou mais de um item recente do catálogo.",
         matchedProducts,
         usedLlm: Boolean(semanticIntent.usedLlm),
         shouldBlockNewSearch: true,
@@ -298,7 +298,7 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
     return {
       kind: "catalog_search_refinement",
       confidence: semanticIntent.confidence,
-      reason: semanticIntent.reason ?? "Cliente iniciou uma nova busca de catalogo.",
+      reason: semanticIntent.reason ?? "Cliente iniciou uma nova busca de catálogo.",
       matchedProducts: [],
       usedLlm: Boolean(semanticIntent.usedLlm),
       shouldBlockNewSearch: false,
@@ -312,7 +312,7 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
     return {
       kind: "catalog_browse",
       confidence: semanticIntent.confidence,
-      reason: semanticIntent.reason ?? "Cliente pediu sugestoes amplas do catalogo.",
+      reason: semanticIntent.reason ?? "Cliente pediu sugestões amplas do catálogo.",
       matchedProducts: [],
       usedLlm: Boolean(semanticIntent.usedLlm),
       shouldBlockNewSearch: false,
@@ -327,7 +327,7 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
       return {
         kind: "catalog_search_refinement",
         confidence: semanticIntent.confidence,
-        reason: semanticIntent.reason ?? "Cliente pediu uma busca de catalogo com tipo concreto.",
+        reason: semanticIntent.reason ?? "Cliente pediu uma busca de catálogo com tipo concreto.",
         matchedProducts: [],
         usedLlm: Boolean(semanticIntent.usedLlm),
         shouldBlockNewSearch: false,
@@ -340,7 +340,7 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
     return {
       kind: "catalog_load_more",
       confidence: semanticIntent.confidence,
-      reason: semanticIntent.reason ?? "Cliente pediu mais opcoes da busca recente.",
+      reason: semanticIntent.reason ?? "Cliente pediu mais opções da busca recente.",
       matchedProducts: [],
       usedLlm: Boolean(semanticIntent.usedLlm),
       shouldBlockNewSearch: false,
@@ -446,16 +446,16 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
         {
           role: "system",
           content: [
-            "Extraia um catalogo estruturado de planos/precos a partir do texto do agente.",
+            "Extraia um catálogo estruturado de planos/preços a partir do texto do agente.",
             "Retorne somente JSON valido.",
             'Schema: {"enabled":true|false,"items":[{"slug":"string","name":"string","matchAny":["string"],"priceLabel":"string","attendanceLimit":0,"agentLimit":0,"creditLimit":0,"whatsappIncluded":true,"supportLevel":"string","features":["string"],"channels":["string"]}]}.',
             "Use enabled=true apenas quando houver pelo menos um plano ou valor identificavel no texto.",
             "Cada item precisa ter nome e priceLabel.",
             "Use slug curto, estavel e em minusculas.",
-            "matchAny deve conter variacoes literais uteis do plano, incluindo o proprio nome.",
-            "Se o texto trouxer limites, creditos, quantidade de agentes, canais ou suporte, preencha esses campos.",
-            "Quando um dado nao existir no texto, retorne null, false ou lista vazia conforme o schema.",
-            "Nao invente preco nem plano que nao esteja claramente no texto.",
+            "matchAny deve conter variações literais úteis do plano, incluindo o próprio nome.",
+            "Se o texto trouxer limites, créditos, quantidade de agentes, canais ou suporte, preencha esses campos.",
+            "Quando um dado não existir no texto, retorne null, false ou lista vazia conforme o schema.",
+            "Não invente preço nem plano que não esteja claramente no texto.",
             "Ignore texto comercial generico sem valores concretos.",
           ].join("\n"),
         },
@@ -586,10 +586,10 @@ export async function extractSemanticBusinessRuntimeFromAgentText(input = {}) {
             "Extraia contexto comercial estruturado a partir do texto do agente.",
             "Retorne somente JSON valido.",
             'Schema: {"business":{"summary":"string","services":["string"]},"sales":{"cta":"string"}}.',
-            "Use business.summary como resumo curto do negocio e da proposta comercial.",
+            "Use business.summary como resumo curto do negócio e da proposta comercial.",
             "Use business.services apenas com servicos reais e objetivos citados no texto.",
             "Use sales.cta apenas se houver uma chamada comercial clara de continuidade.",
-            "Nao invente servicos nem CTA nao citados no texto.",
+            "Não invente serviços nem CTA não citados no texto.",
           ].join("\n"),
         },
         {
@@ -687,7 +687,7 @@ export async function classifySemanticIntentStage(input = {}) {
         {
           role: "system",
           content: [
-            "Classifique a mensagem do cliente no contexto de catalogo Mercado Livre.",
+            "Classifique a mensagem do cliente no contexto de catálogo Mercado Livre.",
             "Retorne somente JSON valido.",
             'Schema: {"intent":"current_product_question|current_product_commercial_advice|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_alternative_search|catalog_search_refinement|new_catalog_search|catalog_browse|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false,"targetFactHints":["string"],"factScope":"product|package|shipping|commercial|general|","adviceType":"price_objection|improvement_suggestion|value_assessment|fit_advice|other|","relation":"same_type|similar|storewide|","priceConstraint":"below_current|any|"}.',
             "Use current_product_commercial_advice quando o cliente pedir uma avaliacao consultiva do produto atual, questionar custo-beneficio, reclamar que esta caro, perguntar o que melhorar/validar antes de comprar ou pedir opiniao comercial sem pedir um campo factual isolado.",
@@ -697,15 +697,15 @@ export async function classifySemanticIntentStage(input = {}) {
             "Use similar_items_search quando o cliente pedir algo parecido, similar, semelhante ou na mesma linha do produto atual, mesmo sem citar o tipo explicitamente.",
             "Em similar_items_search, targetType pode vir vazio quando o tipo precisara ser derivado do proprio produto atual.",
             "Use catalog_alternative_search quando o cliente pedir alternativas ao produto atual, outros produtos ou opcoes fora do item aberto; preencha relation e use priceConstraint=below_current quando ele pedir alternativa mais barata que o produto atual.",
-            "Em catalog_alternative_search, nao trate o produto atual como alvo da resposta; use-o apenas como referencia de tipo/categoria/preco e mantenha excludeCurrentProduct=true.",
+            "Em catalog_alternative_search, não trate o produto atual como alvo da resposta; use-o apenas como referência de tipo/categoria/preço e mantenha excludeCurrentProduct=true.",
             "Use catalog_search_refinement quando o cliente refinar a ultima lista com um atributo novo ou filtro novo, por exemplo inox, azul, madeira, vintage, grande.",
             "Quando usar catalog_search_refinement, extraia targetType curto e literal com o termo novo principal da busca.",
-            "Use new_catalog_search quando o cliente iniciar uma nova busca de catalogo, inclusive na vitrine, com um tipo ou termo curto claro, por exemplo saleiro azul, xicara vintage, vaso amarelo.",
-            "Use catalog_browse quando o cliente pedir sugestoes amplas, ideias, presentes, algo bom/interessante ou recomendacao sem informar um tipo concreto de produto. Nao use presente, bom, bonito ou interessante como targetType.",
-            "Use catalog_load_more quando o cliente pedir mais opcoes, mais modelos, outras opcoes, perguntar se tem mais, se sao so aqueles itens ou o que tiver, sem mudar o tipo principal da busca.",
-            "Nao use catalog_load_more quando a mensagem tiver um tipo concreto de produto, como prato, xicara, vaso, saleiro ou bandeja. Nesses casos use new_catalog_search ou catalog_search_refinement com targetType concreto.",
-            "Se existir contexto de busca/listagem recente e a conversa estiver em pagina de detalhe, pedidos como tem mais, so esses, quero ver mais ou me mostra outras opcoes continuam sendo catalog_load_more, nao current_product_question.",
-            "Use recent_product_reference quando o cliente estiver se referindo a um item da lista recente e for possivel identificar qual item e.",
+            "Use new_catalog_search quando o cliente iniciar uma nova busca de catálogo, inclusive na vitrine, com um tipo ou termo curto claro, por exemplo saleiro azul, xícara vintage, vaso amarelo.",
+            "Use catalog_browse quando o cliente pedir sugestões amplas, ideias, presentes, algo bom/interessante ou recomendação sem informar um tipo concreto de produto. Não use presente, bom, bonito ou interessante como targetType.",
+            "Use catalog_load_more quando o cliente pedir mais opções, mais modelos, outras opções, perguntar se tem mais, se são só aqueles itens ou o que tiver, sem mudar o tipo principal da busca.",
+            "Não use catalog_load_more quando a mensagem tiver um tipo concreto de produto, como prato, xicara, vaso, saleiro ou bandeja. Nesses casos use new_catalog_search ou catalog_search_refinement com targetType concreto.",
+            "Se existir contexto de busca/listagem recente e a conversa estiver em página de detalhe, pedidos como tem mais, só esses, quero ver mais ou me mostra outras opções continuam sendo catalog_load_more, nao current_product_question.",
+            "Use recent_product_reference quando o cliente estiver se referindo a um item da lista recente e for possível identificar qual item é.",
             "Use recent_product_reference_ambiguous quando a fala apontar para mais de um item recente de forma plausivel.",
             "Use recent_product_reference_unresolved quando o cliente ainda estiver falando da lista recente, mas sem item unico resolvido.",
             "Se houver lista recente com mais de um item e o cliente fizer pergunta factual curta como garantia, frete, estoque, material, cor, medidas ou detalhes sem indicar qual item, use recent_product_reference_unresolved.",
@@ -713,7 +713,7 @@ export async function classifySemanticIntentStage(input = {}) {
             "Use factScope=package apenas quando o cliente pedir embalagem ou medidas/peso de envio. Para atributos fisicos normais prefira factScope=product.",
             "Em pedidos amplos como qual tamanho, use targetFactHints=['dimensoes'] em vez de explodir todos os campos.",
             "Quando usar recent_product_reference, preencha referencedProductIds apenas com ids reais da lista recente.",
-            "Nao invente targetType. Se nao tiver certeza, retorne other.",
+            "Não invente targetType. Se não tiver certeza, retorne other.",
           ].join("\n"),
         },
         {
@@ -900,7 +900,7 @@ export async function classifySemanticBillingIntentStage(input = {}) {
             "Use highest_priced_plan ou lowest_priced_plan quando ele pedir mais caro ou mais barato.",
             "Use plan_comparison quando ele pedir comparacao entre mais de um plano.",
             "Use specific_plan_question quando citar explicitamente um plano do catalogo e pedir uma visao geral dele.",
-            "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes ou creditos de um plano.",
+            "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes ou créditos de um plano.",
             "Use plan_feature_question quando pedir se o plano inclui WhatsApp, suporte ou algum recurso estruturado do catalogo.",
             "Use plan_recommendation quando ele pedir indicacao do melhor plano, mesmo sem explicitar o criterio. Quando o criterio nao estiver claro, deixe targetField vazio e targetFields vazio.",
             "Quando existir billing.planFocus no contexto e o cliente falar esse plano, nele ou equivalente, use esse foco sem inventar novo nome.",

@@ -406,7 +406,7 @@ export async function getAdminConversationDetail(input, user) {
 export async function deleteAdminConversation(input, user) {
   const primaryChatId = String(input?.chatId || "").trim()
   if (!primaryChatId) {
-    return { ok: false, status: 400, error: "Conversa nao informada." }
+    return { ok: false, status: 400, error: "Conversa não informada." }
   }
 
   const confirmation = String(input?.confirmation || "").trim().toLowerCase()
@@ -416,7 +416,7 @@ export async function deleteAdminConversation(input, user) {
 
   const conversation = await getAdminConversationDetail(input, user)
   if (!conversation) {
-    return { ok: false, status: 404, error: "Conversa nao encontrada." }
+    return { ok: false, status: 404, error: "Conversa não encontrada." }
   }
 
   const chats = await listChatsByIds(conversation.chatIds)
@@ -426,7 +426,7 @@ export async function deleteAdminConversation(input, user) {
 
   const result = await deleteChatsByIds(conversation.chatIds)
   if (!result.ok) {
-    return { ok: false, status: 500, error: result.error || "Nao foi possivel excluir a conversa." }
+    return { ok: false, status: 500, error: result.error || "Não foi possível excluir a conversa." }
   }
 
   return { ok: true, status: 200, deleted: result.deleted }

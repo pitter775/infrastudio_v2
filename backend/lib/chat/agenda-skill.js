@@ -301,7 +301,7 @@ export async function resolveAgendaReservationSkill(input) {
 
   if (pendingAgenda && isNegativeMessage(message)) {
     return buildAgendaHeuristicReply(
-      `Sem problema. Me diga outro horario e, se quiser, ja envie email ou celular.\n\nHorarios disponiveis:\n${formatAgendaOptions(formattedSlots)}`,
+      `Sem problema. Me diga outro horário e, se quiser, já envie email ou celular.\n\nHorários disponíveis:\n${formatAgendaOptions(formattedSlots)}`,
       {
         agenteId: runtimeState.resolved?.agente?.id ?? null,
         agenteNome: runtimeState.resolved?.agente?.nome ?? null,
@@ -314,7 +314,7 @@ export async function resolveAgendaReservationSkill(input) {
 
   if (!activeSlot) {
     return buildAgendaHeuristicReply(
-      `Posso seguir com o agendamento. Me diga o melhor horario e envie email ou celular para contato.\n\nHorarios disponiveis:\n${formatAgendaOptions(formattedSlots)}`,
+      `Posso seguir com o agendamento. Me diga o melhor horário e envie email ou celular para contato.\n\nHorários disponíveis:\n${formatAgendaOptions(formattedSlots)}`,
       {
         agenteId: runtimeState.resolved?.agente?.id ?? null,
         agenteNome: runtimeState.resolved?.agente?.nome ?? null,
@@ -324,7 +324,7 @@ export async function resolveAgendaReservationSkill(input) {
 
   const horarioReservado = nextDateForAgendaSlot(activeSlot)
   if (!horarioReservado) {
-    return buildAgendaHeuristicReply("Encontrei o horario, mas nao consegui montar a data da reserva. Me envie o dia e horario desejado.", {
+    return buildAgendaHeuristicReply("Encontrei o horário, mas não consegui montar a data da reserva. Me envie o dia e horário desejado.", {
       agenteId: runtimeState.resolved?.agente?.id ?? null,
       agenteNome: runtimeState.resolved?.agente?.nome ?? null,
       agendaFlow: {
@@ -335,7 +335,7 @@ export async function resolveAgendaReservationSkill(input) {
 
   if (!contact.email && !contact.phone) {
     return buildAgendaHeuristicReply(
-      `Encontrei este horario: ${formatAgendaSlotLabel(activeSlot)}.\n\nAgora me envie email ou celular para eu preparar a confirmacao final.`,
+      `Encontrei este horário: ${formatAgendaSlotLabel(activeSlot)}.\n\nAgora me envie email ou celular para eu preparar a confirmação final.`,
       {
         agenteId: runtimeState.resolved?.agente?.id ?? null,
         agenteNome: runtimeState.resolved?.agente?.nome ?? null,
@@ -379,7 +379,7 @@ export async function resolveAgendaReservationSkill(input) {
   })
 
   if (error || !reservation) {
-    return buildAgendaHeuristicReply(error || "Nao consegui confirmar a reserva agora. Tente novamente em instantes.", {
+    return buildAgendaHeuristicReply(error || "Não consegui confirmar a reserva agora. Tente novamente em instantes.", {
       agenteId: runtimeState.resolved?.agente?.id ?? null,
       agenteNome: runtimeState.resolved?.agente?.nome ?? null,
       agendaFlow: {

@@ -240,7 +240,7 @@ export async function deleteChatsByIds(chatIds) {
 
   if (messagesError) {
     console.error("[chats] failed to delete chat messages", messagesError)
-    return { ok: false, deleted: 0, error: "Nao foi possivel excluir as mensagens." }
+    return { ok: false, deleted: 0, error: "Não foi possível excluir as mensagens." }
   }
 
   const { error: handoffsError } = await supabase.from("chat_handoffs").delete().in("chat_id", normalizedChatIds)
@@ -253,7 +253,7 @@ export async function deleteChatsByIds(chatIds) {
 
   if (chatsError) {
     console.error("[chats] failed to delete chats", chatsError)
-    return { ok: false, deleted: 0, error: "Nao foi possivel excluir a conversa." }
+    return { ok: false, deleted: 0, error: "Não foi possível excluir a conversa." }
   }
 
   return { ok: true, deleted: normalizedChatIds.length, error: null }

@@ -86,7 +86,7 @@ function formatUsd(value) {
 
 function buildAccessRequestMessage(label, projectName) {
   const lines = [
-    `Solicito liberacao de acesso ao modulo ${label}.`,
+    `Solicito liberação de acesso ao módulo ${label}.`,
     "",
     "Entendo que essa habilitacao precisa ser solicitada diretamente para a InfraStudio.",
   ]
@@ -529,7 +529,7 @@ function MessageBubble({ message, isAdmin = false }) {
                         {asset.priceLabel || "Ver produto"}
                       </div>
                       <div className="shrink-0 rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
-                        {asset.provider === "mercado_livre" ? "Mercado Livre" : "Catalogo"}
+                        {asset.provider === "mercado_livre" ? "Mercado Livre" : "Catálogo"}
                       </div>
                     </div>
                   </div>
@@ -1045,7 +1045,7 @@ function ChatPanel({
     const data = await response.json().catch(() => null)
 
     if (!response.ok) {
-      setClearError(data?.error || "Nao foi possivel limpar a conversa.")
+      setClearError(data?.error || "Não foi possível limpar a conversa.")
       setClearing(false)
       return
     }
@@ -1173,7 +1173,7 @@ function ChatPanel({
 
         {humanInControl ? (
           <div className="border-b border-emerald-400/10 bg-emerald-500/[0.06] px-3 py-2 text-center text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-100 lg:px-4">
-            Voce esta no comando da conversa
+            Você está no comando da conversa
           </div>
         ) : loopPaused ? (
           <div className="border-b border-amber-400/10 bg-amber-500/[0.08] px-3 py-2 lg:px-4">
@@ -1472,7 +1472,7 @@ function ChatPanel({
                     </>
                   ) : (
                     <div className="mt-3 rounded-2xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
-                      Esta conversa ainda nao gerou timeline tecnica de IA.
+                      Esta conversa ainda não gerou timeline técnica de IA.
                     </div>
                   )}
                   </div>
@@ -1518,7 +1518,7 @@ export default function AttendancePage() {
     const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.error || "Nao foi possivel carregar as conversas.")
+      throw new Error(data.error || "Não foi possível carregar as conversas.")
     }
 
     return data.conversations ?? []
@@ -1545,7 +1545,7 @@ export default function AttendancePage() {
     const data = await response.json()
 
     if (!response.ok) {
-      throw new Error(data.error || "Nao foi possivel carregar a conversa.")
+      throw new Error(data.error || "Não foi possível carregar a conversa.")
     }
 
     return data.conversation ?? null
@@ -1573,7 +1573,7 @@ export default function AttendancePage() {
         const nextConversations = await fetchConversationList()
         setConversations(nextConversations)
       } catch (error) {
-        setLoadError(error.message || "Nao foi possivel carregar as conversas.")
+        setLoadError(error.message || "Não foi possível carregar as conversas.")
       } finally {
         setLoading(false)
       }
@@ -1593,7 +1593,7 @@ export default function AttendancePage() {
         setLoadError(null)
         setConversations(nextConversations)
       } catch (error) {
-        setLoadError(error.message || "Nao foi possivel atualizar as conversas.")
+        setLoadError(error.message || "Não foi possível atualizar as conversas.")
       }
     }, 20000)
 
@@ -1905,7 +1905,7 @@ export default function AttendancePage() {
       featureKey: item.featureKey || "",
       label: item.label,
       projetoId: projectId,
-      assunto: `Solicitacao de acesso: ${item.label}`,
+      assunto: `Solicitação de acesso: ${item.label}`,
       mensagemInicial: buildAccessRequestMessage(item.label, projectName),
     })
     setAccessSheetOpen(true)
@@ -1931,7 +1931,7 @@ export default function AttendancePage() {
     const data = await response.json().catch(() => null)
 
     if (!response.ok || !data?.feedback?.id) {
-      setAccessError(data?.error ?? "Nao foi possivel abrir a solicitacao.")
+      setAccessError(data?.error ?? "Não foi possível abrir a solicitação.")
       setAccessSaving(false)
       return
     }

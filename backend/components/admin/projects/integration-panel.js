@@ -40,7 +40,7 @@ function buildIntegrationTabs(panelId) {
       { id: 'edit', label: 'Criar/editar', icon: Wand2 },
       { id: 'json', label: 'Ver JSON', icon: Files },
       { id: 'test', label: 'Testar', icon: MessageSquare },
-      { id: 'history', label: 'Historico', icon: History },
+      { id: 'history', label: 'Histórico', icon: History },
     ]
   }
 
@@ -48,7 +48,7 @@ function buildIntegrationTabs(panelId) {
     return [
       { id: 'channels', label: 'Canais', icon: MessageSquare },
       { id: 'qr', label: 'QR Code', icon: Store },
-      { id: 'session', label: 'Sessao', icon: PlugZap },
+      { id: 'session', label: 'Sessão', icon: PlugZap },
       { id: 'events', label: 'Eventos', icon: History },
       { id: 'json', label: 'Config JSON', icon: Files },
     ]
@@ -57,7 +57,7 @@ function buildIntegrationTabs(panelId) {
   if (panelId === 'chat-widget') {
     return [
       { id: 'widgets', label: 'Widgets', icon: PackageSearch },
-      { id: 'install', label: 'Instalacao', icon: PlugZap },
+      { id: 'install', label: 'Instalação', icon: PlugZap },
       { id: 'behavior', label: 'Comportamento', icon: Wand2 },
       { id: 'events', label: 'Eventos', icon: History },
       { id: 'json', label: 'Config JSON', icon: Files },
@@ -65,8 +65,8 @@ function buildIntegrationTabs(panelId) {
   }
 
   return [
-    { id: 'overview', label: 'Visao geral', icon: Store },
-    { id: 'catalog', label: 'Catalogo', icon: PackageSearch },
+    { id: 'overview', label: 'Visão geral', icon: Store },
+    { id: 'catalog', label: 'Catálogo', icon: PackageSearch },
     { id: 'orders', label: 'Pedidos', icon: Files },
     { id: 'questions', label: 'Perguntas', icon: MessageSquare },
     { id: 'json', label: 'Config JSON', icon: Files },
@@ -137,13 +137,13 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       return [
         { id: 'edit', label: 'Editar', icon: Wand2 },
         { id: 'code', label: 'Ver codigo fonte', icon: Files },
-        { id: 'docs', label: 'Documentacao', icon: MessageSquare },
+        { id: 'docs', label: 'Documentação', icon: MessageSquare },
       ]
     }
 
       if (panel.id === 'mercado-livre') {
         return [
-          { id: 'connection', label: 'Conexao', icon: Store },
+          { id: 'connection', label: 'Conexão', icon: Store },
           { id: 'tutorial', label: 'Tutorial', icon: BookOpen },
           { id: 'store', label: 'Loja', icon: Wand2 },
           { id: 'test', label: 'Teste', icon: PackageSearch },
@@ -406,7 +406,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
               >
                 {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
                 {!mercadoFooter.saving ? <Check className="mr-2 h-4 w-4" /> : null}
-                {mercadoFooter.saving ? 'Salvando...' : 'Salvar conexao'}
+                {mercadoFooter.saving ? 'Salvando...' : 'Salvar conexão'}
               </Button>
             ) : null}
             {activeTab === 'store' ? (

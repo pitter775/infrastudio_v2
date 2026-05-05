@@ -23,7 +23,7 @@ export async function GET(request, { params }) {
 
     if (!response.ok) {
       const payload = await response.json().catch(() => ({}))
-      return NextResponse.json({ error: payload.error || "Nao foi possivel baixar o dump." }, { status: response.status })
+      return NextResponse.json({ error: payload.error || "Não foi possível baixar o dump." }, { status: response.status })
     }
 
     const buffer = await response.arrayBuffer()
@@ -35,6 +35,6 @@ export async function GET(request, { params }) {
       },
     })
   } catch (error) {
-    return NextResponse.json({ error: error?.message || "Nao foi possivel baixar o dump." }, { status: 500 })
+    return NextResponse.json({ error: error?.message || "Não foi possível baixar o dump." }, { status: 500 })
   }
 }

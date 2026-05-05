@@ -190,7 +190,7 @@ function buildReservationEmailHtml(reservation, projectName) {
       <h1 style="font-size:20px">Nova reserva de horario</h1>
       <p><strong>Projeto:</strong> ${projectName || reservation.projetoId}</p>
       <p><strong>Horario:</strong> ${new Date(reservation.horarioReservado).toLocaleString("pt-BR")}</p>
-      <p><strong>Contato:</strong> ${reservation.contatoNome || "Nao informado"} - ${reservation.contatoEmail || reservation.contatoTelefone || "sem contato"}</p>
+      <p><strong>Contato:</strong> ${reservation.contatoNome || "Não informado"} - ${reservation.contatoEmail || reservation.contatoTelefone || "sem contato"}</p>
       <p><strong>Resumo:</strong></p>
       <p>${reservation.resumoConversa || "Sem resumo informado."}</p>
     </div>
@@ -218,7 +218,7 @@ async function notifyReservationCreated(reservation) {
     const message = [
       `Nova reserva em ${projectName}`,
       `Horario: ${new Date(reservation.horarioReservado).toLocaleString("pt-BR")}`,
-      `Contato: ${reservation.contatoNome || reservation.contatoEmail || reservation.contatoTelefone || "nao informado"}`,
+      `Contato: ${reservation.contatoNome || reservation.contatoEmail || reservation.contatoTelefone || "não informado"}`,
       reservation.resumoConversa ? `Resumo: ${reservation.resumoConversa}` : null,
     ].filter(Boolean).join("\n")
 
@@ -259,7 +259,7 @@ async function notifyReservationCreated(reservation) {
     type: "agenda_reserva",
     origin: "agenda",
     level: failures.length ? "warn" : "info",
-    description: failures.length ? "Reserva criada com falhas de notificacao." : "Reserva criada e notificacoes processadas.",
+    description: failures.length ? "Reserva criada com falhas de notificação." : "Reserva criada e notificações processadas.",
     payload: {
       reservaId: reservation.id,
       failures,
@@ -315,7 +315,7 @@ async function upsertAgendaApiDefinition({ projetoId, agenteId, name, method, ur
 
   const { data, error } = await query.select("id").maybeSingle()
   if (error || !data) {
-    throw new Error(error?.message || "Nao foi possivel cadastrar a API da agenda.")
+    throw new Error(error?.message || "Não foi possível cadastrar a API da agenda.")
   }
 
   return data.id
@@ -331,16 +331,16 @@ export async function ensureAgendaApisForProject({ user, projetoId, agenteId = n
   const widgetSlug = await getAgendaWidgetSlug(projetoId, resolvedAgentId)
 
   if (!widgetSlug) {
-    return { ok: false, error: "Widget do projeto nao encontrado para publicar a agenda." }
+    return { ok: false, error: "Widget do projeto não encontrado para publicar a agenda." }
   }
 
   await upsertAgendaApiDefinition({
     projetoId,
     agenteId: resolvedAgentId,
-    name: "Agenda - listar horarios",
+    name: "Agenda - listar horários",
     method: "GET",
     url: `${baseUrl}/api/agenda?widgetSlug={widgetSlug}&date={date}`,
-    description: "Lista horarios disponiveis da agenda publica via widget.",
+    description: "Lista horários disponíveis da agenda pública via widget.",
     config: buildAgendaListApiConfig(widgetSlug),
   })
 
@@ -350,7 +350,7 @@ export async function ensureAgendaApisForProject({ user, projetoId, agenteId = n
     name: "Agenda - criar reserva",
     method: "POST",
     url: `${baseUrl}/api/agenda`,
-    description: "Cria reserva publica na agenda usando o widget do projeto.",
+    description: "Cria reserva pública na agenda usando o widget do projeto.",
     config: buildAgendaReserveApiConfig(widgetSlug),
   })
 
@@ -565,7 +565,7 @@ export async function replicateAgendaToProject({ user, input }) {
   ])
 
   if (sourceError || targetError) {
-    return { slots: [], created: 0, skipped: 0, error: sourceError?.message || targetError?.message || "Nao foi possivel replicar a agenda." }
+    return { slots: [], created: 0, skipped: 0, error: sourceError?.message || targetError?.message || "Não foi possível replicar a agenda." }
   }
 
   const existingKeys = new Set((targetRows ?? []).map(slotKey))
@@ -682,7 +682,7 @@ export async function reserveAgendaSlotsForUser({ user, input }) {
     }))
 
   if (!payload.length) {
-    return { reservations: [], error: "Horarios selecionados ja estao reservados ou bloqueados." }
+    return { reservations: [], error: "Horários selecionados já estão reservados ou bloqueados." }
   }
 
   const { data, error } = await supabase.from("agenda_reservas").insert(payload).select(agendaReservationFields)
@@ -716,7 +716,7 @@ export async function clearAgendaForUser({ user, projetoId }) {
       deletedSlots: 0,
       deletedReservations: 0,
       deletedApis: 0,
-      error: reservationListError?.message || slotListError?.message || "Nao foi possivel carregar a agenda.",
+      error: reservationListError?.message || slotListError?.message || "Não foi possível carregar a agenda.",
     }
   }
 
@@ -844,7 +844,7 @@ export async function updateAgendaReservationForUser({ user, input }) {
     .single()
 
   if (error || !data) {
-    return { reservation: null, error: error?.message || "Nao foi possivel atualizar a reserva." }
+    return { reservation: null, error: error?.message || "Não foi possível atualizar a reserva." }
   }
 
   return { reservation: mapReservation(data), error: null }
@@ -925,7 +925,7 @@ export async function createAgendaReservation(input) {
       .maybeSingle()
 
     if (slotError || !slot || slot.ativo === false) {
-      return { reservation: null, error: "Horario indisponivel." }
+      return { reservation: null, error: "Horário indisponível." }
     }
 
     const { count, error: countError } = await supabase
@@ -966,7 +966,7 @@ export async function createAgendaReservation(input) {
     .single()
 
   if (error || !data) {
-    return { reservation: null, error: error?.message || "Nao foi possivel criar a reserva." }
+    return { reservation: null, error: error?.message || "Não foi possível criar a reserva." }
   }
 
   const reservation = mapReservation(data)

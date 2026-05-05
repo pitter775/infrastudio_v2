@@ -28,7 +28,7 @@ function normalizeProject(row) {
     slug,
     routeKey: buildProjectRouteKey({ id: row.id, slug }),
     type: row.tipo?.trim() || "Projeto",
-    description: row.descricao?.trim() || "Sem descricao cadastrada.",
+    description: row.descricao?.trim() || "Sem descrição cadastrada.",
     status: row.status?.trim() || "ativo",
     isDemo: Boolean(row.is_demo),
     logoUrl: typeof brand.logoUrl === "string" ? brand.logoUrl.trim() : "",
@@ -36,7 +36,7 @@ function normalizeProject(row) {
     owner: row.owner
       ? {
           id: row.owner.id,
-        name: row.owner.nome?.trim() || row.owner.email?.trim() || "Usuario",
+        name: row.owner.nome?.trim() || row.owner.email?.trim() || "Usuário",
         email: row.owner.email?.trim() || "",
         avatarUrl: row.owner.avatar_url || null,
         role: row.owner.role === "admin" ? "admin" : "viewer",
@@ -212,7 +212,7 @@ async function getActiveAgent(supabase, projectId) {
   return {
     id: data.id,
     name: data.nome || "Agente sem nome",
-    description: data.descricao || "Sem descricao cadastrada.",
+    description: data.descricao || "Sem descrição cadastrada.",
     prompt: data.prompt_base || "",
     active: data.ativo !== false,
     slug: data.slug || data.id,
@@ -390,7 +390,7 @@ function sanitizeProjectPayload(input) {
 
 async function createProjectMembership(supabase, { usuarioId, projetoId, papel = "viewer" }) {
   if (!usuarioId || !projetoId) {
-    return { ok: false, error: new Error("Usuario e projeto sao obrigatorios.") }
+    return { ok: false, error: new Error("Usuário e projeto são obrigatórios.") }
   }
 
   const { error } = await supabase.from("usuarios_projetos").insert({
@@ -496,13 +496,13 @@ async function createInitialProjectAgentAndWidget(project, user) {
   )
 
   if (!agent) {
-    return { ok: false, error: "Nao foi possivel criar o agente padrao." }
+    return { ok: false, error: "Não foi possível criar o agente padrão." }
   }
 
   const { widget, error } = await ensureDefaultChatWidgetForAgent({ ...project, agent }, agent, bootstrapUser)
 
   if (error || !widget) {
-    return { ok: false, error: error || "Nao foi possivel criar o chat widget padrao." }
+    return { ok: false, error: error || "Não foi possível criar o chat widget padrão." }
   }
 
   return { ok: true, agent, widget }
@@ -726,11 +726,11 @@ export async function getProjectDeletePermission(user, projectId) {
 
   if (error) {
     console.error("[projetos] failed to count user projects for delete permission", error)
-    return { allowed: false, reason: "Nao foi possivel validar a exclusao do projeto." }
+    return { allowed: false, reason: "Não foi possível validar a exclusão do projeto." }
   }
 
   if ((count ?? 0) <= 1) {
-    return { allowed: false, reason: "Voce precisa manter pelo menos um projeto." }
+    return { allowed: false, reason: "Você precisa manter pelo menos um projeto." }
   }
 
   return { allowed: true, reason: null }
@@ -925,7 +925,7 @@ async function deleteFeedbackMessagesForProject(supabase, projectId) {
 
 export async function deleteProject(projectId, confirmationName) {
   if (!projectId) {
-    return { ok: false, error: "Projeto invalido." }
+    return { ok: false, error: "Projeto inválido." }
   }
 
   const supabase = getSupabaseAdminClient()
@@ -939,7 +939,7 @@ export async function deleteProject(projectId, confirmationName) {
     if (projectError) {
       console.error("[projetos] failed to read project before delete", projectError)
     }
-    return { ok: false, error: "Projeto nao encontrado." }
+    return { ok: false, error: "Projeto não encontrado." }
   }
 
   if (String(confirmationName || "").trim() !== String(project.nome || "").trim()) {
@@ -993,7 +993,7 @@ export async function deleteProject(projectId, confirmationName) {
       console.error("[projetos] failed to delete agent api links by api", linksError)
       return failProjectDelete(
         { supabase, projectId, projectName: project.nome, step: "agente_api", error: linksError },
-        "Falha ao limpar vinculos de APIs.",
+        "Falha ao limpar vínculos de APIs.",
       )
     }
   }
@@ -1004,7 +1004,7 @@ export async function deleteProject(projectId, confirmationName) {
       console.error("[projetos] failed to delete agent api links by agent", error)
       return failProjectDelete(
         { supabase, projectId, projectName: project.nome, step: "agente_api", error },
-        "Falha ao limpar vinculos do agente.",
+        "Falha ao limpar vínculos do agente.",
       )
     }
   }
@@ -1059,7 +1059,7 @@ export async function deleteProject(projectId, confirmationName) {
     console.error("[projetos] failed to detach usage records", usageError)
     return failProjectDelete(
       { supabase, projectId, projectName: project.nome, step: "consumos", error: usageError },
-      "Falha ao preservar historico de tokens usados.",
+      "Falha ao preservar histórico de tokens usados.",
     )
   }
 

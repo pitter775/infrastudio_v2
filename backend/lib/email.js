@@ -9,7 +9,7 @@ export async function sendEmail(input) {
   const apiKey = process.env.RESEND_API_KEY?.trim() || HARDCODED_RESEND_API_KEY
 
   if (!apiKey) {
-    throw new Error("RESEND_API_KEY nao configurada.")
+    throw new Error("RESEND_API_KEY não configurada.")
   }
 
   const response = await fetch(RESEND_API_URL, {

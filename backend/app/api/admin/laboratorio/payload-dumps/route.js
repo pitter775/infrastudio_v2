@@ -44,7 +44,7 @@ export async function GET(request) {
 
       if (!response.ok) {
         const payload = await response.json().catch(() => ({}))
-        return NextResponse.json({ error: payload.error || "Nao foi possivel baixar o dump." }, { status: response.status })
+        return NextResponse.json({ error: payload.error || "Não foi possível baixar o dump." }, { status: response.status })
       }
 
       const buffer = await response.arrayBuffer()
@@ -60,7 +60,7 @@ export async function GET(request) {
     const payload = await callWorker("/debug/payload-dumps")
     return NextResponse.json(payload, { status: 200 })
   } catch (error) {
-    return NextResponse.json({ error: error?.message || "Nao foi possivel carregar os dumps." }, { status: 500 })
+    return NextResponse.json({ error: error?.message || "Não foi possível carregar os dumps." }, { status: 500 })
   }
 }
 
@@ -82,7 +82,7 @@ export async function POST(request) {
     })
     return NextResponse.json(payload, { status: 200 })
   } catch (error) {
-    return NextResponse.json({ error: error?.message || "Nao foi possivel alterar o dump." }, { status: 500 })
+    return NextResponse.json({ error: error?.message || "Não foi possível alterar o dump." }, { status: 500 })
   }
 }
 
@@ -99,6 +99,6 @@ export async function DELETE() {
     })
     return NextResponse.json(payload, { status: 200 })
   } catch (error) {
-    return NextResponse.json({ error: error?.message || "Nao foi possivel limpar os dumps." }, { status: 500 })
+    return NextResponse.json({ error: error?.message || "Não foi possível limpar os dumps." }, { status: 500 })
   }
 }

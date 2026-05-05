@@ -275,7 +275,7 @@ async function replaceSnapshotRowsForProject(supabase, projectId, rows) {
     console.error("[mercado-livre-store-sync] failed to clear snapshot rows before replace sync", deleteResult.error)
     return {
       ok: false,
-      error: "Nao foi possivel limpar os produtos antigos da loja.",
+      error: "Não foi possível limpar os produtos antigos da loja.",
     }
   }
 
@@ -294,7 +294,7 @@ async function replaceSnapshotRowsForProject(supabase, projectId, rows) {
       console.error("[mercado-livre-store-sync] failed to insert snapshot rows in replace sync", insertResult.error)
       return {
         ok: false,
-        error: "Nao foi possivel gravar os produtos atualizados da loja.",
+        error: "Não foi possível gravar os produtos atualizados da loja.",
       }
     }
   }
@@ -389,7 +389,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
 
   if (existingResult.error) {
     console.error("[mercado-livre-store-sync] failed to load snapshot rows for incremental sync", existingResult.error)
-    return buildSyncError("Nao foi possivel atualizar o snapshot incremental.", "load_existing_rows_incremental", {
+    return buildSyncError("Não foi possível atualizar o snapshot incremental.", "load_existing_rows_incremental", {
       paging: lastPaging,
       error: existingResult.error.message || "unknown_error",
       errorCode: existingResult.error.code || null,
@@ -461,7 +461,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
           supportsSnapshotDateColumns = false
         } else {
           console.error("[mercado-livre-store-sync] failed to upsert incremental snapshot rows", retryResult.error)
-          return buildSyncError("Nao foi possivel atualizar o snapshot incremental.", "upsert_incremental_rows", {
+          return buildSyncError("Não foi possível atualizar o snapshot incremental.", "upsert_incremental_rows", {
             paging: lastPaging,
             rows: rowsToPatch.length,
             error: retryResult.error.message || "unknown_error",
@@ -470,7 +470,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
         }
       } else {
       console.error("[mercado-livre-store-sync] failed to upsert incremental snapshot rows", error)
-      return buildSyncError("Nao foi possivel atualizar o snapshot incremental.", "upsert_incremental_rows", {
+      return buildSyncError("Não foi possível atualizar o snapshot incremental.", "upsert_incremental_rows", {
         paging: lastPaging,
         rows: rowsToPatch.length,
         error: error.message || "unknown_error",
@@ -494,7 +494,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
           supportsSnapshotDateColumns = false
         } else {
           console.error("[mercado-livre-store-sync] failed to upsert new snapshot rows", retryResult.error)
-          return buildSyncError("Nao foi possivel adicionar produtos novos ao snapshot.", "upsert_new_rows_incremental", {
+          return buildSyncError("Não foi possível adicionar produtos novos ao snapshot.", "upsert_new_rows_incremental", {
             paging: lastPaging,
             rows: rowsToInsert.length,
             error: retryResult.error.message || "unknown_error",
@@ -503,7 +503,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
         }
       } else {
       console.error("[mercado-livre-store-sync] failed to upsert new snapshot rows", error)
-      return buildSyncError("Nao foi possivel adicionar produtos novos ao snapshot.", "upsert_new_rows_incremental", {
+      return buildSyncError("Não foi possível adicionar produtos novos ao snapshot.", "upsert_new_rows_incremental", {
         paging: lastPaging,
         rows: rowsToInsert.length,
         error: error.message || "unknown_error",
@@ -523,7 +523,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
 
     if (deleteResult.error) {
       console.error("[mercado-livre-store-sync] failed to delete stale rows during incremental sync", deleteResult.error)
-      return buildSyncError("Nao foi possivel limpar produtos inativos do snapshot.", "delete_stale_rows_incremental", {
+      return buildSyncError("Não foi possível limpar produtos inativos do snapshot.", "delete_stale_rows_incremental", {
         paging: lastPaging,
         staleRows: idsToDelete.length,
         error: deleteResult.error.message || "unknown_error",
@@ -544,7 +544,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
 export async function syncMercadoLivreSnapshotForProject(project, options = {}, deps = {}) {
   try {
     if (!project?.id) {
-      return buildSyncError("Projeto nao encontrado.", "project_lookup")
+      return buildSyncError("Projeto não encontrado.", "project_lookup")
     }
 
     const supabase = deps.supabase ?? getSupabaseAdminClient()
@@ -627,8 +627,8 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
     if (existingResult.error) {
       console.error("[mercado-livre-store-sync] failed to load existing snapshot rows", existingResult.error)
-      await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Nao foi possivel atualizar o snapshot da loja.", { supabase })
-      return buildSyncError("Nao foi possivel atualizar o snapshot da loja.", "load_existing_rows", {
+      await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Não foi possível atualizar o snapshot da loja.", { supabase })
+      return buildSyncError("Não foi possível atualizar o snapshot da loja.", "load_existing_rows", {
         paging: lastPaging,
         error: existingResult.error.message || "unknown_error",
         errorCode: existingResult.error.code || null,
@@ -656,8 +656,8 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
           if (retryResult.error) {
             console.error("[mercado-livre-store-sync] failed to upsert snapshot rows without date columns", retryResult.error)
-            await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Nao foi possivel atualizar o snapshot da loja.", { supabase })
-            return buildSyncError("Nao foi possivel atualizar o snapshot da loja.", "upsert_rows", {
+            await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Não foi possível atualizar o snapshot da loja.", { supabase })
+            return buildSyncError("Não foi possível atualizar o snapshot da loja.", "upsert_rows", {
               paging: lastPaging,
               error: retryResult.error.message || "unknown_error",
               errorCode: retryResult.error.code || null,
@@ -675,8 +675,8 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
           }
         } else {
           console.error("[mercado-livre-store-sync] failed to upsert snapshot rows", error)
-          await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Nao foi possivel atualizar o snapshot da loja.", { supabase })
-          return buildSyncError("Nao foi possivel atualizar o snapshot da loja.", "upsert_rows", {
+          await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Não foi possível atualizar o snapshot da loja.", { supabase })
+          return buildSyncError("Não foi possível atualizar o snapshot da loja.", "upsert_rows", {
             paging: lastPaging,
             error: error.message || "unknown_error",
             errorCode: error.code || null,
@@ -696,7 +696,7 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
       if (deleteResult.error) {
         console.error("[mercado-livre-store-sync] failed to delete stale snapshot rows", deleteResult.error)
-        await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Nao foi possivel limpar produtos inativos do snapshot.", { supabase })
+        await releaseMercadoLivreSyncStateOnError(project.id, syncMode, "Não foi possível limpar produtos inativos do snapshot.", { supabase })
         return {
           synced: rows.length,
           paging: lastPaging,
@@ -708,7 +708,7 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
             syncedRows: rows.length,
             staleRows: idsToDelete.length,
           },
-          error: "Nao foi possivel limpar produtos inativos do snapshot.",
+          error: "Não foi possível limpar produtos inativos do snapshot.",
         }
       }
     }
@@ -745,7 +745,7 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
         deps,
       )
     }
-    return buildSyncError("Nao foi possivel atualizar a loja no banco.", "unexpected_failure", {
+    return buildSyncError("Não foi possível atualizar a loja no banco.", "unexpected_failure", {
       error: error instanceof Error ? error.message : "unknown_error",
     })
   }

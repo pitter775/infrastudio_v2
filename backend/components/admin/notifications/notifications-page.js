@@ -52,7 +52,7 @@ export function AdminNotificationsPage() {
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel carregar os avisos.")
+        throw new Error(data.error || "Não foi possível carregar os avisos.")
       }
 
       setSummary(data.summary ?? { attendance: 0, feedback: 0, notifications: 0 })
@@ -60,7 +60,7 @@ export function AdminNotificationsPage() {
       setItems(nextItems)
       void markItemsAsRead(nextItems)
     } catch (loadError) {
-      setError(loadError.message || "Nao foi possivel carregar os avisos.")
+      setError(loadError.message || "Não foi possível carregar os avisos.")
       setItems([])
     } finally {
       setLoading(false)
@@ -75,7 +75,7 @@ export function AdminNotificationsPage() {
     <div className="min-h-0">
       <AdminPageHeader
         title="Avisos"
-        description="Historico consolidado de atendimento, solicitações e billing."
+        description="Histórico consolidado de atendimento, solicitações e billing."
         actions={
           <Button
             type="button"

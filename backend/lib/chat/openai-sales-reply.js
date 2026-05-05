@@ -27,7 +27,7 @@ function buildConversationMemory(context = {}) {
     String(context?.catalogo?.ultimaBusca || "").trim()
 
   if (resumo) snippets.push(`Resumo de continuidade: ${resumo}`)
-  if (historicoIdentificado) snippets.push(`Historico importado do usuario identificado:\n${historicoIdentificado}`)
+  if (historicoIdentificado) snippets.push(`Histórico importado do usuário identificado:\n${historicoIdentificado}`)
   if (currentProduct) snippets.push(`Produto em foco: ${currentProduct}`)
   if (latestSearch) snippets.push(`Busca recente do cliente: ${latestSearch}`)
 
@@ -67,12 +67,12 @@ function buildSelectedProductInstructions(product) {
           .join("; ")}.`
       : "",
     Array.isArray(product.variacoesResumo) && product.variacoesResumo.length
-      ? `Variacoes mapeadas: ${product.variacoesResumo.slice(0, 4).join("; ")}.`
+      ? `Variações mapeadas: ${product.variacoesResumo.slice(0, 4).join("; ")}.`
       : "",
     product.descricaoLonga ? `Resumo longo do anuncio: ${String(product.descricaoLonga).slice(0, 500)}.` : "",
     product.link ? `Link conhecido: ${product.link}` : "",
-    "Nao peca para o cliente repetir ou identificar este produto se ele ja estiver em foco no contexto.",
-    "Se este produto for do Mercado Livre e o cliente ja demonstrou preferencia, responda vendendo: destaque aderencia, reduza friccao e proponha o proximo passo.",
+    "Não peça para o cliente repetir ou identificar este produto se ele já estiver em foco no contexto.",
+    "Se este produto for do Mercado Livre e o cliente já demonstrou preferência, responda vendendo: destaque aderência, reduza fricção e proponha o próximo passo.",
   ]
     .filter(Boolean)
     .join("\n")
@@ -103,7 +103,7 @@ export async function generateOpenAiSalesReply(input = {}) {
   } = input
 
   if (!openAiKey) {
-    throw new Error("OPENAI_API_KEY nao configurada para executar o agente do chat.")
+    throw new Error("OPENAI_API_KEY não configurada para executar o agente do chat.")
   }
 
   const systemPrompt = [
@@ -164,7 +164,7 @@ export async function generateOpenAiSalesReply(input = {}) {
   const reply = extractOpenAiText(payload)
 
   if (!String(reply || "").trim()) {
-    throw new Error("OpenAI nao retornou texto util para o agente do chat.")
+    throw new Error("OpenAI não retornou texto útil para o agente do chat.")
   }
 
   return {

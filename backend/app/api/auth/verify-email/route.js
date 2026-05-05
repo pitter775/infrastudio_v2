@@ -13,10 +13,10 @@ export async function GET(request) {
       {
         error:
           result.reason === "expired"
-            ? "Seu link de verificacao expirou."
+            ? "Seu link de verificação expirou."
             : result.reason === "already_used"
-              ? "Este email ja foi confirmado."
-              : "Token de verificacao invalido.",
+              ? "Este email já foi confirmado."
+              : "Token de verificação inválido.",
       },
       { status },
     )

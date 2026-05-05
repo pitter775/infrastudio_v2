@@ -25,7 +25,7 @@ function getScopeProjectIds(user, projects) {
   return projects.map((project) => project.id)
 }
 
-async function countUsuarios(scopeProjectIds, user) {
+async function countUsuários(scopeProjectIds, user) {
   if (user?.role !== "admin") {
     return user?.id ? 1 : 0
   }
@@ -254,18 +254,18 @@ export function buildDashboardOverviewSummary({
   return {
     cards: [
       { label: isAdmin ? "Projetos" : "Meus projetos", value: projects.length, detail: `${activeProjects} ativos` },
-      { label: isAdmin ? "Usuarios" : "Perfil", value: usersCount, detail: isAdmin ? "com acesso ao contexto" : "dados da sua conta" },
+      { label: isAdmin ? "Usuários" : "Perfil", value: usersCount, detail: isAdmin ? "com acesso ao contexto" : "dados da sua conta" },
       { label: isAdmin ? "Chats" : "Meus chats", value: chats.length, detail: `${whatsappChats} WhatsApp / ${siteChats} web` },
       { label: isAdmin ? "Solicitações" : "Minhas solicitações", value: feedbacks.length, detail: `${pendingFeedbacks} pendentes` },
       { label: "Billing", value: blockedBilling, detail: warningBilling ? `${warningBilling} em alerta` : "sem alerta" },
-      { label: "Erros", value: recentErrors, detail: isAdmin ? "ultimos eventos do laboratorio" : "restrito ao admin" },
+      { label: "Erros", value: recentErrors, detail: isAdmin ? "últimos eventos do laboratório" : "restrito ao admin" },
     ],
     practicalSummary:
       projects.length > 0
         ? isAdmin
           ? `Base com ${projects.length} projeto(s), ${chats.length} chat(s) recentes e ${pendingFeedbacks} solicitação(ões) pendente(s) para o admin.`
           : `Seu painel mostra ${projects.length} projeto(s), ${chats.length} chat(s) e ${feedbacks.length} solicitação(ões) ligadas ao seu acesso.`
-        : "Ainda nao existem projetos suficientes para consolidar um dashboard operacional.",
+        : "Ainda não existem projetos suficientes para consolidar um dashboard operacional.",
     latestChat,
     channelUsage: buildChannelUsage(chats),
     topProjects: buildTopProjects(projects, billingProjects),
@@ -277,7 +277,7 @@ export async function getDashboardOverview(user) {
   const projects = await listProjectsForUser(user)
   const scopeProjectIds = getScopeProjectIds(user, projects)
   const [usersCount, chats, feedbacks, logs, billingProjects] = await Promise.all([
-    countUsuarios(scopeProjectIds, user),
+    countUsuários(scopeProjectIds, user),
     listScopedChats(scopeProjectIds, user),
     listScopedFeedbacks(user),
     listScopedLogs(scopeProjectIds, user),
@@ -285,7 +285,7 @@ export async function getDashboardOverview(user) {
   ])
 
   return {
-    userName: user?.name || "Usuario",
+    userName: user?.name || "Usuário",
     role: user?.role || "viewer",
     projects,
     usersCount,

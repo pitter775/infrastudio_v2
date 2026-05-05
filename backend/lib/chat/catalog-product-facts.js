@@ -283,7 +283,7 @@ function inferFactHintsFromMessage(message = "") {
   if (/\b(cor|acabamento|estampa)\b/.test(normalized)) hints.push("color")
   if (/\b(estoque|disponivel|disponibilidade|quantas unidades)\b/.test(normalized)) hints.push("stock")
   if (/\bgarantia\b/.test(normalized)) hints.push("warranty")
-  if (/\b(link|anuncio|comprar agora|pagina de compra)\b/.test(normalized)) hints.push("link")
+  if (/\b(link|anuncio|comprar agora|página de compra)\b/.test(normalized)) hints.push("link")
   if (/\b(entrega|envio|frete|prazo|retirada)\b/.test(normalized)) hints.push("shipping")
   if (/\baltura\b/.test(normalized)) hints.push("height")
   if (/\blargura\b/.test(normalized)) hints.push("width")
@@ -400,13 +400,13 @@ function buildDimensionsReply(facts, scope, options = {}) {
   if (selectedScope === "product") {
     const packageLines = collectDimensionLines(facts?.dimensions?.package)
     if (packageLines.length) {
-      return `Nao encontrei medidas do produto. O anuncio so informa medidas da embalagem: ${packageLines.join(", ")}.`
+      return `Não encontrei medidas do produto. O anúncio só informa medidas da embalagem: ${packageLines.join(", ")}.`
     }
   }
 
   return selectedScope === "package"
-    ? "Nao encontrei medidas de embalagem informadas neste anuncio."
-    : "Nao encontrei medidas do produto informadas neste anuncio."
+    ? "Não encontrei medidas de embalagem informadas neste anúncio."
+    : "Não encontrei medidas do produto informadas neste anúncio."
 }
 
 function buildSingleDimensionReply(facts, field, scope, options = {}) {
@@ -419,11 +419,11 @@ function buildSingleDimensionReply(facts, field, scope, options = {}) {
   if (selectedScope === "product") {
     const packageValue = sanitizeString(facts?.dimensions?.package?.[field])
     if (packageValue) {
-      return `Nao encontrei ${formatDimensionFieldLabel(field).toLowerCase()} do produto. O anuncio so informa ${formatDimensionFieldLabel(field).toLowerCase()} da embalagem: ${packageValue}.`
+      return `Não encontrei ${formatDimensionFieldLabel(field).toLowerCase()} do produto. O anúncio só informa ${formatDimensionFieldLabel(field).toLowerCase()} da embalagem: ${packageValue}.`
     }
   }
 
-  return `Nao encontrei ${formatDimensionFieldLabel(field).toLowerCase()} informada${field === "capacity" ? "" : ""} neste anuncio.`
+  return `Não encontrei ${formatDimensionFieldLabel(field).toLowerCase()} informada${field === "capacity" ? "" : ""} neste anúncio.`
 }
 
 function buildWeightReply(facts, scope, options = {}) {
@@ -436,13 +436,13 @@ function buildWeightReply(facts, scope, options = {}) {
   if (selectedScope === "product") {
     const packageValue = sanitizeString(facts?.weight?.package)
     if (packageValue) {
-      return `Nao encontrei o peso do produto. O anuncio so informa o peso da embalagem: ${packageValue}.`
+      return `Não encontrei o peso do produto. O anúncio só informa o peso da embalagem: ${packageValue}.`
     }
   }
 
   return selectedScope === "package"
-    ? "Nao encontrei peso da embalagem informado neste anuncio."
-    : "Nao encontrei peso do produto informado neste anuncio."
+    ? "Não encontrei peso da embalagem informado neste anúncio."
+    : "Não encontrei peso do produto informado neste anúncio."
 }
 
 export function buildFocusedCatalogProductFactualResolution(product, message = "", options = {}) {
@@ -474,17 +474,17 @@ export function buildFocusedCatalogProductFactualResolution(product, message = "
 
   factHints.forEach((hint) => {
     if (hint === "price") {
-      pieces.push(facts.priceLabel ? `O valor atual deste produto e ${facts.priceLabel}.` : "Nao encontrei o valor exato deste produto no momento.")
+      pieces.push(facts.priceLabel ? `O valor atual deste produto é ${facts.priceLabel}.` : "Não encontrei o valor exato deste produto no momento.")
       return
     }
 
     if (hint === "material") {
-      pieces.push(facts.material ? `O material deste produto e ${facts.material}.` : "Nao encontrei o material informado deste produto no momento.")
+      pieces.push(facts.material ? `O material deste produto é ${facts.material}.` : "Não encontrei o material informado deste produto no momento.")
       return
     }
 
     if (hint === "color") {
-      pieces.push(facts.color ? `A cor ou acabamento informado e ${facts.color}.` : "Nao encontrei a cor ou acabamento informado deste produto no momento.")
+      pieces.push(facts.color ? `A cor ou acabamento informado é ${facts.color}.` : "Não encontrei a cor ou acabamento informado deste produto no momento.")
       return
     }
 
@@ -492,7 +492,7 @@ export function buildFocusedCatalogProductFactualResolution(product, message = "
       pieces.push(
         facts.availableQuantity > 0
           ? `No momento eu vejo ${facts.availableQuantity} unidade${facts.availableQuantity > 1 ? "s" : ""} em estoque.`
-          : "Nao encontrei estoque disponivel para este item no momento."
+          : "Não encontrei estoque disponível para este item no momento."
       )
       return
     }
@@ -501,7 +501,7 @@ export function buildFocusedCatalogProductFactualResolution(product, message = "
       pieces.push(
         facts.warranty && !/^sem garantia$/i.test(facts.warranty)
           ? `A garantia informada no anuncio e ${facts.warranty}.`
-          : "Nao encontrei garantia informada neste anuncio."
+          : "Não encontrei garantia informada neste anúncio."
       )
       return
     }
@@ -516,12 +516,12 @@ export function buildFocusedCatalogProductFactualResolution(product, message = "
     }
 
     if (hint === "link") {
-      pieces.push(facts.link ? `Se quiser, eu mando o link direto do anuncio: ${facts.link}` : "Nao encontrei o link direto deste anuncio no momento.")
+      pieces.push(facts.link ? `Se quiser, eu mando o link direto do anúncio: ${facts.link}` : "Não encontrei o link direto deste anuncio no momento.")
       return
     }
 
     if (hint === "details") {
-      pieces.push(facts.details.length ? `Os principais detalhes que encontrei foram: ${facts.details.slice(0, 4).join(", ")}.` : "Nao encontrei detalhes adicionais relevantes neste anuncio.")
+      pieces.push(facts.details.length ? `Os principais detalhes que encontrei foram: ${facts.details.slice(0, 4).join(", ")}.` : "Não encontrei detalhes adicionais relevantes neste anúncio.")
       return
     }
 
@@ -582,9 +582,9 @@ export function buildFocusedCatalogProductCommercialReply(product, options = {})
   const knownFactsText = knownFacts.length ? ` Pelo anuncio, eu tenho ${knownFacts.slice(0, 4).join(", ")}.` : ""
 
   if (adviceType === "price_objection") {
-    const priceText = facts.priceLabel ? `Ele esta anunciado por ${facts.priceLabel}.` : "Eu nao tenho o valor exato confirmado no anuncio agora."
+    const priceText = facts.priceLabel ? `Ele está anunciado por ${facts.priceLabel}.` : "Eu não tenho o valor exato confirmado no anuncio agora."
     const materialText = facts.material ? ` O material informado e ${facts.material}.` : ""
-    return `${priceText}${materialText} Se a sua duvida e custo-beneficio, eu nao avaliaria so pelo material: confira estado nas fotos, medidas, frete no seu CEP e se a peca resolve o que voce procura. Se ficar caro para o que voce quer, posso buscar opcoes parecidas da loja para comparar.`
+    return `${priceText}${materialText} Se a sua dúvida é custo-benefício, eu não avaliaria só pelo material: confira estado nas fotos, medidas, frete no seu CEP e se a peça resolve o que você procura. Se ficar caro para o que você quer, posso buscar opções parecidas da loja para comparar.`
   }
 
   if (adviceType === "improvement_suggestion") {
@@ -596,7 +596,7 @@ export function buildFocusedCatalogProductCommercialReply(product, options = {})
   }
 
   if (adviceType === "fit_advice") {
-    return `Para ver se esse item combina com o que voce precisa, eu olharia principalmente medidas, material, acabamento e condicao do anuncio.${knownFactsText}`
+    return `Para ver se esse item combina com o que você precisa, eu olharia principalmente medidas, material, acabamento e condição do anúncio.${knownFactsText}`
   }
 
   return `Consigo te ajudar a avaliar este produto pelo que o anuncio informa: preco, material, medidas, estoque, frete e detalhes visiveis.${knownFactsText}`

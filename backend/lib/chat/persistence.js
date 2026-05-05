@@ -312,7 +312,7 @@ export async function persistUserTurn(input, deps = {}) {
   const userMessage = await appendChatMessage({
     chatId: input.chatId,
     role: "user",
-    conteudo: input.message || "Midia recebida pelo WhatsApp.",
+    conteudo: input.message || "Mídia recebida pelo WhatsApp.",
     canal: input.channelKind,
     identificadorExterno: input.normalizedExternalIdentifier,
     metadata: buildUserMessageMetadata({
@@ -323,7 +323,7 @@ export async function persistUserTurn(input, deps = {}) {
   })
 
   if (!userMessage) {
-    throw new Error("Nao foi possivel gravar a mensagem do cliente. Verifique permissoes na tabela `mensagens`.")
+    throw new Error("Não foi possível gravar a mensagem do cliente. Verifique permissões na tabela `mensagens`.")
   }
 
   return userMessage
@@ -361,7 +361,7 @@ export async function persistAssistantTurn(input, deps = {}) {
   })
 
   if (!assistantMessage) {
-    throw new Error("O modelo respondeu, mas nao foi possivel salvar a resposta no banco.")
+    throw new Error("O modelo respondeu, mas não foi possível salvar a resposta no banco.")
   }
 
   return assistantMessage

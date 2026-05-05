@@ -7,7 +7,7 @@ export async function GET(_request, context) {
   const result = await getPublicMercadoLivreProductPage(slug, produtoSlug)
 
   if (!result.store || !result.product) {
-    return NextResponse.json({ error: "Produto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Produto não encontrado." }, { status: 404 })
   }
 
   return NextResponse.json(result, { status: 200 })

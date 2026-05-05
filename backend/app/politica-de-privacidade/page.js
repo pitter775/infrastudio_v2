@@ -1,7 +1,7 @@
 import Link from "next/link"
 
 export const metadata = {
-  title: "Politica de Privacidade | InfraStudio",
+  title: "Política de Privacidade | InfraStudio",
 }
 
 export default function PrivacyPolicyPage() {
@@ -11,9 +11,9 @@ export default function PrivacyPolicyPage() {
         <div className="inline-flex rounded-full border border-cyan-400/20 bg-cyan-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-200">
           InfraStudio
         </div>
-        <h1 className="mt-4 text-3xl font-semibold text-white md:text-4xl">Politica de Privacidade</h1>
+        <h1 className="mt-4 text-3xl font-semibold text-white md:text-4xl">Política de Privacidade</h1>
         <p className="mt-4 text-sm leading-7 text-slate-300">
-          Esta politica descreve como a InfraStudio coleta, utiliza e protege dados pessoais em seus fluxos de autenticacao,
+          Esta política descreve como a InfraStudio coleta, utiliza e protege dados pessoais em seus fluxos de autenticação,
           atendimento, integracoes e operacao da plataforma.
         </p>
 
@@ -21,15 +21,15 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white">1. Dados coletados</h2>
             <p className="mt-2">
-              Podemos coletar nome, email, foto de perfil, identificadores de login social, dados enviados em formularios,
-              mensagens trocadas em atendimentos, configuracoes de projeto e metadados tecnicos necessarios para seguranca e operacao.
+              Podemos coletar nome, email, foto de perfil, identificadores de login social, dados enviados em formulários,
+              mensagens trocadas em atendimentos, configuracoes de projeto e metadados tecnicos necessários para seguranca e operacao.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-semibold text-white">2. Uso das informacoes</h2>
+            <h2 className="text-lg font-semibold text-white">2. Uso das informações</h2>
             <p className="mt-2">
-              Os dados sao utilizados para autenticar usuarios, manter o funcionamento do atendimento, registrar historicos,
+              Os dados são utilizados para autenticar usuários, manter o funcionamento do atendimento, registrar históricos,
               entregar integracoes solicitadas, monitorar consumo da plataforma e cumprir obrigacoes legais e contratuais.
             </p>
           </section>
@@ -37,15 +37,15 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white">3. Compartilhamento</h2>
             <p className="mt-2">
-              Dados podem ser processados por provedores de infraestrutura, autenticacao, banco de dados, mensageria e IA quando isso for
-              necessario para prestar o servico contratado. Nao comercializamos dados pessoais.
+              Dados podem ser processados por provedores de infraestrutura, autenticação, banco de dados, mensageria e IA quando isso for
+              necessário para prestar o serviço contratado. Não comercializamos dados pessoais.
             </p>
           </section>
 
           <section>
             <h2 className="text-lg font-semibold text-white">4. Seguranca e retencao</h2>
             <p className="mt-2">
-              Adotamos controles tecnicos e operacionais para reduzir risco de acesso indevido. Os dados sao mantidos pelo tempo necessario
+              Adotamos controles tecnicos e operacionais para reduzir risco de acesso indevido. Os dados sao mantidos pelo tempo necessário
               para operacao da conta, auditoria, suporte e cumprimento de exigencias legais.
             </p>
           </section>
@@ -53,7 +53,7 @@ export default function PrivacyPolicyPage() {
           <section>
             <h2 className="text-lg font-semibold text-white">5. Direitos do titular</h2>
             <p className="mt-2">
-              O titular pode solicitar atualizacao, correcao ou exclusao de dados pessoais, observado o que for necessario para seguranca,
+              O titular pode solicitar atualizacao, correcao ou exclusao de dados pessoais, observado o que for necessário para seguranca,
               prevencao a fraude e obrigacoes legais.
             </p>
           </section>

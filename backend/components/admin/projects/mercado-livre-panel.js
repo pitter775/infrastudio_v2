@@ -57,13 +57,13 @@ export function MercadoLivrePanel({
   })
   const [feedback, setFeedback] = useState(() =>
     initialNotice === 'oauth_ok'
-      ? { tone: 'success', text: 'Conta do Mercado Livre conectada. Agora voce ja pode testar a listagem da loja.' }
+      ? { tone: 'success', text: 'Conta do Mercado Livre conectada. Agora você já pode testar a listagem da loja.' }
       : initialNotice === 'oauth_error'
-        ? { tone: 'error', text: 'Nao foi possivel concluir a autenticacao do Mercado Livre.' }
+        ? { tone: 'error', text: 'Não foi possível concluir a autenticação do Mercado Livre.' }
         : null,
   )
   const tabs = [
-    { id: 'connection', label: 'Conexao', icon: Store },
+    { id: 'connection', label: 'Conexão', icon: Store },
     { id: 'tutorial', label: 'Tutorial', icon: BookOpen },
     { id: 'store', label: 'Loja', icon: Store },
     { id: 'test', label: 'Teste', icon: PackageSearch },
@@ -152,7 +152,7 @@ export function MercadoLivrePanel({
         setCopiedField((current) => (current === field ? '' : current))
       }, 1800)
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel copiar o link.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível copiar o link.' })
     }
   }
 
@@ -224,7 +224,7 @@ export function MercadoLivrePanel({
         if (data.connector) {
           applyConnector(data.connector)
         }
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar os itens da loja.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível carregar os itens da loja.' })
         return
       }
 
@@ -235,7 +235,7 @@ export function MercadoLivrePanel({
       setTestItems(Array.isArray(data.items) ? data.items : [])
     } catch {
       setTestItems([])
-      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar os itens da loja.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível carregar os itens da loja.' })
     } finally {
       setLoadingTestItems(false)
     }
@@ -264,7 +264,7 @@ export function MercadoLivrePanel({
         if (data.connector) {
           applyConnector(data.connector)
         }
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar os pedidos da loja.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível carregar os pedidos da loja.' })
         return
       }
 
@@ -281,7 +281,7 @@ export function MercadoLivrePanel({
     } catch {
       setOrders([])
       setOrdersPaging({ total: 0, offset: 0, limit: 10 })
-      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar os pedidos da loja.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível carregar os pedidos da loja.' })
     } finally {
       setLoadingOrders(false)
     }
@@ -306,7 +306,7 @@ export function MercadoLivrePanel({
         if (data.connector) {
           applyConnector(data.connector)
         }
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel carregar as perguntas da loja.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível carregar as perguntas da loja.' })
         return
       }
 
@@ -323,7 +323,7 @@ export function MercadoLivrePanel({
     } catch {
       setQuestions([])
       setQuestionsPaging({ total: 0, offset: 0, limit: 10 })
-      setFeedback({ tone: 'error', text: 'Nao foi possivel carregar as perguntas da loja.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível carregar as perguntas da loja.' })
     } finally {
       setLoadingQuestions(false)
     }
@@ -380,7 +380,7 @@ export function MercadoLivrePanel({
         if (!response.ok) {
           setFeedback({
             tone: 'error',
-            text: data.error || 'Nao foi possivel localizar o seller_id automaticamente. Preencha manualmente.',
+            text: data.error || 'Não foi possível localizar o seller_id automaticamente. Preencha manualmente.',
           })
           return
         }
@@ -389,11 +389,11 @@ export function MercadoLivrePanel({
           tone: 'success',
           text:
             product.source === 'api'
-              ? 'Loja identificada pelo item publico do Mercado Livre.'
+              ? 'Loja identificada pelo item público do Mercado Livre.'
               : product.source === 'api_html'
-                ? `Loja identificada pelo item publico e confirmada pelo HTML da ${product.sourceType === 'store_page' ? 'pagina da loja' : 'pagina do produto'}.`
+                ? `Loja identificada pelo item público e confirmada pelo HTML da ${product.sourceType === 'store_page' ? 'página da loja' : 'página do produto'}.`
               : product.source === 'html_retry'
-                ? `Loja identificada apos nova tentativa automatica no HTML da ${product.sourceType === 'store_page' ? 'pagina da loja' : 'pagina do produto'}.`
+                ? `Loja identificada após nova tentativa automática no HTML da ${product.sourceType === 'store_page' ? 'página da loja' : 'página do produto'}.`
                 : 'Loja identificada automaticamente.',
         })
       } catch {
@@ -402,7 +402,7 @@ export function MercadoLivrePanel({
         setStep(2)
         setFeedback({
           tone: 'error',
-          text: 'Nao foi possivel localizar o seller_id automaticamente. Preencha manualmente.',
+          text: 'Não foi possível localizar o seller_id automaticamente. Preencha manualmente.',
         })
       } finally {
         setResolvingStore(false)
@@ -432,17 +432,17 @@ export function MercadoLivrePanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel salvar a conexao do Mercado Livre.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível salvar a conexão do Mercado Livre.' })
         return
       }
 
       applyConnector(data.connector)
       setFeedback({
         tone: 'success',
-        text: 'Conexao salva. O proximo passo e conectar a conta da loja no OAuth do Mercado Livre.',
+        text: 'Conexão salva. O próximo passo é conectar a conta da loja no OAuth do Mercado Livre.',
       })
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel salvar a conexao do Mercado Livre.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível salvar a conexão do Mercado Livre.' })
     } finally {
       setSavingConnector(false)
     }
@@ -459,7 +459,7 @@ export function MercadoLivrePanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok || !data.authorizationUrl) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel iniciar a autenticacao do Mercado Livre.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível iniciar a autenticação do Mercado Livre.' })
         return
       }
 
@@ -468,7 +468,7 @@ export function MercadoLivrePanel({
       try {
         authorizationUrl = new URL(String(data.authorizationUrl || ''), window.location.origin)
       } catch {
-        setFeedback({ tone: 'error', text: 'OAuth do Mercado Livre retornou uma URL invalida.' })
+        setFeedback({ tone: 'error', text: 'OAuth do Mercado Livre retornou uma URL inválida.' })
         return
       }
 
@@ -483,14 +483,14 @@ export function MercadoLivrePanel({
       if (!isMercadoLivreHost || isSameScreenRedirect) {
         setFeedback({
           tone: 'error',
-          text: 'O OAuth retornou um destino inesperado. Revise App ID, redirect URI e configuracao do app no Mercado Livre.',
+          text: 'O OAuth retornou um destino inesperado. Revise App ID, redirect URI e configuração do app no Mercado Livre.',
         })
         return
       }
 
       window.location.assign(authorizationUrl.toString())
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel iniciar a autenticacao do Mercado Livre.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível iniciar a autenticação do Mercado Livre.' })
     } finally {
       setStartingOAuth(false)
     }
@@ -520,7 +520,7 @@ export function MercadoLivrePanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel responder a pergunta.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível responder a pergunta.' })
         return
       }
 
@@ -528,7 +528,7 @@ export function MercadoLivrePanel({
       setFeedback({ tone: 'success', text: 'Pergunta respondida no Mercado Livre.' })
       await handleLoadQuestions(questionsPaging.offset || 0)
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel responder a pergunta.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível responder a pergunta.' })
     } finally {
       setAnsweringQuestionId('')
     }
@@ -558,7 +558,7 @@ export function MercadoLivrePanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok || !String(data?.text || '').trim()) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel gerar sugestao com o agente.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível gerar sugestão com o agente.' })
         return
       }
 
@@ -567,7 +567,7 @@ export function MercadoLivrePanel({
         [question.id]: String(data.text || '').trim(),
       }))
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel gerar sugestao com o agente.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível gerar sugestão com o agente.' })
     } finally {
       setSuggestingQuestionId('')
     }
@@ -601,7 +601,7 @@ export function MercadoLivrePanel({
           .join(' | ')
         setFeedback({
           tone: 'error',
-          text: `${data.error || 'Nao foi possivel atualizar a loja no banco.'}${detailSuffix ? ` (${detailSuffix})` : ''}`,
+          text: `${data.error || 'Não foi possível atualizar a loja no banco.'}${detailSuffix ? ` (${detailSuffix})` : ''}`,
         })
         return
       }
@@ -619,7 +619,7 @@ export function MercadoLivrePanel({
             : 'Loja atualizada. Nenhum produto ativo com estoque ficou elegivel para o snapshot.',
       })
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel atualizar a loja no banco.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível atualizar a loja no banco.' })
     } finally {
       setSyncingStoreSnapshot(false)
     }
@@ -673,7 +673,7 @@ export function MercadoLivrePanel({
           {loadingConnector ? (
             <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
               <LoaderCircle className="h-4 w-4 animate-spin text-sky-300" />
-              Carregando integracao do Mercado Livre...
+              Carregando integração do Mercado Livre...
             </div>
           ) : null}
           {step === 1 ? (
@@ -691,7 +691,7 @@ export function MercadoLivrePanel({
                 />
               </label>
               <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400">
-                A resolucao tenta primeiro o item publico da API e, se necessario, refaz a leitura do HTML por alguns segundos para achar o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">seller_id</code>.
+                A resolução tenta primeiro o item público da API e, se necessário, refaz a leitura do HTML por alguns segundos para achar o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">seller_id</code>.
               </div>
               {!compact ? (
                 <div className="flex justify-end">
@@ -794,7 +794,7 @@ export function MercadoLivrePanel({
         <div className="grid gap-4">
           {!connectorMeta.id ? (
             <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
-              Salve a conexao do Mercado Livre primeiro. Depois disso voce libera a autenticacao da conta e testa os primeiros itens da loja.
+              Salve a conexão do Mercado Livre primeiro. Depois disso você libera a autenticação da conta e testa os primeiros itens da loja.
             </div>
           ) : !connectorMeta.oauthConnected ? (
             <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4 text-sm text-sky-100">
@@ -821,7 +821,7 @@ export function MercadoLivrePanel({
                     {connectorMeta.oauthNickname || storeName || 'Loja Mercado Livre'}
                   </div>
                   <div className="mt-1 text-sm text-slate-400">
-                    Usuario Mercado Livre: {connectorMeta.oauthUserId || 'n/a'}
+                    Usuário Mercado Livre: {connectorMeta.oauthUserId || 'n/a'}
                   </div>
                 </div>
                 <Button
@@ -895,7 +895,7 @@ export function MercadoLivrePanel({
           <div className="grid gap-4">
             {!connectorMeta.id ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
-                Salve a conexao do Mercado Livre primeiro. Depois disso voce libera a autenticacao da conta e lista os pedidos.
+                Salve a conexão do Mercado Livre primeiro. Depois disso você libera a autenticação da conta e lista os pedidos.
               </div>
             ) : !connectorMeta.oauthConnected ? (
               <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4 text-sm text-sky-100">
@@ -1012,7 +1012,7 @@ export function MercadoLivrePanel({
           <div className="grid gap-4">
             {!connectorMeta.id ? (
               <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-300">
-                Salve a conexao do Mercado Livre primeiro. Depois disso voce libera a autenticacao da conta e lista as perguntas.
+                Salve a conexão do Mercado Livre primeiro. Depois disso você libera a autenticação da conta e lista as perguntas.
               </div>
             ) : !connectorMeta.oauthConnected ? (
               <div className="rounded-xl border border-sky-400/20 bg-sky-500/10 p-4 text-sm text-sky-100">
@@ -1217,7 +1217,7 @@ export function MercadoLivrePanel({
                 {
                   step: '03',
                   title: 'OAuth',
-                  description: 'E a tela onde voce permite que seu sistema acesse sua loja.',
+                  description: 'É a tela onde você permite que seu sistema acesse sua loja.',
                 },
               ].map((item) => (
                 <div key={item.step} className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
@@ -1249,7 +1249,7 @@ export function MercadoLivrePanel({
                 '8. Salve o aplicativo.',
                 '9. Copie o APP ID e cole no campo APP ID aqui no sistema.',
                 '10. Copie o CLIENT SECRET e cole no campo CLIENT SECRET aqui no sistema.',
-                '11. Clique em Salvar conexao.',
+                '11. Clique em Salvar conexão.',
                 '12. Clique em Conectar conta.',
                 '13. Quando o Mercado Livre abrir, clique em Permitir.',
                 '14. Volte na aba Teste e clique em Atualizar listagem.',
@@ -1268,7 +1268,7 @@ export function MercadoLivrePanel({
                 'Colar o Redirect URI errado. Tem que ser exatamente igual.',
                 'Colar um Webhook sem o parametro do projeto no final.',
                 'Trocar APP ID com CLIENT SECRET.',
-                'Salvar a conexao e esquecer de clicar em Conectar conta.',
+                'Salvar a conexão e esquecer de clicar em Conectar conta.',
                 'Tentar testar antes de permitir o acesso no OAuth.',
               ].map((item) => (
                 <div key={item} className="rounded-2xl border border-white/10 bg-[#0a1020] px-4 py-3 text-sm leading-6 text-slate-300">

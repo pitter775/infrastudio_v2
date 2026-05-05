@@ -10,7 +10,7 @@ function sanitizeString(value) {
 export async function suggestMercadoLivreQuestionAnswer(project, input = {}, deps = {}) {
   const openAiKey = process.env.OPENAI_API_KEY?.trim()
   if (!openAiKey) {
-    return { text: "", error: "OPENAI_API_KEY nao configurada para gerar sugestao." }
+    return { text: "", error: "OPENAI_API_KEY não configurada para gerar sugestão." }
   }
 
   const questionText = sanitizeString(input.questionText)
@@ -69,7 +69,7 @@ export async function suggestMercadoLivreQuestionAnswer(project, input = {}, dep
     ),
     "Seu trabalho agora e sugerir uma resposta curta para uma pergunta recebida no Mercado Livre.",
     "A resposta deve ser comercial, humana, objetiva e pronta para publicar.",
-    "Nao diga que e IA, nao use markdown, nao use listas, nao use emojis.",
+    "Não diga que é IA, não use markdown, não use listas, não use emojis.",
     "Se faltar dado factual, responda sem inventar e convide o comprador a confirmar no anuncio ou chamar novamente.",
     "Use no maximo 600 caracteres.",
     "Retorne somente o texto final da resposta.",
@@ -121,7 +121,7 @@ export async function suggestMercadoLivreQuestionAnswer(project, input = {}, dep
 
   const normalizedText = sanitizeString(text).replace(/\s+/g, " ").trim()
   if (!normalizedText) {
-    return { text: "", error: "Nao foi possivel gerar sugestao." }
+    return { text: "", error: "Não foi possível gerar sugestão." }
   }
 
   return {

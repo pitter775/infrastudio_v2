@@ -188,7 +188,7 @@ export default function AgendaPage() {
       setOpenWeeks(nextWeeks)
       setFeedback(null)
     } else {
-      setFeedback(data.error || "Nao foi possivel carregar agenda.")
+      setFeedback(data.error || "Não foi possível carregar agenda.")
     }
 
     setLoading(false)
@@ -208,7 +208,7 @@ export default function AgendaPage() {
           void loadAgenda(initialProjectId)
         }
       } else {
-        setFeedback(data.error || "Nao foi possivel carregar projetos.")
+        setFeedback(data.error || "Não foi possível carregar projetos.")
         setLoading(false)
       }
     }
@@ -258,12 +258,12 @@ export default function AgendaPage() {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error || "Nao foi possivel gerar horarios.")
+      setFeedback(data.error || "Não foi possível gerar horários.")
       setSaving(false)
       return
     }
 
-    setFeedback(`${data.created ?? 0} horarios gerados.`)
+    setFeedback(`${data.created ?? 0} horários gerados.`)
     await loadAgenda()
     setSaving(false)
   }
@@ -285,12 +285,12 @@ export default function AgendaPage() {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error || "Nao foi possivel replicar a agenda.")
+      setFeedback(data.error || "Não foi possível replicar a agenda.")
       setSaving(false)
       return
     }
 
-    setFeedback(`Agenda replicada. ${data.created ?? 0} horarios criados no projeto destino.`)
+    setFeedback(`Agenda replicada. ${data.created ?? 0} horários criados no projeto destino.`)
     setSaving(false)
   }
 
@@ -309,13 +309,13 @@ export default function AgendaPage() {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error || "Nao foi possivel limpar a agenda.")
+      setFeedback(data.error || "Não foi possível limpar a agenda.")
       setSaving(false)
       return
     }
 
     setFeedback(
-      `Agenda limpa. ${data.deletedSlots ?? 0} horarios, ${data.deletedReservations ?? 0} reservas e ${data.deletedApis ?? 0} APIs removidos.`
+      `Agenda limpa. ${data.deletedSlots ?? 0} horários, ${data.deletedReservations ?? 0} reservas e ${data.deletedApis ?? 0} APIs removidos.`
     )
     await loadAgenda()
     setSaving(false)
@@ -337,9 +337,9 @@ export default function AgendaPage() {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error || "Nao foi possivel atualizar horarios.")
+      setFeedback(data.error || "Não foi possível atualizar horários.")
     } else {
-      setFeedback(active ? "Horarios liberados." : "Horarios bloqueados.")
+      setFeedback(active ? "Horários liberados." : "Horários bloqueados.")
       await loadAgenda()
     }
 
@@ -362,9 +362,9 @@ export default function AgendaPage() {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error || "Nao foi possivel reservar horarios.")
+      setFeedback(data.error || "Não foi possível reservar horários.")
     } else {
-      setFeedback(`${data.reservations?.length ?? 0} horarios reservados.`)
+      setFeedback(`${data.reservations?.length ?? 0} horários reservados.`)
       await loadAgenda()
     }
 
@@ -387,7 +387,7 @@ export default function AgendaPage() {
     if (response.ok) {
       setReservations((current) => current.map((item) => (item.id === data.reservation.id ? data.reservation : item)))
     } else {
-      setFeedback(data.error || "Nao foi possivel atualizar reserva.")
+      setFeedback(data.error || "Não foi possível atualizar reserva.")
     }
   }
 
@@ -418,7 +418,7 @@ export default function AgendaPage() {
       <form onSubmit={generateSlots} className="rounded-xl border border-white/5 bg-[#0d1424] p-4">
         <div className="flex items-center gap-2 text-sm font-semibold text-white">
           <CalendarClock className="h-4 w-4 text-sky-300" />
-          Gerar horarios
+          Gerar horários
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
@@ -459,7 +459,7 @@ export default function AgendaPage() {
             />
           </label>
           <label className="grid gap-1.5 text-xs text-slate-400">
-            Duracao
+            Duração
             <select
               value={generator.duracaoMinutos}
               onChange={(event) => updateGenerator("duracaoMinutos", Number(event.target.value))}
@@ -488,7 +488,7 @@ export default function AgendaPage() {
           <div className="flex flex-wrap gap-2">
             <Button type="submit" disabled={saving || !projectId} className="gap-2">
               {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              Gerar horarios
+              Gerar horários
             </Button>
             <Button
               type="button"
@@ -508,7 +508,7 @@ export default function AgendaPage() {
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Replicar para projeto</div>
                 <p className="mt-1 text-sm text-slate-400">
-                  Replica todos os horarios deste projeto para outro projeto e cadastra automaticamente as APIs de agenda no agente ativo do destino.
+                  Replica todos os horários deste projeto para outro projeto e cadastra automaticamente as APIs de agenda no agente ativo do destino.
                 </p>
               </div>
               <div className="grid gap-2">
@@ -531,8 +531,8 @@ export default function AgendaPage() {
       <section className="rounded-xl border border-white/5 bg-[#0d1424]">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/5 px-4 py-3">
           <div>
-            <div className="text-sm font-semibold text-white">Horarios disponiveis</div>
-            <div className="mt-1 text-xs text-slate-500">{slots.length} horarios cadastrados</div>
+            <div className="text-sm font-semibold text-white">Horários disponíveis</div>
+            <div className="mt-1 text-xs text-slate-500">{slots.length} horários cadastrados</div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="ghost" disabled={!selectedSlotIds.length || saving} onClick={reserveSelectedSlots}>
@@ -563,7 +563,7 @@ export default function AgendaPage() {
                 >
                   <span>
                     <span className="block text-sm font-semibold capitalize text-white">{month.label}</span>
-                    <span className="text-xs text-slate-500">{month.count} horarios</span>
+                    <span className="text-xs text-slate-500">{month.count} horários</span>
                   </span>
                   <ChevronDown className={cn("h-4 w-4 text-slate-400 transition", openMonths[month.key] && "rotate-180")} />
                 </button>
@@ -579,7 +579,7 @@ export default function AgendaPage() {
                         >
                           <span>
                             <span className="block text-xs font-semibold text-slate-200">{week.label}</span>
-                            <span className="text-[11px] text-slate-500">{week.count} horarios</span>
+                            <span className="text-[11px] text-slate-500">{week.count} horários</span>
                           </span>
                           <ChevronDown className={cn("h-4 w-4 text-slate-500 transition", openWeeks[week.key] && "rotate-180")} />
                         </button>
@@ -647,7 +647,7 @@ export default function AgendaPage() {
                       {formatDateTime(reservation.horarioReservado)}
                     </div>
                     <div className="mt-1 text-xs text-slate-400">
-                      {reservation.contatoNome || reservation.contatoEmail || reservation.contatoTelefone || "Contato nao informado"}
+                      {reservation.contatoNome || reservation.contatoEmail || reservation.contatoTelefone || "Contato não informado"}
                     </div>
                   </div>
                   <AppSelect
@@ -679,7 +679,7 @@ export default function AgendaPage() {
         open={clearConfirmOpen}
         onOpenChange={setClearConfirmOpen}
         title="Limpar agenda"
-        description="Todos os horarios, reservas e APIs de agenda deste projeto serao removidos. Ao gerar ou cadastrar novamente, as APIs da agenda serao recriadas."
+        description="Todos os horários, reservas e APIs de agenda deste projeto serao removidos. Ao gerar ou cadastrar novamente, as APIs da agenda serao recriadas."
         confirmText={saving ? "Limpando..." : "Remover tudo"}
         cancelText="Cancelar"
         confirmVariant="destructive"

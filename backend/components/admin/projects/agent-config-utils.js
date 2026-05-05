@@ -353,7 +353,7 @@ export function buildVersionChangeNote(version, compareVersion) {
   }
 
   if (normalizeVersionText(version.description) !== normalizeVersionText(compareVersion?.description)) {
-    items.push('descricao alterada')
+    items.push('descrição alterada')
   }
 
   const promptDiff = buildPromptDiffSummary(version.prompt, compareVersion?.prompt)

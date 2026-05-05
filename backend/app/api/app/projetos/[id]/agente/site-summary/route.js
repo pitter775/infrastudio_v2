@@ -427,7 +427,7 @@ async function generateSummaryWithOpenAI(siteDigest, currentPrompt = "") {
   const openAiKey = process.env.OPENAI_API_KEY?.trim()
 
   if (!openAiKey) {
-    throw new Error("OPENAI_API_KEY nao configurada para gerar resumo automatico.")
+    throw new Error("OPENAI_API_KEY não configurada para gerar resumo automático.")
   }
 
   const response = await fetch("https://api.openai.com/v1/responses", {
@@ -445,7 +445,7 @@ async function generateSummaryWithOpenAI(siteDigest, currentPrompt = "") {
             {
               type: "input_text",
               text:
-                "Voce recebe informacoes extraidas do site de um cliente e opcionalmente um texto ja escrito no editor do agente. Responda apenas JSON valido com as chaves summary, promptSuggestion e mergedEditorDraft. summary deve ser em portugues, enxuto, com secoes curtas: empresa, produtos/servicos, publico, diferenciais, contato, pessoas/equipe, dados institucionais, tom recomendado, palavras importantes, limites/cuidados e perguntas de qualificacao. promptSuggestion deve ser um prompt-base sugerido para um agente comercial desse negocio, sem markdown. mergedEditorDraft deve ser o melhor texto final para ficar no editor do usuario: consolidado, organizado, sem repeticoes, preservando informacoes relevantes que ja existiam e incorporando o que veio do site. Estruture bem em portugues, com blocos curtos e listas quando fizer sentido. Nao invente fatos. Se algo estiver incerto, diga que precisa de confirmacao.",
+                "Você recebe informações extraídas do site de um cliente e opcionalmente um texto já escrito no editor do agente. Responda apenas JSON válido com as chaves summary, promptSuggestion e mergedEditorDraft. summary deve ser em português, enxuto, com seções curtas: empresa, produtos/serviços, público, diferenciais, contato, pessoas/equipe, dados institucionais, tom recomendado, palavras importantes, limites/cuidados e perguntas de qualificação. promptSuggestion deve ser um prompt-base sugerido para um agente comercial desse negócio, sem markdown. mergedEditorDraft deve ser o melhor texto final para ficar no editor do usuário: consolidado, organizado, sem repetições, preservando informações relevantes que já existiam e incorporando o que veio do site. Estruture bem em português, com blocos curtos e listas quando fizer sentido. Não invente fatos. Se algo estiver incerto, diga que precisa de confirmação.",
             },
           ],
         },
@@ -456,7 +456,7 @@ async function generateSummaryWithOpenAI(siteDigest, currentPrompt = "") {
               type: "input_text",
               text: [
                 currentPrompt ? `Texto atual do editor:\n${String(currentPrompt).trim()}` : null,
-                `Informacoes extraidas do site:\n${siteDigest}`,
+                `Informações extraídas do site:\n${siteDigest}`,
               ]
                 .filter(Boolean)
                 .join("\n\n"),
@@ -494,7 +494,7 @@ async function generateSummaryWithOpenAI(siteDigest, currentPrompt = "") {
   }
 
   if (!summary) {
-    throw new Error("OpenAI nao retornou texto util para o resumo do site.")
+    throw new Error("OpenAI não retornou texto útil para o resumo do site.")
   }
 
   return {
@@ -547,14 +547,14 @@ export async function POST(request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await context.params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   const body = await request.json().catch(() => ({}))
@@ -587,7 +587,7 @@ export async function POST(request, context) {
     })
 
     if (!response.ok) {
-      return NextResponse.json({ error: `Nao foi possivel ler o site (${response.status}).` }, { status: 400 })
+      return NextResponse.json({ error: `Não foi possível ler o site (${response.status}).` }, { status: 400 })
     }
 
     const html = await response.text()
@@ -667,6 +667,6 @@ export async function POST(request, context) {
     )
   } catch (error) {
     console.error("[agente] failed to generate site summary", error)
-    return NextResponse.json({ error: error.message || "Nao foi possivel processar o site informado." }, { status: 500 })
+    return NextResponse.json({ error: error.message || "Não foi possível processar o site informado." }, { status: 500 })
   }
 }

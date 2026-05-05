@@ -7,7 +7,7 @@ export async function GET() {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const projects = await listProjectsForUser(user)
@@ -18,7 +18,7 @@ export async function POST(request) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const body = await request.json()
@@ -30,7 +30,7 @@ export async function POST(request) {
   const project = await createProject(body, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Nao foi possivel criar o projeto." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível criar o projeto." }, { status: 500 })
   }
 
   return NextResponse.json({ project }, { status: 201 })
@@ -40,7 +40,7 @@ export async function PUT(request) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const body = await request.json()
@@ -58,7 +58,7 @@ export async function PUT(request) {
   const project = await updateProject(body)
 
   if (!project) {
-    return NextResponse.json({ error: "Nao foi possivel atualizar o projeto." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível atualizar o projeto." }, { status: 500 })
   }
 
   return NextResponse.json({ project }, { status: 200 })

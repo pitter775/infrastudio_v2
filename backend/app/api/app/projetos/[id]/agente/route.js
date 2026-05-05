@@ -10,7 +10,7 @@ export async function GET(request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await context.params
@@ -35,14 +35,14 @@ export async function PATCH(request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await context.params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   const body = await request.json()
@@ -84,7 +84,7 @@ export async function PATCH(request, context) {
   )
 
   if (!agent) {
-    return NextResponse.json({ error: "Nao foi possivel atualizar o agente." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível atualizar o agente." }, { status: 500 })
   }
 
   const versions = await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user)
@@ -97,14 +97,14 @@ export async function POST(request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await context.params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   const body = await request.json()
@@ -127,7 +127,7 @@ export async function POST(request, context) {
     )
 
     if (!agent) {
-      return NextResponse.json({ error: "Nao foi possivel criar o agente." }, { status: 500 })
+      return NextResponse.json({ error: "Não foi possível criar o agente." }, { status: 500 })
     }
 
     const { widget, error } = await ensureDefaultChatWidgetForAgent(project, agent, user)
@@ -140,7 +140,7 @@ export async function POST(request, context) {
   }
 
   if (!project?.agent?.id) {
-    return NextResponse.json({ error: "Agente nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Agente não encontrado." }, { status: 404 })
   }
 
   if (body.action !== "restore_version" || !body.versionId) {
@@ -157,7 +157,7 @@ export async function POST(request, context) {
   )
 
   if (!agent) {
-    return NextResponse.json({ error: "Nao foi possivel restaurar a versao." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível restaurar a versão." }, { status: 500 })
   }
 
   const versions = await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user)

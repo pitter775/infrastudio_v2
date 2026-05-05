@@ -89,7 +89,7 @@ export function ProjectPanel({
   const agentTabs = [
     { id: 'edit', label: 'Editar agente', icon: Wand2 },
     { id: 'connections', label: 'Conexoes', icon: PlugZap },
-    { id: 'history', label: 'Historico', icon: History },
+    { id: 'history', label: 'Histórico', icon: History },
     { id: 'json', label: 'Ver JSON', icon: Files },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
@@ -240,7 +240,7 @@ export function ProjectPanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || 'Nao foi possivel criar o agente.')
+        throw new Error(data.error || 'Não foi possível criar o agente.')
       }
 
       setEditorStatus({ type: 'success', message: 'Agente e chat widget criados.' })
@@ -285,7 +285,7 @@ export function ProjectPanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || 'Nao foi possivel alterar o status do agente.')
+        throw new Error(data.error || 'Não foi possível alterar o status do agente.')
       }
 
       setAgentActive(nextActive)
@@ -326,7 +326,7 @@ export function ProjectPanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || 'Nao foi possivel restaurar a versao.')
+        throw new Error(data.error || 'Não foi possível restaurar a versão.')
       }
 
       setVersions(Array.isArray(data.versions) ? data.versions : [])
@@ -375,7 +375,7 @@ export function ProjectPanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || 'Nao foi possivel salvar o agente.')
+        throw new Error(data.error || 'Não foi possível salvar o agente.')
       }
 
       if (Array.isArray(data.versions)) {
@@ -432,7 +432,7 @@ export function ProjectPanel({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || 'Nao foi possivel gerar o resumo do site.')
+        throw new Error(data.error || 'Não foi possível gerar o resumo do site.')
       }
 
       setPromptValue((currentValue) =>
@@ -444,7 +444,7 @@ export function ProjectPanel({
       if (data?.source?.logoUrl) {
         setLogoUrl(data.source.logoUrl)
       }
-      setSiteSummaryStatus({ type: 'success', message: 'Conteudo do site adicionado ao editor sem remover seu texto.' })
+      setSiteSummaryStatus({ type: 'success', message: 'Conteúdo do site adicionado ao editor sem remover seu texto.' })
     } catch (error) {
       setSiteSummaryStatus({ type: 'error', message: error.message })
     } finally {
@@ -456,7 +456,7 @@ export function ProjectPanel({
     <>
       <SheetPanelHeader
         eyebrow="Agente"
-        description="Edite seu agente com suas politicas e regras."
+        description="Edite seu agente com suas políticas e regras."
         statusTone="sky"
         onCancel={onCloseSheet}
       />
@@ -477,7 +477,7 @@ export function ProjectPanel({
             <div className="mb-5 rounded-2xl border border-sky-500/20 bg-sky-500/10 p-4">
               <div className="text-sm font-medium text-sky-100">Projeto sem agente ativo.</div>
               <div className="mt-1 text-sm leading-6 text-slate-400">
-                Crie o agente inicial e o chat widget padrao automaticamente.
+                Crie o agente inicial e o chat widget padrão automaticamente.
               </div>
               <Button
                 type="button"
@@ -531,7 +531,7 @@ export function ProjectPanel({
                 </div>
 
                   <p className="mt-2 text-xs text-slate-500">
-                    O sistema busca informacoes do site e soma esse contexto.
+                    O sistema busca informações do site e soma esse contexto.
                   </p>
                   {logoUrl ? (
                     <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
@@ -558,7 +558,7 @@ export function ProjectPanel({
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                    Escreva suas politicas e regras do seu negocio.
+                    Escreva suas políticas e regras do seu negócio.
                   </label>
                   <Button
                     type="button"
@@ -580,7 +580,7 @@ export function ProjectPanel({
                         setPromptEditedByUser(true)
                       }
                     }}
-                    placeholder="Descreva seu negocio, os servicos ou produtos que oferece, seus diferenciais, valores, regras, limites e como voce gosta de atender seus clientes. Quanto mais claro e detalhado, melhor o agente vai conversar."
+                    placeholder="Descreva seu negócio, os serviços ou produtos que oferece, seus diferenciais, valores, regras, limites e como você gosta de atender seus clientes. Quanto mais claro e detalhado, melhor o agente vai conversar."
                     clearOnFirstInput={promptAutofillPendingClear}
                     onFirstInputClear={() => {
                       setPromptAutofillPendingClear(false)
@@ -648,10 +648,10 @@ export function ProjectPanel({
                 <div>
                   <div className="flex items-center gap-2 text-sm font-medium text-white">
                     <History className="h-4 w-4 text-sky-300" />
-                    Historico e rollback
+                    Histórico e rollback
                   </div>
                   <div className="mt-1 text-xs leading-5 text-slate-500">
-                    Restaure uma versao anterior do prompt e runtimeConfig.
+                    Restaure uma versão anterior do prompt e runtimeConfig.
                   </div>
                 </div>
               </div>
@@ -698,7 +698,7 @@ export function ProjectPanel({
                                     : "border-white/10 bg-white/[0.04] text-slate-300",
                                 )}
                               >
-                                {isCurrent ? "versao atual" : version.source === 'rollback' ? 'rollback' : 'salvamento'}
+                                {isCurrent ? "versão atual" : version.source === 'rollback' ? 'rollback' : 'salvamento'}
                               </span>
                               {!isCurrent && version.active === true ? (
                                 <span className="rounded-full border border-sky-400/20 bg-sky-500/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-sky-100">
@@ -733,7 +733,7 @@ export function ProjectPanel({
                 </div>
               ) : (
                 <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-black/10 px-4 py-3 text-sm text-slate-500">
-                  Nenhuma versao salva ainda. O historico sera criado antes do proximo salvamento.
+                  Nenhuma versão salva ainda. O historico sera criado antes do proximo salvamento.
                 </div>
               )}
             </div>
@@ -788,9 +788,9 @@ export function ProjectPanel({
             setRestoreConfirmId('')
           }
         }}
-        title="Restaurar versao do agente"
-        description="O estado atual sera salvo no historico antes do rollback."
-        confirmLabel="Restaurar versao"
+        title="Restaurar versão do agente"
+        description="O estado atual será salvo no histórico antes do rollback."
+        confirmLabel="Restaurar versão"
         loading={Boolean(restoringId)}
         onConfirm={() => (restoreConfirmId ? handleRestoreVersion(restoreConfirmId) : null)}
       />

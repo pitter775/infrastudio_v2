@@ -32,7 +32,7 @@ function getRuntimeConfigValidationError(value) {
 
     return ""
   } catch (error) {
-    return `JSON invalido: ${error.message}`
+    return `JSON inválido: ${error.message}`
   }
 }
 
@@ -155,7 +155,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel salvar o agente.")
+        throw new Error(data.error || "Não foi possível salvar o agente.")
       }
 
       if (Array.isArray(data.agent?.versions)) {
@@ -215,12 +215,12 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel restaurar a versao.")
+        throw new Error(data.error || "Não foi possível restaurar a versão.")
       }
 
       applyAgentState(data.agent)
       setVersions(Array.isArray(data.versions) ? data.versions : [])
-      setStatus({ type: "success", message: "Versao restaurada." })
+      setStatus({ type: "success", message: "Versão restaurada." })
       setRestoreConfirmId("")
       router.refresh()
     } catch (error) {
@@ -250,7 +250,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
       const createData = await createResponse.json().catch(() => ({}))
 
       if (!createResponse.ok) {
-        throw new Error(createData.error || "Nao foi possivel criar o agente.")
+        throw new Error(createData.error || "Não foi possível criar o agente.")
       }
 
       const createdAgent = createData.agent
@@ -300,7 +300,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
         }
       }
 
-      setStatus({ type: "success", message: "Agente e widget padrao criados." })
+      setStatus({ type: "success", message: "Agente e widget padrão criados." })
       router.refresh()
     } catch (error) {
       setStatus({ type: "error", message: error.message })
@@ -319,22 +319,22 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
             </div>
             <div>
               <h2 className="text-base font-semibold text-zinc-950">Criar agente</h2>
-              <p className="text-sm text-zinc-600">Informe o negocio e, se tiver, a URL do site.</p>
+              <p className="text-sm text-zinc-600">Informe o negócio e, se tiver, a URL do site.</p>
             </div>
           </div>
           <div className="inline-flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-medium text-zinc-600">
             <Sparkles className="h-3.5 w-3.5" />
-            Cria widget padrao junto
+            Cria widget padrão junto
           </div>
         </div>
 
         <form className="mt-5 space-y-4" onSubmit={handleCreateAgent}>
           <label className="block">
-            <span className="text-sm font-medium text-zinc-700">Sobre o negocio</span>
+            <span className="text-sm font-medium text-zinc-700">Sobre o negócio</span>
             <textarea
               value={setupBusinessContext}
               onChange={(event) => setSetupBusinessContext(event.target.value)}
-              placeholder="Descreva seu negocio, os servicos ou produtos que oferece, seus diferenciais, valores, regras, limites e como voce gosta de atender seus clientes. Quanto mais claro e detalhado, melhor o agente vai conversar."
+              placeholder="Descreva seu negócio, os serviços ou produtos que oferece, seus diferenciais, valores, regras, limites e como você gosta de atender seus clientes. Quanto mais claro e detalhado, melhor o agente vai conversar."
               className="mt-1 min-h-28 w-full resize-y rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10"
             />
           </label>
@@ -386,7 +386,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
           </div>
           <div>
             <h2 className="text-base font-semibold text-zinc-950">Agente ativo</h2>
-            <p className="text-sm text-zinc-500">Ajuste nome, descricao e prompt principal.</p>
+            <p className="text-sm text-zinc-500">Ajuste nome, descrição e prompt principal.</p>
           </div>
         </div>
         <Button type="button" variant="outline" className="gap-2" onClick={() => setTestOpen(true)}>
@@ -407,7 +407,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
         </label>
 
         <label className="block">
-          <span className="text-sm font-medium text-zinc-700">Descricao</span>
+          <span className="text-sm font-medium text-zinc-700">Descrição</span>
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
@@ -426,7 +426,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
           <div className="mt-2 grid gap-2 text-xs text-zinc-500 sm:grid-cols-3">
             <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">Inclua produtos, limites e tom.</span>
             <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">Diga quando deve pedir humano.</span>
-            <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">Evite dados que nao pode prometer.</span>
+            <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-2 py-1">Evite dados que não pode prometer.</span>
           </div>
         </label>
 
@@ -480,8 +480,8 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
             </p>
           ) : null}
           <div className="mt-2 space-y-2 text-xs text-zinc-500">
-            <p>So estas chaves sao usadas hoje pelo runtime: `business`, `sales`, `leadCapture` e `pricingCatalog`.</p>
-            <p>Ao salvar, o sistema limpa campos vazios e remove chaves que o orquestrador nao consome.</p>
+            <p>Só estas chaves são usadas hoje pelo runtime: `business`, `sales`, `leadCapture` e `pricingCatalog`.</p>
+            <p>Ao salvar, o sistema limpa campos vazios e remove chaves que o orquestrador não consome.</p>
           </div>
         </label>
 
@@ -519,7 +519,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
       <div className="mt-6 border-t border-zinc-200 pt-5">
         <div className="flex items-center gap-2">
           <History className="h-4 w-4 text-zinc-500" />
-          <h3 className="text-sm font-semibold text-zinc-950">Historico de versoes</h3>
+          <h3 className="text-sm font-semibold text-zinc-950">Histórico de versões</h3>
         </div>
 
         {versions.length ? (
@@ -548,7 +548,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
           </div>
         ) : (
           <p className="mt-3 rounded-lg border border-dashed border-zinc-300 bg-zinc-50 px-3 py-2 text-sm text-zinc-500">
-            Nenhuma versao salva ainda. O historico sera criado antes do proximo salvamento.
+            Nenhuma versão salva ainda. O histórico será criado antes do próximo salvamento.
           </p>
         )}
       </div>
@@ -560,9 +560,9 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
             setRestoreConfirmId("")
           }
         }}
-        title="Restaurar versao do agente"
-        description="O estado atual sera salvo no historico antes do rollback."
-        confirmLabel="Restaurar versao"
+        title="Restaurar versão do agente"
+        description="O estado atual será salvo no histórico antes do rollback."
+        confirmLabel="Restaurar versão"
         loading={Boolean(restoringId)}
         onConfirm={() => restoreConfirmId ? handleRestoreVersion(restoreConfirmId) : null}
       />

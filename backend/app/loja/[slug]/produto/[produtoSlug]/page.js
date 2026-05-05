@@ -26,7 +26,7 @@ export const revalidate = 300
 const HIDDEN_ATTRIBUTE_NAMES = new Set([
   "syi pymes id",
   "utilizações seguras",
-  "utilizacoes seguras",
+  "utilizações seguras",
   "origem do dado do pacote de fábrica",
   "origem do dado do pacote de fabrica",
   "motivo de gtin vazio",
@@ -132,10 +132,10 @@ function getAttributeGroupName(attribute) {
 
   const normalizedName = String(attribute?.name || attribute?.label || "").toLowerCase()
   if (/(altura|largura|comprimento|profundidade|diametro|di[aâ]metro|peso|volume|capacidade|espessura|medida|tamanho)/i.test(normalizedName)) {
-    return "Dimensoes"
+    return "Dimensões"
   }
   if (/(kit|unidade|formato de venda|embalagem|quantidade|pe[çc]as por kit)/i.test(normalizedName)) {
-    return "Caracteristicas de venda"
+    return "Características de venda"
   }
 
   return "Detalhes do produto"
@@ -175,7 +175,7 @@ function groupProductAttributes(attributes = []) {
     items,
   }))
     .sort((left, right) => {
-      const order = ["Caracteristicas principais", "Caracteristicas de venda", "Dimensoes", "Outros", "Detalhes do produto"]
+      const order = ["Características principais", "Características de venda", "Dimensões", "Outros", "Detalhes do produto"]
       const leftIndex = order.indexOf(left.title)
       const rightIndex = order.indexOf(right.title)
       const normalizedLeft = leftIndex === -1 ? order.length : leftIndex
@@ -347,7 +347,7 @@ function ProductPurchasePanel({
       ) : null}
       {Number(result.product.unitPrice ?? 0) > 0 ? (
         <div className="mt-1 text-sm text-slate-500">
-          Preco por unidade: {formatStoreCurrency(result.product.unitPrice, result.product.currencyId)}
+          Preço por unidade: {formatStoreCurrency(result.product.unitPrice, result.product.currencyId)}
         </div>
       ) : null}
       {result.product.originalPrice > result.product.price ? (
@@ -367,9 +367,9 @@ function ProductPurchasePanel({
       />
 
       <div className="mt-6 px-1 py-1">
-        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo da descricao</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Resumo da descrição</div>
         <div className="mt-3 grid gap-3 text-sm leading-7 text-slate-700">
-          {(descriptionBlocks.length ? descriptionBlocks : ["Este produto esta publicado na vitrine da loja com compra final no Mercado Livre."])
+          {(descriptionBlocks.length ? descriptionBlocks : ["Este produto está publicado na vitrine da loja com compra final no Mercado Livre."])
             .slice(0, 3)
             .map((block, index) => (
               <p key={`${index}-${block.slice(0, 20)}`}>{block}</p>
@@ -543,7 +543,7 @@ export default async function LojaProdutoPage({ params }) {
                     `}</style>
                     <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       <LayoutGrid className="h-4 w-4" />
-                      Caracteristicas do produto
+                      Características do produto
                     </div>
                     <div className="mt-5 grid gap-3">
                       {attributeGroups.map((group) => (
@@ -601,7 +601,7 @@ export default async function LojaProdutoPage({ params }) {
                 ) : null}
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <FileText className="h-4 w-4" />
-                  Descricao completa
+                  Descrição completa
                 </div>
                 <div className="mt-5 grid gap-4 text-[15px] leading-8 text-slate-700">
                   <div className="text-lg font-medium text-slate-950">{result.product.title}</div>

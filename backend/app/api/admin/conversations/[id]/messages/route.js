@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
   const user = await getSessionUser()
 
   if (!user) {
-    const payload = { success: false, error: "Nao autenticado." }
+    const payload = { success: false, error: "Não autenticado." }
     recordJsonApiUsage({
       route: "/api/admin/conversations/[id]/messages",
       method: "GET",
@@ -58,7 +58,7 @@ export async function GET(request, { params }) {
 
   const conversation = await getAdminConversationDetail({ chatId: id, chatIds, limit, before }, user)
   if (!conversation) {
-    const payload = { success: false, error: "Conversa nao encontrada" }
+    const payload = { success: false, error: "Conversa não encontrada" }
     recordJsonApiUsage({
       route: "/api/admin/conversations/[id]/messages",
       method: "GET",
@@ -90,7 +90,7 @@ export async function POST(request, { params }) {
   const user = await getSessionUser()
 
   if (!user) {
-    const payload = { success: false, error: "Nao autenticado." }
+    const payload = { success: false, error: "Não autenticado." }
     recordJsonApiUsage({
       route: "/api/admin/conversations/[id]/messages",
       method: "POST",
@@ -109,7 +109,7 @@ export async function POST(request, { params }) {
   const chat = await getChatById(id)
 
   if (!chat) {
-    const payload = { success: false, error: "Conversa nao encontrada" }
+    const payload = { success: false, error: "Conversa não encontrada" }
     recordJsonApiUsage({
       route: "/api/admin/conversations/[id]/messages",
       method: "POST",
@@ -164,7 +164,7 @@ export async function POST(request, { params }) {
   }
 
   if (!message) {
-    const payload = { success: false, error: "Conversa nao encontrada" }
+    const payload = { success: false, error: "Conversa não encontrada" }
     recordJsonApiUsage({
       route: "/api/admin/conversations/[id]/messages",
       method: "POST",
@@ -229,7 +229,7 @@ export async function DELETE(request, { params }) {
   const user = await getSessionUser()
 
   if (!user) {
-    const payload = { success: false, error: "Nao autenticado." }
+    const payload = { success: false, error: "Não autenticado." }
     recordJsonApiUsage({
       route: "/api/admin/conversations/[id]/messages",
       method: "DELETE",
@@ -255,7 +255,7 @@ export async function DELETE(request, { params }) {
 
   const payload = result.ok
     ? { success: true, deleted: result.deleted }
-    : { success: false, error: result.error || "Nao foi possivel excluir a conversa." }
+    : { success: false, error: result.error || "Não foi possível excluir a conversa." }
 
   recordJsonApiUsage({
     route: "/api/admin/conversations/[id]/messages",

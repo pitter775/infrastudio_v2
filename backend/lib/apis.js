@@ -369,7 +369,7 @@ function normalizeApiInput(input) {
   try {
     url = new URL(rawUrl)
   } catch {
-    return { error: "URL invalida." }
+    return { error: "URL inválida." }
   }
 
   if (!["http:", "https:"].includes(url.protocol)) {
@@ -472,7 +472,7 @@ async function executeApiTestRun(api, options = {}) {
       result: {
         ok: false,
         status: 0,
-        statusText: error.name === "AbortError" ? "Timeout" : "Erro de conexao",
+        statusText: error.name === "AbortError" ? "Timeout" : "Erro de conexão",
         durationMs: null,
         contentType: "",
         method: api.method || "GET",
@@ -611,13 +611,13 @@ export async function getApiForUser(apiId, projetoId, user) {
       if (error) {
         console.error("[apis] failed to get api", error)
       }
-      return { api: null, error: "API nao encontrada." }
+      return { api: null, error: "API não encontrada." }
     }
 
     return { api: mapApi(data), error: null }
   } catch (error) {
     console.error("[apis] failed to get api", error)
-    return { api: null, error: "Nao foi possivel carregar a API." }
+    return { api: null, error: "Não foi possível carregar a API." }
   }
 }
 
@@ -665,7 +665,7 @@ export async function replaceAgentApiLinksForUser({ agenteId, projetoId, apiIds 
       .maybeSingle()
 
     if (agentError || !agent) {
-      return { apiIds: [], error: "Agente nao encontrado." }
+      return { apiIds: [], error: "Agente não encontrado." }
     }
 
     if (nextApiIds.length) {
@@ -677,11 +677,11 @@ export async function replaceAgentApiLinksForUser({ agenteId, projetoId, apiIds 
 
       if (apiError) {
         console.error("[apis] failed to validate api links", apiError)
-        return { apiIds: [], error: "Nao foi possivel validar as APIs." }
+        return { apiIds: [], error: "Não foi possível validar as APIs." }
       }
 
       if ((projectApis ?? []).length !== nextApiIds.length) {
-        return { apiIds: [], error: "Uma ou mais APIs nao pertencem ao projeto." }
+        return { apiIds: [], error: "Uma ou mais APIs não pertencem ao projeto." }
       }
     }
 
@@ -689,7 +689,7 @@ export async function replaceAgentApiLinksForUser({ agenteId, projetoId, apiIds 
 
     if (deleteError) {
       console.error("[apis] failed to clear agent api links", deleteError)
-      return { apiIds: [], error: "Nao foi possivel atualizar os vinculos." }
+      return { apiIds: [], error: "Não foi possível atualizar os vínculos." }
     }
 
     if (nextApiIds.length) {
@@ -699,14 +699,14 @@ export async function replaceAgentApiLinksForUser({ agenteId, projetoId, apiIds 
 
       if (insertError) {
         console.error("[apis] failed to insert agent api links", insertError)
-        return { apiIds: [], error: "Nao foi possivel salvar os vinculos." }
+        return { apiIds: [], error: "Não foi possível salvar os vínculos." }
       }
     }
 
     return { apiIds: nextApiIds, error: null }
   } catch (error) {
     console.error("[apis] failed to replace agent api links", error)
-    return { apiIds: [], error: "Nao foi possivel salvar os vinculos." }
+    return { apiIds: [], error: "Não foi possível salvar os vínculos." }
   }
 }
 
@@ -732,13 +732,13 @@ export async function createApiForUser(projetoId, input, user) {
       if (error) {
         console.error("[apis] failed to create api", error)
       }
-      return { api: null, error: "Nao foi possivel criar a API." }
+      return { api: null, error: "Não foi possível criar a API." }
     }
 
     return { api: mapApi(data), error: null }
   } catch (error) {
     console.error("[apis] failed to create api", error)
-    return { api: null, error: "Nao foi possivel criar a API." }
+    return { api: null, error: "Não foi possível criar a API." }
   }
 }
 
@@ -765,7 +765,7 @@ export async function updateApiForUser(apiId, projetoId, input, user) {
       if (currentApiError) {
         console.error("[apis] failed to read api before update", currentApiError)
       }
-      return { api: null, error: "API nao encontrada." }
+      return { api: null, error: "API não encontrada." }
     }
 
     try {
@@ -779,7 +779,7 @@ export async function updateApiForUser(apiId, projetoId, input, user) {
       } else if (isApiVersionAccessError(versionError)) {
       } else {
         console.error("[apis] failed to create api version", versionError)
-        return { api: null, error: "Nao foi possivel versionar a API." }
+        return { api: null, error: "Não foi possível versionar a API." }
       }
     }
 
@@ -795,7 +795,7 @@ export async function updateApiForUser(apiId, projetoId, input, user) {
       if (error) {
         console.error("[apis] failed to update api", error)
       }
-      return { api: null, error: "Nao foi possivel atualizar a API." }
+      return { api: null, error: "Não foi possível atualizar a API." }
     }
 
     return {
@@ -807,7 +807,7 @@ export async function updateApiForUser(apiId, projetoId, input, user) {
     }
   } catch (error) {
     console.error("[apis] failed to update api", error)
-    return { api: null, error: "Nao foi possivel atualizar a API." }
+    return { api: null, error: "Não foi possível atualizar a API." }
   }
 }
 
@@ -826,7 +826,7 @@ export async function deleteApiForUser(apiId, projetoId, user) {
       .maybeSingle()
 
     if (apiError || !api) {
-      return { ok: false, error: "API nao encontrada." }
+      return { ok: false, error: "API não encontrada." }
     }
 
     await supabase.from("agente_api").delete().eq("api_id", apiId)
@@ -837,13 +837,13 @@ export async function deleteApiForUser(apiId, projetoId, user) {
 
     if (error) {
       console.error("[apis] failed to delete api", error)
-      return { ok: false, error: "Nao foi possivel deletar a API." }
+      return { ok: false, error: "Não foi possível deletar a API." }
     }
 
     return { ok: true, error: null }
   } catch (error) {
     console.error("[apis] failed to delete api", error)
-    return { ok: false, error: "Nao foi possivel deletar a API." }
+    return { ok: false, error: "Não foi possível deletar a API." }
   }
 }
 
@@ -868,7 +868,7 @@ export async function restoreApiVersionForUser({ apiId, projetoId, versionId }, 
     if (currentApiError || versionError || !currentApi || !version) {
       if (currentApiError) console.error("[apis] failed to read api before restore", currentApiError)
       if (versionError) console.error("[apis] failed to read api version", versionError)
-      return { api: null, error: "Versao de API nao encontrada." }
+      return { api: null, error: "Versão de API não encontrada." }
     }
 
     try {
@@ -879,7 +879,7 @@ export async function restoreApiVersionForUser({ apiId, projetoId, versionId }, 
       })
     } catch (snapshotError) {
       console.error("[apis] failed to create rollback snapshot", snapshotError)
-      return { api: null, error: "Nao foi possivel criar snapshot antes do rollback." }
+      return { api: null, error: "Não foi possível criar snapshot antes do rollback." }
     }
 
     const { data, error } = await supabase
@@ -902,7 +902,7 @@ export async function restoreApiVersionForUser({ apiId, projetoId, versionId }, 
       if (error) {
         console.error("[apis] failed to restore api version", error)
       }
-      return { api: null, error: "Nao foi possivel restaurar a API." }
+      return { api: null, error: "Não foi possível restaurar a API." }
     }
 
     return {
@@ -914,7 +914,7 @@ export async function restoreApiVersionForUser({ apiId, projetoId, versionId }, 
     }
   } catch (error) {
     console.error("[apis] failed to restore api version", error)
-    return { api: null, error: "Nao foi possivel restaurar a API." }
+    return { api: null, error: "Não foi possível restaurar a API." }
   }
 }
 
@@ -936,14 +936,14 @@ export async function testApiForUser(apiId, projetoId, user, options = {}) {
       if (error) {
         console.error("[apis] failed to get api for test", error)
       }
-      return { result: null, error: "API nao encontrada." }
+      return { result: null, error: "API não encontrada." }
     }
 
     const api = mapApi(data)
     return executeApiTestRun(api, options)
   } catch (error) {
     console.error("[apis] failed to test api", error)
-    return { result: null, error: "Nao foi possivel testar a API." }
+    return { result: null, error: "Não foi possível testar a API." }
   }
 }
 
@@ -976,7 +976,7 @@ export async function testApiDraftForUser(projetoId, input, user, options = {}) 
     return await executeApiTestRun(draftApi, options)
   } catch (error) {
     console.error("[apis] failed to test draft api", error)
-    return { result: null, error: "Nao foi possivel testar a API." }
+    return { result: null, error: "Não foi possível testar a API." }
   }
 }
 
@@ -1041,7 +1041,7 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
         status: 0,
         durationMs: 0,
         contentType: "",
-        preview: `API ${api.method} cadastrada. Nao foi executada automaticamente no runtime para evitar efeito colateral.`,
+        preview: `API ${api.method} cadastrada. Não foi executada automaticamente no runtime para evitar efeito colateral.`,
         campos: [],
         config: api.config,
         cache: {

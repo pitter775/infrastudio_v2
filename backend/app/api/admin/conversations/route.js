@@ -7,7 +7,7 @@ export async function GET() {
   const user = await getSessionUser()
 
   if (!user) {
-    const payload = { error: "Nao autenticado." }
+    const payload = { error: "Não autenticado." }
     recordJsonApiUsage({
       route: "/api/admin/conversations",
       method: "GET",

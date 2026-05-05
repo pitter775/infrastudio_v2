@@ -13,52 +13,52 @@ const POSSIBLE_LAB_ERRORS = [
   {
     title: "OPENAI_API_KEY ausente",
     source: "chat_orchestrator",
-    detail: "O runtime do chat nao consegue chamar o provedor e o laboratorio passa a registrar falha interna logo no inicio.",
+    detail: "O runtime do chat não consegue chamar o provedor e o laboratório passa a registrar falha interna logo no início.",
   },
   {
-    title: "Projeto ou agente invalido no widget",
+    title: "Projeto ou agente inválido no widget",
     source: "chat_service",
-    detail: "O embed aponta para projeto/agente inexistente ou inativo e o chat publico nao encontra um contexto valido para responder.",
+    detail: "O embed aponta para projeto/agente inexistente ou inativo e o chat público não encontra um contexto válido para responder.",
   },
   {
-    title: "Sessao do chat nao localizada",
+    title: "Sessão do chat não localizada",
     source: "chat_service",
-    detail: "A abertura da conversa falha e o laboratorio tende a mostrar erro de sessao nao iniciada ou nao encontrada.",
+    detail: "A abertura da conversa falha e o laboratório tende a mostrar erro de sessão não iniciada ou não encontrada.",
   },
   {
-    title: "Prompt do agente sem configuracao valida",
+    title: "Prompt do agente sem configuração válida",
     source: "chat_orchestrator",
-    detail: "O agente existe, mas a configuracao principal esta vazia ou inconsistente e a resposta nao consegue ser montada.",
+    detail: "O agente existe, mas a configuração principal está vazia ou inconsistente e a resposta não consegue ser montada.",
   },
   {
     title: "Falha para gravar mensagens no banco",
     source: "chat_service",
-    detail: "O modelo responde, mas a persistencia falha por permissao ou schema e o laboratorio registra erro de gravacao.",
+    detail: "O modelo responde, mas a persistência falha por permissão ou schema e o laboratório registra erro de gravação.",
   },
   {
     title: "Erro de runtime em API externa",
     source: "api_runtime_error",
-    detail: "Uma API conectada retorna timeout, credencial invalida ou payload inesperado e degrada a resposta final do chat.",
+    detail: "Uma API conectada retorna timeout, credencial inválida ou payload inesperado e degrada a resposta final do chat.",
   },
   {
-    title: "Webhook do Mercado Pago nao disparou",
+    title: "Webhook do Mercado Pago não disparou",
     source: "mercado_pago_webhook",
-    detail: "O checkout foi aberto e o pagamento pode ate ter sido aprovado, mas nenhuma notificacao chegou na aplicacao configurada.",
+    detail: "O checkout foi aberto e o pagamento pode até ter sido aprovado, mas nenhuma notificação chegou na aplicação configurada.",
   },
   {
     title: "Webhook do Mercado Pago rejeitado",
     source: "mercado_pago_webhook",
-    detail: "A notificacao chegou no backend, mas a assinatura foi considerada invalida e o evento nao foi processado.",
+    detail: "A notificação chegou no backend, mas a assinatura foi considerada inválida e o evento não foi processado.",
   },
   {
     title: "OAuth do Mercado Livre com redirect inconsistente",
     source: "mercado_livre_oauth",
-    detail: "O callback pode estar saindo com host diferente, state invalido ou erro na troca do code por token. Filtre por mercado_livre_oauth no laboratorio para ver redirect_uri, origin e erro real.",
+    detail: "O callback pode estar saindo com host diferente, state inválido ou erro na troca do code por token. Filtre por mercado_livre_oauth no laboratório para ver redirect_uri, origin e erro real.",
   },
   {
-    title: "Pagamento nao casou com a intent pendente",
+    title: "Pagamento não casou com a intent pendente",
     source: "mercado_pago_webhook",
-    detail: "O webhook foi recebido, mas o sistema nao encontrou uma recarga ou troca de plano pendente para vincular a confirmacao.",
+    detail: "O webhook foi recebido, mas o sistema não encontrou uma recarga ou troca de plano pendente para vincular a confirmação.",
   },
 ]
 
@@ -299,7 +299,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     const data = await logsResponse.json()
 
     if (!logsResponse.ok) {
-      setFeedback(data.error ?? "Nao foi possivel carregar os logs.")
+      setFeedback(data.error ?? "Não foi possível carregar os logs.")
       setLoading(false)
       return
     }
@@ -344,7 +344,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error ?? "Nao foi possivel alterar o dump JSON.")
+      setFeedback(data.error ?? "Não foi possível alterar o dump JSON.")
       setDumpBusy(false)
       return
     }
@@ -354,7 +354,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
       enabled: data.enabled === true,
     }))
     await refreshPayloadDumps()
-    setFeedback(data.enabled ? "Gravacao de dump JSON ativada." : "Gravacao de dump JSON desativada.")
+    setFeedback(data.enabled ? "Gravação de dump JSON ativada." : "Gravação de dump JSON desativada.")
     setDumpBusy(false)
   }
 
@@ -368,7 +368,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error ?? "Nao foi possivel limpar os dumps JSON.")
+      setFeedback(data.error ?? "Não foi possível limpar os dumps JSON.")
       setDumpBusy(false)
       return
     }
@@ -395,7 +395,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error ?? "Nao foi possivel executar o baseline.")
+      setFeedback(data.error ?? "Não foi possível executar o baseline.")
       setRunningScenarioId("")
       return
     }
@@ -421,7 +421,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok) {
-      setFeedback(data.error ?? "Nao foi possivel salvar o score humano.")
+      setFeedback(data.error ?? "Não foi possível salvar o score humano.")
       setScoringLogId("")
       return
     }
@@ -442,7 +442,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
     const data = await response.json()
 
     if (!response.ok) {
-      setFeedback(data.error ?? "Nao foi possivel limpar os eventos.")
+      setFeedback(data.error ?? "Não foi possível limpar os eventos.")
       setLoading(false)
       return
     }
@@ -457,9 +457,9 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
       <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-rose-400/20 bg-slate-950/20 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-rose-200">
           <AlertTriangle className="h-3.5 w-3.5" />
-          Permissao insuficiente
+          Permissão insuficiente
         </div>
-        <h1 className="text-2xl font-semibold text-white">Laboratorio restrito ao admin</h1>
+        <h1 className="text-2xl font-semibold text-white">Laboratório restrito ao admin</h1>
         <p className="mt-3 max-w-xl text-sm text-slate-300">
           Este painel concentra logs operacionais do chat, widget e WhatsApp.
         </p>
@@ -470,8 +470,8 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
   return (
     <div>
       <AdminPageHeader
-        title="Laboratorio"
-        description="Leitura operacional do v2 para chat publico, config do widget e eventos do worker WhatsApp."
+        title="Laboratório"
+        description="Leitura operacional do v2 para chat público, config do widget e eventos do worker WhatsApp."
         actions={
           <Button
             type="button"
@@ -503,7 +503,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Dump JSON do WhatsApp</div>
             <div className="mt-2 text-lg font-semibold text-white">
-              {payloadDumps.enabled ? "Gravacao ativada" : "Gravacao desativada"}
+              {payloadDumps.enabled ? "Gravação ativada" : "Gravação desativada"}
             </div>
             <div className="mt-1 text-sm text-slate-400">
               Arquivos disponiveis: {payloadDumps.files.length}
@@ -517,7 +517,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
               className="h-10 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 text-sm text-emerald-100"
             >
               {dumpBusy ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-              Ativar gravacao
+              Ativar gravação
             </Button>
             <Button
               type="button"
@@ -526,7 +526,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
               className="h-10 rounded-xl border border-amber-400/20 bg-amber-500/10 px-4 text-sm text-amber-100"
             >
               {dumpBusy ? <LoaderCircle className="mr-1.5 h-4 w-4 animate-spin" /> : null}
-              Desativar gravacao
+              Desativar gravação
             </Button>
             <Button
               type="button"
@@ -545,7 +545,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
             <div>Arquivo</div>
             <div>Tamanho</div>
             <div>Atualizado</div>
-            <div>Acao</div>
+            <div>Ação</div>
           </div>
           {payloadDumps.files.length ? (
             payloadDumps.files.map((file) => (
@@ -572,7 +572,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
       <div className="mb-6 rounded-xl border border-white/5 bg-[#0b1120] p-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Baseline do laboratorio</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Baseline do laboratório</div>
             <div className="mt-2 text-lg font-semibold text-white">InfraStudio Home Baseline</div>
             <div className="mt-1 text-sm text-slate-400">
               Executa os cenarios da home e compara cada resposta com a rodada anterior.
@@ -644,7 +644,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
           </div>
         ) : (
           <div className="mt-4 rounded-xl border border-dashed border-white/10 px-4 py-6 text-sm text-slate-500">
-            Ainda nao existem execucoes de baseline registradas.
+            Ainda não existem execuções de baseline registradas.
           </div>
         )}
       </div>
@@ -724,8 +724,8 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
       <ConfirmDialog
         open={clearConfirmOpen}
         onOpenChange={setClearConfirmOpen}
-        title="Limpar eventos do laboratorio"
-        description="Os eventos exibidos com os filtros atuais serao removidos do laboratorio."
+        title="Limpar eventos do laboratório"
+        description="Os eventos exibidos com os filtros atuais serão removidos do laboratório."
         confirmLabel="Limpar eventos"
         danger
         loading={loading}
@@ -757,7 +757,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
                   <SortHeader label="Projeto" sortKey="project" sort={sort} onSort={handleSort} />
                 </th>
                 <th className="px-5 py-4">
-                  <SortHeader label="Descricao" sortKey="description" sort={sort} onSort={handleSort} />
+                  <SortHeader label="Descrição" sortKey="description" sort={sort} onSort={handleSort} />
                 </th>
                 <th className="px-5 py-4 font-semibold">Detalhes</th>
               </tr>
@@ -796,7 +796,7 @@ export function AdminLaboratoryPage({ initialLogs, projects, currentUser }) {
                         {entry.payload?.mercadoPagoResourceId ? <div>mp resource: {entry.payload.mercadoPagoResourceId}</div> : null}
                         {entry.payload?.intentId ? <div>intent: {entry.payload.intentId}</div> : null}
                         {entry.payload?.billingState?.blocked != null ? (
-                          <div>billing desbloqueado: {entry.payload.billingState.blocked ? "nao" : "sim"}</div>
+                          <div>billing desbloqueado: {entry.payload.billingState.blocked ? "não" : "sim"}</div>
                         ) : null}
                         {entry.payload?.billingState?.availableCreditTokens != null ? (
                           <div>credito disponivel: {Number(entry.payload.billingState.availableCreditTokens).toLocaleString("pt-BR")}</div>

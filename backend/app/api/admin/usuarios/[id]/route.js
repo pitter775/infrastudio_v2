@@ -24,7 +24,7 @@ export async function PATCH(request, context) {
   const updated = await setUsuarioAtivo(id, body.ativo)
 
   if (!updated) {
-    return NextResponse.json({ error: "Nao foi possivel atualizar o status." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível atualizar o status." }, { status: 500 })
   }
 
   return NextResponse.json({ user: updated }, { status: 200 })
@@ -41,7 +41,7 @@ export async function DELETE(_request, context) {
   const deleted = await deleteUsuario(id)
 
   if (!deleted) {
-    return NextResponse.json({ error: "Nao foi possivel excluir o usuario." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível excluir o usuário." }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true }, { status: 200 })

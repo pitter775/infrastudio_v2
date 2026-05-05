@@ -7,14 +7,14 @@ export async function GET(_request, { params }) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await params
   const feedback = await marcarFeedbackComoLido(user, id)
 
   if (!feedback) {
-    return NextResponse.json({ error: "Feedback nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Feedback não encontrado." }, { status: 404 })
   }
 
   if (feedback === false) {
@@ -28,7 +28,7 @@ export async function PATCH(request, { params }) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await params
@@ -45,7 +45,7 @@ export async function PATCH(request, { params }) {
   }
 
   if (!feedback) {
-    return NextResponse.json({ error: "Nao foi possivel atualizar o feedback." }, { status: 400 })
+    return NextResponse.json({ error: "Não foi possível atualizar o feedback." }, { status: 400 })
   }
 
   return NextResponse.json({ feedback }, { status: 200 })

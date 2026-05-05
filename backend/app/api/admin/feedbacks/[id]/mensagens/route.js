@@ -7,7 +7,7 @@ export async function POST(request, { params }) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await params
@@ -25,11 +25,11 @@ export async function POST(request, { params }) {
   })
 
   if (feedback === false) {
-    return NextResponse.json({ error: "Nao foi possivel enviar mensagem para este feedback." }, { status: 403 })
+    return NextResponse.json({ error: "Não foi possível enviar mensagem para este feedback." }, { status: 403 })
   }
 
   if (!feedback) {
-    return NextResponse.json({ error: "Nao foi possivel enviar a mensagem." }, { status: 400 })
+    return NextResponse.json({ error: "Não foi possível enviar a mensagem." }, { status: 400 })
   }
 
   return NextResponse.json({ feedback }, { status: 201 })

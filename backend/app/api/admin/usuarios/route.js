@@ -38,7 +38,7 @@ export async function POST(request) {
   const body = await request.json()
 
   if (!body.nome || !body.email) {
-    return NextResponse.json({ error: "Nome e email sao obrigatorios." }, { status: 400 })
+    return NextResponse.json({ error: "Nome e email são obrigatórios." }, { status: 400 })
   }
 
   const created = await createUsuario({
@@ -51,7 +51,7 @@ export async function POST(request) {
   })
 
   if (!created) {
-    return NextResponse.json({ error: "Nao foi possivel criar o usuario." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível criar o usuário." }, { status: 500 })
   }
 
   return NextResponse.json({ user: created }, { status: 201 })
@@ -67,7 +67,7 @@ export async function PUT(request) {
   const body = await request.json()
 
   if (!body.id || !body.nome || !body.email) {
-    return NextResponse.json({ error: "Id, nome e email sao obrigatorios." }, { status: 400 })
+    return NextResponse.json({ error: "Id, nome e email são obrigatórios." }, { status: 400 })
   }
 
   const updated = await updateUsuario({
@@ -81,7 +81,7 @@ export async function PUT(request) {
   })
 
   if (!updated) {
-    return NextResponse.json({ error: "Nao foi possivel atualizar o usuario." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível atualizar o usuário." }, { status: 500 })
   }
 
   return NextResponse.json({ user: updated }, { status: 200 })

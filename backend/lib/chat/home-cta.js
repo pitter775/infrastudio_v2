@@ -8,34 +8,34 @@ const HOME_CTA_COPY = {
     contextSummary:
       "O visitante demonstrou interesse em automacao e atendimento via WhatsApp, com foco em conectar numero, agente, fluxo inicial e handoff humano.",
     reply:
-      "Sim. No WhatsApp voce pode conectar um numero ao projeto, publicar um agente e automatizar triagem, qualificacao, respostas iniciais e handoff para atendimento humano quando precisar.",
+      "Sim. No WhatsApp você pode conectar um número ao projeto, publicar um agente e automatizar triagem, qualificação, respostas iniciais e handoff para atendimento humano quando precisar.",
     followUpReply:
-      "Se fizer sentido para voce, da para comecar no plano free e montar o primeiro projeto para validar o fluxo.",
+      "Se fizer sentido para você, dá para começar no plano free e montar o primeiro projeto para validar o fluxo.",
   },
   mercado_livre: {
     topicLabel: "Mercado Livre",
     contextSummary:
-      "O visitante demonstrou interesse em usar o agente com operacao e contexto comercial ligados ao Mercado Livre.",
+      "O visitante demonstrou interesse em usar o agente com operação e contexto comercial ligados ao Mercado Livre.",
     reply:
-      "No Mercado Livre voce pode conectar a loja ao projeto e usar um agente para apoiar operacao, contexto comercial e evolucoes ligadas a catalogo, perguntas e rotinas da conta.",
+      "No Mercado Livre você pode conectar a loja ao projeto e usar um agente para apoiar operação, contexto comercial e evoluções ligadas a catálogo, perguntas e rotinas da conta.",
     followUpReply:
       "O melhor caminho e ativar o plano free, criar o projeto e depois conectar a estrutura para validar esse fluxo no seu ambiente.",
   },
   apis: {
     topicLabel: "APIs",
     contextSummary:
-      "O visitante demonstrou interesse em integrar o agente aos sistemas e APIs da operacao.",
+      "O visitante demonstrou interesse em integrar o agente aos sistemas e APIs da operação.",
     reply:
-      "Nas APIs voce pode ligar o agente aos seus sistemas para consultar, validar ou acionar dados do seu processo sem depender de resposta manual a cada etapa.",
+      "Nas APIs você pode ligar o agente aos seus sistemas para consultar, validar ou acionar dados do seu processo sem depender de resposta manual a cada etapa.",
     followUpReply:
-      "Voce pode testar isso no plano free criando o projeto e cadastrando as primeiras integracoes do agente.",
+      "Você pode testar isso no plano free criando o projeto e cadastrando as primeiras integrações do agente.",
   },
   chat_widget: {
     topicLabel: "Chat widget",
     contextSummary:
       "O visitante demonstrou interesse em colocar o agente no site com captura de leads e continuidade da conversa.",
     reply:
-      "No chat widget voce pode colocar o atendimento no seu site, capturar leads, responder com contexto e levar a conversa para humano ou outros canais quando fizer sentido.",
+      "No chat widget você pode colocar o atendimento no seu site, capturar leads, responder com contexto e levar a conversa para humano ou outros canais quando fizer sentido.",
     followUpReply:
       "Se quiser validar rapido, o plano free ja serve para subir o primeiro projeto e testar esse fluxo no site.",
   },

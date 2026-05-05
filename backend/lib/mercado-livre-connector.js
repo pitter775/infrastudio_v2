@@ -26,7 +26,7 @@ const MERCADO_LIVRE_AUTH_BASE = "https://auth.mercadolivre.com.br"
 function getAppAuthSecret() {
   const secret = process.env.APP_AUTH_SECRET?.trim()
   if (!secret) {
-    throw new Error("APP_AUTH_SECRET nao configurado.")
+    throw new Error("APP_AUTH_SECRET não configurado.")
   }
 
   return new TextEncoder().encode(secret)
@@ -441,7 +441,7 @@ async function updateMercadoLivreConnectorConfig(connectorId, nextConfig, deps =
 
 export async function upsertMercadoLivreConnectorForUser(project, input, user, deps = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
-    return { connector: null, error: "Projeto nao encontrado." }
+    return { connector: null, error: "Projeto não encontrado." }
   }
 
   const storeName = sanitizeString(input?.storeName)
@@ -491,7 +491,7 @@ export async function upsertMercadoLivreConnectorForUser(project, input, user, d
 
     if (error || !data) {
       console.error("[mercado-livre] failed to upsert connector", error)
-      return { connector: null, error: "Nao foi possivel salvar a conexao do Mercado Livre." }
+      return { connector: null, error: "Não foi possível salvar a conexão do Mercado Livre." }
     }
 
     await cleanupExtraMercadoLivreConnectors(supabase, project.id, data.id)
@@ -501,18 +501,18 @@ export async function upsertMercadoLivreConnectorForUser(project, input, user, d
     }
   } catch (error) {
     console.error("[mercado-livre] failed to upsert connector", error)
-    return { connector: null, error: "Nao foi possivel salvar a conexao do Mercado Livre." }
+    return { connector: null, error: "Não foi possível salvar a conexão do Mercado Livre." }
   }
 }
 
 export async function buildMercadoLivreAuthorizationUrl(project, user, origin, deps = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
-    throw new Error("Projeto nao encontrado.")
+    throw new Error("Projeto não encontrado.")
   }
 
   const connector = await getMercadoLivreConnectorByProjectId(project.id, deps)
   if (!connector?.id) {
-    throw new Error("Salve a conexao do Mercado Livre antes de autorizar a conta.")
+    throw new Error("Salve a conexão do Mercado Livre antes de autorizar a conta.")
   }
 
   const config = getConnectorConfig(connector)
@@ -704,7 +704,7 @@ export async function completeMercadoLivreOAuthCallback(searchParams, origin, de
   } catch (error) {
     await logMercadoLivreOAuthEvent({
       level: "error",
-      description: "OAuth do Mercado Livre retornou state invalido.",
+      description: "OAuth do Mercado Livre retornou state inválido.",
       payload: {
         ...callbackPayload,
         ...getMercadoLivreOAuthErrorDetails(error),
@@ -722,10 +722,10 @@ export async function completeMercadoLivreOAuthCallback(searchParams, origin, de
       projectId: parsedState.projectId,
       connectorId: parsedState.connectorId,
       level: "error",
-      description: "OAuth do Mercado Livre retornou para conector invalido.",
+      description: "OAuth do Mercado Livre retornou para conector inválido.",
       payload: callbackPayload,
     })
-    throw new Error("Conector do Mercado Livre nao encontrado.")
+    throw new Error("Conector do Mercado Livre não encontrado.")
   }
 
   await logMercadoLivreOAuthEvent({
@@ -920,7 +920,7 @@ async function listMercadoLivreUserItemIds(userId, accessToken, options = {}, de
   if (!searchResponse.ok) {
     return {
       itemIds: [],
-      error: searchPayload?.message || "Nao foi possivel listar os itens da loja no Mercado Livre.",
+      error: searchPayload?.message || "Não foi possível listar os itens da loja no Mercado Livre.",
     }
   }
 
@@ -1095,7 +1095,7 @@ async function listMercadoLivreOrders(userId, accessToken, options = {}, deps = 
     return {
       orders: [],
       paging: null,
-      error: payload?.message || "Nao foi possivel listar os pedidos da loja no Mercado Livre.",
+      error: payload?.message || "Não foi possível listar os pedidos da loja no Mercado Livre.",
     }
   }
 
@@ -1135,7 +1135,7 @@ async function listMercadoLivreQuestions(userId, accessToken, options = {}, deps
     return {
       questions: [],
       paging: null,
-      error: payload?.message || "Nao foi possivel listar as perguntas da loja no Mercado Livre.",
+      error: payload?.message || "Não foi possível listar as perguntas da loja no Mercado Livre.",
     }
   }
 
@@ -1152,14 +1152,14 @@ async function listMercadoLivreQuestions(userId, accessToken, options = {}, deps
 
 export async function listMercadoLivreTestItemsForUser(project, user, options = {}, deps = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
-    return { items: [], connector: null, error: "Projeto nao encontrado." }
+    return { items: [], connector: null, error: "Projeto não encontrado." }
   }
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
     if (!connector?.id) {
-      return { items: [], connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
+      return { items: [], connector: null, error: "Salve a conexão do Mercado Livre primeiro." }
     }
 
     const limit = Math.min(Math.max(Number(options.limit ?? 8) || 8, 1), 12)
@@ -1168,7 +1168,7 @@ export async function listMercadoLivreTestItemsForUser(project, user, options = 
       const userId = sanitizeString(config.oauthUserId)
 
       if (!userId) {
-        return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+        return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda não autorizada." }
       }
 
       const { itemIds, error: searchError } = await listMercadoLivreUserItemIds(userId, accessToken, { limit }, deps)
@@ -1193,21 +1193,21 @@ export async function listMercadoLivreTestItemsForUser(project, user, options = 
     return {
       items: [],
       connector: null,
-      error: error instanceof Error ? error.message : "Nao foi possivel listar os itens da loja.",
+      error: error instanceof Error ? error.message : "Não foi possível listar os itens da loja.",
     }
   }
 }
 
 export async function listMercadoLivreOrdersForUser(project, user, options = {}, deps = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
-    return { orders: [], paging: null, connector: null, error: "Projeto nao encontrado." }
+    return { orders: [], paging: null, connector: null, error: "Projeto não encontrado." }
   }
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
     if (!connector?.id) {
-      return { orders: [], paging: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
+      return { orders: [], paging: null, connector: null, error: "Salve a conexão do Mercado Livre primeiro." }
     }
 
     return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
@@ -1215,7 +1215,7 @@ export async function listMercadoLivreOrdersForUser(project, user, options = {},
       const userId = sanitizeString(config.oauthUserId)
 
       if (!userId) {
-        return { orders: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+        return { orders: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda não autorizada." }
       }
 
       const { orders, paging, error } = await listMercadoLivreOrders(userId, accessToken, options, deps)
@@ -1233,21 +1233,21 @@ export async function listMercadoLivreOrdersForUser(project, user, options = {},
       orders: [],
       paging: null,
       connector: null,
-      error: error instanceof Error ? error.message : "Nao foi possivel listar os pedidos da loja.",
+      error: error instanceof Error ? error.message : "Não foi possível listar os pedidos da loja.",
     }
   }
 }
 
 export async function listMercadoLivreQuestionsForUser(project, user, options = {}, deps = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
-    return { questions: [], paging: null, connector: null, error: "Projeto nao encontrado." }
+    return { questions: [], paging: null, connector: null, error: "Projeto não encontrado." }
   }
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
     if (!connector?.id) {
-      return { questions: [], paging: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
+      return { questions: [], paging: null, connector: null, error: "Salve a conexão do Mercado Livre primeiro." }
     }
 
     return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
@@ -1255,7 +1255,7 @@ export async function listMercadoLivreQuestionsForUser(project, user, options = 
       const userId = sanitizeString(config.oauthUserId)
 
       if (!userId) {
-        return { questions: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+        return { questions: [], paging: null, connector: resolvedConnector, error: "Conta do Mercado Livre ainda não autorizada." }
       }
 
       const { questions, paging, error } = await listMercadoLivreQuestions(userId, accessToken, options, deps)
@@ -1300,14 +1300,14 @@ export async function listMercadoLivreQuestionsForUser(project, user, options = 
       questions: [],
       paging: null,
       connector: null,
-      error: error instanceof Error ? error.message : "Nao foi possivel listar as perguntas da loja.",
+      error: error instanceof Error ? error.message : "Não foi possível listar as perguntas da loja.",
     }
   }
 }
 
 export async function answerMercadoLivreQuestionForUser(project, user, input = {}, deps = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
-    return { question: null, connector: null, error: "Projeto nao encontrado." }
+    return { question: null, connector: null, error: "Projeto não encontrado." }
   }
 
   const questionId = String(input.questionId || "").trim()
@@ -1321,7 +1321,7 @@ export async function answerMercadoLivreQuestionForUser(project, user, input = {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
     if (!connector?.id) {
-      return { question: null, connector: null, error: "Salve a conexao do Mercado Livre primeiro." }
+      return { question: null, connector: null, error: "Salve a conexão do Mercado Livre primeiro." }
     }
 
     return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
@@ -1344,7 +1344,7 @@ export async function answerMercadoLivreQuestionForUser(project, user, input = {
         return {
           question: null,
           connector: resolvedConnector,
-          error: payload?.message || payload?.error || "Nao foi possivel responder a pergunta no Mercado Livre.",
+          error: payload?.message || payload?.error || "Não foi possível responder a pergunta no Mercado Livre.",
         }
       }
 
@@ -1359,14 +1359,14 @@ export async function answerMercadoLivreQuestionForUser(project, user, input = {
     return {
       question: null,
       connector: null,
-      error: error instanceof Error ? error.message : "Nao foi possivel responder a pergunta da loja.",
+      error: error instanceof Error ? error.message : "Não foi possível responder a pergunta da loja.",
     }
   }
 }
 
 export async function resolveMercadoLivreProductForUser(project, productUrl, user, deps = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
-    return { product: null, error: "Projeto nao encontrado." }
+    return { product: null, error: "Projeto não encontrado." }
   }
 
   try {
@@ -1375,14 +1375,14 @@ export async function resolveMercadoLivreProductForUser(project, productUrl, use
     console.error("[mercado-livre] failed to resolve product", error)
     return {
       product: null,
-      error: error instanceof Error ? error.message : "Nao foi possivel resolver o produto da loja.",
+      error: error instanceof Error ? error.message : "Não foi possível resolver o produto da loja.",
     }
   }
 }
 
 export async function searchMercadoLivreProductsForProject(project, options = {}, deps = {}) {
   if (!project?.id) {
-    return { items: [], connector: null, error: "Projeto nao encontrado." }
+    return { items: [], connector: null, error: "Projeto não encontrado." }
   }
 
   try {
@@ -1423,14 +1423,14 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
 
     const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
     if (!connector?.id) {
-      return { items: [], connector: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
+      return { items: [], connector: null, error: "Conector do Mercado Livre não encontrado para este projeto." }
     }
 
     return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
       const config = getConnectorConfig(resolvedConnector)
       const userId = sanitizeString(config.oauthUserId)
       if (!userId) {
-        return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda nao autorizada." }
+        return { items: [], connector: resolvedConnector, error: "Conta do Mercado Livre ainda não autorizada." }
       }
 
       const { itemIds, paging, error: searchError } = await listMercadoLivreUserItemIds(
@@ -1498,21 +1498,21 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
       items: [],
       connector: null,
       paging: null,
-      error: error instanceof Error ? error.message : "Nao foi possivel buscar produtos da loja.",
+      error: error instanceof Error ? error.message : "Não foi possível buscar produtos da loja.",
     }
   }
 }
 
 export async function listMercadoLivreItemsForProject(project, options = {}, deps = {}) {
   if (!project?.id) {
-    return { items: [], connector: null, paging: null, error: "Projeto nao encontrado." }
+    return { items: [], connector: null, paging: null, error: "Projeto não encontrado." }
   }
 
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
     if (!connector?.id) {
-      return { items: [], connector: null, paging: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
+      return { items: [], connector: null, paging: null, error: "Conector do Mercado Livre não encontrado para este projeto." }
     }
 
     const limit = Math.min(Math.max(Number(options.limit ?? 20) || 20, 1), 20)
@@ -1522,7 +1522,7 @@ export async function listMercadoLivreItemsForProject(project, options = {}, dep
       const config = getConnectorConfig(resolvedConnector)
       const userId = sanitizeString(config.oauthUserId)
       if (!userId) {
-        return { items: [], connector: resolvedConnector, paging: null, error: "Conta do Mercado Livre ainda nao autorizada." }
+        return { items: [], connector: resolvedConnector, paging: null, error: "Conta do Mercado Livre ainda não autorizada." }
       }
 
       const { itemIds, paging, error: searchError } = await listMercadoLivreUserItemIds(
@@ -1592,19 +1592,19 @@ export async function listMercadoLivreItemsForProject(project, options = {}, dep
       items: [],
       connector: null,
       paging: null,
-      error: error instanceof Error ? error.message : "Nao foi possivel listar itens do Mercado Livre para sincronizacao.",
+      error: error instanceof Error ? error.message : "Não foi possível listar itens do Mercado Livre para sincronização.",
     }
   }
 }
 
 export async function getMercadoLivreProductByIdForProject(project, itemId, deps = {}) {
   if (!project?.id) {
-    return { item: null, connector: null, error: "Projeto nao encontrado." }
+    return { item: null, connector: null, error: "Projeto não encontrado." }
   }
 
   const normalizedItemId = sanitizeString(itemId)
   if (!normalizedItemId) {
-    return { item: null, connector: null, error: "Item do Mercado Livre nao informado." }
+    return { item: null, connector: null, error: "Item do Mercado Livre não informado." }
   }
 
   try {
@@ -1622,7 +1622,7 @@ export async function getMercadoLivreProductByIdForProject(project, itemId, deps
 
     const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
     if (!connector?.id) {
-      return { item: null, connector: null, error: "Conector do Mercado Livre nao encontrado para este projeto." }
+      return { item: null, connector: null, error: "Conector do Mercado Livre não encontrado para este projeto." }
     }
 
     return withMercadoLivreAuthorizedOperation(connector, deps, async ({ connector: resolvedConnector, accessToken }) => {
@@ -1631,7 +1631,7 @@ export async function getMercadoLivreProductByIdForProject(project, itemId, deps
       return {
         item,
         connector: resolvedConnector,
-        error: item ? null : "Nao foi possivel carregar o produto selecionado da loja.",
+        error: item ? null : "Não foi possível carregar o produto selecionado da loja.",
       }
     })
   } catch (error) {
@@ -1639,7 +1639,7 @@ export async function getMercadoLivreProductByIdForProject(project, itemId, deps
     return {
       item: null,
       connector: null,
-      error: error instanceof Error ? error.message : "Nao foi possivel carregar o produto selecionado da loja.",
+      error: error instanceof Error ? error.message : "Não foi possível carregar o produto selecionado da loja.",
     }
   }
 }

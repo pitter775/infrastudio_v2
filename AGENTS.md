@@ -27,6 +27,7 @@ Regras minimas que nunca mudam:
 - nao criar estrutura paralela
 - nao duplicar componente ou utilitario existente
 - nao reintroduzir imports do legado `C:\Projetos\infrastudio`
+- o projeto usa UTF-8; textos visiveis ao usuario devem ser escritos em portugues correto, com acentos e cedilha
 - toda evolucao do sistema deve tratar performance como regra, com foco especial em banco, egress e queries otimizadas
 - toda leitura no banco deve buscar apenas o necessario, com `limit`, selecao enxuta e evitando `select *`, N+1 e polling sem controle
 - novos ajustes de banco entram em `database/seeder/`, nunca em `database/geral-schema.sql`

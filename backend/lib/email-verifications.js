@@ -38,7 +38,7 @@ export async function createEmailVerificationToken(input) {
   })
 
   if (error) {
-    throw new Error(error.message || "Nao foi possivel criar o token de verificacao.")
+    throw new Error(error.message || "Não foi possível criar o token de verificação.")
   }
 
   return { token, expiresAt }
@@ -63,7 +63,7 @@ export async function sendEmailVerification(input) {
             Confirmar email
           </a>
           <p style="font-size:13px;line-height:1.7;color:#94a3b8;margin:24px 0 0;">
-            Se o botao nao abrir, use este link:<br />
+            Se o botão não abrir, use este link:<br />
             <a href="${verificationUrl}" style="color:#7dd3fc;word-break:break-all;">${verificationUrl}</a>
           </p>
         </div>

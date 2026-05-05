@@ -526,7 +526,7 @@ const tests: TestCase[] = [
         }
       )
 
-      assert.match(reply?.reply ?? "", /Nao encontrei no catalogo limite estruturado de atendimentos/i)
+      assert.match(reply?.reply ?? "", /Não encontrei no catálogo limite estruturado de atendimentos/i)
       assert.equal(reply?.metadata?.fieldFound, false)
     },
   },
@@ -578,7 +578,7 @@ const tests: TestCase[] = [
         historyLengthSource: 1,
         chatId: "chat-billing-2",
         ai: {
-          reply: "Estes sao os valores disponiveis.",
+          reply: "Estes são os valores disponíveis.",
           assets: [],
           metadata: {
             billingContextUpdate: {
@@ -667,7 +667,7 @@ const tests: TestCase[] = [
         }
       )
 
-      assert.match(reply?.reply ?? "", /Basic: R\$ 29,90\/mes \| Atendimentos: 100 atendimentos \| Agentes: 1 agente \| WhatsApp: Nao/i)
+      assert.match(reply?.reply ?? "", /Basic: R\$ 29,90\/mes \| Atendimentos: 100 atendimentos \| Agentes: 1 agente \| WhatsApp: Não/i)
       assert.match(reply?.reply ?? "", /Pro: R\$ 149,90\/mes \| Atendimentos: 500 atendimentos \| Agentes: 5 agentes \| WhatsApp: Sim \| Suporte: prioritario/i)
     },
   },
@@ -754,7 +754,7 @@ const tests: TestCase[] = [
         }
       )
 
-      assert.match(reply?.reply ?? "", /melhor proximo encaixe e o Plus/i)
+      assert.match(reply?.reply ?? "", /melhor próximo encaixe é o Plus/i)
       assert.match(reply?.reply ?? "", /O plano Plus comporta 250 atendimentos\./i)
     },
   },
@@ -865,8 +865,8 @@ const tests: TestCase[] = [
       )
 
       assert.equal(reply?.metadata?.targetPlan, "plus")
-      assert.match(reply?.reply ?? "", /melhor proximo encaixe e o Plus/i)
-      assert.match(reply?.reply ?? "", /diferenca de R\$ 50,00 sobre o Basic/i)
+      assert.match(reply?.reply ?? "", /melhor próximo encaixe é o Plus/i)
+      assert.match(reply?.reply ?? "", /diferença de R\$ 50,00 sobre o Basic/i)
       assert.match(reply?.reply ?? "", /O plano Plus custa R\$ 79,90\/mes\./i)
       assert.match(reply?.reply ?? "", /O plano Plus permite 2 agentes\./i)
     },
@@ -910,8 +910,8 @@ const tests: TestCase[] = [
       )
 
       assert.equal(reply?.metadata?.replyStrategy, "missing_recommendation_criterion")
-      assert.match(reply?.reply ?? "", /preciso que voce priorize um criterio/i)
-      assert.match(reply?.reply ?? "", /preco, atendimentos, agentes, WhatsApp ou suporte/i)
+      assert.match(reply?.reply ?? "", /preciso que você priorize um critério/i)
+      assert.match(reply?.reply ?? "", /preço, atendimentos, agentes, WhatsApp ou suporte/i)
     },
   },
   {
@@ -962,7 +962,7 @@ const tests: TestCase[] = [
       )
 
       assert.equal(reply?.metadata?.replyStrategy, "structured_plan_recommendation_multi")
-      assert.match(reply?.reply ?? "", /custo-beneficio/i)
+      assert.match(reply?.reply ?? "", /custo-benefício/i)
       assert.match(reply?.reply ?? "", /500 atendimentos/i)
       assert.match(reply?.reply ?? "", /5 agentes/i)
       assert.match(reply?.reply ?? "", /R\$ 149,90\/mes/i)
@@ -1018,7 +1018,7 @@ const tests: TestCase[] = [
       )
 
       assert.equal(reply?.metadata?.replyStrategy, "structured_plan_recommendation_multi")
-      assert.match(reply?.reply ?? "", /custo-beneficio/i)
+      assert.match(reply?.reply ?? "", /custo-benefício/i)
       assert.match(reply?.reply ?? "", /R\$ 149,90\/mes/i)
       assert.match(reply?.reply ?? "", /500 atendimentos/i)
       assert.match(reply?.reply ?? "", /5 agentes/i)
@@ -1059,8 +1059,8 @@ const tests: TestCase[] = [
         }
       )
 
-      assert.match(reply?.reply ?? "", /Nao encontrei no catalogo limite estruturado de atendimentos/i)
-      assert.match(reply?.reply ?? "", /Hoje eu tenho estruturado: preco, whatsapp\./i)
+      assert.match(reply?.reply ?? "", /Não encontrei no catálogo limite estruturado de atendimentos/i)
+      assert.match(reply?.reply ?? "", /Hoje eu tenho estruturado: preço, whatsapp\./i)
     },
   },
   {
@@ -1267,11 +1267,11 @@ const tests: TestCase[] = [
     name: "catalogo explicito falha fechado sem listingSession valida",
     run: () => {
       const decision = resolveCatalogDecisionState({
-        latestUserMessage: "Ver mais opcoes",
+        latestUserMessage: "Ver mais opções",
         context: {
           ui: {
             catalogAction: "load_more",
-            listingSessionId: "sessao-antiga",
+            listingSessionId: "sessão-antiga",
           },
           catalogo: {
             ultimaBusca: "",
@@ -1308,7 +1308,7 @@ const tests: TestCase[] = [
         chatId: "chat-1",
         historyLengthSource: 4,
         ai: {
-          reply: "Encontrei 6 opcoes. Vou te mostrar 3 agora.",
+          reply: "Encontrei 6 opções. Vou te mostrar 3 agora.",
           assets: [
             {
               id: "MLB1",
@@ -1342,7 +1342,7 @@ const tests: TestCase[] = [
       const payload = prepareAiReplyPayload({
         channelKind: "web",
         ai: {
-          reply: "Encontrei 6 opcoes. Vou te mostrar 3 agora.",
+          reply: "Encontrei 6 opções. Vou te mostrar 3 agora.",
           assets: [
             {
               id: "MLB1",
@@ -1372,10 +1372,10 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "orquestrador responde explicitamente quando load_more chega sem sessao valida",
+    name: "orquestrador responde explicitamente quando load_more chega sem sessão válida",
     run: async () => {
       const result = await executeSalesOrchestrator(
-        [{ role: "user", content: "Ver mais opcoes" }] as never,
+        [{ role: "user", content: "Ver mais opções" }] as never,
         {
           agente: {
             id: "agent-catalog-explicit-load-more",
@@ -1392,7 +1392,7 @@ const tests: TestCase[] = [
           },
           ui: {
             catalogAction: "load_more",
-            listingSessionId: "sessao-expirada",
+            listingSessionId: "sessão-expirada",
           },
           catalogo: {
             ultimaBusca: "",
@@ -1402,12 +1402,12 @@ const tests: TestCase[] = [
         {
           classifySemanticIntentStage: async () => null,
           resolveMercadoLivreSearch: async () => {
-            throw new Error("nao deveria buscar sem sessao valida")
+            throw new Error("não deveria buscar sem sessão válida")
           },
         }
       )
 
-      assert.match(result.reply, /nao consegui continuar essa lista agora/i)
+      assert.match(result.reply, /não consegui continuar essa lista agora/i)
       assert.equal(result.assets.length, 0)
     },
   },
@@ -1457,7 +1457,7 @@ const tests: TestCase[] = [
 
       assert.ok(["local_heuristic", "mercado_livre_runtime"].includes(String(result.metadata.provider)));
       assert.equal(result.metadata.domainStage, "catalog");
-      assert.match(result.reply, /quero confirmar qual voce quis dizer/i);
+      assert.match(result.reply, /quero confirmar qual você quis dizer/i);
       assert.match(result.reply, /1\. Aparelho De Jantar Oxford Ceramica/i);
       assert.match(result.reply, /2\. Aparelho De Jantar Oxford Ceramica Folk 20 Pecas/i);
       assert.match(result.reply, /me responde com 1, 2 ou 3/i);
@@ -1528,11 +1528,11 @@ const tests: TestCase[] = [
       );
 
       assert.equal(result.metadata.domainStage, "catalog");
-      assert.match(result.reply, /quero confirmar qual voce quis dizer/i);
+      assert.match(result.reply, /quero confirmar qual você quis dizer/i);
       assert.match(result.reply, /1\. Conjunto Bules Inox/i);
       assert.match(result.reply, /2\. Conjunto 2 Baldes de Gelo Inox/i);
       assert.match(result.reply, /3\. Conjunto Cha Cafe Inox/i);
-      assert.doesNotMatch(result.reply, /nao achei itens da loja com esse perfil/i);
+      assert.doesNotMatch(result.reply, /não achei itens da loja com esse perfil/i);
     },
   },
   {
@@ -1618,7 +1618,7 @@ const tests: TestCase[] = [
 
       assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
       assert.equal(result.metadata.domainStage, "catalog");
-      assert.doesNotMatch(result.reply, /quero confirmar qual voce quis dizer/i);
+      assert.doesNotMatch(result.reply, /quero confirmar qual você quis dizer/i);
       assert.match(result.reply, /encontrei 1 produto/i);
       assert.doesNotMatch(result.reply, /loja Mesa Posta/i);
       assert.match(receivedSearchTerm, /inox/i);
@@ -1675,7 +1675,7 @@ const tests: TestCase[] = [
       assert.match(result.reply, /dos itens que te mostrei, o mais caro e/i);
       assert.match(result.reply, /Aparelho De Jantar Oxford Ceramica Folk 20 Pecas/i);
       assert.match(result.reply, /R\$\s*730,00/i);
-      assert.doesNotMatch(result.reply, /nao encontrei mais itens nessa faixa/i);
+      assert.doesNotMatch(result.reply, /não encontrei mais itens nessa faixa/i);
     },
   },
   {
@@ -1735,7 +1735,7 @@ const tests: TestCase[] = [
       assert.match(result.reply, /eu iria em Jogo de Sopeira Completo/i);
       assert.match(result.reply, /frete gratis/i);
       assert.match(result.reply, /garantia 30 dias/i);
-      assert.match(result.reply, /faixa de preco/i);
+      assert.match(result.reply, /faixa de pre[cç]o/i);
     },
   },
   {
@@ -1790,7 +1790,7 @@ const tests: TestCase[] = [
         semanticIntent: {
           intent: "recent_product_reference",
           confidence: 0.9,
-          reason: "Cliente referenciou a opcao floral.",
+          reason: "Cliente referenciou a opção floral.",
           referencedProductIds: ["MLB3"],
           usedLlm: true,
         },
@@ -1810,7 +1810,7 @@ const tests: TestCase[] = [
         semanticIntent: {
           intent: "recent_product_reference_ambiguous",
           confidence: 0.86,
-          reason: "Cliente referenciou duas opcoes recentes.",
+          reason: "Cliente referenciou duas opções recentes.",
           referencedProductIds: ["MLB1", "MLB2"],
           usedLlm: true,
         },
@@ -1864,13 +1864,13 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "catalogo semantico mapeia pedido de mais opcoes para load more",
+    name: "catalogo semantico mapeia pedido de mais opções para load more",
     run: () => {
       const decision = buildCatalogDecisionFromSemanticIntent({
         semanticIntent: {
           intent: "catalog_load_more",
           confidence: 0.84,
-          reason: "Cliente pediu mais opcoes da lista.",
+          reason: "Cliente pediu mais opções da lista.",
           usedLlm: true,
         },
         recentProducts: catalogContext.catalogo?.ultimosProdutos ?? [],
@@ -1990,7 +1990,7 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "catalogo aceita acao explicita do widget para ver mais opcoes",
+    name: "catalogo aceita acao explicita do widget para ver mais opções",
     run: () => {
       const context = {
         conversation: { mode: "product_detail" },
@@ -2013,12 +2013,12 @@ const tests: TestCase[] = [
       };
 
       const decisionState = resolveCatalogDecisionState({
-        latestUserMessage: "Ver mais opcoes",
+        latestUserMessage: "Ver mais opções",
         context,
         shouldUseCatalog: true,
       });
       const state = resolveCatalogIntentState({
-        latestUserMessage: "Ver mais opcoes",
+        latestUserMessage: "Ver mais opções",
         context,
         catalogDecision: decisionState.catalogDecision,
         detectProductSearch: () => false,
@@ -2036,7 +2036,7 @@ const tests: TestCase[] = [
     name: "catalogo aceita load_more estruturado em vitrine ampla sem termo textual",
     run: async () => {
       const state = await resolveMercadoLivreHeuristicState({
-        latestUserMessage: "Ver mais opcoes",
+        latestUserMessage: "Ver mais opções",
         project: {
           id: "proj-catalog-empty-listing",
           directConnections: {
@@ -2219,7 +2219,7 @@ const tests: TestCase[] = [
         "qual tamanho?"
       );
 
-      assert.match(String(reply || ""), /Nao encontrei medidas do produto/i);
+      assert.match(String(reply || ""), /Não encontrei medidas do produto/i);
       assert.match(String(reply || ""), /medidas da embalagem/i);
     },
   },
@@ -2246,7 +2246,7 @@ const tests: TestCase[] = [
       );
 
       assert.match(String(reply || ""), /Peso da embalagem: 6500 g/i);
-      assert.doesNotMatch(String(reply || ""), /Nao encontrei o peso do produto/i);
+      assert.doesNotMatch(String(reply || ""), /Não encontrei o peso do produto/i);
     },
   },
   {
@@ -2504,7 +2504,7 @@ const tests: TestCase[] = [
     name: "catalogo responde fim explicito quando load_more chega ao fim da sessao",
     run: async () => {
       const result = await executeSalesOrchestrator(
-        [{ role: "user", content: "Ver mais opcoes" }] as never,
+        [{ role: "user", content: "Ver mais opções" }] as never,
         {
           agente: {
             id: "agent-catalog-end-of-session",
@@ -2554,7 +2554,7 @@ const tests: TestCase[] = [
         }
       );
 
-      assert.match(result.reply, /nao encontrei mais itens nessa busca no momento/i);
+      assert.match(result.reply, /não encontrei mais itens nessa busca no momento/i);
       assert.equal(result.assets.length, 0);
     },
   },
@@ -2562,7 +2562,7 @@ const tests: TestCase[] = [
     name: "catalogo recompõe reply incoerente quando a contagem real diverge da contagem textual",
     run: () => {
       const reply = enforceMercadoLivreSearchReplyCoherence(
-        "Encontrei 1 produto. Vou te mostrar as opcoes disponiveis agora.",
+        "Encontrei 1 produto. Vou te mostrar as opções disponíveis agora.",
         [
           { id: "MLB1", title: "Jarra Inox" },
           { id: "MLB2", title: "Balde Inox" },
@@ -2572,7 +2572,7 @@ const tests: TestCase[] = [
         { total: 2, offset: 0, nextOffset: 3, poolLimit: 24, hasMore: false }
       );
 
-      assert.match(reply, /encontrei 2 opcoes/i);
+      assert.match(reply, /encontrei 2 op[cç][õo]es/i);
       assert.doesNotMatch(reply, /encontrei 1 produto/i);
     },
   },
@@ -2724,7 +2724,7 @@ const tests: TestCase[] = [
       const productAsset = listedPayload.assets.find((asset: any) => asset?.id === "MLB2");
 
       const secondTurn = await executeSalesOrchestrator(
-        [{ role: "user", content: "Ver mais opcoes" }] as never,
+        [{ role: "user", content: "Ver mais opções" }] as never,
         {
           ...listedContext,
           ui: loadMoreAction?.extraContext?.ui,
@@ -2770,7 +2770,7 @@ const tests: TestCase[] = [
         ai: secondTurn,
         nextContext: afterLoadMoreContext,
         normalizedExternalIdentifier: "lead-sequence",
-        userMessage: "Ver mais opcoes",
+        userMessage: "Ver mais opções",
         agendaSlots: [],
       });
 
@@ -2982,7 +2982,7 @@ const tests: TestCase[] = [
       const productAsset = listedPayload.assets.find((asset: any) => asset?.id === "MLB2");
 
       const secondTurn = await executeSalesOrchestrator(
-        [{ role: "user", content: "Ver mais opcoes" }] as never,
+        [{ role: "user", content: "Ver mais opções" }] as never,
         {
           ...listedContext,
           ui: loadMoreAction?.extraContext?.ui,
@@ -3304,7 +3304,7 @@ const tests: TestCase[] = [
       );
 
       assert.match(String(reply || ""), /Peso da embalagem: 6500 g/i);
-      assert.doesNotMatch(String(reply || ""), /Nao encontrei o peso do produto/i);
+      assert.doesNotMatch(String(reply || ""), /Não encontrei o peso do produto/i);
     },
   },
   {
@@ -3634,24 +3634,24 @@ const tests: TestCase[] = [
         },
       });
 
-      assert.match(state.selectedProductSalesReply ?? "", /Preco atual/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Pre[cç]o atual/i);
       assert.doesNotMatch(state.selectedProductSalesReply ?? "", /escolha forte para seguir agora/i);
-      assert.match(state.selectedProductSalesReply ?? "", /Preco atual/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Pre[cç]o atual/i);
       assert.match(state.selectedProductSalesReply ?? "", /Ceramica/i);
       assert.match(state.selectedProductSalesReply ?? "", /Amarelo/i);
       assert.match(state.selectedProductSalesReply ?? "", /frete gratis/i);
       assert.match(state.selectedProductSalesReply ?? "", /30 dias/i);
-      assert.match(state.selectedProductSalesReply ?? "", /Variacoes visiveis/i);
+      assert.match(state.selectedProductSalesReply ?? "", /Variações visíveis/i);
       assert.match(state.selectedProductSalesReply ?? "", /Resumo:/i);
       assert.match(state.selectedProductSalesReply ?? "", /link direto/i);
-      assert.doesNotMatch(state.selectedProductSalesReply ?? "", /custo-beneficio/i);
+      assert.doesNotMatch(state.selectedProductSalesReply ?? "", /custo-benefício/i);
     },
   },
   {
     name: "orquestrador usa stage semantico para resolver item recente sem nova busca",
     run: async () => {
       const result = await executeSalesOrchestrator(
-        [{ role: "user", content: "me fala mais daquela opcao floral" }] as never,
+        [{ role: "user", content: "me fala mais daquela opção floral" }] as never,
         {
           agente: {
             id: "agent-catalog-semantic-reference",
@@ -3675,7 +3675,7 @@ const tests: TestCase[] = [
           classifySemanticIntentStage: async () => ({
             intent: "recent_product_reference",
             confidence: 0.93,
-            reason: "Cliente referenciou a opcao floral.",
+            reason: "Cliente referenciou a opção floral.",
             referencedProductIds: ["MLB3"],
             targetType: "",
             excludeCurrentProduct: true,
@@ -3879,7 +3879,7 @@ const tests: TestCase[] = [
 
       assert.equal(result.metadata.provider, "local_heuristic");
       assert.equal(result.metadata.domainStage, "catalog");
-      assert.match(result.reply, /Quero confirmar qual voce quis dizer/i);
+      assert.match(result.reply, /Quero confirmar qual você quis dizer/i);
       assert.match(result.reply, /Me responde com 1, 2 ou 3/i);
       assert.doesNotMatch(result.reply, /Encontrei mais de um item com esse perfil/i);
     },
@@ -3969,7 +3969,7 @@ const tests: TestCase[] = [
     run: async () => {
       let receivedSearchTerm = "";
       const result = await executeSalesOrchestrator(
-        [{ role: "user", content: "me mostra mais opcoes" }] as never,
+        [{ role: "user", content: "me mostra mais opções" }] as never,
         {
           agente: {
             id: "agent-catalog-semantic-load-more",
@@ -4001,7 +4001,7 @@ const tests: TestCase[] = [
           classifySemanticIntentStage: async () => ({
             intent: "catalog_load_more",
             confidence: 0.9,
-            reason: "Cliente pediu mais opcoes da lista.",
+            reason: "Cliente pediu mais opções da lista.",
             targetType: "",
             referencedProductIds: [],
             excludeCurrentProduct: false,
@@ -4792,7 +4792,7 @@ const tests: TestCase[] = [
 
       assert.ok(["mercado_livre_runtime", "local_heuristic"].includes(String(result.metadata.provider)));
       assert.match(result.reply, /entrega e feita pelo Mercado Livre/i);
-      assert.doesNotMatch(result.reply, /escolha forte|pontos confirmados no anuncio|custo-beneficio/i);
+      assert.doesNotMatch(result.reply, /escolha forte|pontos confirmados no anuncio|custo-benefício/i);
     },
   },
   {
@@ -4867,7 +4867,7 @@ const tests: TestCase[] = [
             error: null,
           }),
           generateSalesReply: async () => ({
-            reply: "Nao deveria usar o modelo para valor de produto em foco.",
+            reply: "Não deveria usar o modelo para valor de produto em foco.",
             assets: [{ id: "mercado-livre-1" }],
             usage: { inputTokens: 0, outputTokens: 0 },
             metadata: { provider: "test_openai", model: "fake" },
@@ -4878,11 +4878,11 @@ const tests: TestCase[] = [
       assert.equal(result.metadata.provider, "mercado_livre_runtime");
       assert.match(result.reply, /R\$\s*250,00/i);
       assert.equal(Array.isArray(result.assets) ? result.assets.length : 0, 0);
-      assert.doesNotMatch(result.reply, /Nao posso informar o valor exato/i);
+      assert.doesNotMatch(result.reply, /Não posso informar o valor exato/i);
     },
   },
   {
-    name: "pagina de produto usa classificacao semantica para buscar outro item do mesmo tipo",
+    name: "página de produto usa classificacao semantica para buscar outro item do mesmo tipo",
     run: async () => {
       let receivedSearchTerm = ""
       let receivedExcludeItemIds: string[] = []
@@ -4980,13 +4980,13 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "pagina de produto deriva busca de similares pelo contexto estruturado do item atual",
+    name: "página de produto deriva busca de similares pelo contexto estruturado do item atual",
     run: async () => {
       let receivedSearchTerm = ""
       let receivedExcludeItemIds: string[] = []
 
       const result = await executeSalesOrchestrator(
-        [{ role: "user", content: "voce tem outro produto similar a esse?" }] as never,
+        [{ role: "user", content: "você tem outro produto similar a esse?" }] as never,
         {
           agente: {
             id: "agent-mercado-livre-similar",
@@ -5213,14 +5213,14 @@ const tests: TestCase[] = [
       assert.equal(result.metadata.catalogDiagnostics?.catalogDecision?.kind, "catalog_alternative_search")
       assert.equal(receivedSearchTerm, "jogo de jantar")
       assert.deepEqual(receivedExcludeItemIds, ["MLB-ATUAL-JANTAR"])
-      assert.match(result.reply, /encontrei 2 opcoes/i)
+      assert.match(result.reply, /encontrei 2 op[cç][õo]es/i)
       assert.equal(result.assets?.[0]?.nome, "Jogo De Jantar Porcelana Floral 20 Pecas")
       assert.equal(result.assets?.[0]?.targetUrl, "https://example.com/jogo-jantar-2")
       assert.doesNotMatch(result.reply, /Jogo Bule E Leiteira/i)
     },
   },
   {
-    name: "pagina de produto nao troca detalhe por nova listagem ao perguntar material",
+    name: "página de produto nao troca detalhe por nova listagem ao perguntar material",
     run: async () => {
       const productPageContext = {
         agente: {
@@ -5345,7 +5345,7 @@ const tests: TestCase[] = [
       assert.equal(flow.productSearchRequested, false);
       assert.equal(flow.genericMercadoLivreListingRequested, false);
       assert.equal(flow.currentCatalogProduct?.id, "MLB2");
-      assert.match(state.selectedProductSalesReply ?? "", /material deste produto e Ceramica/i);
+      assert.match(state.selectedProductSalesReply ?? "", /material deste produto é Ceramica/i);
       assert.equal(state.mercadoLivreHeuristicReply, null);
       assert.equal(state.mercadoLivreAssets.length, 0);
       assert.equal(state.selectedCatalogProduct?.contextoDetalhado, true);
@@ -5354,7 +5354,7 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "pagina de produto segura pergunta factual mesmo quando o resumo local nao trouxe o atributo ainda",
+    name: "página de produto segura pergunta factual mesmo quando o resumo local nao trouxe o atributo ainda",
     run: async () => {
       const productPageContext = {
         projeto: {
@@ -5448,12 +5448,12 @@ const tests: TestCase[] = [
       assert.equal(flow.productSearchRequested, false);
       assert.equal(flow.genericMercadoLivreListingRequested, false);
       assert.equal(flow.currentCatalogProduct?.id, "MLB-OXFORD-1");
-      assert.match(state.selectedProductSalesReply ?? "", /material deste produto e Ceramica/i);
+      assert.match(state.selectedProductSalesReply ?? "", /material deste produto é Ceramica/i);
       assert.equal(state.mercadoLivreHeuristicReply, null);
     },
   },
   {
-    name: "pagina de produto mantem item travado mesmo em frase solta de reafirmacao de contexto",
+    name: "página de produto mantem item travado mesmo em frase solta de reafirmacao de contexto",
     run: async () => {
       const productPageContext = {
         projeto: {
@@ -5690,7 +5690,7 @@ const tests: TestCase[] = [
         false
       )
 
-      assert.match(prompt, /Catalogo de precos estruturado/i)
+      assert.match(prompt, /Cat[aá]logo de pre[cç]os estruturado/i)
       assert.match(prompt, /Basic: R\$ 29,90\/mes/i)
       assert.match(prompt, /Pro: R\$ 149,90\/mes/i)
     },
@@ -5734,9 +5734,9 @@ const tests: TestCase[] = [
       )
 
       assert.match(prompt, /Tecnica de vendas para produto do Mercado Livre/i)
-      assert.match(prompt, /nao como catalogo neutro/i)
-      assert.match(prompt, /Contexto travado: o cliente esta na pagina de detalhe do produto Aparelho De Jantar Oxford Ceramica/i)
-      assert.match(prompt, /Nunca diga que nao conseguiu identificar o produto/i)
+      assert.match(prompt, /n[aã]o como cat[aá]logo neutro/i)
+      assert.match(prompt, /Contexto travado: o cliente est[aá] na p[aá]gina de detalhe do produto Aparelho De Jantar Oxford Ceramica/i)
+      assert.match(prompt, /Nunca diga que n[aã]o conseguiu identificar o produto/i)
       assert.match(prompt, /Evite repetir so o titulo do produto/i)
     },
   },
@@ -5755,7 +5755,7 @@ const tests: TestCase[] = [
               },
             } as never
           ),
-        /Agente do chat sem configuracao valida de prompt/i
+        /Agente do chat sem configura[cç][aã]o v[aá]lida de prompt/i
       );
     },
   },
@@ -5824,7 +5824,7 @@ const tests: TestCase[] = [
         } as never,
         {
           generateSalesReply: async () => ({
-            reply: "A sopeira e uma boa opcao se voce quer algo mais classico e completo para servir.",
+            reply: "A sopeira e uma boa opcao se você quer algo mais classico e completo para servir.",
             assets: [],
             usage: { inputTokens: 0, outputTokens: 0 },
             metadata: { provider: "test_openai", model: "fake" },
@@ -6297,7 +6297,7 @@ const tests: TestCase[] = [
         agente: {
           id: "agent-billing-extracted-cache",
           nome: "InfraStudio",
-          promptBase: ["Basic", "R$ 29,90/mes", "Pro", "R$ 149,90/mes"].join("\n"),
+          promptBase: "Tabela cache teste. Consulte a tabela comercial interna para planos e valores.",
         },
         ui: { structured_response: false },
       } as never
@@ -6479,7 +6479,7 @@ const tests: TestCase[] = [
             }
           },
           generateSalesReply: async () => ({
-            reply: "Nao deveria usar o gerador para valor de produto em foco.",
+            reply: "Não deveria usar o gerador para valor de produto em foco.",
             assets: [],
             usage: { inputTokens: 0, outputTokens: 0 },
             metadata: {
@@ -6536,7 +6536,7 @@ const tests: TestCase[] = [
           classifySemanticIntentStage: async () => ({
             intent: "current_product_commercial_advice",
             confidence: 0.93,
-            reason: "Cliente fez objecao de custo-beneficio do produto atual.",
+            reason: "Cliente fez objecao de custo-benefício do produto atual.",
             targetType: "",
             referencedProductIds: [],
             excludeCurrentProduct: true,
@@ -6551,7 +6551,7 @@ const tests: TestCase[] = [
 
       assert.equal(result.metadata.domainStage, "catalog")
       assert.equal(result.metadata.heuristicStage, "mercado_livre_product_commercial_advice")
-      assert.match(result.reply, /custo-beneficio/i)
+      assert.match(result.reply, /custo-benefício/i)
       assert.match(result.reply, /Vidro/i)
       assert.doesNotMatch(result.reply, /^O valor atual deste produto/i)
     },
@@ -7036,7 +7036,7 @@ const tests: TestCase[] = [
         } as never,
         {
           generateSalesReply: async () => ({
-            reply: "Depende do produto que voce quer avaliar.",
+            reply: "Depende do produto que você quer avaliar.",
             assets: [],
             usage: { inputTokens: 0, outputTokens: 0 },
             metadata: {
@@ -7087,7 +7087,7 @@ const tests: TestCase[] = [
         context: whatsappContextFixture,
       });
       const sequence = buildWhatsAppMessageSequence(
-        "Encontrei algumas opcoes parecidas na loja logo abaixo. Me diga se gostou de algum ou se quer que eu traga mais opcoes nesse estilo.",
+        "Encontrei algumas opções parecidas na loja logo abaixo. Me diga se gostou de algum ou se quer que eu traga mais opções nesse estilo.",
         (whatsappContextFixture.catalogo?.ultimosProdutos ?? []).map((item: any) => ({
           nome: item.nome ?? "Produto",
           targetUrl: item.link ?? "",
@@ -7138,7 +7138,7 @@ const tests: TestCase[] = [
     name: "whatsapp envia mercado livre com link limpo e comentario comercial",
     run: () => {
       const sequence = buildWhatsAppMessageSequence(
-        "Separei alguns itens da loja para voce ver.",
+        "Separei alguns itens da loja para você ver.",
         [
           {
             kind: "product",
@@ -7153,10 +7153,10 @@ const tests: TestCase[] = [
       );
 
       assert.equal(sequence.length, 3);
-      assert.equal(sequence[0], "Separei alguns itens da loja para voce ver.");
+      assert.equal(sequence[0], "Separei alguns itens da loja para você ver.");
       assert.match(sequence[1], /^\*1\.\s+Aparelho De Jantar Oxford Ceramica\*/i);
       assert.match(sequence[1], /https:\/\/produto\.mercadolivre\.com\.br\/MLB123/);
-      assert.match(sequence[1], /pode combinar com o que voce pediu/i);
+      assert.match(sequence[1], /pode combinar com o que voc[eê] pediu/i);
       assert.match(sequence[1], /tenho 1 em estoque agora/i);
       assert.match(sequence[2], /responda MAIS/i);
       assert.match(sequence[2], /responda 1, 2 ou 3/i);
@@ -7237,7 +7237,7 @@ const tests: TestCase[] = [
     name: "whatsapp envia produto de api com link limpo e comentario comercial",
     run: () => {
       const sequence = buildWhatsAppMessageSequence(
-        "Separei uma opcao para voce ver.",
+        "Separei uma opção para você ver.",
         [
           {
             kind: "product",
@@ -7252,10 +7252,10 @@ const tests: TestCase[] = [
       );
 
       assert.equal(sequence.length, 3);
-      assert.equal(sequence[0], "Separei uma opcao para voce ver.");
+      assert.equal(sequence[0], "Separei uma opção para você ver.");
       assert.match(sequence[1], /^\*1\.\s+Kit Mesa Posta Premium\*/i);
       assert.match(sequence[1], /https:\/\/catalogo\.exemplo\.local\/produtos\/kit-mesa-posta-premium/);
-      assert.match(sequence[1], /pode combinar com o que voce pediu|parece uma opcao forte para seguir agora/i);
+      assert.match(sequence[1], /pode combinar com o que voc[eê] pediu|parece uma op[cç][aã]o forte para seguir agora/i);
       assert.match(sequence[1], /tenho 7 em estoque agora/i);
       assert.match(sequence[2], /responda MAIS/i);
       assert.match(sequence[2], /responda 1, 2 ou 3/i);
@@ -7277,7 +7277,7 @@ const tests: TestCase[] = [
         ]
       );
       const loadMore = buildWhatsAppMessageSequence(
-        "Separei mais opcoes para voce.",
+        "Separei mais opções para você.",
         [
           {
             kind: "product",
@@ -7287,14 +7287,14 @@ const tests: TestCase[] = [
             metadata: { availableQuantity: 3 },
           },
         ],
-        "Se quiser, eu continuo te mostrando outras opcoes."
+        "Se quiser, eu continuo te mostrando outras opções."
       );
 
-      assert.match(singleFocus[1], /parece a melhor opcao para seguir agora/i);
+      assert.match(singleFocus[1], /parece a melhor op[cç][aã]o para seguir agora/i);
       assert.match(singleFocus[2], /responda MAIS/i);
       assert.match(singleFocus[2], /responda 1, 2 ou 3/i);
-      assert.match(loadMore[2], /entra como mais uma opcao nessa linha/i);
-      assert.match(loadMore[2], /continuo te mandando outras variacoes parecidas/i);
+      assert.match(loadMore[2], /entra como mais uma op[cç][aã]o nessa linha/i);
+      assert.match(loadMore[2], /continuo te mandando outras varia[cç][õo]es parecidas/i);
       assert.match(loadMore[3], /responda MAIS/i);
       assert.match(loadMore[3], /responda 1, 2 ou 3/i);
     },
@@ -7327,7 +7327,7 @@ const tests: TestCase[] = [
       const broadLoadMoreDetected = isCatalogLoadMoreMessage("manda o q tiver")
       const broadCatalogDecision = resolveDeterministicCatalogFollowUpDecision("manda o q tiver", catalogContext as never, deps as never)
       const splitReply = splitCatalogReplyForWhatsApp(
-        "Encontrei algumas opcoes para voce. Me diga se gostou de algum ou se quer que eu traga mais opcoes nesse estilo.",
+        "Encontrei algumas opções para você. Me diga se gostou de algum ou se quer que eu traga mais opções nesse estilo.",
         true
       )
 
@@ -7335,7 +7335,7 @@ const tests: TestCase[] = [
       assert.equal(loadMoreDetected, true)
       assert.equal(broadLoadMoreDetected, true)
       assert.equal(broadCatalogDecision?.shouldBlockNewSearch, false)
-      assert.match(splitReply.mainReply, /Encontrei algumas opcoes/i)
+      assert.match(splitReply.mainReply, /Encontrei algumas op[cç][õo]es/i)
       assert.match(splitReply.followUpReply, /me diga se gostou de algum/i)
     },
   },
@@ -8023,7 +8023,7 @@ const tests: TestCase[] = [
       )
 
       assert.equal(result.chatId, "chat-12")
-      assert.match(result.reply, /Encontrei algumas opcoes/i)
+      assert.match(result.reply, /Encontrei algumas op[cç][õo]es/i)
       assert.equal(result.assets.length, 1)
     },
   },
@@ -8124,7 +8124,7 @@ const tests: TestCase[] = [
         channelKind: "web",
         ai: {
           reply:
-            "Encontrei algumas opcoes para voce. Me diga se gostou de algum ou se quer que eu traga mais opcoes nesse estilo.",
+            "Encontrei algumas opções para você. Me diga se gostou de algum ou se quer que eu traga mais opções nesse estilo.",
           assets: [
             {
               id: "MLB1",
@@ -8180,11 +8180,11 @@ const tests: TestCase[] = [
         normalizedExternalIdentifier: "5511999999999",
       })
 
-      assert.match(webPayload.primaryReply, /Encontrei algumas opcoes/i)
+      assert.match(webPayload.primaryReply, /Encontrei algumas op[cç][õo]es/i)
       assert.match(webPayload.followUpReply, /me diga se gostou de algum/i)
       assert.equal(webPayload.leadNameForTitle, "Julia")
       assert.equal(webPayload.actions[0]?.type, "message")
-      assert.equal(webPayload.actions[0]?.label, "Ver mais opcoes")
+      assert.equal(webPayload.actions[0]?.label, "Ver mais opções")
       assert.equal(webPayload.actions[0]?.skipUserBubble, true)
       assert.equal(webPayload.actions[0]?.extraContext?.ui?.catalogAction, "load_more")
       assert.doesNotMatch(whatsappPayload.primaryReply, /vou verificar|acolhedora/i)
@@ -9087,7 +9087,7 @@ const tests: TestCase[] = [
         }
       )
 
-      assert.match(result.reply, /melhor proximo encaixe e o Plus/i)
+      assert.match(result.reply, /melhor próximo encaixe é o Plus/i)
       assert.equal(result.metadata?.provider, "billing_runtime")
       assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "plus")
     },
@@ -9312,8 +9312,8 @@ const tests: TestCase[] = [
       )
 
       assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "plus")
-      assert.match(result.reply, /melhor proximo encaixe e o Plus/i)
-      assert.match(result.reply, /diferenca de R\$ 50,00 sobre o Basic/i)
+      assert.match(result.reply, /melhor próximo encaixe é o Plus/i)
+      assert.match(result.reply, /diferença de R\$ 50,00 sobre o Basic/i)
     },
   },
   {
@@ -9379,7 +9379,7 @@ const tests: TestCase[] = [
       )
 
       assert.equal(result.metadata?.billingDiagnostics?.targetField, null)
-      assert.match(result.reply, /preciso que voce priorize um criterio/i)
+      assert.match(result.reply, /preciso que você priorize um critério/i)
     },
   },
   {
@@ -9453,7 +9453,7 @@ const tests: TestCase[] = [
       )
 
       assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "pro")
-      assert.match(result.reply, /custo-beneficio/i)
+      assert.match(result.reply, /custo-benefício/i)
       assert.match(result.reply, /R\$ 149,90\/mes/i)
     },
   },
@@ -9530,7 +9530,7 @@ const tests: TestCase[] = [
       )
 
       assert.equal(result.metadata?.billingContextUpdate?.planFocus?.slug, "pro")
-      assert.match(result.reply, /custo-beneficio/i)
+      assert.match(result.reply, /custo-benefício/i)
       assert.match(result.reply, /R\$ 149,90\/mes/i)
       assert.match(result.reply, /5 agentes/i)
     },

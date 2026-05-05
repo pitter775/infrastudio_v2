@@ -13,7 +13,7 @@ export async function GET(request) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const searchParams = request.nextUrl.searchParams
@@ -42,7 +42,7 @@ export async function POST(request) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const body = await request.json()
@@ -60,11 +60,11 @@ export async function POST(request) {
   })
 
   if (feedback === false) {
-    return NextResponse.json({ error: "Projeto invalido para este usuario." }, { status: 403 })
+    return NextResponse.json({ error: "Projeto inválido para este usuário." }, { status: 403 })
   }
 
   if (!feedback) {
-    return NextResponse.json({ error: "Nao foi possivel criar o feedback." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível criar o feedback." }, { status: 500 })
   }
 
   return NextResponse.json({ feedback }, { status: 201 })

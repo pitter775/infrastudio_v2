@@ -41,7 +41,7 @@ export async function POST(request) {
 
     if (!rawEmail || !password) {
       return Response.json(
-        { error: "Email e senha sao obrigatorios." },
+        { error: "Email e senha são obrigatórios." },
         { status: 400 }
       )
     }
@@ -50,11 +50,11 @@ export async function POST(request) {
     const passwordOk = usuario ? passwordMatches(password, usuario.senha) : false
 
     if (!usuario || !passwordOk) {
-      return Response.json({ error: "Email ou senha invalidos." }, { status: 401 })
+      return Response.json({ error: "Email ou senha inválidos." }, { status: 401 })
     }
 
     if (usuario.ativo === false) {
-      return Response.json({ error: "Usuario inativo." }, { status: 403 })
+      return Response.json({ error: "Usuário inativo." }, { status: 403 })
     }
 
     const appUser = await ensureUsuarioHasProjeto(mapUsuarioToAppUser(usuario))
@@ -70,13 +70,13 @@ export async function POST(request) {
       /Supabase server environment variables are not configured/i.test(error.message)
     ) {
       return Response.json(
-        { error: "Configuracao do banco nao foi carregada no servidor." },
+        { error: "Configuração do banco não foi carregada no servidor." },
         { status: 503 }
       )
     }
 
     return Response.json(
-      { error: "Nao foi possivel autenticar agora." },
+      { error: "Não foi possível autenticar agora." },
       { status: 500 }
     )
   }

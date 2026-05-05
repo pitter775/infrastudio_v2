@@ -58,18 +58,18 @@ function buildPublicChatLogDescription(payload) {
   }
 
   if (payload.event === "completed") {
-    return "Chat publico processado com sucesso."
+    return "Chat público processado com sucesso."
   }
 
   if (payload.event === "validation_error") {
-    return "Falha de validacao no chat publico."
+    return "Falha de validação no chat público."
   }
 
-  return "Evento do chat publico."
+  return "Evento do chat público."
 }
 
 function shouldSkipPublicChatLog(payload) {
-  return buildPublicChatLogDescription(payload) === "Chat publico sem projeto/agente valido. Revise a configuracao do widget ou do embed."
+  return buildPublicChatLogDescription(payload) === "Chat público sem projeto/agente válido. Revise a configuração do widget ou do embed."
 }
 
 export async function recordPublicChatEvent(input = {}) {
@@ -136,10 +136,10 @@ function buildChatConfigLogDescription(payload) {
   }
 
   if (payload.event === "completed") {
-    return "Configuracao publica do chat carregada."
+    return "Configuração pública do chat carregada."
   }
 
-  return "Evento da configuracao publica do chat."
+  return "Evento da configuração pública do chat."
 }
 
 export async function recordChatConfigEvent(input = {}) {

@@ -463,7 +463,7 @@ export async function createTopUpCheckoutPreference(input, deps = {}) {
   const supabase = deps.supabase ?? getSupabaseAdminClient()
   const externalReference = buildIntentExternalReference(intentResult.intentId, "topup")
   const preferenceResult = await createMercadoPagoPreference({
-    title: input.title || "Recarga de creditos InfraStudio",
+    title: input.title || "Recarga de créditos InfraStudio",
     quantity: 1,
     unitPrice: input.price,
     externalReference,

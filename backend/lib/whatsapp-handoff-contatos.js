@@ -185,13 +185,13 @@ export async function saveWhatsAppHandoffContactForUser(project, input, user) {
       if (error) {
         console.error("[whatsapp-handoff] failed to save contact", error)
       }
-      return { contact: null, error: "Nao foi possivel salvar o atendente." }
+      return { contact: null, error: "Não foi possível salvar o atendente." }
     }
 
     return { contact: mapContact(data), error: null }
   } catch (error) {
     console.error("[whatsapp-handoff] failed to save contact", error)
-    return { contact: null, error: "Nao foi possivel salvar o atendente." }
+    return { contact: null, error: "Não foi possível salvar o atendente." }
   }
 }
 

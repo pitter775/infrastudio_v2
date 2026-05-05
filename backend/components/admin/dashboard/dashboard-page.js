@@ -76,7 +76,7 @@ export function AdminDashboardPage({ overview, currentUser }) {
   if (!currentUser || !overview) {
     return (
       <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-8 text-rose-100">
-        Sessao invalida.
+        Sessão inválida.
       </div>
     )
   }
@@ -117,14 +117,14 @@ export function AdminDashboardPage({ overview, currentUser }) {
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
               <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Perfil</div>
-              <div className="mt-1 text-sm font-semibold text-white">{isAdmin ? "Admin" : "Usuario"}</div>
+              <div className="mt-1 text-sm font-semibold text-white">{isAdmin ? "Admin" : "Usuário"}</div>
             </div>
             <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Usuario</div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Usuário</div>
               <div className="mt-1 text-sm font-semibold text-white">{overview.userName}</div>
             </div>
             <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Ultimo chat</div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Último chat</div>
               <div className="mt-1 text-sm font-semibold text-white">{formatDateTime(summary.latestChat?.updatedAt)}</div>
             </div>
           </div>
@@ -155,14 +155,14 @@ export function AdminDashboardPage({ overview, currentUser }) {
             <div className="grid gap-3">
               <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
                 <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Perfil</div>
-                <div className="mt-1 text-sm font-semibold text-white">{isAdmin ? "Admin" : "Usuario"}</div>
+                <div className="mt-1 text-sm font-semibold text-white">{isAdmin ? "Admin" : "Usuário"}</div>
               </div>
               <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Usuario</div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Usuário</div>
                 <div className="mt-1 text-sm font-semibold text-white">{overview.userName}</div>
               </div>
               <div className="rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Ultimo chat</div>
+                <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Último chat</div>
                 <div className="mt-1 text-sm font-semibold text-white">{formatDateTime(summary.latestChat?.updatedAt)}</div>
               </div>
             </div>
@@ -264,7 +264,7 @@ export function AdminDashboardPage({ overview, currentUser }) {
                 ))
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/30 p-4 text-sm text-slate-400">
-                  Sem eventos recentes no laboratorio.
+                  Sem eventos recentes no laboratório.
                 </div>
               )}
             </div>
@@ -375,7 +375,7 @@ export function AdminDashboardPage({ overview, currentUser }) {
                   ))
                 ) : (
                   <div className="rounded-2xl border border-dashed border-white/10 bg-slate-950/30 p-5 text-sm text-slate-400">
-                    Sem eventos recentes no laboratorio.
+                    Sem eventos recentes no laboratório.
                   </div>
                 )}
               </div>

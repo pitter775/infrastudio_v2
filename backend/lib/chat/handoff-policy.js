@@ -15,11 +15,11 @@ export function buildHumanHandoffReply(channelKind = "web", options = {}) {
 
   if (hasWhatsAppDestination) {
     return channelKind === "whatsapp"
-      ? "Consigo continuar por aqui no WhatsApp, mas este projeto ainda nao tem um atendente configurado para receber o chamado humano."
-      : "Consigo te direcionar para o WhatsApp, mas este projeto ainda nao tem um atendente configurado para receber o chamado humano."
+      ? "Consigo continuar por aqui no WhatsApp, mas este projeto ainda não tem um atendente configurado para receber o chamado humano."
+      : "Consigo te direcionar para o WhatsApp, mas este projeto ainda não tem um atendente configurado para receber o chamado humano."
   }
 
-  return "Este projeto ainda nao tem um atendente configurado para receber o chamado humano."
+  return "Este projeto ainda não tem um atendente configurado para receber o chamado humano."
 }
 
 export function appendOptionalHumanOffer(reply, channelKind = "web") {

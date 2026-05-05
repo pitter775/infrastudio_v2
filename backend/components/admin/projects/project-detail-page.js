@@ -312,7 +312,7 @@ export function AdminProjectDetailPage({ project }) {
     selectedPanel?.items ?? [
       'Projeto carregado do banco',
       'Agente ativo resolvido',
-      'Permissao validada pela sessao',
+      'Permissão validada pela sessão',
       'Pipeline pronto para evoluir',
     ]
 
@@ -482,7 +482,7 @@ export function AdminProjectDetailPage({ project }) {
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || 'Nao foi possivel alterar o status do agente.')
+        throw new Error(data.error || 'Não foi possível alterar o status do agente.')
       }
 
       setAgentCardActive(nextActive)

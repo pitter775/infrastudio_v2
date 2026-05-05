@@ -15,7 +15,7 @@ import { getSessionUser } from "@/lib/session"
 export async function GET(request) {
   const user = await getSessionUser()
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const url = new URL(request.url)
@@ -26,7 +26,7 @@ export async function GET(request) {
     return NextResponse.json(agenda, { status: 200 })
   } catch (error) {
     return NextResponse.json(
-      { error: error?.message || "Nao foi possivel carregar a agenda." },
+      { error: error?.message || "Não foi possível carregar a agenda." },
       { status: 500 }
     )
   }
@@ -35,7 +35,7 @@ export async function GET(request) {
 export async function POST(request) {
   const user = await getSessionUser()
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const body = await request.json()
@@ -56,7 +56,7 @@ export async function POST(request) {
 export async function PATCH(request) {
   const user = await getSessionUser()
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const body = await request.json()
@@ -77,7 +77,7 @@ export async function PATCH(request) {
 export async function DELETE(request) {
   const user = await getSessionUser()
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const body = await request.json().catch(() => ({}))

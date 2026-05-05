@@ -9,12 +9,12 @@ export async function GET() {
   const user = await getSessionUser()
 
   if (!user?.id) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const profile = await getUsuarioById(user.id)
   if (!profile) {
-    return NextResponse.json({ error: "Usuario nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 })
   }
 
   return NextResponse.json({ user: profile }, { status: 200 })
@@ -24,7 +24,7 @@ export async function PATCH(request) {
   const user = await getSessionUser()
 
   if (!user?.id) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const body = await request.json()
@@ -49,7 +49,7 @@ export async function PATCH(request) {
       })
     } catch (error) {
       return NextResponse.json(
-        { error: error instanceof Error ? error.message : "Nao foi possivel enviar a foto de perfil." },
+        { error: error instanceof Error ? error.message : "Não foi possível enviar a foto de perfil." },
         { status: 400 },
       )
     }
@@ -64,7 +64,7 @@ export async function PATCH(request) {
   })
 
   if (!updated) {
-    return NextResponse.json({ error: "Nao foi possivel atualizar o perfil." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível atualizar o perfil." }, { status: 500 })
   }
 
   await createSession(updated)

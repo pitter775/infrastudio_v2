@@ -14,7 +14,7 @@ export const conversations = [
       {
         id: "msg-002",
         autor: "atendente",
-        texto: "Bom dia, Marina. Vou verificar as informacoes e ja te retorno.",
+        texto: "Bom dia, Marina. Vou verificar as informações e já te retorno.",
         horario: "09:32",
       },
       {

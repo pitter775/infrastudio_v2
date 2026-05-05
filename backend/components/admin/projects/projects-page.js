@@ -193,7 +193,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
     const payload = await response.json()
 
     if (!response.ok) {
-      setFeedback(payload.error ?? 'Nao foi possivel salvar o projeto.')
+      setFeedback(payload.error ?? 'Não foi possível salvar o projeto.')
       setSaving(false)
       return
     }
@@ -232,7 +232,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
 
   async function confirmTransferProject() {
     if (!transferTarget?.id || !transferUserId) {
-      setTransferError('Selecione o usuario destino.')
+      setTransferError('Selecione o usuário destino.')
       return
     }
 
@@ -247,7 +247,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
     const payload = await response.json()
 
     if (!response.ok) {
-      setTransferError(payload.error ?? 'Nao foi possivel transferir o projeto.')
+      setTransferError(payload.error ?? 'Não foi possível transferir o projeto.')
       setTransferring(false)
       return
     }
@@ -285,7 +285,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
 
     if (!response.ok) {
       const code = payload.code ? `[${payload.code}] ` : ''
-      setDeleteError(`${code}${payload.error ?? 'Nao foi possivel excluir o projeto.'}`)
+      setDeleteError(`${code}${payload.error ?? 'Não foi possível excluir o projeto.'}`)
       setDeleting(false)
       return
     }
@@ -310,7 +310,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
         description={
           user?.role === 'admin'
             ? 'Perfil admin: acesso completo a todos os projetos cadastrados.'
-            : 'Projetos vinculados ao seu usuario.'
+            : 'Projetos vinculados ao seu usuário.'
         }
         actions={
           <Button
@@ -366,7 +366,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
                   <ul className="space-y-2.5 text-slate-100">
                     <li className="flex items-center gap-3">
                       <CheckCircle2 className="h-4.5 w-4.5 shrink-0 text-emerald-300" />
-                      <span>Agente configurado, agora vc inclui suas informacoes.</span>
+                      <span>Agente configurado, agora vc inclui suas informações.</span>
                     </li>
                     <li className="flex items-center gap-3">
                       <MessageSquare className="h-4.5 w-4.5 shrink-0 text-emerald-300" />
@@ -390,7 +390,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
         </div>
       ) : (
         <div className="rounded-xl border border-white/5 bg-[#0b1120] p-6 text-sm text-slate-400">
-          Nenhum projeto disponivel para este usuario.
+          Nenhum projeto disponível para este usuário.
         </div>
       )}
 
@@ -447,7 +447,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
                   onChange={(event) =>
                     setForm((current) => ({ ...current, descricao: event.target.value }))
                   }
-                  placeholder="Descricao"
+                  placeholder="Descrição"
                   rows={5}
                   className="w-full resize-none rounded-lg border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
                 />
@@ -614,9 +614,9 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
               </div>
               <h2 className="text-lg font-semibold text-white">Excluir {deleteTarget.name}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Essa acao vai remover o projeto e tudo que pertence a ele: agente, APIs,
+                Essa ação vai remover o projeto e tudo que pertence a ele: agente, APIs,
                 conectores, widgets, WhatsApp, conversas, mensagens, produtos configurados,
-                segredos, logs e vinculos de usuarios. O historico de tokens usados fica
+                segredos, logs e vínculos de usuários. O histórico de tokens usados fica
                 preservado sem vinculo com o projeto.
               </p>
             </div>
@@ -676,17 +676,17 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
               </div>
               <h2 className="text-lg font-semibold text-white">Transferir {transferTarget.name}</h2>
               <p className="mt-2 text-sm leading-6 text-slate-400">
-                Altera o dono do projeto. Se o projeto estiver ilimitado por ter sido criado por admin e for transferido para usuario comum, ele entra automaticamente no plano free.
+                Altera o dono do projeto. Se o projeto estiver ilimitado por ter sido criado por admin e for transferido para usuário comum, ele entra automaticamente no plano free.
               </p>
             </div>
 
             <label className="block space-y-2">
-              <span className="text-sm font-semibold text-slate-300">Usuario destino</span>
+              <span className="text-sm font-semibold text-slate-300">Usuário destino</span>
               <AppSelect
                 value={transferUserId}
                 onChangeValue={setTransferUserId}
                 options={transferUserOptions}
-                placeholder="Selecione um usuario"
+                placeholder="Selecione um usuário"
               />
             </label>
 

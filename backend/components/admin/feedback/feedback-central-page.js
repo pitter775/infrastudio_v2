@@ -87,7 +87,7 @@ export function AdminFeedbackPage({
     () => ({
       total: feedbacks.length,
       novos: feedbacks.filter((item) => item.status === "novo").length,
-      pendentes: feedbacks.filter((item) => (isAdmin ? item.possuiMensagemNaoLidaAdmin : item.possuiMensagemNaoLidaUsuario)).length,
+      pendentes: feedbacks.filter((item) => (isAdmin ? item.possuiMensagemNaoLidaAdmin : item.possuiMensagemNaoLidaUsuário)).length,
       fechados: feedbacks.filter((item) => item.status === "fechado").length,
     }),
     [feedbacks, isAdmin],
@@ -206,7 +206,7 @@ export function AdminFeedbackPage({
 
                 <AppSelect value={filters.ordenacao} onChangeValue={(value) => setFilters((current) => ({ ...current, ordenacao: value }))} options={toOptions(ordenacoes)} />
 
-                <AppSelect value={filters.usuarioId} onChangeValue={(value) => setFilters((current) => ({ ...current, usuarioId: value }))} options={[{ value: "", label: "Todos os usuarios" }, ...(users || []).map((user) => ({ value: user.id, label: user.nome }))]} />
+                <AppSelect value={filters.usuarioId} onChangeValue={(value) => setFilters((current) => ({ ...current, usuarioId: value }))} options={[{ value: "", label: "Todos os usuários" }, ...(users || []).map((user) => ({ value: user.id, label: user.nome }))]} />
 
                 <input
                   value={filters.busca}
@@ -263,7 +263,7 @@ export function AdminFeedbackPage({
                       <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-slate-400">
                         {item.categoria}
                       </span>
-                      {(isAdmin ? item.possuiMensagemNaoLidaAdmin : item.possuiMensagemNaoLidaUsuario) ? (
+                      {(isAdmin ? item.possuiMensagemNaoLidaAdmin : item.possuiMensagemNaoLidaUsuário) ? (
                         <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] uppercase tracking-[0.18em] text-emerald-200">
                           pendente
                         </span>
@@ -278,13 +278,13 @@ export function AdminFeedbackPage({
 
                 <div className="mt-5 grid gap-3 text-sm md:grid-cols-4">
                   <div>
-                    <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Usuario</div>
-                    <div className="mt-2 font-medium text-white">{item.usuario.nome || "Usuario"}</div>
+                    <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Usuário</div>
+                    <div className="mt-2 font-medium text-white">{item.usuario.nome || "Usuário"}</div>
                     <div className="truncate text-xs text-slate-500">{item.usuario.email || "Sem email"}</div>
                   </div>
                   <div>
                     <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Projeto</div>
-                    <div className="mt-2 font-medium text-white">{item.projeto?.nome || "Nao vinculado"}</div>
+                    <div className="mt-2 font-medium text-white">{item.projeto?.nome || "Não vinculado"}</div>
                   </div>
                   <div>
                     <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Ultima atividade</div>
@@ -314,7 +314,7 @@ export function AdminFeedbackPage({
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-slate-300">Projeto</span>
-                <AppSelect value={form.projetoId} onChangeValue={(value) => setForm((current) => ({ ...current, projetoId: value }))} options={[{ value: "", label: "Nao vinculado" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]} />
+                <AppSelect value={form.projetoId} onChangeValue={(value) => setForm((current) => ({ ...current, projetoId: value }))} options={[{ value: "", label: "Não vinculado" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]} />
               </label>
 
               <label className="block space-y-2">

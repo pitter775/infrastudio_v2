@@ -175,10 +175,10 @@ function buildCatalogLoadMoreAction(input = {}) {
 
   return {
     type: "message",
-    label: "Ver mais opcoes",
+    label: "Ver mais opções",
     icon: "sparkles",
-    message: "Ver mais opcoes",
-    userBubbleText: "Ver mais opcoes",
+    message: "Ver mais opções",
+    userBubbleText: "Ver mais opções",
     skipUserBubble: true,
     source: "widget_catalog_load_more",
     extraContext: {

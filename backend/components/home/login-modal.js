@@ -98,7 +98,7 @@ function SocialButtons({ socialLoadingProvider, onSocialLogin, dividerText }) {
               onClick={disabled ? undefined : () => onSocialLogin(provider.id)}
               disabled={disabled}
               className={socialButtonClassName}
-              title={provider.disabled ? 'Login com Facebook temporariamente indisponivel.' : undefined}
+              title={provider.disabled ? 'Login com Facebook temporariamente indisponível.' : undefined}
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
               <span className="truncate">{provider.label}</span>
@@ -219,7 +219,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
       return
     }
 
-    setLoginError(result.error ?? 'Nao foi possivel entrar agora.')
+    setLoginError(result.error ?? 'Não foi possível entrar agora.')
     setLoginLoading(false)
   }
 
@@ -232,7 +232,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     setRegisterError('')
 
     if (!name.trim() || !registerEmail.trim() || !registerPassword || !confirmPassword) {
-      setRegisterError('Preencha nome, email, senha e confirmacao.')
+      setRegisterError('Preencha nome, email, senha e confirmação.')
       return
     }
 
@@ -242,7 +242,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     }
 
     if (registerPassword !== confirmPassword) {
-      setRegisterError('A confirmacao de senha nao confere.')
+      setRegisterError('A confirmação de senha não confere.')
       return
     }
 
@@ -255,7 +255,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     })
 
     if (!result.ok) {
-      setRegisterError(result.error ?? 'Nao foi possivel concluir seu cadastro agora.')
+      setRegisterError(result.error ?? 'Não foi possível concluir seu cadastro agora.')
       setRegisterLoading(false)
       return
     }
@@ -265,7 +265,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     setRegisterPassword('')
     setConfirmPassword('')
     setLoginEmail(registerEmail)
-    setNotice(result.message ?? 'Conta criada. Voce ja pode entrar.')
+    setNotice(result.message ?? 'Conta criada. Você já pode entrar.')
     setRegisterLoading(false)
     setMode('login')
   }
@@ -279,9 +279,9 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     const result = await signInWithSocialProvider(provider)
     if (!result.ok) {
       if (mode === 'login') {
-        setLoginError(result.error ?? 'Nao foi possivel iniciar o login social.')
+        setLoginError(result.error ?? 'Não foi possível iniciar o login social.')
       } else {
-        setRegisterError(result.error ?? 'Nao foi possivel iniciar o login social.')
+        setRegisterError(result.error ?? 'Não foi possível iniciar o login social.')
       }
       setSocialLoadingProvider(null)
     }
@@ -299,7 +299,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
           <div className="border-b border-slate-200 bg-slate-50/90 px-6 py-5 dark:border-white/10 dark:bg-white/5">
             <div className="mb-3 inline-flex items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.22em] text-blue-300">
               <Lock className="h-3.5 w-3.5" />
-              {mode === 'login' ? 'Acesso rapido' : 'Criar conta'}
+              {mode === 'login' ? 'Acesso rápido' : 'Criar conta'}
             </div>
             <Dialog.Title className="pr-10 text-2xl font-semibold text-slate-900 dark:text-white">
               {mode === 'login' ? 'Acesse sua conta' : 'Crie sua conta'}
@@ -399,7 +399,7 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
                       type="password"
                       value={registerPassword}
                       onChange={setRegisterPassword}
-                      placeholder="Minimo 6 caracteres"
+                      placeholder="Mínimo 6 caracteres"
                       autoComplete="new-password"
                     />
                     <Field
@@ -437,4 +437,3 @@ export function LoginModal({ open, onOpenChange, initialNotice = '' }) {
     </Dialog.Root>
   )
 }
-

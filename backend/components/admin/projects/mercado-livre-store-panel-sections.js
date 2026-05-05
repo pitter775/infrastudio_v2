@@ -22,14 +22,14 @@ export function StoreGeneralSection({
       <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className={`rounded-full border px-3 py-1 ${draft.active ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100' : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}>
-            {draft.active ? 'Loja publica ativa' : 'Loja publica desativada'}
+            {draft.active ? 'Loja pública ativa' : 'Loja pública desativada'}
           </span>
           <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-slate-300">
             {snapshotTotal > 0 ? `${snapshotTotal} produtos no snapshot` : 'Snapshot ainda vazio'}
           </span>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <span>Link publico:</span>
+          <span>Link público:</span>
           <a href={publicUrl} target="_blank" rel="noreferrer" className="break-all text-sky-200 underline-offset-4 hover:underline">
             {publicUrl}
           </a>
@@ -64,7 +64,7 @@ export function StoreGeneralSection({
           </Button>
         </div>
         <div className="mt-2 text-xs text-slate-400">
-          A loja fica ativa por padrao ao salvar. Se desligar manualmente, o link publico volta a responder `404`.
+          A loja fica ativa por padrão ao salvar. Se desligar manualmente, o link público volta a responder `404`.
         </div>
       </div>
       <StorePanelInput
@@ -93,7 +93,7 @@ export function StoreGeneralSection({
         labelOn="Ligada"
         labelOff="Desligada"
       >
-        Loja publica
+        Loja pública
       </StorePanelToggle>
       <div className="md:col-span-2">
         <StorePanelTextarea
@@ -213,7 +213,7 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
         Contexto completo no chat do produto
       </StorePanelToggle>
       <div className="md:col-span-2 rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 text-xs leading-6 text-slate-400">
-        Quando ligar, a pagina de detalhe do produto envia a descricao longa completa e uma ficha mais ampla do anuncio para o agente. Desligado, o chat continua no modo resumido atual.
+        Quando ligar, a página de detalhe do produto envia a descrição longa completa e uma ficha mais ampla do anuncio para o agente. Desligado, o chat continua no modo resumido atual.
       </div>
       <div className="md:col-span-2 rounded-2xl border border-white/10 bg-[#0a1020] p-4">
         <div className="mb-4 text-sm font-semibold text-white">Hero da loja</div>
@@ -385,7 +385,7 @@ export function StoreFeaturedSection({
           </div>
           {isSnapshotEmpty ? (
             <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 px-3 py-3 text-xs leading-6 text-amber-100">
-              A vitrine publica usa apenas o snapshot local. Sincronize agora para trazer os produtos da conta conectada.
+              A vitrine pública usa apenas o snapshot local. Sincronize agora para trazer os produtos da conta conectada.
             </div>
           ) : null}
         </div>
@@ -593,10 +593,10 @@ export function StoreDomainSection({ draft, setDraft, publicUrl }) {
           Dominio proprio da loja
         </div>
         <div className="mt-3 text-sm leading-7 text-slate-400">
-          Esta aba prepara a loja para rodar em um dominio do cliente. A resolucao publica pode ser ligada depois, mas a configuracao e o preview ja ficam salvos agora.
+          Esta aba prepara a loja para rodar em um domínio do cliente. A resolução pública pode ser ligada depois, mas a configuração e o preview já ficam salvos agora.
         </div>
         <div className="mt-4 grid gap-2 text-xs text-slate-400">
-          <div>Dominio padrao atual: {publicUrl}</div>
+          <div>Domínio padrão atual: {publicUrl}</div>
           {domainPreview ? <div>Dominio previsto: {domainPreview}</div> : null}
           <div>DNS sugerido: criar `CNAME` de `www` apontando para `infrastudio.pro`.</div>
         </div>
@@ -633,7 +633,7 @@ export function StoreDomainSection({ draft, setDraft, publicUrl }) {
       </StorePanelToggle>
 
       <StorePanelTextarea
-        label="Observacoes de dominio"
+        label="Observações de domínio"
         value={draft.customDomainNotes}
         onChange={(event) => setDraft((current) => ({ ...current, customDomainNotes: event.target.value }))}
         className="min-h-[110px]"

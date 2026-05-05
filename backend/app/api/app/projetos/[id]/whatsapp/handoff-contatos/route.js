@@ -12,13 +12,13 @@ async function loadProject(identifier) {
   const user = await getSessionUser()
 
   if (!user) {
-    return { response: NextResponse.json({ error: "Nao autenticado." }, { status: 401 }) }
+    return { response: NextResponse.json({ error: "Não autenticado." }, { status: 401 }) }
   }
 
   const project = await getProjectAccessForUser(identifier, user)
 
   if (!project) {
-    return { response: NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 }) }
+    return { response: NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 }) }
   }
 
   return { user, project }

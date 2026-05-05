@@ -54,7 +54,7 @@ export function BillingSummaryCard({ billing }) {
       <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
           <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">Plano</div>
-          <div className="mt-2 text-sm font-semibold text-zinc-950">{config?.planName || "Sem configuracao"}</div>
+          <div className="mt-2 text-sm font-semibold text-zinc-950">{config?.planName || "Sem configuração"}</div>
           <div className="mt-1 text-xs text-zinc-500">{billing?.mode || "plano"}</div>
         </div>
 
@@ -81,10 +81,10 @@ export function BillingSummaryCard({ billing }) {
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
           <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{isUserScoped ? "Escopo" : "Tokens avulsos"}</div>
           <div className="mt-2 text-sm font-semibold text-zinc-950">
-            {isUserScoped ? "Seu usuario" : formatInteger(billing?.topUps?.totalTokens ?? 0)}
+            {isUserScoped ? "Seu usuário" : formatInteger(billing?.topUps?.totalTokens ?? 0)}
           </div>
           <div className="mt-1 text-xs text-zinc-500">
-            {isUserScoped ? billing?.scope?.email || "Consumo privado" : `${billing?.topUps?.availableCount ?? 0} lote(s) disponivel(is)`}
+            {isUserScoped ? billing?.scope?.email || "Consumo privado" : `${billing?.topUps?.availableCount ?? 0} lote(s) disponível(is)`}
           </div>
         </div>
       </div>

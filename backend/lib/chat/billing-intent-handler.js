@@ -149,7 +149,7 @@ function buildFactValue(plan, field) {
   }
 
   if (field === "credit_limit") {
-    return formatNumberLabel(plan.creditLimit, "credito", "creditos")
+    return formatNumberLabel(plan.creditLimit, "crédito", "créditos")
   }
 
   if (field === "whatsapp_included") {
@@ -157,7 +157,7 @@ function buildFactValue(plan, field) {
       return null
     }
 
-    return plan.whatsappIncluded ? "Sim" : "Nao"
+    return plan.whatsappIncluded ? "Sim" : "Não"
   }
 
   if (field === "support_level") {
@@ -180,9 +180,9 @@ function buildFactSentence(plan, field) {
   const fieldLabels = {
     attendance_limit: `O plano ${plan.name} comporta ${factValue}.`,
     agent_limit: `O plano ${plan.name} permite ${factValue}.`,
-    credit_limit: `O plano ${plan.name} inclui ${factValue} por mes.`,
+    credit_limit: `O plano ${plan.name} inclui ${factValue} por mês.`,
     whatsapp_included: `No plano ${plan.name}, WhatsApp: ${factValue}.`,
-    support_level: `No plano ${plan.name}, o suporte e ${factValue}.`,
+    support_level: `No plano ${plan.name}, o suporte é ${factValue}.`,
     price: `O plano ${plan.name} custa ${factValue}.`,
   }
 
@@ -202,10 +202,10 @@ function buildSinglePlanSummary(plan) {
     lines.push(`- Agentes: ${agentLabel}`)
   }
   if (creditLabel) {
-    lines.push(`- Creditos: ${creditLabel}`)
+    lines.push(`- Créditos: ${creditLabel}`)
   }
   if (plan.whatsappIncluded != null) {
-    lines.push(`- WhatsApp: ${plan.whatsappIncluded ? "Sim" : "Nao"}`)
+    lines.push(`- WhatsApp: ${plan.whatsappIncluded ? "Sim" : "Não"}`)
   }
   if (plan.supportLevel) {
     lines.push(`- Suporte: ${plan.supportLevel}`)
@@ -230,10 +230,10 @@ function buildComparisonPlanSummary(plan) {
     lines.push(`Agentes: ${agentLabel}`)
   }
   if (creditLabel) {
-    lines.push(`Creditos: ${creditLabel}`)
+    lines.push(`Créditos: ${creditLabel}`)
   }
   if (plan.whatsappIncluded != null) {
-    lines.push(`WhatsApp: ${plan.whatsappIncluded ? "Sim" : "Nao"}`)
+    lines.push(`WhatsApp: ${plan.whatsappIncluded ? "Sim" : "Não"}`)
   }
   if (plan.supportLevel) {
     lines.push(`Suporte: ${plan.supportLevel}`)
@@ -260,7 +260,7 @@ function buildComparisonFieldLabel(field) {
   const labels = {
     attendance_limit: "Atendimentos",
     agent_limit: "Agentes",
-    credit_limit: "Creditos",
+    credit_limit: "Créditos",
     whatsapp_included: "WhatsApp",
     support_level: "Suporte",
     price: "Preco",
@@ -360,7 +360,7 @@ function buildFocusedComparisonReply(plans = [], fields = []) {
 
     const winnerLead =
       field === "price"
-        ? `${winner.name} e o menor preco nesse criterio.`
+        ? `${winner.name} é o menor preço nesse critério.`
         : `${winner.name} lidera em ${fieldLabel.toLowerCase()}.`
 
     return `${valuesLine} ${winnerLead}`
@@ -373,13 +373,13 @@ function buildFallbackFieldMissingReply(plan, field) {
   const fieldLabels = {
     attendance_limit: "limite estruturado de atendimentos",
     agent_limit: "limite estruturado de agentes",
-    credit_limit: "limite estruturado de creditos",
-    whatsapp_included: "informacao estruturada de WhatsApp",
-    support_level: "nivel estruturado de suporte",
+    credit_limit: "limite estruturado de créditos",
+    whatsapp_included: "informação estruturada de WhatsApp",
+    support_level: "nível estruturado de suporte",
   }
 
   const label = fieldLabels[field] || "esse dado estruturado"
-  return `Nao encontrei no catalogo ${label} para o plano ${plan.name}.`
+  return `Não encontrei no catálogo ${label} para o plano ${plan.name}.`
 }
 
 function listStructuredFieldsForPlan(plan) {
@@ -388,10 +388,10 @@ function listStructuredFieldsForPlan(plan) {
   }
 
   const fields = []
-  if (plan.priceLabel) fields.push("preco")
+  if (plan.priceLabel) fields.push("preço")
   if (plan.attendanceLimit != null) fields.push("atendimentos")
   if (plan.agentLimit != null) fields.push("agentes")
-  if (plan.creditLimit != null) fields.push("creditos")
+  if (plan.creditLimit != null) fields.push("créditos")
   if (plan.whatsappIncluded != null) fields.push("whatsapp")
   if (plan.supportLevel) fields.push("suporte")
   return fields
@@ -407,7 +407,7 @@ function buildAvailableFieldsHint(plans = []) {
 }
 
 function buildClarifyingRecommendationReply(plans = []) {
-  return `Para te recomendar com seguranca, preciso que voce priorize um criterio: preco, atendimentos, agentes, WhatsApp ou suporte.${buildAvailableFieldsHint(plans)}`
+  return `Para te recomendar com segurança, preciso que você priorize um critério: preço, atendimentos, agentes, WhatsApp ou suporte.${buildAvailableFieldsHint(plans)}`
 }
 
 function deriveRecommendationFieldsFromPlans(plans = []) {
@@ -467,18 +467,18 @@ function buildRecommendationLead(recommendedPlan, currentPlan, fields = [], reco
     if (fields.includes("price") && recommendedPlan.amount != null && currentPlan.amount != null) {
       const delta = Number(recommendedPlan.amount) - Number(currentPlan.amount)
       if (delta > 0) {
-        return `Se a prioridade e equilibrar custo e capacidade, o melhor proximo encaixe e o ${recommendedPlan.name}, com diferenca de R$ ${delta.toFixed(2).replace(".", ",")} sobre o ${currentPlan.name}.`
+        return `Se a prioridade é equilibrar custo e capacidade, o melhor próximo encaixe é o ${recommendedPlan.name}, com diferença de R$ ${delta.toFixed(2).replace(".", ",")} sobre o ${currentPlan.name}.`
       }
     }
 
-    return `Se a prioridade e esse criterio, o melhor proximo encaixe e o ${recommendedPlan.name}.`
+    return `Se a prioridade é esse critério, o melhor próximo encaixe é o ${recommendedPlan.name}.`
   }
 
   if (fields.includes("price") && recommendationPool.length >= 2) {
-    return `Considerando custo-beneficio dentro do catalogo atual, o plano que mais faz sentido hoje e o ${recommendedPlan.name}.`
+    return `Considerando custo-benefício dentro do catálogo atual, o plano que mais faz sentido hoje é o ${recommendedPlan.name}.`
   }
 
-  return `Se a prioridade e esse criterio, o plano que mais faz sentido no catalogo hoje e o ${recommendedPlan.name}.`
+  return `Se a prioridade é esse critério, o plano que mais faz sentido no catálogo hoje é o ${recommendedPlan.name}.`
 }
 
 function resolveDecisionTargetFields(decision = null) {
@@ -703,11 +703,11 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   const wantsStructured = context?.channel?.kind !== "whatsapp"
   const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(context)
   const multiCta = hasWhatsAppDestination
-    ? runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opcoes e sigo com voce no WhatsApp."
-    : runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opcoes e sigo com voce por aqui."
+    ? runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opções e sigo com você no WhatsApp."
+    : runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opções e sigo com você por aqui."
   const singleCta = hasWhatsAppDestination
-    ? runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com voce por aqui ou no WhatsApp."
-    : runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com voce por aqui."
+    ? runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com você por aqui ou no WhatsApp."
+    : runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com você por aqui."
 
   const requestedPlans = resolveRequestedPlans(decision, items, context)
   const selectedPlan = requestedPlans[0] ?? null
@@ -717,7 +717,7 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   if (decision.kind === "plan_limit_question" || decision.kind === "plan_feature_question") {
     if (!selectedPlan) {
       return {
-        reply: "Preciso que voce me diga qual plano voce quer consultar.",
+        reply: "Preciso que você me diga qual plano você quer consultar.",
         metadata: {
           targetPlan: null,
           targetField,
@@ -780,7 +780,7 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
         : buildPlanRecommendation(recommendationPool, recommendationField, currentPlan)
     if (!recommendedPlan) {
       return {
-        reply: `Nao encontrei no catalogo dados estruturados suficientes para recomendar um plano com seguranca.${buildAvailableFieldsHint(recommendationPool)}`,
+        reply: `Não encontrei no catálogo dados estruturados suficientes para recomendar um plano com segurança.${buildAvailableFieldsHint(recommendationPool)}`,
         metadata: {
           targetPlan: null,
           targetField: recommendationField,
@@ -818,8 +818,8 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
     return {
       reply:
         decision.kind === "highest_priced_plan"
-          ? `O plano mais caro hoje e o ${selected.name}: ${selected.priceLabel}.`
-          : `O plano mais barato hoje e o ${selected.name}: ${selected.priceLabel}.`,
+          ? `O plano mais caro hoje é o ${selected.name}: ${selected.priceLabel}.`
+          : `O plano mais barato hoje é o ${selected.name}: ${selected.priceLabel}.`,
       metadata: {
         targetPlan: selected.slug,
         targetField: "price",
@@ -848,7 +848,7 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
     const focusedReply = comparisonFields.length ? buildFocusedComparisonReply(requestedPlans, comparisonFields) : null
     const lines = focusedReply ? [focusedReply] : requestedPlans.map((item) => `- ${buildComparisonPlanSummary(item)}`)
     return {
-      reply: wantsStructured ? [`**Comparacao de planos**`, ...lines, "", multiCta].join("\n") : `${lines.join(" | ")}. ${multiCta}`,
+      reply: wantsStructured ? [`**Comparação de planos**`, ...lines, "", multiCta].join("\n") : `${lines.join(" | ")}. ${multiCta}`,
       metadata: {
         targetPlan: requestedPlans.map((item) => item.slug).join(","),
         targetField: targetField || effectiveComparisonFields[0] || "price",
@@ -862,7 +862,7 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   if (decision.kind === "pricing_overview" || decision.kind === "plan_comparison" || decision.kind === "specific_plan_question") {
     const lines = items.map((item) => `- ${item.name}: ${item.priceLabel}`)
     return {
-      reply: wantsStructured ? [`**Valores disponiveis**`, ...lines, "", multiCta].join("\n") : `${lines.join(" | ")}. ${multiCta}`,
+      reply: wantsStructured ? [`**Valores disponíveis**`, ...lines, "", multiCta].join("\n") : `${lines.join(" | ")}. ${multiCta}`,
       metadata: {
         targetPlan: null,
         targetField: "price",

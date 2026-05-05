@@ -13,14 +13,14 @@ export async function POST(request, { params }) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   const body = await request.json().catch(() => ({}))
@@ -62,7 +62,7 @@ export async function POST(request, { params }) {
         },
         { supabase },
       )
-      return NextResponse.json({ error: "Nao foi possivel registrar a recarga." }, { status: 500 })
+      return NextResponse.json({ error: "Não foi possível registrar a recarga." }, { status: 500 })
     }
 
     await createLogEntry(
@@ -71,7 +71,7 @@ export async function POST(request, { params }) {
         type: "billing_topup_checkout_pending",
         origin: "pagamento_checkout",
         level: "info",
-        description: "Checkout de recarga iniciado e aguardando confirmacao.",
+        description: "Checkout de recarga iniciado e aguardando confirmação.",
         payload: {
           tipo: "topup",
           intentId: intentResult.intentId,
@@ -146,7 +146,7 @@ export async function POST(request, { params }) {
       },
       { supabase },
     )
-    return NextResponse.json({ error: "Nao foi possivel registrar a troca de plano." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível registrar a troca de plano." }, { status: 500 })
   }
 
   await createLogEntry(
@@ -155,7 +155,7 @@ export async function POST(request, { params }) {
       type: "billing_plan_checkout_pending",
       origin: "pagamento_checkout",
       level: "info",
-      description: `Checkout do plano ${selectedPlan.name} iniciado e aguardando confirmacao.`,
+      description: `Checkout do plano ${selectedPlan.name} iniciado e aguardando confirmação.`,
       payload: {
         tipo: "plan",
         intentId: intentResult.intentId,

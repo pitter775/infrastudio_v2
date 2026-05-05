@@ -15,7 +15,7 @@ function resolveStatusMeta(summary) {
   }
 
   if (summary.subscriptionStatus === 'aguardando_confirmacao') {
-    return { label: 'Aguardando confirmacao', tone: 'text-amber-100 border-amber-400/20 bg-amber-500/10' }
+    return { label: 'Aguardando confirmação', tone: 'text-amber-100 border-amber-400/20 bg-amber-500/10' }
   }
 
   if (summary?.pendingCheckout) {
@@ -31,7 +31,7 @@ function resolveStatusMeta(summary) {
   }
 
   if (Number(summary?.topUpAvailableTokens ?? 0) > 0) {
-    return { label: 'Creditos extras ativos', tone: 'text-cyan-100 border-cyan-400/20 bg-cyan-500/10' }
+    return { label: 'Créditos extras ativos', tone: 'text-cyan-100 border-cyan-400/20 bg-cyan-500/10' }
   }
 
   if (summary.isFree) {
@@ -85,7 +85,7 @@ function PlanCard({ plan, currentPlanId, onCheckout, loadingKey }) {
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-3">
-          <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Creditos</div>
+          <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Créditos</div>
           <div className="mt-1 text-sm font-semibold text-white">{formatCredits(plan.totalTokens)}</div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-3">
@@ -161,7 +161,7 @@ function TopUpCard({ offer, onCheckout, loadingKey }) {
           className="h-11 w-full rounded-2xl border border-amber-400/20 bg-amber-500/10 text-sm font-semibold text-amber-50 hover:bg-amber-500/15 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isLoading ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ArrowUpRight className="mr-2 h-4 w-4" />}
-          {hasCheckoutUrl ? 'Comprar mais creditos' : 'Link pendente'}
+          {hasCheckoutUrl ? 'Comprar mais créditos' : 'Link pendente'}
         </Button>
       </div>
     </div>
@@ -217,7 +217,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
         setTopUpOffers(payload?.topUpOffers || (payload?.topUpOffer ? [payload.topUpOffer] : []))
         setIsAdmin(payload?.isAdmin === true)
       } else {
-        setFeedback('Nao foi possivel carregar os planos.')
+        setFeedback('Não foi possível carregar os planos.')
       }
 
       setLoading(false)
@@ -303,11 +303,11 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
     setActionKey('')
 
     if (!result.ok) {
-      setFeedback(result.error || 'Nao foi possivel iniciar o checkout.')
+      setFeedback(result.error || 'Não foi possível iniciar o checkout.')
       return
     }
 
-    setFeedback('Checkout aberto em nova aba. O projeto fica aguardando confirmacao final do pagamento.')
+    setFeedback('Checkout aberto em nova aba. O projeto fica aguardando confirmação final do pagamento.')
   }
 
   function handleResumePendingCheckout() {
@@ -327,7 +327,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
         className="z-[251] w-full max-w-[740px] overflow-y-auto border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-[-10px_0_22px_rgba(2,6,23,0.34)]"
       >
         <SheetTitle className="sr-only">Meu Plano</SheetTitle>
-        <SheetDescription className="sr-only">Plano atual, upgrade e recarga de creditos do projeto.</SheetDescription>
+        <SheetDescription className="sr-only">Plano atual, upgrade e recarga de créditos do projeto.</SheetDescription>
 
         <div className="border-b border-white/5 px-6 py-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
@@ -335,7 +335,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Meu plano</p>
               <h2 className="mt-2 text-2xl font-semibold text-white">{summary?.projectName || 'Projeto atual'}</h2>
               <p className="mt-2 max-w-2xl text-sm text-slate-400">
-                Troque o plano ou compre mais creditos sem depender do admin. A liberacao final acontece quando o pagamento for confirmado.
+                Troque o plano ou compre mais créditos sem depender do admin. A liberação final acontece quando o pagamento for confirmado.
               </p>
             </div>
 
@@ -363,15 +363,15 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
               {summary?.limitLabel ? <div className="mt-1 text-xs text-slate-500">Limite total atual: {summary.limitLabel}</div> : null}
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{extraCreditsLabel ? 'Creditos extras' : 'Renovacao'}</div>
+              <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">{extraCreditsLabel ? 'Créditos extras' : 'Renovação'}</div>
               <div className="mt-1 text-sm font-semibold text-white">{extraCreditsLabel || summary?.cycleResetLabel || 'Ciclo mensal'}</div>
-              {extraCreditsLabel ? <div className="mt-1 text-xs text-slate-500">Esses creditos ficam somados ao plano atual.</div> : null}
+              {extraCreditsLabel ? <div className="mt-1 text-xs text-slate-500">Esses créditos ficam somados ao plano atual.</div> : null}
             </div>
           </div>
 
           {extraCreditsLabel && !pendingCheckout ? (
             <div className="mt-4 rounded-2xl border border-cyan-400/15 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-50">
-              O projeto continua no plano <span className="font-semibold text-white">{summary?.planName || 'atual'}</span> e agora tem <span className="font-semibold text-white">{extraCreditsLabel}</span> em creditos extras disponiveis.
+              O projeto continua no plano <span className="font-semibold text-white">{summary?.planName || 'atual'}</span> e agora tem <span className="font-semibold text-white">{extraCreditsLabel}</span> em créditos extras disponíveis.
             </div>
           ) : null}
 
@@ -383,7 +383,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
 
           {summary?.subscriptionStatus === 'aguardando_confirmacao' ? (
             <div className="mt-4 rounded-2xl border border-amber-400/15 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-              Existe um upgrade em confirmacao para este projeto. O webhook vai concluir a ativacao quando o Mercado Pago enviar a notificacao.
+              Existe um upgrade em confirmação para este projeto. O webhook vai concluir a ativação quando o Mercado Pago enviar a notificação.
             </div>
           ) : null}
 
@@ -400,7 +400,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
                       : pendingCheckout.planName || 'Plano selecionado'}
                   </div>
                   <div className="mt-1 text-cyan-100/70">
-                    Se voce fechou a aba ou quer conferir o pagamento, pode abrir a mesma cobranca novamente.
+                    Se você fechou a aba ou quer conferir o pagamento, pode abrir a mesma cobrança novamente.
                   </div>
                 </div>
                 {canResumePendingCheckout ? (
@@ -462,7 +462,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
             <div className="mt-6">
               <div className="mb-4 flex items-center gap-2">
                 <Clock3 className="h-4 w-4 text-amber-300" />
-                <h3 className="text-lg font-semibold text-white">Comprar mais creditos</h3>
+                <h3 className="text-lg font-semibold text-white">Comprar mais créditos</h3>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 {topUpOffers.map((offer) => (

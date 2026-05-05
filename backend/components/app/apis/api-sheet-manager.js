@@ -36,7 +36,7 @@ const methodOptions = [
 ]
 
 const authTypeOptions = [
-  { value: "none", label: "Sem autorizacao" },
+  { value: "none", label: "Sem autorização" },
   { value: "bearer", label: "Bearer token" },
   { value: "api-key", label: "API Key" },
 ]
@@ -45,7 +45,7 @@ const editorTabs = [
   { id: "body", label: "Body" },
   { id: "authorization", label: "Authorization" },
   { id: "headers", label: "Headers" },
-  { id: "description", label: "Descricao" },
+  { id: "description", label: "Descrição" },
 ]
 
 const bodySubtabs = [
@@ -529,7 +529,7 @@ export function ApiSheetManager({
     const data = await response.json().catch(() => ({}))
 
     if (!response.ok || !data.api) {
-      throw new Error(data.error || "Nao foi possivel carregar a API.")
+      throw new Error(data.error || "Não foi possível carregar a API.")
     }
 
     const detailedApi = normalizeInitialApi(data.api)
@@ -578,7 +578,7 @@ export function ApiSheetManager({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel salvar a API.")
+        throw new Error(data.error || "Não foi possível salvar a API.")
       }
 
       const savedApi = normalizeInitialApi(data.api)
@@ -628,11 +628,11 @@ export function ApiSheetManager({
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel enviar a requisicao.")
+        throw new Error(data.error || "Não foi possível enviar a requisição.")
       }
 
       if (!data.result) {
-        throw new Error("A API nao retornou resultado de teste.")
+        throw new Error("A API não retornou resultado de teste.")
       }
 
       const nextResult = data.result
@@ -859,11 +859,11 @@ export function ApiSheetManager({
             <div className="grid gap-4">
               {internalApi ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
-                  Autorizacao preenchida automaticamente pela API interna.
+                  Autorização preenchida automaticamente pela API interna.
                 </div>
               ) : (
                 <label className="block">
-                  <span className={labelClassName}>Tipo de autorizacao</span>
+                    <span className={labelClassName}>Tipo de autorização</span>
                   <div className="mt-1">
                     <AppSelect options={authTypeOptions} value={form.authType} onChangeValue={(value) => updateForm("authType", value)} />
                   </div>
@@ -944,13 +944,13 @@ export function ApiSheetManager({
 
               {internalApi && !agendaInternalApi ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
-                  API interna sem body manual. Clique em Send para listar os dados disponiveis.
+                  API interna sem body manual. Clique em Send para listar os dados disponíveis.
                 </div>
               ) : null}
 
               {agendaInternalApi ? (
                 <div className="grid gap-4">
-                  <p className="text-sm text-slate-400">Selecione uma data para listar os horarios disponiveis.</p>
+                  <p className="text-sm text-slate-400">Selecione uma data para listar os horários disponíveis.</p>
                   <label className="block max-w-xs">
                     <span className={labelClassName}>Data</span>
                     <input
@@ -960,7 +960,7 @@ export function ApiSheetManager({
                       className={inputClassName}
                     />
                   </label>
-                  <p className="text-xs text-slate-500">Ao clicar em Send, a consulta busca os horarios disponiveis somente dessa data.</p>
+                  <p className="text-xs text-slate-500">Ao clicar em Send, a consulta busca os horários disponíveis somente dessa data.</p>
                 </div>
               ) : null}
 
@@ -971,7 +971,7 @@ export function ApiSheetManager({
                     <div className="grid grid-cols-[minmax(0,1.2fr)_180px_140px_52px] gap-3 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                       <span>Nome</span>
                       <span>Tipo</span>
-                      <span>Obrigatorio</span>
+                      <span>Obrigatório</span>
                       <span></span>
                     </div>
                     <div className="divide-y divide-white/10">
@@ -994,7 +994,7 @@ export function ApiSheetManager({
                               checked={field.required}
                               onChange={(value) => updateBodyField(field.id, "required", value)}
                               labelOn="Sim"
-                              labelOff="Nao"
+                              labelOff="Não"
                             />
                           </div>
                           <Button
@@ -1025,9 +1025,9 @@ export function ApiSheetManager({
 
               {!internalApi && bodySubtab === "json" ? (
                 <div className="grid gap-3">
-                  <p className="text-sm text-slate-400">Use para testar manualmente a requisicao.</p>
+                  <p className="text-sm text-slate-400">Use para testar manualmente a requisição.</p>
                   <label className="block">
-                    <span className={labelClassName}>Body da requisicao</span>
+                    <span className={labelClassName}>Body da requisição</span>
                     <textarea
                       value={form.bodyText}
                       onChange={(event) => updateForm("bodyText", event.target.value)}
@@ -1093,11 +1093,11 @@ export function ApiSheetManager({
           {editorTab === "description" ? (
             <div className="grid gap-4">
               <label className="block">
-                <span className={labelClassName}>Descricao</span>
+                <span className={labelClassName}>Descrição</span>
                 <textarea
                   value={form.description}
                   onChange={(event) => updateForm("description", event.target.value)}
-                  placeholder="Resumo interno para identificar a integracao"
+                  placeholder="Resumo interno para identificar a integração"
                   className={cn(textareaClassName, "min-h-[220px]")}
                 />
               </label>
@@ -1109,7 +1109,7 @@ export function ApiSheetManager({
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-semibold text-white">Response</p>
-                <p className="mt-1 text-xs text-slate-500">Resposta da API apos clicar em Send.</p>
+                <p className="mt-1 text-xs text-slate-500">Resposta da API após clicar em Send.</p>
               </div>
               {responseResult ? (
                 <div className="flex flex-wrap items-center gap-2">
@@ -1133,7 +1133,7 @@ export function ApiSheetManager({
 
             {!responseResult ? (
               <div className="mt-4 rounded-xl border border-dashed border-white/10 bg-[#0a1020] px-4 py-6 text-sm text-slate-500">
-                Nenhuma requisicao enviada ainda
+                Nenhuma requisição enviada ainda
               </div>
             ) : (
               <JsonCodeBlock value={responseValue} className="mt-4 max-h-[320px] overflow-y-auto" />

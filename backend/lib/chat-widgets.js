@@ -363,7 +363,7 @@ export async function createChatWidgetForUser(project, input, user) {
 
     if (existingError) {
       console.error("[chat-widgets] failed to load existing widget before save", existingError)
-      return { widget: null, error: "Nao foi possivel salvar o widget." }
+      return { widget: null, error: "Não foi possível salvar o widget." }
     }
 
     const primaryWidget = pickPrimaryWidgetRow(existingRows, project.agent?.id || null)
@@ -381,14 +381,14 @@ export async function createChatWidgetForUser(project, input, user) {
       if (error) {
         console.error("[chat-widgets] failed to create widget", error)
       }
-      return { widget: null, error: "Nao foi possivel criar o widget." }
+      return { widget: null, error: "Não foi possível criar o widget." }
     }
 
     await cleanupExtraWidgetsForProject(supabase, project.id, data.id)
     return { widget: mapChatWidget(data), error: null }
   } catch (error) {
     console.error("[chat-widgets] failed to create widget", error)
-    return { widget: null, error: "Nao foi possivel criar o widget." }
+    return { widget: null, error: "Não foi possível criar o widget." }
   }
 }
 
@@ -475,7 +475,7 @@ export async function ensureDefaultChatWidgetForAgent(project, agent, user) {
       if (error) {
         console.error("[chat-widgets] failed to create default widget", error)
       }
-      return { widget: null, error: "Nao foi possivel criar o widget padrao." }
+      return { widget: null, error: "Não foi possível criar o widget padrão." }
     }
 
     await cleanupExtraWidgetsForProject(supabase, project.id, data.id)
@@ -483,7 +483,7 @@ export async function ensureDefaultChatWidgetForAgent(project, agent, user) {
     return { widget: mapChatWidget(data), error: null }
   } catch (error) {
     console.error("[chat-widgets] failed to ensure default widget", error)
-    return { widget: null, error: "Nao foi possivel criar o widget padrao." }
+    return { widget: null, error: "Não foi possível criar o widget padrão." }
   }
 }
 
@@ -535,14 +535,14 @@ export async function ensureProjectHasDefaultWidget(project, user) {
       if (error) {
         console.error("[chat-widgets] failed to create project default widget", error)
       }
-      return { widget: null, error: "Nao foi possivel criar o widget padrao." }
+      return { widget: null, error: "Não foi possível criar o widget padrão." }
     }
 
     await cleanupExtraWidgetsForProject(supabase, project.id, data.id)
     return { widget: mapChatWidget(data), error: null }
   } catch (error) {
     console.error("[chat-widgets] failed to ensure project default widget", error)
-    return { widget: null, error: "Nao foi possivel criar o widget padrao." }
+    return { widget: null, error: "Não foi possível criar o widget padrão." }
   }
 }
 
@@ -570,12 +570,12 @@ export async function updateChatWidgetForUser(widgetId, project, input, user) {
       if (error) {
         console.error("[chat-widgets] failed to update widget", error)
       }
-      return { widget: null, error: "Nao foi possivel atualizar o widget." }
+      return { widget: null, error: "Não foi possível atualizar o widget." }
     }
 
     return { widget: mapChatWidget(data), error: null }
   } catch (error) {
     console.error("[chat-widgets] failed to update widget", error)
-    return { widget: null, error: "Nao foi possivel atualizar o widget." }
+    return { widget: null, error: "Não foi possível atualizar o widget." }
   }
 }

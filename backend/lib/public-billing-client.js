@@ -31,7 +31,7 @@ export function buildBillingIntentPayload(item, projectId) {
 
 export async function startBillingCheckout(intent, options = {}) {
   if (typeof window === "undefined" || !intent?.projectId) {
-    return { ok: false, error: "Checkout invalido." }
+    return { ok: false, error: "Checkout inválido." }
   }
 
   const response = await fetch(`/api/app/projetos/${intent.projectId}/billing/checkout`, {
@@ -48,7 +48,7 @@ export async function startBillingCheckout(intent, options = {}) {
   const payload = await response?.json().catch(() => ({}))
 
   if (!response?.ok) {
-    return { ok: false, error: payload?.error || "Nao foi possivel registrar o checkout." }
+    return { ok: false, error: payload?.error || "Não foi possível registrar o checkout." }
   }
 
   const persistedIntent = {
@@ -61,7 +61,7 @@ export async function startBillingCheckout(intent, options = {}) {
   window.localStorage.setItem(BILLING_INTENT_STORAGE_KEY, JSON.stringify(persistedIntent))
   const resolvedCheckoutUrl = payload?.checkoutUrl || ""
   if (!resolvedCheckoutUrl) {
-    return { ok: false, error: "Checkout indisponivel." }
+    return { ok: false, error: "Checkout indisponível." }
   }
 
   window.open(resolvedCheckoutUrl, "_blank", "noopener,noreferrer")

@@ -7,7 +7,7 @@ export async function PATCH(request, { params }) {
   const user = await getSessionUser()
 
   if (!user) {
-    return Response.json({ error: "Nao autenticado." }, { status: 401 })
+    return Response.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await params
@@ -15,7 +15,7 @@ export async function PATCH(request, { params }) {
   const chat = await getChatById(id)
 
   if (!chat) {
-    return Response.json({ error: "Conversa nao encontrada." }, { status: 404 })
+    return Response.json({ error: "Conversa não encontrada." }, { status: 404 })
   }
 
   if (!userCanAccessAdminConversation(user, chat)) {
@@ -40,7 +40,7 @@ export async function PATCH(request, { params }) {
         })
 
   if (!handoff) {
-    return Response.json({ error: "Nao foi possivel atualizar handoff." }, { status: 500 })
+    return Response.json({ error: "Não foi possível atualizar handoff." }, { status: 500 })
   }
 
   return Response.json({ handoff }, { status: 200 })

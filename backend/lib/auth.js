@@ -13,7 +13,7 @@ export async function signInWithProjectAuth(email, password) {
       return {
         mode: "custom",
         user: null,
-        error: payload.error ?? "Nao foi possivel autenticar agora.",
+        error: payload.error ?? "Não foi possível autenticar agora.",
       }
     }
 
@@ -28,7 +28,7 @@ export async function signInWithProjectAuth(email, password) {
     return {
       mode: "custom",
       user: null,
-      error: "Nao foi possivel autenticar agora.",
+      error: "Não foi possível autenticar agora.",
     }
   }
 }
@@ -47,7 +47,7 @@ export async function registerWithProjectAuth(input) {
     if (!response.ok) {
       return {
         ok: false,
-        error: payload.error ?? "Nao foi possivel concluir seu cadastro agora.",
+        error: payload.error ?? "Não foi possível concluir seu cadastro agora.",
         message: null,
       }
     }
@@ -55,14 +55,14 @@ export async function registerWithProjectAuth(input) {
     return {
       ok: true,
       error: null,
-      message: payload.message ?? "Conta criada. Voce ja pode entrar.",
+      message: payload.message ?? "Conta criada. Você já pode entrar.",
     }
   } catch (error) {
     console.error("[auth] register request failed", error)
 
     return {
       ok: false,
-      error: "Nao foi possivel concluir seu cadastro agora.",
+      error: "Não foi possível concluir seu cadastro agora.",
       message: null,
     }
   }
@@ -70,7 +70,7 @@ export async function registerWithProjectAuth(input) {
 
 export async function signInWithSocialProvider(provider) {
   if (!["google", "facebook"].includes(provider)) {
-    return { ok: false, error: "Provider social invalido." }
+    return { ok: false, error: "Provider social inválido." }
   }
 
   window.location.href = `/api/auth/oauth/start?provider=${encodeURIComponent(provider)}`
@@ -91,7 +91,7 @@ export async function resendVerificationEmail(email) {
     if (!response.ok) {
       return {
         ok: false,
-        error: payload.error ?? "Nao foi possivel reenviar a confirmacao agora.",
+        error: payload.error ?? "Não foi possível reenviar a confirmação agora.",
         message: null,
       }
     }
@@ -105,7 +105,7 @@ export async function resendVerificationEmail(email) {
     console.error("[auth] resend verification request failed", error)
     return {
       ok: false,
-      error: "Nao foi possivel reenviar a confirmacao agora.",
+      error: "Não foi possível reenviar a confirmação agora.",
       message: null,
     }
   }

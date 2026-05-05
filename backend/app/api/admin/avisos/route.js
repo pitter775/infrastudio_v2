@@ -57,7 +57,7 @@ function getBillingItems(projects) {
         ? "Projeto bloqueado por billing."
         : project.billing?.status?.warning100
           ? "Limite de billing atingido."
-          : "Billing proximo do limite.",
+          : "Billing próximo do limite.",
       href: `/admin/billing?projeto=${project.id}`,
       readKey: `billing:${project.id}:${project.billing?.currentCycle?.id || project.billing?.currentCycle?.endDate || ""}:${project.billing?.status?.blocked ? "blocked" : project.billing?.status?.warning100 ? "warning100" : "warning80"}`,
       count: 1,
@@ -112,7 +112,7 @@ export async function POST(request) {
   const ok = await markNoticeKeysAsRead(user.id, items)
 
   if (!ok) {
-    return Response.json({ error: "Nao foi possivel marcar os avisos como lidos." }, { status: 500 })
+    return Response.json({ error: "Não foi possível marcar os avisos como lidos." }, { status: 500 })
   }
 
   return Response.json({ ok: true }, { status: 200 })

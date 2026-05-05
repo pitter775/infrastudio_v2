@@ -86,11 +86,11 @@ function buildStoreAssetFileName({ fileName, kind, mimeType }) {
 
 function validateStoreAssetInput({ fileSize, mimeType, projectId, storeId }) {
   if (!projectId || !storeId) {
-    throw new Error("Upload da loja invalido.")
+    throw new Error("Upload da loja inválido.")
   }
 
   if (!ALLOWED_STORE_ASSET_MIME_TYPES.includes(mimeType)) {
-    throw new Error("Formato invalido. Use AVIF, JPG, PNG, SVG ou WEBP.")
+    throw new Error("Formato inválido. Use AVIF, JPG, PNG, SVG ou WEBP.")
   }
 
   if (Number(fileSize || 0) > MAX_STORE_ASSET_BYTES) {

@@ -9,7 +9,7 @@ async function resolveAgendaRequest(input) {
   const agenteId = resolved.agente?.id || input.agenteId || input.agente || null
 
   if (!projetoId) {
-    return { error: "Projeto nao encontrado." }
+    return { error: "Projeto não encontrado." }
   }
 
   return { projetoId, agenteId }
@@ -37,7 +37,7 @@ export async function GET(request) {
     return NextResponse.json({ slots }, { status: 200 })
   } catch (error) {
     return NextResponse.json(
-      { error: error?.message || "Nao foi possivel carregar horarios." },
+      { error: error?.message || "Não foi possível carregar horários." },
       { status: 500 }
     )
   }

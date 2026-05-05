@@ -117,11 +117,11 @@ function sanitizeWorkerUiMessage(value) {
     normalized.includes("crashpad") ||
     normalized.includes("/sys/devices/system/cpu")
   ) {
-    return "O worker do WhatsApp ficou sem recursos para abrir a sessao. Tente conectar novamente em alguns instantes."
+    return "O worker do WhatsApp ficou sem recursos para abrir a sessão. Tente conectar novamente em alguns instantes."
   }
 
   if (normalized.includes("profile appears to be in use") || normalized.includes("chromium has locked the profile")) {
-    return "A sessao do WhatsApp esta temporariamente bloqueada por outro processo. Tente novamente em alguns instantes."
+    return "A sessão do WhatsApp está temporariamente bloqueada por outro processo. Tente novamente em alguns instantes."
   }
 
   return message
@@ -320,7 +320,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           })
         } else if (hasSeenQr && (currentChannel.connectionStatus === "connecting" || snapshot?.status === "connecting")) {
           setQrSnapshot(snapshot)
-          setConnectionHint("QR lido. Aguardando confirmacao do dispositivo e estabilizacao da conexao.")
+          setConnectionHint("QR lido. Aguardando confirmação do dispositivo e estabilização da conexão.")
           nextPollDelay = getQrPollDelay({
             hasQrCode: false,
             hasSeenQr,
@@ -328,7 +328,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           })
         } else if (currentChannel.connectionStatus === "reconnecting" || snapshot?.status === "reconnecting") {
           setQrSnapshot(snapshot)
-          setConnectionHint("Conexao perdida. O worker esta tentando reconectar automaticamente.")
+            setConnectionHint("Conexão perdida. O worker está tentando reconectar automaticamente.")
           nextPollDelay = getQrPollDelay({
             hasQrCode: false,
             hasSeenQr,
@@ -466,7 +466,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel criar o canal.")
+        throw new Error(data.error || "Não foi possível criar o canal.")
       }
 
       setChannels(data.channel ? [data.channel] : [])
@@ -476,7 +476,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setNumber("")
       setStatus({
         type: "success",
-        message: data.contact ? "Canal criado com atendente automatico." : "Canal criado.",
+        message: data.contact ? "Canal criado com atendente automático." : "Canal criado.",
       })
     } catch (error) {
       setStatus({ type: "error", message: sanitizeWorkerUiMessage(error.message) })
@@ -499,7 +499,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       setPendingChannelId(channel.id)
       setPendingQrExpiresAt(Date.now() + QR_PENDING_TIMEOUT_MS)
       setHasSeenQr(false)
-      setConnectionHint(action === "connect" ? "Solicitando conexao ao worker. Aguarde o QR." : "Atualizando QR Code do dispositivo.")
+      setConnectionHint(action === "connect" ? "Solicitando conexão ao worker. Aguarde o QR." : "Atualizando QR Code do dispositivo.")
     }
 
     try {
@@ -522,7 +522,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
         setQrSnapshot(data.snapshot)
         setStatus({
           type: "success",
-          message: action === "connect" ? "Conexao solicitada ao worker." : "Desconexao solicitada.",
+          message: action === "connect" ? "Conexão solicitada ao worker." : "Desconexão solicitada.",
         })
         if (action === "connect" && data.snapshot?.qrCodeDataUrl) {
           setHasSeenQr(true)
@@ -595,7 +595,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        throw new Error(data.error || "Nao foi possivel salvar o atendente.")
+        throw new Error(data.error || "Não foi possível salvar o atendente.")
       }
 
       setContacts((current) =>
@@ -624,7 +624,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       })
 
       if (!response.ok) {
-        throw new Error("Nao foi possivel remover o atendente.")
+        throw new Error("Não foi possível remover o atendente.")
       }
 
       setContacts((current) => current.filter((item) => item.id !== contact.id))
@@ -644,7 +644,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
     try {
       const response = await fetch(`${endpoint}/${channel.id}`, { method: "DELETE" })
       const data = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(data.error || "Nao foi possivel remover o WhatsApp.")
+      if (!response.ok) throw new Error(data.error || "Não foi possível remover o WhatsApp.")
       setChannels((current) => current.filter((item) => item.id !== channel.id))
       setQrSnapshot(null)
       setStatus({ type: "success", message: "WhatsApp removido." })
@@ -671,7 +671,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok || !data.channel) {
-        throw new Error(data.error || "Nao foi possivel atualizar o canal.")
+        throw new Error(data.error || "Não foi possível atualizar o canal.")
       }
 
       setChannels((current) => current.map((item) => (item.id === data.channel.id ? data.channel : item)))
@@ -786,7 +786,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                   <div className="min-w-0">
                     <p className="text-sm font-semibold text-amber-100">Canal conectado sem atendente</p>
                     <p className="mt-1 text-sm text-amber-100/90">
-                      O agente pode oferecer atendimento humano, mas ainda nao existe nenhum atendente configurado para receber esse chamado.
+                      O agente pode oferecer atendimento humano, mas ainda não existe nenhum atendente configurado para receber esse chamado.
                     </p>
                     <Button
                       type="button"
@@ -859,7 +859,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                             channel.id,
                             { onlyReplyToUnsavedContacts: nextValue },
                             nextValue
-                              ? "Resposta limitada a contatos nao salvos."
+                              ? "Resposta limitada a contatos não salvos."
                               : "Resposta liberada para todos os contatos.",
                           )
                         }
@@ -912,11 +912,11 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
             ) : null}
           </div>
           {connectionHint ? <p className="mt-2 text-sm text-amber-200">{connectionHint}</p> : null}
-          {pendingQrExpiresAt ? <p className="mt-2 text-xs text-slate-400">Acoes do canal ficam bloqueadas ate o QR concluir ou expirar.</p> : null}
+          {pendingQrExpiresAt ? <p className="mt-2 text-xs text-slate-400">Ações do canal ficam bloqueadas até o QR concluir ou expirar.</p> : null}
           {qrSnapshot.qrCodeDataUrl ? (
             <img src={qrSnapshot.qrCodeDataUrl} alt="QR Code do WhatsApp" className="mt-3 h-56 w-56 rounded-lg border border-zinc-200 bg-white p-2" />
           ) : (
-            <p className="mt-3 text-sm text-slate-400">QR indisponivel no momento. Se a conexao estiver ativa, o painel atualiza sozinho.</p>
+            <p className="mt-3 text-sm text-slate-400">QR indisponível no momento. Se a conexão estiver ativa, o painel atualiza sozinho.</p>
           )}
         </div>
       ) : null}
@@ -978,16 +978,16 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
               <input
                 value={contactForm.papel}
                 onChange={(event) => updateContactForm("papel", event.target.value)}
-                placeholder="Vendas, suporte, plantao"
+                placeholder="Vendas, suporte, plantão"
                 className={inputClassName}
               />
             </label>
             <label className="block">
-              <span className={labelClassName}>Observacoes</span>
+              <span className={labelClassName}>Observações</span>
               <input
                 value={contactForm.observacoes}
                 onChange={(event) => updateContactForm("observacoes", event.target.value)}
-                placeholder="Horario, regra ou area"
+                placeholder="Horário, regra ou área"
                 className={inputClassName}
               />
             </label>
@@ -1005,7 +1005,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
                   className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200"
                   onClick={applyConnectedChannelAsAttendant}
                 >
-                  Usar numero conectado
+                  Usar número conectado
                 </Button>
               ) : null}
               {!compact ? <Button
@@ -1022,7 +1022,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
 
           {shouldWarnMissingAttendant ? (
             <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-4 text-sm text-amber-100">
-              Nenhum atendente esta configurado para receber alerta humano deste projeto. Se quiser, voce pode usar o mesmo numero do canal conectado.
+              Nenhum atendente está configurado para receber alerta humano deste projeto. Se quiser, você pode usar o mesmo número do canal conectado.
             </div>
           ) : null}
 
@@ -1069,7 +1069,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           }
         }}
         title="Remover atendente"
-        description={deleteContactTarget ? `O atendente ${deleteContactTarget.nome} sera removido da lista.` : ""}
+        description={deleteContactTarget ? `O atendente ${deleteContactTarget.nome} será removido da lista.` : ""}
         confirmLabel="Remover atendente"
         danger
         loading={busyId === deleteContactTarget?.id}
@@ -1084,7 +1084,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           }
         }}
         title="Remover canal do WhatsApp"
-        description={deleteChannelTarget ? `O canal ${formatWhatsappPhone(deleteChannelTarget.number)} sera removido.` : ""}
+        description={deleteChannelTarget ? `O canal ${formatWhatsappPhone(deleteChannelTarget.number)} será removido.` : ""}
         confirmLabel="Remover canal"
         danger
         loading={busyId === deleteChannelTarget?.id}

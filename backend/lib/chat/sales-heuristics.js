@@ -258,11 +258,11 @@ function buildPricingCatalogCtas(runtimeConfig, context) {
   const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(context)
   return {
     listCta: hasWhatsAppDestination
-      ? runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opcoes e sigo com voce no WhatsApp."
-      : "Se quiser, eu comparo as opcoes e sigo com voce por aqui.",
+      ? runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opções e sigo com você no WhatsApp."
+      : "Se quiser, eu comparo as opções e sigo com você por aqui.",
     singleCta: hasWhatsAppDestination
-      ? runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com voce por aqui ou no WhatsApp."
-      : "Se quiser, eu sigo com voce por aqui.",
+      ? runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com você por aqui ou no WhatsApp."
+      : "Se quiser, eu sigo com você por aqui.",
   }
 }
 
@@ -385,7 +385,7 @@ export function maybeAskForLeadIdentification(context = {}, history = [], latest
   const whatsappPrompt = runtimeConfig?.leadCapture?.promptWhatsApp || "Perfeito. Antes de seguir, qual e o seu nome?"
   const handoffPrompt =
     runtimeConfig?.leadCapture?.promptQualified ||
-    "Consigo seguir com voce por aqui, mas para te direcionar melhor no WhatsApp me envie seu nome e telefone com DDD."
+    "Consigo seguir com você por aqui, mas para te direcionar melhor no WhatsApp me envie seu nome e telefone com DDD."
 
   if (count <= 2) {
     if (!deps.isGreetingOrAckMessage?.(latestUserMessage)) {

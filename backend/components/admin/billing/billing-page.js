@@ -204,7 +204,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
     const data = await response.json()
 
     if (!response.ok) {
-      setFeedback(data.error ?? "Nao foi possivel carregar o billing.")
+      setFeedback(data.error ?? "Não foi possível carregar o billing.")
       setLoading(false)
       return
     }
@@ -244,7 +244,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
     const data = await response.json()
 
     if (!response.ok) {
-      setFeedback(data.error ?? "Nao foi possivel salvar o billing.")
+      setFeedback(data.error ?? "Não foi possível salvar o billing.")
       setSaving(false)
       return
     }
@@ -259,7 +259,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
       <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-rose-400/20 bg-slate-950/20 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-rose-200">
           <ShieldAlert className="h-3.5 w-3.5" />
-          Permissao insuficiente
+          Permissão insuficiente
         </div>
         <h1 className="text-2xl font-semibold text-white">Billing restrito ao admin</h1>
       </div>
@@ -335,7 +335,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
                         <div className="mt-1 text-xs text-slate-500">{project.slug}</div>
                       </td>
                       <td className="px-5 py-4">
-                        <div className="text-white">{config?.planName || "Sem configuracao"}</div>
+                        <div className="text-white">{config?.planName || "Sem configuração"}</div>
                         <div className="mt-1 text-xs text-slate-500">{project.mode}</div>
                       </td>
                       <td className="px-5 py-4">
@@ -493,7 +493,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
             <textarea
               value={form.notes}
               onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-              placeholder="Observacoes internas"
+              placeholder="Observações internas"
               rows={4}
               className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
             />
@@ -533,8 +533,8 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
               <AppSelect
                 value={userEmailFilter}
                 onChangeValue={setUserEmailFilter}
-                placeholder="Todos os usuarios"
-                options={[{ value: "", label: "Todos os usuarios" }, ...availableEmails]}
+                placeholder="Todos os usuários"
+                options={[{ value: "", label: "Todos os usuários" }, ...availableEmails]}
               />
             </div>
           </div>
@@ -562,7 +562,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
                 ) : (
                   <tr className="border-t border-white/5 text-sm text-slate-400">
                     <td colSpan={4} className="px-4 py-5">
-                      Nenhum consumo por usuario para o filtro atual.
+                      Nenhum consumo por usuário para o filtro atual.
                     </td>
                   </tr>
                 )}
@@ -573,7 +573,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
 
         <div className="rounded-xl border border-white/5 bg-[#0b1120] p-5">
           <h3 className="text-lg font-semibold text-white">Projeto em foco</h3>
-          <p className="mt-1 text-xs text-slate-500">Uso por usuario, creditos e canal emissor central dos alertas.</p>
+          <p className="mt-1 text-xs text-slate-500">Uso por usuário, créditos e canal emissor central dos alertas.</p>
 
           {selectedProject ? (
             <div className="mt-4 space-y-3">
@@ -583,7 +583,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
               </div>
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                 <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
-                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Usuarios no filtro</div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Usuários no filtro</div>
                   <div className="mt-2 text-2xl font-semibold text-white">{visibleUsageByUser.length}</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
@@ -593,7 +593,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
                   </div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
-                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Creditos avulsos disponiveis</div>
+                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Créditos avulsos disponíveis</div>
                   <div className="mt-2 text-2xl font-semibold text-white">
                     {formatInteger(selectedProject.billing?.topUps?.availableTokens ?? 0)}
                   </div>
@@ -601,7 +601,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
                 <div className="rounded-xl border border-white/10 bg-slate-950/35 p-4">
                   <div className="text-xs uppercase tracking-[0.16em] text-slate-500">Canal emissor dos alertas</div>
                   <div className="mt-2 text-sm font-semibold text-white">
-                    {selectedProject.billing?.whatsappAlerts?.senderChannelNumber || "Nao configurado"}
+                    {selectedProject.billing?.whatsappAlerts?.senderChannelNumber || "Não configurado"}
                   </div>
                 </div>
               </div>
@@ -630,7 +630,7 @@ export function AdminBillingPage({ initialPlans, initialProjects, currentUser })
                   <span className="text-xs text-slate-400">preco do plano: {formatPlanCurrency(plan.monthlyPrice)}</span>
                 </div>
               </div>
-              <p className="mt-2 text-sm text-slate-400">{plan.description || "Sem descricao."}</p>
+              <p className="mt-2 text-sm text-slate-400">{plan.description || "Sem descrição."}</p>
               <div className="mt-3 space-y-1 text-xs text-slate-500">
                 <div>tokens total: {plan.limits.totalTokens != null ? formatInteger(plan.limits.totalTokens) : "sem limite"}</div>
                 <div>custo mensal interno: {plan.limits.monthlyCost != null ? formatCurrency(plan.limits.monthlyCost) : "sem limite"}</div>

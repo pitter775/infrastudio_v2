@@ -15,13 +15,13 @@ import {
 async function resolveProjectStore(context) {
   const user = await getSessionUser()
   if (!user) {
-    return { error: NextResponse.json({ error: "Nao autenticado." }, { status: 401 }) }
+    return { error: NextResponse.json({ error: "Não autenticado." }, { status: 401 }) }
   }
 
   const { id } = await context.params
   const project = await getProjectForUser(id, user)
   if (!project) {
-    return { error: NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 }) }
+    return { error: NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 }) }
   }
 
   const store = await getMercadoLivreStoreSettingsForProject(project)
@@ -54,7 +54,7 @@ export async function POST(request, context) {
     return NextResponse.json({ asset }, { status: 200 })
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Nao foi possivel preparar o upload." },
+      { error: error instanceof Error ? error.message : "Não foi possível preparar o upload." },
       { status: 400 },
     )
   }
@@ -114,7 +114,7 @@ export async function PATCH(request, context) {
 
   if (updateError) {
     await removeStoreAsset(storagePath).catch(() => {})
-    return NextResponse.json({ error: updateError.message || "Nao foi possivel salvar a imagem." }, { status: 400 })
+    return NextResponse.json({ error: updateError.message || "Não foi possível salvar a imagem." }, { status: 400 })
   }
 
   revalidatePath(`/loja/${store.slug}`)

@@ -14,6 +14,15 @@
 - proibido ampliar regex, listas de frases, `includes` ou excecoes manuais para intent, continuidade e roteamento
 - para linguagem variada do usuario, a solucao obrigatoria e estado + classificacao semantica estruturada + handler deterministico
 
+## Acentuacao e UTF-8
+
+- o projeto usa UTF-8
+- textos visiveis ao usuario devem ser escritos em portugues correto, com acentos e cedilha
+- isso vale para UI, chat, emails, mensagens de erro, placeholders, paginas publicas, admin, documentacao para usuario e copys comerciais
+- manter ASCII apenas em nomes tecnicos quando fizer sentido: rotas, slugs, ids, chaves de payload, nomes de arquivos ja existentes, tabelas, colunas, variaveis, eventos e comandos
+- nao remover acentos de textos de interface por padrao
+- ao corrigir texto visivel, preferir `automação`, `integração`, `configuração`, `usuário`, `sessão`, `operação`, `informação`, `descrição`, `créditos`, `catálogo`, `diagnóstico`, `laboratório`, `não` e `você`
+
 ## Workspace
 
 Raiz:

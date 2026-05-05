@@ -72,14 +72,14 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
     const payload = await response.json()
 
     if (!response.ok) {
-      setFeedback(payload.error ?? "Nao foi possivel salvar o usuario.")
+      setFeedback(payload.error ?? "Não foi possível salvar o usuário.")
       setSaving(false)
       return
     }
 
     await refreshUsers()
     setForm(emptyForm)
-    setFeedback(form.id ? "Usuario atualizado com sucesso." : "Usuario criado com sucesso.")
+    setFeedback(form.id ? "Usuário atualizado com sucesso." : "Usuário criado com sucesso.")
     setSaving(false)
   }
 
@@ -123,7 +123,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
     const payload = await response.json()
 
     if (!response.ok) {
-      setFeedback(payload.error ?? "Nao foi possivel alterar o status.")
+      setFeedback(payload.error ?? "Não foi possível alterar o status.")
       return
     }
 
@@ -138,12 +138,12 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
     const payload = await response.json()
 
     if (!response.ok) {
-      setFeedback(payload.error ?? "Nao foi possivel excluir o usuario.")
+      setFeedback(payload.error ?? "Não foi possível excluir o usuário.")
       return
     }
 
     await refreshUsers()
-    setFeedback("Usuario excluido com sucesso.")
+    setFeedback("Usuário excluído com sucesso.")
     setDeleteTarget(null)
   }
 
@@ -152,11 +152,11 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
       <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-8">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-rose-400/20 bg-slate-950/20 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-rose-200">
           <Shield className="h-3.5 w-3.5" />
-          Permissao insuficiente
+          Permissão insuficiente
         </div>
-        <h1 className="text-2xl font-semibold text-white">Seu perfil nao tem acesso administrativo</h1>
+        <h1 className="text-2xl font-semibold text-white">Seu perfil não tem acesso administrativo</h1>
         <p className="mt-3 max-w-xl text-sm text-slate-300">
-          Este painel libera acesso apenas para usuarios com role admin.
+          Este painel libera acesso apenas para usuários com role admin.
         </p>
       </div>
     )
@@ -165,8 +165,8 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
   return (
     <div>
       <AdminPageHeader
-        title="Usuarios"
-        description="Gestao de acessos usando JWT, cookie HTTP-only e tabela usuarios do Supabase."
+        title="Usuários"
+        description="Gestão de acessos usando JWT, cookie HTTP-only e tabela usuários do Supabase."
         actions={
           <Button
             type="button"
@@ -200,7 +200,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <h2 className="text-lg font-semibold text-white">
-                {form.id ? "Editar usuario" : "Novo usuario"}
+                {form.id ? "Editar usuário" : "Novo usuário"}
               </h2>
               <p className="mt-1 text-xs text-slate-500">
                 Senha com hash bcrypt, sem Supabase Auth.
@@ -238,7 +238,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
                 value={form.papel}
                 onChangeValue={(value) => setForm((current) => ({ ...current, papel: value }))}
                 options={[
-                  { value: "viewer", label: "Usuario comum" },
+                  { value: "viewer", label: "Usuário comum" },
                   { value: "admin", label: "Admin" },
                 ]}
               />
@@ -275,7 +275,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
 
             <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-slate-950/40 px-4 py-3 text-sm text-slate-300">
               <span>
-                <span className="block text-sm font-semibold text-white">Usuario</span>
+                <span className="block text-sm font-semibold text-white">Usuário</span>
                 <span
                   className={cn(
                     "mt-1 block text-[11px] uppercase tracking-[0.16em]",
@@ -332,7 +332,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
         <div className="overflow-hidden rounded-xl border border-white/5 bg-[#0b1120]">
           <div className="flex items-center justify-between gap-3 border-b border-white/5 px-5 py-4">
             <div>
-              <h3 className="text-lg font-semibold text-white">Usuarios cadastrados</h3>
+              <h3 className="text-lg font-semibold text-white">Usuários cadastrados</h3>
               <p className="mt-1 text-xs text-slate-500">Editar, ativar, inativar e excluir.</p>
             </div>
             <div className="hidden items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-200 sm:flex">
@@ -424,7 +424,7 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
                 ) : (
                   <tr className="border-t border-white/5 text-sm text-slate-300">
                     <td colSpan={6} className="px-5 py-8 text-center text-slate-400">
-                      Nenhum usuario encontrado.
+                      Nenhum usuário encontrado.
                     </td>
                   </tr>
                 )}
@@ -441,9 +441,9 @@ export function AdminUsersPage({ initialUsers, projects, currentUser }) {
             setDeleteTarget(null)
           }
         }}
-        title="Excluir usuario"
-        description={deleteTarget ? `O usuario ${deleteTarget.name} sera removido permanentemente.` : ""}
-        confirmLabel="Excluir usuario"
+        title="Excluir usuário"
+        description={deleteTarget ? `O usuário ${deleteTarget.name} será removido permanentemente.` : ""}
+        confirmLabel="Excluir usuário"
         danger
         onConfirm={() => deleteTarget ? handleDelete(deleteTarget) : null}
       />

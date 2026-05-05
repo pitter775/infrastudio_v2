@@ -130,11 +130,11 @@ function sanitizeWorkerMessage(value) {
     normalized.includes("crashpad") ||
     normalized.includes("/sys/devices/system/cpu")
   ) {
-    return "O worker do WhatsApp ficou sem recursos para abrir a sessao. Tente conectar novamente em alguns instantes."
+    return "O worker do WhatsApp ficou sem recursos para abrir a sessão. Tente conectar novamente em alguns instantes."
   }
 
   if (normalized.includes("profile appears to be in use") || normalized.includes("chromium has locked the profile")) {
-    return "A sessao do WhatsApp esta temporariamente bloqueada por outro processo. Tente novamente em alguns instantes."
+    return "A sessão do WhatsApp está temporariamente bloqueada por outro processo. Tente novamente em alguns instantes."
   }
 
   return message
@@ -424,7 +424,7 @@ function buildRuntimeVerificationFallback(channel) {
 
   return {
     status: "desconectado",
-    notes: "Nao foi possivel confirmar uma sessao ativa do WhatsApp no worker nesta verificacao.",
+    notes: "Não foi possível confirmar uma sessão ativa do WhatsApp no worker nesta verificação.",
   }
 }
 
@@ -461,11 +461,11 @@ async function reconcileChannelWithWorkerSnapshot(channel, snapshot) {
         autoReconnectScheduled: false,
         reconnectAttempt,
         lastReconnectRequestAt: requestedAt,
-        lastError: error?.message || "Nao foi possivel solicitar a reconexao automatica do WhatsApp.",
+        lastError: error?.message || "Não foi possível solicitar a reconexão automática do WhatsApp.",
       })
       return mergeRuntimeSnapshotIntoChannel(failedChannel ?? channel, {
         status: snapshot?.status || channel.connectionStatus,
-        lastError: error?.message || "Nao foi possivel solicitar a reconexao automatica do WhatsApp.",
+        lastError: error?.message || "Não foi possível solicitar a reconexão automática do WhatsApp.",
       })
     }
   }
@@ -598,7 +598,7 @@ export async function createWhatsAppChannelForUser(project, input, user) {
 
   const number = normalizePhone(input.numero || input.number)
   if (number.length < 10) {
-    return { channel: null, error: "Numero de WhatsApp invalido." }
+    return { channel: null, error: "Número de WhatsApp inválido." }
   }
 
   try {
@@ -612,7 +612,7 @@ export async function createWhatsAppChannelForUser(project, input, user) {
 
     if (existingError) {
       console.error("[whatsapp] failed to load existing channels before save", existingError)
-      return { channel: null, error: "Nao foi possivel salvar o canal." }
+      return { channel: null, error: "Não foi possível salvar o canal." }
     }
 
     const primaryChannel = pickPrimaryChannelRow(existingRows, agenteId)
@@ -639,7 +639,7 @@ export async function createWhatsAppChannelForUser(project, input, user) {
       if (error) {
         console.error("[whatsapp] failed to create channel", error)
       }
-      return { channel: null, error: "Nao foi possivel criar o canal." }
+      return { channel: null, error: "Não foi possível criar o canal." }
     }
 
     const channel = mapChannel(data)
@@ -679,7 +679,7 @@ export async function createWhatsAppChannelForUser(project, input, user) {
     return { channel, contact, error: null }
   } catch (error) {
     console.error("[whatsapp] failed to create channel", error)
-    return { channel: null, error: "Nao foi possivel criar o canal." }
+    return { channel: null, error: "Não foi possível criar o canal." }
   }
 }
 
@@ -874,7 +874,7 @@ export async function updateWhatsAppChannelForUser(channelId, project, input, us
       if (currentError) {
         console.error("[whatsapp] failed to load channel for update", currentError)
       }
-      return { channel: null, error: "Canal nao encontrado." }
+      return { channel: null, error: "Canal não encontrado." }
     }
 
     const session = current.session_data && typeof current.session_data === "object" ? current.session_data : {}
@@ -900,7 +900,7 @@ export async function updateWhatsAppChannelForUser(channelId, project, input, us
       if (error) {
         console.error("[whatsapp] failed to update channel", error)
       }
-      return { channel: null, error: "Nao foi possivel atualizar o canal." }
+      return { channel: null, error: "Não foi possível atualizar o canal." }
     }
 
     const channel = mapChannel(data)
@@ -909,13 +909,13 @@ export async function updateWhatsAppChannelForUser(channelId, project, input, us
       await syncWhatsAppWorkerChannelConfig(channel)
     } catch (error) {
       console.error("[whatsapp] failed to sync worker channel config", error)
-      return { channel: null, error: "Canal atualizado no banco, mas o worker nao recebeu a configuracao." }
+      return { channel: null, error: "Canal atualizado no banco, mas o worker não recebeu a configuração." }
     }
 
     return { channel, error: null }
   } catch (error) {
     console.error("[whatsapp] failed to update channel", error)
-    return { channel: null, error: "Nao foi possivel atualizar o canal." }
+    return { channel: null, error: "Não foi possível atualizar o canal." }
   }
 }
 
@@ -944,13 +944,13 @@ export async function deleteWhatsAppChannelForUser(channelId, project, user) {
 
     if (error) {
       console.error("[whatsapp] failed to delete channel", error)
-      return { ok: false, error: "Nao foi possivel remover o WhatsApp." }
+      return { ok: false, error: "Não foi possível remover o WhatsApp." }
     }
 
     return { ok: true, error: null }
   } catch (error) {
     console.error("[whatsapp] failed to delete channel", error)
-    return { ok: false, error: "Nao foi possivel remover o WhatsApp." }
+    return { ok: false, error: "Não foi possível remover o WhatsApp." }
   }
 }
 
@@ -1049,7 +1049,7 @@ export async function updateWhatsAppChannelSession(channelId, patch) {
 export async function callWhatsAppWorker(path, init = {}) {
   const baseUrl = getWhatsAppWorkerBaseUrl()
   if (!baseUrl) {
-    throw new Error("Worker do WhatsApp nao configurado.")
+    throw new Error("Worker do WhatsApp não configurado.")
   }
 
   const response = await fetch(`${baseUrl}${path}`, {
@@ -1100,7 +1100,7 @@ export async function sendWhatsAppTextMessage(input) {
   const message = String(input?.message || "").trim()
 
   if (!channelId || to.length < 12 || !message) {
-    return { ok: false, error: "Parametros invalidos para envio de WhatsApp." }
+    return { ok: false, error: "Parâmetros inválidos para envio de WhatsApp." }
   }
 
   try {
@@ -1122,7 +1122,7 @@ export async function sendWhatsAppTextMessage(input) {
     console.error("[whatsapp] failed to send outbound text", error)
     return {
       ok: false,
-      error: error?.message || "Nao foi possivel enviar a mensagem de WhatsApp.",
+      error: error?.message || "Não foi possível enviar a mensagem de WhatsApp.",
       snapshot: null,
     }
   }

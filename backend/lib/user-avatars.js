@@ -54,16 +54,16 @@ export async function uploadUserAvatar({ usuarioId, dataBase64, type, name }) {
   const mimeType = String(type || "").trim().toLowerCase()
 
   if (!usuarioId || !base64) {
-    throw new Error("Upload de avatar invalido.")
+    throw new Error("Upload de avatar inválido.")
   }
 
   if (!["image/jpeg", "image/png", "image/webp"].includes(mimeType)) {
-    throw new Error("Formato de avatar invalido. Use JPG, PNG ou WEBP.")
+    throw new Error("Formato de avatar inválido. Use JPG, PNG ou WEBP.")
   }
 
   const fileBuffer = Buffer.from(base64, "base64")
   if (!fileBuffer.byteLength) {
-    throw new Error("Arquivo de avatar invalido.")
+    throw new Error("Arquivo de avatar inválido.")
   }
 
   if (fileBuffer.byteLength > MAX_USER_AVATAR_BYTES) {

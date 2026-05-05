@@ -215,7 +215,7 @@ const SUPPRESSED_LOG_ORIGINS = ["chat_runtime", "openai", "whatsapp_worker", "wh
 const LOG_RETENTION_POLICIES = [
   {
     id: "lab_scenarios",
-    label: "Laboratorio",
+    label: "Laboratório",
     olderThanDays: 30,
     types: ["lab_chat_scenario"],
     origins: ["laboratorio"],

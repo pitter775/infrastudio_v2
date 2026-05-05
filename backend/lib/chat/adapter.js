@@ -11,7 +11,7 @@ export async function handleChat(input) {
     const history = buildConversationHistory(conversation, texto)
 
     throw new Error(
-      `Orquestrador direto ainda nao esta ativo. Historico preparado com ${history.length} mensagens.`
+      `Orquestrador direto ainda não está ativo. Histórico preparado com ${history.length} mensagens.`
     )
   }
 

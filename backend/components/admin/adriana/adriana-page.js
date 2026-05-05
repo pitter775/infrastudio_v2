@@ -173,7 +173,7 @@ export function AdrianaPage({ currentUser }) {
         const xmlFile = xmlMap.get(normalizeBaseName(pdfFile.name))
 
         if (!xmlFile) {
-          missing.push({ pdfName: pdfFile.name, reason: "XML correspondente nao encontrado." })
+          missing.push({ pdfName: pdfFile.name, reason: "XML correspondente não encontrado." })
           continue
         }
 
@@ -181,7 +181,7 @@ export function AdrianaPage({ currentUser }) {
         const metadata = parseXmlMetadata(xmlContent)
 
         if (!metadata) {
-          missing.push({ pdfName: pdfFile.name, reason: "Nao foi possivel ler fornecedor e numero no XML." })
+          missing.push({ pdfName: pdfFile.name, reason: "Não foi possível ler fornecedor e número no XML." })
           continue
         }
 
@@ -222,7 +222,7 @@ export function AdrianaPage({ currentUser }) {
       })
     } catch (error) {
       console.error("[adriana] failed to process files", error)
-      setFeedback({ tone: "error", message: "Nao foi possivel concluir o processamento agora." })
+      setFeedback({ tone: "error", message: "Não foi possível concluir o processamento agora." })
     } finally {
       setProcessing(false)
     }

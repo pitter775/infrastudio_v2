@@ -815,7 +815,7 @@
     var scrollBottomButton = document.createElement("button");
     scrollBottomButton.className = "chat-scroll-bottom";
     scrollBottomButton.type = "button";
-    scrollBottomButton.setAttribute("aria-label", "Voltar para a ultima mensagem");
+    scrollBottomButton.setAttribute("aria-label", "Voltar para a última mensagem");
     scrollBottomButton.innerHTML = createChevronDownIcon();
     panel.appendChild(scrollBottomButton);
 
@@ -1819,7 +1819,7 @@
       var button = document.createElement("button");
       button.type = "button";
       button.className = "chat-asset-list-more";
-      button.innerHTML = getActionIconMarkup(action) + "<span>" + escapeHtml(action.label || "Ver mais opcoes") + "</span>";
+      button.innerHTML = getActionIconMarkup(action) + "<span>" + escapeHtml(action.label || "Ver mais opções") + "</span>";
       button.addEventListener("click", function () {
         void sendMessage(action.message, {
           userBubbleText: action.userBubbleText || action.label || action.message,
@@ -2466,15 +2466,15 @@
     function normalizeChatErrorMessage(message, status) {
       var text = String(message || "").trim();
       if (!text) {
-        return "Nao consegui responder agora.";
+        return "Não consegui responder agora.";
       }
 
       if (Number(status) >= 500) {
-        return "Nao consegui responder agora.";
+        return "Não consegui responder agora.";
       }
 
       if (/unterminated string|json|position \d+|unexpected token|parse/i.test(text)) {
-        return "Nao consegui responder agora.";
+        return "Não consegui responder agora.";
       }
 
       return text;
@@ -3035,7 +3035,7 @@
 
       upsertAssistantMessage({
         id: "ai-loop-paused-notice",
-        text: "Atendimento pausado temporariamente por seguranca. Detectamos um possivel loop no WhatsApp e interrompemos as respostas automaticas ate a conversa ser revisada.",
+        text: "Atendimento pausado temporariamente por segurança. Detectamos um possível loop no WhatsApp e interrompemos as respostas automáticas até a conversa ser revisada.",
         isAi: true,
         createdAt: createdAt || new Date().toISOString(),
         cta: null,
@@ -3464,7 +3464,7 @@
       loading = nextLoading;
       input.readOnly = nextLoading;
       input.classList.toggle("is-waiting", nextLoading);
-      input.placeholder = nextLoading ? "Atendente esta digitando..." : "Digite sua mensagem...";
+      input.placeholder = nextLoading ? "Atendente está digitando..." : "Digite sua mensagem...";
       sendButton.disabled = nextLoading;
       sendButton.innerHTML = nextLoading ? '<span class="chat-icon" aria-hidden="true">...</span>' : createPlaneIcon();
       updateComposerState();

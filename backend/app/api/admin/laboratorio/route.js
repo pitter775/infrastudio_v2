@@ -71,7 +71,7 @@ export async function DELETE(request) {
     })
 
     if (!result) {
-      return NextResponse.json({ error: "Nao foi possivel executar a limpeza operacional." }, { status: 500 })
+      return NextResponse.json({ error: "Não foi possível executar a limpeza operacional." }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true, cleanup: result }, { status: 200 })
@@ -86,7 +86,7 @@ export async function DELETE(request) {
   })
 
   if (deleted == null) {
-    return NextResponse.json({ error: "Nao foi possivel limpar os eventos." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível limpar os eventos." }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, deleted }, { status: 200 })
@@ -105,13 +105,13 @@ export async function POST(request) {
   const scenario = Object.values(LABORATORY_CHAT_SCENARIOS).find((item) => item.id === scenarioId)
 
   if (!scenario) {
-    return NextResponse.json({ error: "Cenario nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Cenário não encontrado." }, { status: 404 })
   }
 
   const cases = caseId ? scenario.cases.filter((item) => item.id === caseId) : scenario.cases
 
   if (!cases.length) {
-    return NextResponse.json({ error: "Caso do laboratorio nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Caso do laboratório não encontrado." }, { status: 404 })
   }
 
   try {
@@ -130,7 +130,7 @@ export async function POST(request) {
 
     return NextResponse.json({ ok: true, scenarioId: scenario.id, runs }, { status: 200 })
   } catch (error) {
-    return NextResponse.json({ error: error?.message || "Nao foi possivel executar o laboratorio." }, { status: 500 })
+    return NextResponse.json({ error: error?.message || "Não foi possível executar o laboratório." }, { status: 500 })
   }
 }
 
@@ -151,7 +151,7 @@ export async function PATCH(request) {
   }
 
   if (humanScore != null && (!Number.isFinite(humanScore) || humanScore < 1 || humanScore > 5)) {
-    return NextResponse.json({ error: "Score humano invalido." }, { status: 400 })
+    return NextResponse.json({ error: "Score humano inválido." }, { status: 400 })
   }
 
   const updated = await updateAdminLogPayload(logId, (payload) => ({
@@ -163,7 +163,7 @@ export async function PATCH(request) {
   }))
 
   if (!updated) {
-    return NextResponse.json({ error: "Nao foi possivel atualizar o score humano." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível atualizar o score humano." }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true, log: updated }, { status: 200 })

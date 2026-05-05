@@ -108,7 +108,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
     const data = await response.json().catch(() => null)
 
     if (!response.ok || !data?.feedback) {
-      setFeedback(data?.error ?? "Nao foi possivel enviar a mensagem.")
+      setFeedback(data?.error ?? "Não foi possível enviar a mensagem.")
       setLoading(false)
       return
     }
@@ -147,7 +147,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
     <div>
       <AdminPageHeader
         title={detail.assunto}
-        description={`Solicitação ${detail.id} • ${detail.projeto?.nome || "Nao vinculado"}`}
+        description={`Solicitação ${detail.id} • ${detail.projeto?.nome || "Não vinculado"}`}
         actions={
           <>
             <Button
@@ -178,13 +178,13 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
           <h2 className="text-lg font-semibold text-white">Resumo</h2>
           <dl className="mt-4 space-y-3 text-sm">
             <div>
-              <dt className="text-slate-500">Usuario</dt>
-              <dd className="mt-1 font-medium text-white">{detail.usuario.nome || "Usuario"}</dd>
+              <dt className="text-slate-500">Usuário</dt>
+              <dd className="mt-1 font-medium text-white">{detail.usuario.nome || "Usuário"}</dd>
               <dd className="text-xs text-slate-500">{detail.usuario.email || "Sem email"}</dd>
             </div>
             <div>
               <dt className="text-slate-500">Projeto</dt>
-              <dd className="mt-1 font-medium text-white">{detail.projeto?.nome || "Nao vinculado"}</dd>
+              <dd className="mt-1 font-medium text-white">{detail.projeto?.nome || "Não vinculado"}</dd>
             </div>
             <div>
               <dt className="text-slate-500">Categoria</dt>
@@ -259,7 +259,7 @@ export function AdminFeedbackDetailPage({ initialFeedback, currentUser, statuses
                     )}
                   >
                     <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                      {isAdmin ? "Admin" : "Usuario"}
+                      {isAdmin ? "Admin" : "Usuário"}
                     </div>
                     <div className="mt-2 whitespace-pre-line text-sm leading-6">{item.mensagem}</div>
                     <div className="mt-3 text-xs text-slate-400">{formatDateTime(item.createdAt)}</div>

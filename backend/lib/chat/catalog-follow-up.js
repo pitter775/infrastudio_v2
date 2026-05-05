@@ -391,7 +391,7 @@ export function resolveCatalogLoadMoreDecision(message, context = {}) {
   return {
     kind: "catalog_load_more",
     confidence: 0.7,
-    reason: "Mensagem pede continuidade da lista atual do catalogo.",
+    reason: "Mensagem pede continuidade da lista atual do catálogo.",
     matchedProducts: [],
     usedLlm: false,
     shouldBlockNewSearch: false,
@@ -440,7 +440,7 @@ export function resolveRecentCatalogReferenceDecision(message, context) {
     return {
       kind: "recent_product_reference",
       confidence: 0.9,
-      reason: "Mensagem referencia um produto recente do catalogo.",
+      reason: "Mensagem referencia um produto recente do catálogo.",
       matchedProducts,
       usedLlm: false,
       shouldBlockNewSearch: true,
@@ -512,7 +512,7 @@ export function resolveCatalogReferenceHeuristicReply(decision) {
 
     if (options.length >= 2) {
       const lines = options.map((item, index) => `${index + 1}. ${item?.nome}`).filter(Boolean)
-      return [`Quero confirmar qual voce quis dizer.`, ...lines, "Me responde com 1, 2 ou 3."].join("\n")
+      return [`Quero confirmar qual você quis dizer.`, ...lines, "Me responde com 1, 2 ou 3."].join("\n")
     }
   }
 

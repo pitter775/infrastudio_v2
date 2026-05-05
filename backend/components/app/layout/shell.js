@@ -29,7 +29,7 @@ function SidebarContent({ pathname, user, onNavigate }) {
           
           <div>
             <p className="font-brand-logo text-sm text-white">InfraStudio</p>
-            <p className="text-xs text-slate-500">Area do cliente</p>
+            <p className="text-xs text-slate-500">Área do cliente</p>
           </div>
         </Link>
 
@@ -74,7 +74,7 @@ function SidebarContent({ pathname, user, onNavigate }) {
         <div className="mb-4 flex min-w-0 items-center gap-3">
           <UserAvatar src={user?.avatarUrl} label={user?.name || user?.email} className="h-8 w-8" />
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-white">{user?.name || "Usuario"}</p>
+            <p className="truncate text-sm font-medium text-white">{user?.name || "Usuário"}</p>
             <p className="truncate text-xs text-slate-500">{user?.email}</p>
           </div>
         </div>
@@ -118,7 +118,7 @@ export function AppShell({ children, user }) {
             </Sheet>
           </div>
           <Button asChild variant="ghost" size="icon" className="text-slate-500 shadow-none hover:bg-transparent hover:text-white">
-            <Link href="/" aria-label="Voltar para a home publica">
+            <Link href="/" aria-label="Voltar para a home pública">
               <House className="h-5 w-5" />
             </Link>
           </Button>

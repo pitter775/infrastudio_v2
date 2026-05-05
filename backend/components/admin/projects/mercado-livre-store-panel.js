@@ -68,7 +68,7 @@ function loadImageFromObjectUrl(objectUrl) {
   return new Promise((resolve, reject) => {
     const image = new window.Image()
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error('Nao foi possivel processar a imagem.'))
+    image.onerror = () => reject(new Error('Não foi possível processar a imagem.'))
     image.src = objectUrl
   })
 }
@@ -85,7 +85,7 @@ async function optimizeLogoFile(file) {
     const sourceWidth = Number(image.naturalWidth || image.width || 0)
     const sourceHeight = Number(image.naturalHeight || image.height || 0)
     if (!sourceWidth || !sourceHeight) {
-      throw new Error('Nao foi possivel ler o tamanho do logo.')
+      throw new Error('Não foi possível ler o tamanho do logo.')
     }
 
     const targetWidth = Math.min(STORE_LOGO_MAX_WIDTH, sourceWidth)
@@ -96,7 +96,7 @@ async function optimizeLogoFile(file) {
 
     const context = canvas.getContext('2d')
     if (!context) {
-      throw new Error('Nao foi possivel preparar o logo para upload.')
+      throw new Error('Não foi possível preparar o logo para upload.')
     }
 
     context.clearRect(0, 0, targetWidth, targetHeight)
@@ -109,7 +109,7 @@ async function optimizeLogoFile(file) {
       nextName = replaceFileExtension(file.name, 'png')
     }
     if (!blob) {
-      throw new Error('Nao foi possivel gerar a versao otimizada do logo.')
+      throw new Error('Não foi possível gerar a versão otimizada do logo.')
     }
 
     if (blob.size > MAX_STORE_ASSET_BYTES) {
@@ -221,7 +221,7 @@ function buildDeveloperUploadError(stage, message, fallbackText) {
 
   return {
     tone: 'error',
-    text: fallbackText || 'Nao foi possivel enviar a imagem.',
+    text: fallbackText || 'Não foi possível enviar a imagem.',
     detail: normalizedMessage ? `[${normalizedStage}] ${normalizedMessage}` : `[${normalizedStage}] sem detalhe adicional`,
   }
 }
@@ -339,7 +339,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel salvar a loja.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível salvar a loja.' })
         return
       }
 
@@ -384,7 +384,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
 
       setFeedback(nextFeedback)
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel salvar a loja.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível salvar a loja.' })
     } finally {
       setSaving(false)
     }
@@ -409,7 +409,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
 
       if (!response.ok) {
         setCatalogItems([])
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel buscar produtos.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível buscar produtos.' })
         return
       }
 
@@ -419,7 +419,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       }
     } catch {
       setCatalogItems([])
-      setFeedback({ tone: 'error', text: 'Nao foi possivel buscar produtos.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível buscar produtos.' })
     } finally {
       setCatalogLoading(false)
     }
@@ -440,7 +440,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel sincronizar o snapshot.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível sincronizar o snapshot.' })
         return
       }
 
@@ -453,7 +453,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
             : 'Snapshot sincronizado, mas nenhum produto elegivel foi encontrado nessa conta.',
       })
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel sincronizar o snapshot.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível sincronizar o snapshot.' })
     } finally {
       setSnapshotSyncing(false)
     }
@@ -509,7 +509,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       setPublicUrlCopied(true)
       window.setTimeout(() => setPublicUrlCopied(false), 1600)
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel copiar o link publico.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível copiar o link público.' })
     }
   }
 
@@ -524,7 +524,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     try {
       const uploadFile = kind === 'logo' ? await optimizeLogoFile(file) : file
       if (!uploadFile) {
-        setFeedback(buildDeveloperUploadError('prepare-client', 'arquivo retornou vazio apos preprocessamento', 'Arquivo invalido para upload.'))
+        setFeedback(buildDeveloperUploadError('prepare-client', 'arquivo retornou vazio após preprocessamento', 'Arquivo inválido para upload.'))
         return
       }
 
@@ -558,7 +558,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           buildDeveloperUploadError(
             'prepare-server',
             prepareData.error || `HTTP ${prepareResponse.status}`,
-            'Nao foi possivel preparar o upload.',
+            'Não foi possível preparar o upload.',
           ),
         )
         return
@@ -587,7 +587,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           buildDeveloperUploadError(
             'storage-upload',
             uploadText || `HTTP ${uploadResponse.status}`,
-            'Nao foi possivel enviar a imagem.',
+            'Não foi possível enviar a imagem.',
           ),
         )
         return
@@ -613,7 +613,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           buildDeveloperUploadError(
             'commit-server',
             commitData.error || `HTTP ${commitResponse.status}`,
-            'Nao foi possivel publicar a imagem.',
+            'Não foi possível publicar a imagem.',
           ),
         )
         return
@@ -622,7 +622,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       const publicUrl = commitData.asset?.publicUrl || asset.publicUrl || ''
       const nextStoragePath = commitData.asset?.storagePath || normalizedStoragePath
       if (!publicUrl) {
-        setFeedback(buildDeveloperUploadError('commit-server', 'asset salvo sem publicUrl', 'Upload concluido sem URL publica.'))
+        setFeedback(buildDeveloperUploadError('commit-server', 'asset salvo sem publicUrl', 'Upload concluído sem URL pública.'))
         return
       }
 
@@ -657,7 +657,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         buildDeveloperUploadError(
           'unexpected',
           error instanceof Error ? error.message : String(error || 'erro desconhecido'),
-          'Nao foi possivel enviar a imagem.',
+          'Não foi possível enviar a imagem.',
         ),
       )
     } finally {
@@ -676,7 +676,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       const data = await response.json().catch(() => ({}))
 
       if (!response.ok) {
-        setFeedback({ tone: 'error', text: data.error || 'Nao foi possivel restaurar os padroes da loja.' })
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível restaurar os padrões da loja.' })
         return
       }
 
@@ -686,7 +686,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         text: 'Padroes restaurados. Loja e slug principal foram reativados.',
       })
     } catch {
-      setFeedback({ tone: 'error', text: 'Nao foi possivel restaurar os padroes da loja.' })
+      setFeedback({ tone: 'error', text: 'Não foi possível restaurar os padrões da loja.' })
     } finally {
       setRestoringDefaults(false)
     }

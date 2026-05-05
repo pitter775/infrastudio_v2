@@ -130,7 +130,7 @@ export async function applyInitialFreePlan({ supabase, projetoId, now }) {
 export async function createInitialProjectForUsuario({ usuarioId, nome }) {
   const supabase = getSupabaseAdminClient()
   const now = new Date().toISOString()
-  const baseName = String(nome || "Usuario").trim() || "Usuario"
+  const baseName = String(nome || "Usuário").trim() || "Usuário"
   const defaultModelId = await getOrCreateDefaultModelId({ supabase })
   const { data: project, error: projectError } = await supabase
     .from("projetos")
@@ -202,7 +202,7 @@ export async function ensureUsuarioHasProjeto(usuario) {
 
   const projetoId = await createInitialProjectForUsuario({
     usuarioId: usuario.id,
-    nome: persistedUser.name || usuario.name || usuario.nome || "Usuario",
+    nome: persistedUser.name || usuario.name || usuario.nome || "Usuário",
   })
 
   if (!projetoId) {

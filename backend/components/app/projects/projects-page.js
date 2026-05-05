@@ -11,7 +11,7 @@ export function AppProjectsPage({ projects, user }) {
       <AppPageHeader
         eyebrow="Workspace"
         title="Projetos"
-        description={`Bem-vindo, ${user?.name || "usuario"}. Acesse os projetos vinculados a sua conta.`}
+        description={`Bem-vindo, ${user?.name || "usuário"}. Acesse os projetos vinculados à sua conta.`}
       />
 
       {projects.length > 0 ? (
@@ -27,7 +27,7 @@ export function AppProjectsPage({ projects, user }) {
           </div>
           <h2 className="mt-4 text-base font-semibold text-zinc-950">Nenhum projeto vinculado</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-zinc-600">
-            Quando um projeto for vinculado ao seu usuario, ele aparecera nesta tela.
+            Quando um projeto for vinculado ao seu usuário, ele aparecerá nesta tela.
           </p>
         </div>
       )}

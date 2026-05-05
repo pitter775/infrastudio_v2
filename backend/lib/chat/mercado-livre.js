@@ -204,12 +204,12 @@ function buildCatalogProductFromItem(item, options = {}) {
 function buildMercadoLivreSearchReply(products, searchTerm, connector, paging, options = {}) {
   if (!Array.isArray(products) || products.length === 0) {
     if (options?.isAlternativeSearch === true && options?.priceMaxExclusive != null) {
-      return "Nao encontrei outra opcao mais barata nessa mesma busca agora. Posso tentar outro termo ou ampliar a busca se voce quiser."
+      return "Não encontrei outra opção mais barata nessa mesma busca agora. Posso tentar outro termo ou ampliar a busca se você quiser."
     }
 
     return searchTerm
-      ? "Nao achei itens da loja com esse perfil agora. Se quiser, me diga outro termo e eu tento uma nova busca."
-      : "Posso te mostrar produtos da loja. Me diga o que voce procura e eu busco aqui."
+      ? "Não achei itens da loja com esse perfil agora. Se quiser, me diga outro termo e eu tento uma nova busca."
+      : "Posso te mostrar produtos da loja. Me diga o que você procura e eu busco aqui."
   }
 
   const searchTermText = sanitizeString(searchTerm)
@@ -407,7 +407,7 @@ function buildSelectedProductReply(product, userMessage = "") {
     }
   }
   if (Array.isArray(product.variacoesResumo) && product.variacoesResumo.length) {
-    pushUniqueSentence(pieces, `Variacoes visiveis: ${product.variacoesResumo.join(", ")}.`)
+    pushUniqueSentence(pieces, `Variações visíveis: ${product.variacoesResumo.join(", ")}.`)
   }
   if (product.descricaoLonga) {
     pushUniqueSentence(pieces, `Resumo: ${product.descricaoLonga.slice(0, 220)}${product.descricaoLonga.length > 220 ? "..." : ""}`)
@@ -610,7 +610,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     return {
       selectedProductSalesReply: null,
       mercadoLivreHeuristicReply:
-        "Nao consegui continuar essa lista agora. Me passe outro termo e eu faco uma nova busca.",
+        "Não consegui continuar essa lista agora. Me passe outro termo e eu faço uma nova busca.",
       mercadoLivreProducts: [],
       mercadoLivreAssets: [],
       catalogSearchState: null,
@@ -622,7 +622,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     return {
       selectedProductSalesReply: null,
       mercadoLivreHeuristicReply:
-        "Nao consegui localizar esse item na lista atual. Se quiser, eu faco uma nova busca para voce.",
+        "Não consegui localizar esse item na lista atual. Se quiser, eu faço uma nova busca para você.",
       mercadoLivreProducts: [],
       mercadoLivreAssets: [],
       catalogSearchState: null,
@@ -823,7 +823,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       selectedProductSalesReply: null,
       mercadoLivreHeuristicReply: shouldSilence
         ? null
-        : "A loja esta conectada, mas nao consegui buscar os produtos agora. Tente novamente em instantes.",
+        : "A loja está conectada, mas não consegui buscar os produtos agora. Tente novamente em instantes.",
       mercadoLivreProducts: [],
       mercadoLivreAssets: [],
       catalogSearchState: null,
@@ -843,7 +843,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   if (!products.length && input.loadMoreCatalogRequested) {
     return {
       selectedProductSalesReply: null,
-      mercadoLivreHeuristicReply: "Nao encontrei mais itens nessa busca no momento. Se quiser, me passe outro termo e eu faco uma nova busca.",
+      mercadoLivreHeuristicReply: "Não encontrei mais itens nessa busca no momento. Se quiser, me passe outro termo e eu faço uma nova busca.",
       mercadoLivreProducts: [],
       mercadoLivreAssets: [],
       catalogSearchState: {

@@ -174,7 +174,7 @@ function formatContinuationSummary(rawSummary) {
     if (objetivo) snippets.push(`objetivo: ${objetivo}`)
     if (dorPrincipal) snippets.push(`dor: ${dorPrincipal}`)
     if (restricoes) snippets.push(`pontos de atencao: ${restricoes}`)
-    if (proximoPasso) snippets.push(`proximo passo: ${proximoPasso}`)
+    if (proximoPasso) snippets.push(`próximo passo: ${proximoPasso}`)
 
     const compact = snippets.join(" | ").trim()
     if (compact) {
@@ -220,17 +220,17 @@ function buildCatalogWhatsAppCommandHint(assets = []) {
     return ""
   }
 
-  return "Se quiser ver mais opcoes, responda MAIS. Para escolher um item da lista, responda 1, 2 ou 3."
+  return "Se quiser ver mais opções, responda MAIS. Para escolher um item da lista, responda 1, 2 ou 3."
 }
 
 function resolveMercadoLivreWhatsAppTone(reply, followUpReply, assetIndex, totalAssets) {
   const combined = `${String(reply || "")} ${String(followUpReply || "")}`.toLowerCase()
 
-  if (/\b(mais|outras|outros|opcoes|modelos)\b/.test(combined)) {
+  if (/\b(mais|outras|outros|op[cç][õo]es|modelos)\b/.test(combined)) {
     return "load_more"
   }
 
-  if (assetIndex === 0 && /\b(encontrei|separei|alguns itens|algumas opcoes|opcoes)\b/.test(combined)) {
+  if (assetIndex === 0 && /\b(encontrei|separei|alguns itens|algumas op[cç][õo]es|op[cç][õo]es)\b/.test(combined)) {
     return "broad_search"
   }
 
@@ -256,7 +256,7 @@ function buildMercadoLivreWhatsAppSalesComment(asset, options = {}) {
 
   if (tone === "load_more") {
     return formatWhatsAppOutboundTextSafe(
-      `${subject} entra como mais uma opcao nessa linha.${stockLabel} Se quiser, continuo te mandando outras variacoes parecidas.`
+      `${subject} entra como mais uma opção nessa linha.${stockLabel} Se quiser, continuo te mandando outras variações parecidas.`
     )
   }
 
@@ -267,7 +267,7 @@ function buildMercadoLivreWhatsAppSalesComment(asset, options = {}) {
   }
 
   return formatWhatsAppOutboundTextSafe(
-    `${subject} pode combinar com o que voce pediu.${stockLabel} Se quiser, eu separo mais opcoes nessa mesma linha.`
+    `${subject} pode combinar com o que você pediu.${stockLabel} Se quiser, eu separo mais opções nessa mesma linha.`
   )
 }
 
@@ -279,9 +279,9 @@ function buildApiProductWhatsAppSalesComment(asset, options = {}) {
   const subject = nome ? `Esse ${nome}` : "Esse item"
   const combined = `${String(options.reply || "")} ${String(options.followUpReply || "")}`.toLowerCase()
 
-  if (/\b(mais|outras|outros|opcoes|modelos)\b/.test(combined)) {
+  if (/\b(mais|outras|outros|op[cç][õo]es|modelos)\b/.test(combined)) {
     return formatWhatsAppOutboundTextSafe(
-      `${subject} entra como mais uma opcao nessa linha.${stockLabel} Se quiser, eu continuo te mandando outras alternativas parecidas.`
+      `${subject} entra como mais uma opção nessa linha.${stockLabel} Se quiser, eu continuo te mandando outras alternativas parecidas.`
     )
   }
 
@@ -292,7 +292,7 @@ function buildApiProductWhatsAppSalesComment(asset, options = {}) {
   }
 
   return formatWhatsAppOutboundTextSafe(
-    `${subject} pode combinar com o que voce pediu.${stockLabel} Se quiser, eu separo mais opcoes nessa mesma linha.`
+    `${subject} pode combinar com o que você pediu.${stockLabel} Se quiser, eu separo mais opções nessa mesma linha.`
   )
 }
 
@@ -408,7 +408,7 @@ export function isCatalogLoadMoreMessage(message) {
     return false
   }
 
-  if (["mais", "outras", "outros", "mais opcoes", "outras opcoes", "mais modelos", "outros modelos"].includes(normalized)) {
+  if (["mais", "outras", "outros", "mais opcoes", "mais opções", "outras opcoes", "outras opções", "mais modelos", "outros modelos"].includes(normalized)) {
     return true
   }
 
@@ -420,10 +420,10 @@ export function isCatalogLoadMoreMessage(message) {
     /\btraz mais\b/,
     /\bmanda mais\b/,
     /\bver mais\b/,
-    /\boutras opcoes\b/,
+    /\boutras op[cç][õo]es\b/,
     /\boutros modelos\b/,
     /\bmais modelos\b/,
-    /\bmais opcoes\b/,
+    /\bmais op[cç][õo]es\b/,
     /\b(manda|mande|envia|envie|mostra|mostre|traz|traga)\b[\s\S]{0,40}\btiver(?:em)?\b/,
     /\b(o que tiver|oq tiver|q tiver|qualquer um|qualquer coisa)\b/,
   ].some((pattern) => pattern.test(normalized))
@@ -439,11 +439,11 @@ export function splitCatalogReplyForWhatsApp(reply, hasAssets) {
   }
 
   const followUpPatterns = [
-    /Me diga se gostou de algum ou se quer que eu traga mais opcoes parecidas\.?/i,
-    /Me diga se gostou de algum ou se quer que eu traga mais opcoes nesse estilo\.?/i,
-    /Se gostar desse estilo, eu posso te mostrar outras opcoes parecidas tambem\.?/i,
-    /Se gostar desse estilo, eu posso te trazer outras opcoes parecidas tambem\.?/i,
-    /Se quiser, eu tambem posso buscar outras opcoes parecidas ou seguir com este item por aqui\.?/i,
+    /Me diga se gostou de algum ou se quer que eu traga mais op[cç][õo]es parecidas\.?/i,
+    /Me diga se gostou de algum ou se quer que eu traga mais op[cç][õo]es nesse estilo\.?/i,
+    /Se gostar desse estilo, eu posso te mostrar outras op[cç][õo]es parecidas tamb[eé]m\.?/i,
+    /Se gostar desse estilo, eu posso te trazer outras op[cç][õo]es parecidas tamb[eé]m\.?/i,
+    /Se quiser, eu tamb[eé]m posso buscar outras op[cç][õo]es parecidas ou seguir com este item por aqui\.?/i,
   ]
 
   const matchedPattern = followUpPatterns.find((pattern) => pattern.test(normalizedReply))

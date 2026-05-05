@@ -19,7 +19,7 @@ const ANALYTICAL_QUERY_SIGNALS = [
   "faz sentido",
   "quais os riscos",
   "principais riscos",
-  "pontos de atencao",
+  "pontos de atenção",
   "analise",
   "analisa",
   "resuma",
@@ -516,7 +516,7 @@ function formatDirectFieldReply(fieldName, value, deps) {
 
   if (normalizedField.endsWith("matricula")) return `Matricula: ${formattedValue}`
   if (normalizedField.endsWith("cartorio")) return `Cartorio: ${formattedValue}`
-  if (normalizedField.endsWith("riscos") || normalizedField.endsWith("risco")) return `Pontos de atencao: ${formattedValue}`
+  if (normalizedField.endsWith("riscos") || normalizedField.endsWith("risco")) return `Pontos de atenção: ${formattedValue}`
   if (normalizedField.endsWith("ocupacao")) return `Ocupacao: ${formattedValue}`
   if (normalizedField.endsWith("valor_minimo")) return `Valor minimo: ${formattedValue}`
   if (normalizedField.endsWith("valor_avaliacao")) return `Valor de avaliacao: ${formattedValue}`
@@ -1014,7 +1014,7 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
         apis,
         instructions: [
           "Use somente os dados factuais abaixo como fonte da verdade quando a pergunta pedir analise objetiva.",
-          "Se a informacao pedida nao estiver presente, diga isso com clareza.",
+    "Se a informação pedida não estiver presente, diga isso com clareza.",
           "Campos relevantes:\n" +
             analyticalFallbackFields
               .map((field) => `- ${formatApiFieldLabel(field.nome)} (${field.nome}): ${formatApiFieldValue(field.nome, field.valor, deps)}`)
@@ -1023,7 +1023,7 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
       }
     }
 
-    return { instructions: failedApis.length ? failedApis.map((api) => `- API indisponivel: ${api.nome}. Motivo: ${api.erro}`).join("\n") : "", fields: [], apis: [] }
+    return { instructions: failedApis.length ? failedApis.map((api) => `- API indisponível: ${api.nome}. Motivo: ${api.erro}`).join("\n") : "", fields: [], apis: [] }
   }
   const primaryField = lookupPlan.hintMatches[0] ?? lookupPlan.intentMatches[0] ?? lookupPlan.directMatches[0] ?? null
   const selectedFields = lookupPlan.hintMatches.length
@@ -1038,16 +1038,16 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
   const fieldLines = scopedSelectedFields.map(
     (field) => `- ${formatApiFieldLabel(field.nome)} (${field.nome}): ${formatApiFieldValue(field.nome, field.valor, deps)}`
   )
-  const failedLines = failedApis.map((api) => `- API indisponivel: ${api.nome}. Motivo: ${api.erro}`)
+  const failedLines = failedApis.map((api) => `- API indisponível: ${api.nome}. Motivo: ${api.erro}`)
 
   return {
     fields: scopedSelectedFields,
     apis: scopedSelectedFields.length ? apis : [],
     instructions: [
       scopedSelectedFields.length ? "Use somente os dados factuais abaixo como fonte da verdade quando a pergunta for objetiva." : "",
-      scopedSelectedFields.length ? "Se a informacao pedida nao estiver presente, diga isso com clareza." : "",
+      scopedSelectedFields.length ? "Se a informação pedida não estiver presente, diga isso com clareza." : "",
       fieldLines.length ? "Campos relevantes:\n" + fieldLines.join("\n") : "",
-      failedLines.length ? "APIs indisponiveis:\n" + failedLines.join("\n") : "",
+      failedLines.length ? "APIs indisponíveis:\n" + failedLines.join("\n") : "",
     ]
       .filter(Boolean)
       .join("\n\n"),
@@ -1090,7 +1090,7 @@ export function buildApiFallbackReply(message, apis = [], customDeps = {}) {
       "Motivos:",
       ...highlights,
       "",
-      "Proximo passo:",
+      "Próximo passo:",
       "Se quiser, eu sigo pelo criterio que mais pesa agora, como risco, documentos, custo, retorno ou prazo.",
     ].join("\n")
   }

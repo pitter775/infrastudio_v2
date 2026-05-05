@@ -9,14 +9,14 @@ export async function GET(request, context) {
   const user = await getSessionUser()
 
   if (!user) {
-    return NextResponse.json({ error: "Nao autenticado." }, { status: 401 })
+    return NextResponse.json({ error: "Não autenticado." }, { status: 401 })
   }
 
   const { id } = await context.params
   const project = await getProjectForUser(id, user)
 
   if (!project) {
-    return NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 })
+    return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
   try {
@@ -33,14 +33,14 @@ export async function GET(request, context) {
         event: "oauth_start_route_error",
         projetoId: project.id,
         requestOrigin: new URL(request.url).origin,
-        error: error instanceof Error ? error.message : "Nao foi possivel iniciar o OAuth do Mercado Livre.",
+        error: error instanceof Error ? error.message : "Não foi possível iniciar o OAuth do Mercado Livre.",
         forcePersist: true,
         keep: true,
         sourceHint: "mercado_livre_oauth",
       },
     })
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Nao foi possivel iniciar o OAuth do Mercado Livre." },
+      { error: error instanceof Error ? error.message : "Não foi possível iniciar o OAuth do Mercado Livre." },
       { status: 400 },
     )
   }

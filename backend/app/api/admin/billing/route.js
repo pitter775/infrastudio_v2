@@ -58,7 +58,7 @@ export async function PATCH(request) {
   })
 
   if (!billing) {
-    return NextResponse.json({ error: "Nao foi possivel salvar o billing do projeto." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível salvar o billing do projeto." }, { status: 500 })
   }
 
   return NextResponse.json({ billing }, { status: 200 })

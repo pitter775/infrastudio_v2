@@ -90,11 +90,11 @@ export function normalizeAgentRuntimeConfig(input) {
 export function buildAgentRuntimeConfigTemplate() {
   return {
     business: {
-      summary: "Resumo curto do negocio e do perfil de atendimento.",
-      services: ["Servico 1", "Servico 2"],
+      summary: "Resumo curto do negócio e do perfil de atendimento.",
+      services: ["Serviço 1", "Serviço 2"],
     },
     sales: {
-      priorityRules: ["Responda a pergunta principal antes de qualificar.", "Nao invente dados factuais."],
+      priorityRules: ["Responda a pergunta principal antes de qualificar.", "Não invente dados factuais."],
       cta: "Se fizer sentido, convide o cliente para continuar no WhatsApp.",
     },
     leadCapture: {
@@ -102,17 +102,17 @@ export function buildAgentRuntimeConfigTemplate() {
       deferOnQuestions: true,
       respectCatalogBoundary: true,
       promptWeb: "Antes de eu te orientar melhor, como posso te chamar?",
-      promptWhatsApp: "Perfeito. Antes de seguir, qual e o seu nome?",
+      promptWhatsApp: "Perfeito. Antes de seguir, qual é o seu nome?",
       promptQualified: "Se quiser continuar no WhatsApp com contexto, me envie seu nome e telefone com DDD.",
     },
     pricingCatalog: {
       enabled: false,
-      ctaSingle: "Se quiser, eu sigo com voce por aqui e detalho o melhor encaixe.",
-      ctaMultiple: "Se quiser, eu comparo as opcoes e te digo qual faz mais sentido.",
+      ctaSingle: "Se quiser, eu sigo com você por aqui e detalho o melhor encaixe.",
+      ctaMultiple: "Se quiser, eu comparo as opções e te digo qual faz mais sentido.",
       items: [
         {
           slug: "servico-principal",
-          name: "Servico principal",
+          name: "Serviço principal",
           matchAny: ["site", "landing page"],
           priceLabel: "R$ 300 a R$ 1.000",
           attendanceLimit: 100,

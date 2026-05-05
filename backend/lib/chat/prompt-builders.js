@@ -46,7 +46,7 @@ function buildRuntimeConfigInstructions(context = {}) {
       lines.push(`WhatsApp de continuidade: ${whatsappDestination}`)
       lines.push("WhatsApp cadastrado para continuidade do atendimento.")
       lines.push("Nunca use placeholder de WhatsApp. Use somente o numero configurado quando isso for necessario em contexto interno.")
-      lines.push("Se sugerir continuar no WhatsApp, nao escreva numero, link ou contato em texto.")
+      lines.push("Se sugerir continuar no WhatsApp, não escreva número, link ou contato em texto.")
       lines.push("Apenas convide de forma curta para continuar no WhatsApp quando fizer sentido.")
     }
   }
@@ -56,7 +56,7 @@ function buildRuntimeConfigInstructions(context = {}) {
   }
 
   if (Array.isArray(runtimeConfig?.pricingCatalog?.items) && runtimeConfig.pricingCatalog.items.length) {
-    lines.push("Catalogo de precos estruturado:")
+    lines.push("Catálogo de preços estruturado:")
     lines.push(
       ...runtimeConfig.pricingCatalog.items
         .slice(0, 8)
@@ -116,17 +116,17 @@ function buildResponseGuardrailInstructions() {
     "Regras de resposta:",
     "- Responda primeiro a pergunta principal do cliente.",
     "- Para perguntas comerciais simples, responda em ate 4 frases curtas.",
-    "- Nao liste varias opcoes ou muito contexto sem o cliente pedir isso.",
+    "- Não liste várias opções ou muito contexto sem o cliente pedir isso.",
     "- Quando o cliente pedir valores, precos ou planos em geral, liste os planos estruturados disponiveis.",
     "- Quando houver um melhor encaixe inicial, indique primeiro essa opcao e so depois cite alternativa.",
     "- Nunca despeje campo cru, JSON, rotulo tecnico ou lista de atributos sem interpretar.",
     "- Quando a pergunta for factual, responda com o fato mais relevante primeiro e complemente so com contexto util.",
     "- Quando houver mais de um dado importante, organize em blocos curtos ou lista curta.",
-    "- Nao repita a mesma informacao com palavras diferentes na mesma resposta.",
+    "- Não repita a mesma informação com palavras diferentes na mesma resposta.",
     "- Quando houver produto em foco, use so os dados necessarios para responder a pergunta atual.",
-    "- Se o cliente citar um produto ou categoria, traga opcoes/conteudo disponivel antes de pedir mais especificacao.",
-    "- Se a informacao pedida nao estiver disponivel, diga isso claramente em vez de improvisar.",
-    "- Nao invente valor, prazo, disponibilidade, status, documento ou detalhe tecnico.",
+    "- Se o cliente citar um produto ou categoria, traga opções/conteúdo disponível antes de pedir mais especificacao.",
+    "- Se a informação pedida não estiver disponível, diga isso claramente em vez de improvisar.",
+    "- Não invente valor, prazo, disponibilidade, status, documento ou detalhe técnico.",
   ].join("\n")
 }
 
@@ -178,21 +178,21 @@ function buildMercadoLivreSalesTechniqueInstructions(context = {}) {
 
   return [
     "Tecnica de vendas para produto do Mercado Livre:",
-    "- Atue como vendedor consultivo, nao como catalogo neutro.",
+    "- Atue como vendedor consultivo, não como catálogo neutro.",
     "- Quando o cliente sinalizar preferencia por um item, avance a venda com seguranca.",
-    "- Destaque o produto escolhido, preco, disponibilidade e proximo passo de compra quando isso estiver no contexto.",
-    "- Use no maximo 1 ou 2 argumentos concretos por resposta. Nao despeje ficha tecnica sem necessidade.",
+    "- Destaque o produto escolhido, preço, disponibilidade e próximo passo de compra quando isso estiver no contexto.",
+    "- Use no máximo 1 ou 2 argumentos concretos por resposta. Não despeje ficha técnica sem necessidade.",
     "- Mantenha os detalhes completos do produto em memoria para responder qualquer pergunta especifica sobre ele.",
-    "- So revele atributo, medida, material, garantia, frete, estoque, descricao ou variacao quando a pergunta do cliente pedir isso direta ou indiretamente.",
+    "- Só revele atributo, medida, material, garantia, frete, estoque, descrição ou variação quando a pergunta do cliente pedir isso direta ou indiretamente.",
     "- Se o cliente fizer pergunta curta como 'tem garantia?', 'qual material?', 'serve?', responda objetivamente com base no produto em foco.",
     lockedProductDetailContext
-      ? `- Contexto travado: o cliente esta na pagina de detalhe do produto ${getCatalogCurrentProductName(context)}. Considere este item como produto em foco por padrao.`
+      ? `- Contexto travado: o cliente está na página de detalhe do produto ${getCatalogCurrentProductName(context)}. Considere este item como produto em foco por padrão.`
       : "",
     lockedProductDetailContext
       ? "- Nunca diga que nao conseguiu identificar o produto e nunca peca para o cliente informar qual item esta vendo, a menos que ele peça explicitamente outra opcao."
       : "",
     "- Evite repetir so o titulo do produto. Sempre acrescente valor comercial.",
-    "- Feche com CTA curto: link, comparacao rapida ou confirmacao do interesse.",
+    "- Feche com CTA curto: link, comparação rápida ou confirmação do interesse.",
   ].join("\n")
 }
 
@@ -254,7 +254,7 @@ function formatRuntimeApiPromptContext(api) {
 
   return [
     `API: ${api.nome}`,
-    api.descricao ? `Descricao: ${String(api.descricao).slice(0, 220)}` : "",
+    api.descricao ? `Descrição: ${String(api.descricao).slice(0, 220)}` : "",
     `Status: ${api.status}`,
     fieldLines.length
       ? `Campos factuais:\n${fieldLines.join("\n")}`
@@ -284,7 +284,7 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
     ? [
         "Dados externos consultados agora:",
         ...context.runtimeApis.map((api) => formatRuntimeApiPromptContext(api)),
-        "Use estes dados quando forem relevantes e diga que nao encontrou informacao se eles nao responderem a pergunta.",
+        "Use estes dados quando forem relevantes e diga que não encontrou informação se eles não responderem a pergunta.",
       ].join("\n\n")
     : ""
   const agendaContext = Array.isArray(context?.agenda?.horariosDisponiveis) && context.agenda.horariosDisponiveis.length
@@ -307,7 +307,7 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
     : ""
 
   return [
-    `Voce e ${name}.`,
+    `Você é ${name}.`,
     projetoNome ? `Projeto: ${projetoNome}.` : "",
     base,
     buildResponseGuardrailInstructions(),
@@ -340,7 +340,7 @@ export function buildRuntimePrompt(agent, context, options = {}) {
     buildRuntimeConfigInstructions(runtimeContext),
     buildMercadoLivreSalesTechniqueInstructions(runtimeContext),
     buildHomeCtaInstructions(runtimeContext),
-    "Se a pergunta pedir valor, prazo, status, descricao, risco, disponibilidade ou documento, responda isso primeiro.",
+    "Se a pergunta pedir valor, prazo, status, descrição, risco, disponibilidade ou documento, responda isso primeiro.",
     "Se houver dados factuais no contexto, transforme esses dados em resposta util para o cliente.",
     Boolean(options.structuredResponse) ? "Prefira resposta curta, comercial e organizada." : "",
   ]
@@ -358,9 +358,9 @@ export function buildAgentAssetInstruction(assets = []) {
 
 export function buildAnalyticalReplyInstruction() {
   return [
-    "Seja preciso e nao invente dados.",
-    "Em perguntas analiticas, entregue conclusao, motivos e proximo passo.",
-    "Em perguntas objetivas, nao transforme tudo em analise longa.",
+    "Seja preciso e não invente dados.",
+    "Em perguntas analíticas, entregue conclusão, motivos e próximo passo.",
+    "Em perguntas objetivas, não transforme tudo em análise longa.",
   ].join("\n")
 }
 
@@ -374,8 +374,8 @@ export function buildStructuredReplyInstruction() {
   return [
     "Quando fizer sentido, responda em JSON valido.",
     'Use o formato: {"reply":"texto curto","followUpReply":"","ui":{"blocks":[{"type":"text","variant":"title","text":"titulo discreto"},{"type":"badges","items":["tag 1","tag 2"]},{"type":"list","items":["item 1","item 2"]},{"type":"actions","items":[{"label":"Continuar","type":"message","message":"Quero continuar"}]}]}}.',
-    "Se nao precisar de bloco visual, ainda assim mantenha reply curto e organizado.",
-    "Nao use markdown, nao use crase e nao devolva texto antes ou depois do JSON.",
+    "Se não precisar de bloco visual, ainda assim mantenha reply curto e organizado.",
+    "Não use markdown, não use crase e não devolva texto antes ou depois do JSON.",
   ].join("\n")
 }
 

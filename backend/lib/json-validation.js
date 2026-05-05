@@ -9,7 +9,7 @@ function validateJsonValue(value, path, depth, maxDepth) {
 
   if (value == null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     if (typeof value === "number" && !Number.isFinite(value)) {
-      return `${path} contem numero invalido.`
+      return `${path} contém número inválido.`
     }
     return null
   }
@@ -30,7 +30,7 @@ function validateJsonValue(value, path, depth, maxDepth) {
 
   for (const [key, childValue] of Object.entries(value)) {
     if (!key || key.length > 120) {
-      return `${path} contem chave invalida.`
+      return `${path} contém chave inválida.`
     }
 
     const error = validateJsonValue(childValue, `${path}.${key}`, depth + 1, maxDepth)
@@ -42,7 +42,7 @@ function validateJsonValue(value, path, depth, maxDepth) {
   return null
 }
 
-export function validateJsonObjectConfig(value, label = "Configuracao JSON", options = {}) {
+export function validateJsonObjectConfig(value, label = "Configuração JSON", options = {}) {
   if (value == null) {
     return { ok: true, value: null }
   }

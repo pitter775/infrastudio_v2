@@ -17,7 +17,7 @@ function fileToBase64(file) {
       const [, base64 = ""] = result.split(",")
       resolve(base64)
     }
-    reader.onerror = () => reject(new Error("Nao foi possivel ler a foto selecionada."))
+    reader.onerror = () => reject(new Error("Não foi possível ler a foto selecionada."))
     reader.readAsDataURL(file)
   })
 }
@@ -92,7 +92,7 @@ export function AdminProfilePage({ currentUser }) {
     const data = await response.json().catch(() => null)
 
     if (!response.ok) {
-      setFeedback(data?.error ?? "Nao foi possivel atualizar o perfil.")
+      setFeedback(data?.error ?? "Não foi possível atualizar o perfil.")
       setSaving(false)
       return
     }
@@ -160,7 +160,7 @@ export function AdminProfilePage({ currentUser }) {
             </div>
             <div>
               <dt className="text-slate-500">Perfil</dt>
-              <dd className="mt-1 font-medium capitalize text-white">{currentUser?.role === "admin" ? "Admin" : "Usuario"}</dd>
+              <dd className="mt-1 font-medium capitalize text-white">{currentUser?.role === "admin" ? "Admin" : "Usuário"}</dd>
             </div>
           </dl>
         </div>

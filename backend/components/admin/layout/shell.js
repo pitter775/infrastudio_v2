@@ -51,9 +51,9 @@ const navItems = [
   { label: 'Template', icon: PanelsTopLeft, href: '/admin/template', adminOnly: true },
   { label: 'Perfil', icon: UserCog, href: '/admin/perfil' },
   { label: 'Adriana', icon: Bot, href: '/admin/adriana', adminOnly: true },
-  { label: 'Usuarios', icon: Users, href: '/admin/usuarios', adminOnly: true },
+  { label: 'Usuários', icon: Users, href: '/admin/usuarios', adminOnly: true },
   { label: 'Billing', icon: CreditCard, href: '/admin/billing', adminOnly: true },
-  { label: 'Laboratorio', icon: FlaskConical, href: '/admin/laboratorio', adminOnly: true },
+  { label: 'Laboratório', icon: FlaskConical, href: '/admin/laboratorio', adminOnly: true },
 ]
 
 function isItemActive(item, pathname) {
@@ -199,7 +199,7 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
             <UserAvatar src={user?.avatarUrl} label={user?.name || user?.email} className="h-8 w-8" />
             {collapsed ? null : (
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white">{user?.name || 'Usuario'}</p>
+                <p className="truncate text-sm font-medium text-white">{user?.name || 'Usuário'}</p>
                 <p className="truncate text-xs text-slate-500">{user?.role || 'viewer'}</p>
               </div>
             )}
@@ -222,7 +222,7 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
 
 function formatCycleResetLabel(value) {
   if (!value) {
-    return 'Renovacao mensal'
+    return 'Renovação mensal'
   }
 
   return new Intl.DateTimeFormat('pt-BR', {
@@ -246,7 +246,7 @@ function SidebarProjectUsageCard({ summary }) {
 
   const statusLabel =
     summary.subscriptionStatus === 'aguardando_confirmacao'
-      ? 'Pagamento em confirmacao'
+      ? 'Pagamento em confirmação'
       : summary.billingBlocked && !summary.planId
         ? 'Projeto sem plano'
         : summary.billingBlocked
@@ -710,7 +710,7 @@ export function AdminShell({ user, children, buildLabel = '' }) {
                     size="icon"
                     className="text-slate-500 shadow-none hover:bg-transparent hover:text-white"
                   >
-                    <Link href="/" aria-label="Voltar para a home publica">
+                    <Link href="/" aria-label="Voltar para a home pública">
                       <House className="h-5 w-5" />
                     </Link>
                   </Button>
@@ -737,7 +737,7 @@ export function AdminShell({ user, children, buildLabel = '' }) {
                         <div className="flex items-center justify-between border-b border-white/5 px-4 py-3">
                           <div>
                             <div className="text-sm font-semibold text-white">Avisos</div>
-                            <div className="text-xs text-slate-500">Acesse direto o conteudo pendente.</div>
+                            <div className="text-xs text-slate-500">Acesse direto o conteúdo pendente.</div>
                           </div>
                           <button
                             type="button"

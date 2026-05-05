@@ -7,7 +7,7 @@ import { loginOrCreateSocialUsuario } from "@/lib/auth-registration"
 function getAppAuthSecret() {
   const secret = process.env.APP_AUTH_SECRET?.trim()
   if (!secret) {
-    throw new Error("APP_AUTH_SECRET nao configurado.")
+    throw new Error("APP_AUTH_SECRET não configurado.")
   }
 
   return new TextEncoder().encode(secret)
@@ -25,7 +25,7 @@ function getAppUrl(origin) {
 
 function assertProvider(provider) {
   if (provider !== "google" && provider !== "facebook") {
-    throw new Error("Provider social invalido.")
+    throw new Error("Provider social inválido.")
   }
 
   return provider
@@ -74,7 +74,7 @@ export async function buildSocialAuthorizationUrl(provider, origin) {
   const config = getProviderConfig(safeProvider, origin)
 
   if (!config.clientId || !config.clientSecret) {
-    throw new Error(`OAuth ${safeProvider} nao configurado no servidor.`)
+    throw new Error(`OAuth ${safeProvider} não configurado no servidor.`)
   }
 
   const state = await signSocialOAuthState({ provider: safeProvider })
@@ -128,7 +128,7 @@ async function exchangeGoogleCode(code, origin, fetchImpl = fetch) {
   return {
     providerUserId: profile.sub,
     email: profile.email,
-    nome: profile.name?.trim() || profile.email.split("@")[0] || "Usuario",
+    nome: profile.name?.trim() || profile.email.split("@")[0] || "Usuário",
     avatarUrl: profile.picture?.trim() || "",
   }
 }
@@ -160,7 +160,7 @@ async function exchangeFacebookCode(code, origin, fetchImpl = fetch) {
   return {
     providerUserId: profile.id,
     email: profile.email,
-    nome: profile.name?.trim() || profile.email.split("@")[0] || "Usuario",
+    nome: profile.name?.trim() || profile.email.split("@")[0] || "Usuário",
     avatarUrl: profile.picture?.data?.url?.trim() || "",
   }
 }
@@ -195,7 +195,7 @@ export async function completeSocialOAuthCallback(searchParams, origin, dependen
   })
 
   if (!result.ok || !result.user) {
-    throw new Error("Nao foi possivel concluir o login social.")
+    throw new Error("Não foi possível concluir o login social.")
   }
 
   return result.user

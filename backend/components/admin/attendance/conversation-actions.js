@@ -83,7 +83,7 @@ export default function ConversationActions({ conversation }) {
 
         <section className="space-y-3">
           <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">
-            Informacoes
+            Informações
           </p>
 
           <div className="divide-y rounded-lg border">

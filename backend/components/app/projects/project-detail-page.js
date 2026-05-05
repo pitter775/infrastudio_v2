@@ -80,7 +80,7 @@ export function AppProjectDetailPage({ project }) {
               Workspace operacional
             </div>
             <p className="mt-4 max-w-3xl text-sm leading-6 text-zinc-300">
-              Edite o agente, revise integracoes, acompanhe billing e mantenha o projeto pronto para publicacao.
+              Edite o agente, revise integrações, acompanhe billing e mantenha o projeto pronto para publicação.
             </p>
           </div>
 
@@ -88,7 +88,7 @@ export function AppProjectDetailPage({ project }) {
             {[
               ["Agente", project.agent?.name || "Sem agente"],
               ["Plano", project.billing?.projectPlan?.planName || "Sem billing"],
-              ["Ambiente", project.isDemo ? "Demo" : "Producao"],
+              ["Ambiente", project.isDemo ? "Demo" : "Produção"],
             ].map(([label, value]) => (
               <div key={label} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
                 <div className="text-[11px] uppercase tracking-[0.16em] text-zinc-400">{label}</div>
@@ -113,7 +113,7 @@ export function AppProjectDetailPage({ project }) {
                 <p>Clique no projeto que criamos para você.</p>
                 <p>Ele já vem com tudo que precisa:</p>
                 <ul className="space-y-2 text-zinc-700">
-                  <li>agente de IA configurado, so adiciona suas informacos </li>
+                  <li>agente de IA configurado, só adicione suas informações</li>
                   <li>chat funcionando no seu site</li>
                   <li>pronto para conectar WhatsApp e Mercado Livre</li>
                 </ul>
@@ -135,7 +135,7 @@ export function AppProjectDetailPage({ project }) {
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-zinc-500">Ambiente</dt>
-                <dd className="font-medium text-zinc-950">{project.isDemo ? "Demo" : "Producao"}</dd>
+                <dd className="font-medium text-zinc-950">{project.isDemo ? "Demo" : "Produção"}</dd>
               </div>
               <div className="flex items-center justify-between gap-3">
                 <dt className="text-zinc-500">Billing</dt>

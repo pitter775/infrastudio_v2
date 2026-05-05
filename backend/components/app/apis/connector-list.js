@@ -74,7 +74,7 @@ export function ConnectorList({ project }) {
                     ) : null}
                     {isMercadoLivre(connector) ? (
                       <p className="mt-1 text-xs font-medium text-emerald-700">
-                        Mercado Livre mapeado no novo padrao de conectores.
+                        Mercado Livre mapeado no novo padrão de conectores.
                       </p>
                     ) : null}
                   </div>

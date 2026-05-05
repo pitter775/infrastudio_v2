@@ -721,10 +721,10 @@ function AboutSection({ onLoginClick }) {
           <div className="mt-6 max-w-3xl space-y-4 text-base leading-8 text-slate-600 dark:text-slate-300 md:text-lg">
             <p>
               A InfraStudio resolve um problema comum como empresas que perdem tempo e vendas
-              com atendimento manual ou algo mais complexo entre uma integracao ou sistemas completos.
+              com atendimento manual ou algo mais complexo entre uma integração ou sistemas completos.
             </p>
             <p>
-              Temos mais de 18 anos de experiência, focado em criar sistemas, 
+              São mais de 18 anos focado em criar sistemas,
               integrações e automações que funcionam na prática.
             </p>
             <p>

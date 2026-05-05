@@ -9,13 +9,13 @@ async function loadProject(identifier) {
   const user = await getSessionUser()
 
   if (!user) {
-    return { response: NextResponse.json({ error: "Nao autenticado." }, { status: 401 }) }
+    return { response: NextResponse.json({ error: "Não autenticado." }, { status: 401 }) }
   }
 
   const project = await getProjectAccessForUser(identifier, user)
 
   if (!project) {
-    return { response: NextResponse.json({ error: "Projeto nao encontrado." }, { status: 404 }) }
+    return { response: NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 }) }
   }
 
   return { user, project }
@@ -34,7 +34,7 @@ export async function GET(request, context) {
       elapsedMs: Date.now() - startedAt,
       projectId: id,
       source: "project_whatsapp_list",
-      payload: { error: "Projeto nao autenticado ou nao encontrado." },
+      payload: { error: "Projeto não autenticado ou não encontrado." },
     })
     return loaded.response
   }
@@ -68,7 +68,7 @@ export async function POST(request, context) {
       elapsedMs: Date.now() - startedAt,
       projectId: id,
       source: "project_whatsapp_create",
-      payload: { error: "Projeto nao autenticado ou nao encontrado." },
+      payload: { error: "Projeto não autenticado ou não encontrado." },
     })
     return loaded.response
   }

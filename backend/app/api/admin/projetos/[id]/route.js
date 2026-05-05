@@ -18,7 +18,7 @@ export async function PATCH(request, context) {
   const body = await request.json().catch(() => ({}))
 
   if (!body.targetUserId) {
-    return NextResponse.json({ error: "Usuario destino e obrigatorio." }, { status: 400 })
+    return NextResponse.json({ error: "Usuário destino é obrigatório." }, { status: 400 })
   }
 
   const project = await transferProjectOwnership({
@@ -27,7 +27,7 @@ export async function PATCH(request, context) {
   })
 
   if (!project) {
-    return NextResponse.json({ error: "Nao foi possivel transferir o projeto." }, { status: 500 })
+    return NextResponse.json({ error: "Não foi possível transferir o projeto." }, { status: 500 })
   }
 
   return NextResponse.json({ project }, { status: 200 })
@@ -49,7 +49,7 @@ export async function DELETE(_request, context) {
   if (!result.ok) {
     return NextResponse.json(
       {
-        error: result.error ?? "Nao foi possivel excluir o projeto.",
+        error: result.error ?? "Não foi possível excluir o projeto.",
         code: result.code ?? null,
       },
       { status: 500 },
