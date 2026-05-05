@@ -14,6 +14,39 @@ function sanitizeColor(value, fallback) {
   return /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(normalized) ? normalized : fallback
 }
 
+async function resolveImageDataUrl(url) {
+  if (!url) {
+    return ""
+  }
+
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), 3500)
+
+  try {
+    const response = await fetch(url, { signal: controller.signal, cache: "no-store" })
+    if (!response.ok) {
+      return ""
+    }
+
+    const contentType = String(response.headers.get("content-type") || "").split(";")[0].trim().toLowerCase()
+    if (!["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"].includes(contentType)) {
+      return ""
+    }
+
+    const arrayBuffer = await response.arrayBuffer()
+    if (!arrayBuffer.byteLength || arrayBuffer.byteLength > 1_200_000) {
+      return ""
+    }
+
+    const base64 = Buffer.from(arrayBuffer).toString("base64")
+    return `data:${contentType};base64,${base64}`
+  } catch {
+    return ""
+  } finally {
+    clearTimeout(timeout)
+  }
+}
+
 export default async function Image({ params }) {
   const { slug } = await params
   const result = await getPublicMercadoLivreStoreBySlug(slug, { page: 1 })
@@ -22,6 +55,7 @@ export default async function Image({ params }) {
   const storeName = String(store?.name || "Loja").trim()
   const storeHeadline = String(store?.headline || "Produtos da loja com atendimento direto.").trim()
   const logoUrl = String(store?.logoUrl || "").trim()
+  const logoDataUrl = await resolveImageDataUrl(logoUrl)
   const accent = sanitizeColor(store?.accentColor, "#0f766e")
   const accentSoft = `${accent}18`
 
@@ -136,8 +170,8 @@ export default async function Image({ params }) {
               width: 132,
               height: 132,
               borderRadius: 28,
-              background: logoUrl ? "#ffffff" : `linear-gradient(135deg, ${accent}, #ffffff)`,
-              boxShadow: logoUrl ? "0 18px 32px -28px rgba(15,23,42,0.28)" : "0 20px 40px -24px rgba(15,23,42,0.24)",
+              background: logoDataUrl ? "#ffffff" : `linear-gradient(135deg, ${accent}, #ffffff)`,
+              boxShadow: logoDataUrl ? "0 18px 32px -28px rgba(15,23,42,0.28)" : "0 20px 40px -24px rgba(15,23,42,0.24)",
               border: "0",
               display: "flex",
               alignItems: "center",
@@ -145,10 +179,10 @@ export default async function Image({ params }) {
               overflow: "hidden",
             }}
           >
-            {logoUrl ? (
+            {logoDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={logoUrl}
+                src={logoDataUrl}
                 alt={storeName}
                 style={{
                   width: "100%",
