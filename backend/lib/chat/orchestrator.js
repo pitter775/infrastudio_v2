@@ -22,6 +22,7 @@ import {
   classifySemanticApiIntentStage,
   classifySemanticBillingIntentStage,
   classifySemanticIntentStage,
+  extractDeterministicPricingCatalogFromAgentText,
   extractSemanticBusinessRuntimeFromAgentText,
   extractSemanticPricingCatalogFromAgentText,
 } from "@/lib/chat/semantic-intent-stage"
@@ -65,6 +66,15 @@ function hasRuntimePricingCatalog(runtimeConfig = null) {
       Array.isArray(runtimeConfig?.pricingCatalog?.items) &&
       runtimeConfig.pricingCatalog.items.length > 0
   )
+}
+
+function hasWeakRuntimePricingCatalog(runtimeConfig = null) {
+  const items = Array.isArray(runtimeConfig?.pricingCatalog?.items) ? runtimeConfig.pricingCatalog.items : []
+  if (!runtimeConfig?.pricingCatalog?.enabled || items.length < 2) {
+    return true
+  }
+
+  return items.every((item) => normalizeText(`${item?.name || ""} ${item?.priceLabel || ""}`).includes("projetos sob medida"))
 }
 
 function hasRuntimeBusinessContext(runtimeConfig = null) {
@@ -135,6 +145,18 @@ async function resolveEffectiveRuntimePricingCatalog(input = {}) {
   const agentPromptBase = String(input.agentPromptBase || "").trim()
   const openAiKey = String(input.openAiKey || "").trim()
   const model = String(input.model || "").trim() || "gpt-4o-mini"
+
+  if (agentPromptBase) {
+    const deterministicPricingCatalog = extractDeterministicPricingCatalogFromAgentText(agentPromptBase)
+    if (
+      deterministicPricingCatalog?.enabled &&
+      Array.isArray(deterministicPricingCatalog.items) &&
+      deterministicPricingCatalog.items.length >= 2 &&
+      (!hasRuntimePricingCatalog(runtimeConfig) || hasWeakRuntimePricingCatalog(runtimeConfig))
+    ) {
+      return mergeRuntimePricingCatalog(runtimeConfig, deterministicPricingCatalog)
+    }
+  }
 
   if (hasRuntimePricingCatalog(runtimeConfig) || !agentPromptBase || !openAiKey) {
     return runtimeConfig

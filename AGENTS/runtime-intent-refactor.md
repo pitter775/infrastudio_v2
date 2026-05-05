@@ -678,3 +678,7 @@ Ainda errado / fragil:
 - o stage semantico de catalogo ficou mais fail-closed para `catalog_load_more`
   - se a classificacao vier como `catalog_load_more` carregando `targetType` concreto, o runtime converte para busca/refinamento de catalogo
   - o prompt tambem orienta que tipos concretos como prato, xicara, vaso e similares nao devem virar continuidade de lista
+- billing ganhou protecao contra catalogo estruturado fraco salvo no agente
+  - quando o `pricingCatalog` explicito tiver menos de 2 itens ou estiver colapsado em "projetos sob medida", o runtime tenta reconstituir os planos mensais pelo parser deterministico da secao de planos do prompt
+  - isso evita que uma configuracao ruim no banco bloqueie Free/Basic/Plus/Pro e responda apenas R$ 300,00
+  - a correcao e de sanidade de configuracao, nao de linguagem do usuario
