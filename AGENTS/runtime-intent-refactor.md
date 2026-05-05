@@ -178,6 +178,9 @@ Ja feito:
   - isso reduz mais um falso positivo da vitrine sem matar busca curta valida
 - o `intent-stage` de catalogo agora tambem cobre `new_catalog_search`:
   - isso permite tratar busca curta de vitrine como decisao semantica estruturada
+- a vitrine Mercado Livre agora sobe busca de catalogo ja no primeiro sinal concreto de produto:
+  - contexto `storefront/listing` com candidato real como `pratos` passa a usar o handler de catalogo em vez de resposta generica
+  - resposta curta a pergunta de refinamento com termo concreto, como `vintages`, tambem volta para catalogo mesmo sem lista recente ainda
   - o orquestrador agora avalia o stage semantico de catalogo tambem em contexto de storefront, mesmo sem snapshot recente
   - isso reduz mais o peso do `domain-router` na vitrine quando o cliente inicia uma busca curta real
 - o `domain-router` deixou de subir busca curta de vitrine por conta propria:
@@ -192,6 +195,21 @@ Ja feito:
   - `focus` antigo sem lista/busca recente real nao mantem mais `catalog` sozinho
   - contexto de vitrine por si so nao basta para continuar follow-up curto no roteador
   - isso reduz dependencia de estado velho e deixa a retomada curta mais dependente de contexto catalogal real
+- API runtime ganhou separacao inicial por `runtime.intentType`:
+  - `create_record` nao entra em consulta factual nem executa automaticamente no runtime
+  - `lookup_by_identifier` e `knowledge_search` continuam disponiveis para fatos, mas nao viram catalogo de produto
+  - `catalog_search` e o unico intent explicito tratado como catalogo/lista de produtos
+  - consulta factual entre multiplas APIs agora falha fechado quando o campo pedido fica ambiguo sem API preferida
+  - non-GET com `requiredFields` ausentes tambem nao executa automaticamente
+  - o stage semantico de API agora carrega `apiId` e `intentType` para reduzir conflito entre cadastro, consulta, conhecimento e catalogo
+  - o painel de APIs agora expoe aba Runtime para configurar `intentType`, `descriptionForIntent`, autoexecucao, confirmacao e avisos de configuracao
+  - o painel de APIs tambem ganhou presets de Cadastro, Consulta por codigo, Busca informativa e Catalogo, salvando `runtime.fields`, `responsePath` e `previewPath`
+  - API runtime agora pede campos obrigatorios antes de consulta por identificador e trata `api_create_record` como coleta segura antes de registro
+  - o trace do laboratorio/chat passou a mostrar diagnostico de API runtime com campos obrigatorios, faltantes, bloqueios e conflitos compactos
+  - o contexto da conversa agora tambem persiste `apiRuntime` com ultima API/intencao, campos obrigatorios faltantes, bloqueios e pendencia de confirmacao para continuidade segura
+  - execucao de `create_record` ficou liberada apenas quando houver confirmacao estruturada no contexto, `autoExecute` ligado e todos os campos obrigatorios resolvidos
+  - o widget ganhou acao estruturada `Confirmar cadastro` para confirmar API `create_record` sem depender de interpretacao textual livre
+  - confirmacao/cancelamento textual de `create_record` agora passa por stage semantico dedicado antes da execucao, evitando lista de frases soltas
 - o `domain-router` de billing tambem ficou mais fail-closed:
   - sem `pricingCatalog` estruturado real no runtime, o roteador nao assume billing so por `planos`, `assinatura` ou similares
   - isso joga mais casos para o `intent-stage` e reduz chute textual no roteador

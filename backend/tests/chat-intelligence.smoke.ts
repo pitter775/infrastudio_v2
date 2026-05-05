@@ -119,9 +119,11 @@ import {
   requestRuntimeHumanHandoff,
   estimateOpenAICostUsd,
   resolvePricingModel,
+  shouldExecuteRuntimeApi,
   validateMercadoPagoWebhookSignature,
   shouldThrottleSessionSync,
   resolveAdminReplyChannelFromMessages,
+  resolveApiRuntimeConfirmationContext,
   sortFeedbacks,
 } from "@/tests/chat-source";
 import {
@@ -628,6 +630,179 @@ const tests: TestCase[] = [
       assert.deepEqual(updatedContext.billing?.lastFields, ["attendance_limit", "agent_limit"])
       assert.equal(updatedContext.billing?.comparisonFocus?.plans?.[0]?.slug, "plus")
       assert.equal(updatedContext.billing?.comparisonFocus?.fields?.[1], "agent_limit")
+    },
+  },
+  {
+    name: "service propaga estado do API runtime para coleta segura",
+    run: () => {
+      const updatedContext = updateContextFromAiResult({
+        nextContext: {
+          apiRuntime: {},
+        },
+        historyLengthSource: 1,
+        chatId: "chat-api-runtime-1",
+        ai: {
+          reply: "Para fazer esse cadastro com segurança, preciso de: nome.",
+          assets: [],
+          metadata: {
+            apiRuntimeContextUpdate: {
+              lastApiId: "api-cadastro",
+              lastIntent: "api_create_record",
+              lastIntentType: "create_record",
+              missingRequiredFields: ["nome"],
+              blockedReasons: ["create_record_sem_execucao_automatica"],
+              pendingConfirmation: true,
+              updatedAt: "2026-05-05T12:00:00.000Z",
+            },
+          },
+        },
+      })
+
+      assert.equal(updatedContext.apiRuntime?.lastApiId, "api-cadastro")
+      assert.equal(updatedContext.apiRuntime?.lastIntent, "api_create_record")
+      assert.equal(updatedContext.apiRuntime?.lastIntentType, "create_record")
+      assert.equal(updatedContext.apiRuntime?.missingRequiredFields?.[0], "nome")
+      assert.equal(updatedContext.apiRuntime?.blockedReasons?.[0], "create_record_sem_execucao_automatica")
+      assert.equal(updatedContext.apiRuntime?.pendingConfirmation, true)
+    },
+  },
+  {
+    name: "api runtime executa cadastro somente com confirmacao estruturada",
+    run: () => {
+      const api = {
+        id: "api-cadastro-lead",
+        method: "POST",
+        config: {
+          runtime: {
+            intentType: "create_record",
+            autoExecute: true,
+            requiresConfirmation: true,
+            requiredFields: [
+              { name: "nome", source: "lead.nome", label: "nome" },
+              { name: "telefone", source: "lead.telefone", label: "telefone" },
+            ],
+          },
+        },
+      }
+
+      assert.equal(
+        shouldExecuteRuntimeApi(api, {
+          lead: { nome: "Ana", telefone: "11999999999" },
+          apiRuntime: {
+            pendingConfirmation: true,
+            lastApiId: "api-cadastro-lead",
+            lastIntentType: "create_record",
+          },
+        }),
+        false
+      )
+      assert.equal(
+        shouldExecuteRuntimeApi(api, {
+          lead: { nome: "Ana", telefone: "11999999999" },
+          apiRuntime: {
+            pendingConfirmation: false,
+            confirmedApiId: "api-cadastro-lead",
+            confirmedIntentType: "create_record",
+            confirmedAt: "2026-05-05T12:03:00.000Z",
+          },
+        }),
+        true
+      )
+      assert.equal(
+        shouldExecuteRuntimeApi(api, {
+          lead: { nome: "Ana" },
+          apiRuntime: {
+            pendingConfirmation: false,
+            confirmedApiId: "api-cadastro-lead",
+            confirmedIntentType: "create_record",
+            confirmedAt: "2026-05-05T12:03:00.000Z",
+          },
+        }),
+        false
+      )
+    },
+  },
+  {
+    name: "widget expõe ação estruturada para confirmar cadastro de API",
+    run: () => {
+      const payload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: {
+          reply: "Revisei os dados. Posso registrar?",
+          assets: [],
+          metadata: {},
+        },
+        nextContext: {
+          apiRuntime: {
+            pendingConfirmation: true,
+            lastApiId: "api-cadastro-lead",
+            lastIntentType: "create_record",
+          },
+        },
+        normalizedExternalIdentifier: "lead-api-1",
+        userMessage: "me cadastra",
+        agendaSlots: [],
+      })
+      const action = payload.actions.find((item) => item?.source === "widget_api_runtime_confirm")
+
+      assert.equal(action?.label, "Confirmar cadastro")
+      assert.equal(action?.extraContext?.apiRuntime?.confirmedApiId, "api-cadastro-lead")
+      assert.equal(action?.extraContext?.apiRuntime?.confirmedIntentType, "create_record")
+      assert.equal(action?.extraContext?.apiRuntime?.pendingConfirmation, false)
+      assert.ok(action?.extraContext?.apiRuntime?.confirmedAt)
+    },
+  },
+  {
+    name: "api runtime confirma cadastro por classificacao semantica antes da execucao",
+    run: async () => {
+      const context = await resolveApiRuntimeConfirmationContext({
+        currentContext: {
+          apiRuntime: {
+            pendingConfirmation: true,
+            lastApiId: "api-cadastro-lead",
+            lastIntentType: "create_record",
+          },
+        },
+        message: "pode registrar",
+        classifySemanticApiConfirmationStage: async () => ({
+          intent: "api_confirm_create_record",
+          confidence: 0.9,
+          reason: "Cliente confirmou o cadastro.",
+          apiId: "api-cadastro-lead",
+        }),
+      })
+
+      assert.equal(context.apiRuntime?.pendingConfirmation, false)
+      assert.equal(context.apiRuntime?.confirmedApiId, "api-cadastro-lead")
+      assert.equal(context.apiRuntime?.confirmedIntentType, "create_record")
+      assert.equal(context.apiRuntime?.confirmationSource, "semantic_api_confirmation")
+      assert.ok(context.apiRuntime?.confirmedAt)
+    },
+  },
+  {
+    name: "api runtime cancela cadastro por classificacao semantica",
+    run: async () => {
+      const context = await resolveApiRuntimeConfirmationContext({
+        currentContext: {
+          apiRuntime: {
+            pendingConfirmation: true,
+            lastApiId: "api-cadastro-lead",
+            lastIntentType: "create_record",
+          },
+        },
+        message: "nao registra ainda",
+        classifySemanticApiConfirmationStage: async () => ({
+          intent: "api_cancel_create_record",
+          confidence: 0.92,
+          reason: "Cliente cancelou.",
+          apiId: "api-cadastro-lead",
+        }),
+      })
+
+      assert.equal(context.apiRuntime?.pendingConfirmation, false)
+      assert.equal(context.apiRuntime?.cancelledApiId, "api-cadastro-lead")
+      assert.equal(context.apiRuntime?.cancelledIntentType, "create_record")
+      assert.ok(context.apiRuntime?.cancelledAt)
     },
   },
   {
@@ -1261,6 +1436,39 @@ const tests: TestCase[] = [
       assert.equal(resolvedByOrder[0]?.id, "MLB2");
       assert.equal(resolvedUniqueAmongMany.length, 1);
       assert.equal(resolvedUniqueAmongMany[0]?.id, "MLB3");
+
+      const storefrontRoute = resolveChatDomainRoute({
+        latestUserMessage: "tem pratos?",
+        history: [],
+        context: {
+          conversation: { mode: "listing" },
+          ui: { catalogPreferred: true },
+          storefront: { kind: "mercado_livre", pageKind: "storefront" },
+          projeto: { directConnections: { mercadoLivre: 1 } },
+          catalogo: { ultimosProdutos: [] },
+        },
+      } as never);
+      const promptedRoute = resolveChatDomainRoute({
+        latestUserMessage: "vintages",
+        history: [
+          {
+            role: "assistant",
+            content: "Você está procurando algum tipo específico de prato ou tem interesse em um estilo ou época particular?",
+          },
+        ],
+        context: {
+          conversation: { mode: "listing" },
+          ui: { catalogPreferred: true },
+          storefront: { kind: "mercado_livre", pageKind: "storefront" },
+          projeto: { directConnections: { mercadoLivre: 1 } },
+          catalogo: { ultimosProdutos: [] },
+        },
+      } as never);
+
+      assert.equal(storefrontRoute.domain, "catalog");
+      assert.equal(storefrontRoute.shouldUseTool, true);
+      assert.equal(promptedRoute.domain, "catalog");
+      assert.equal(promptedRoute.shouldUseTool, true);
     },
   },
   {
@@ -3174,6 +3382,139 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "api runtime ignora api de cadastro em consulta factual",
+    run: () => {
+      const focused = buildFocusedApiContext(
+        "qual status do pedido PED-2026-0042?",
+        [
+          {
+            apiId: "api-cadastro",
+            nome: "Cadastro de pedido",
+            config: { runtime: { intentType: "create_record" } },
+            campos: [
+              { nome: "pedido", valor: "PED-2026-0042" },
+              { nome: "status", valor: "Criado pelo formulário" },
+            ],
+          },
+          {
+            apiId: "api-consulta",
+            nome: "Consulta de pedido",
+            config: { runtime: { intentType: "lookup_by_identifier" } },
+            campos: [
+              { nome: "pedido", valor: "PED-2026-0042" },
+              { nome: "status", valor: "Em separação" },
+            ],
+          },
+        ],
+        {
+          normalizeText: normalizeFixtureText,
+          buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+          singularizeToken: (value: string) => value,
+          targetFieldHints: ["status"],
+        }
+      );
+
+      assert.equal(focused.fields.length, 1);
+      assert.equal(focused.fields[0]?.apiId, "api-consulta");
+      assert.equal(focused.fields[0]?.valor, "Em separação");
+    },
+  },
+  {
+    name: "api runtime falha fechado quando consulta factual fica ambigua entre APIs",
+    run: () => {
+      const reply = buildApiFallbackReply(
+        "qual status?",
+        [
+          {
+            apiId: "api-pedido",
+            nome: "Consulta pedido",
+            config: { runtime: { intentType: "lookup_by_identifier" } },
+            campos: [{ nome: "status", valor: "Pago" }],
+          },
+          {
+            apiId: "api-entrega",
+            nome: "Consulta entrega",
+            config: { runtime: { intentType: "lookup_by_identifier" } },
+            campos: [{ nome: "status", valor: "Saiu para entrega" }],
+          },
+        ],
+        {
+          normalizeText: normalizeFixtureText,
+          buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+          singularizeToken: (value: string) => value,
+          targetFieldHints: ["status"],
+        }
+      );
+
+      assert.equal(reply, null);
+    },
+  },
+  {
+    name: "api runtime pede campo obrigatorio antes de consultar por identificador",
+    run: () => {
+      const reply = buildApiFallbackReply(
+        "consulta meu pedido",
+        [
+          {
+            apiId: "api-consulta-pedido",
+            nome: "Consulta de pedido",
+            config: {
+              runtime: {
+                intentType: "lookup_by_identifier",
+                requiredFields: [{ name: "codigo", label: "código do pedido" }],
+              },
+            },
+            campos: [],
+          },
+        ],
+        {
+          normalizeText: normalizeFixtureText,
+          buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+          singularizeToken: (value: string) => value,
+          intentType: "lookup_by_identifier",
+          apiId: "api-consulta-pedido",
+        }
+      );
+
+      assert.match(reply ?? "", /preciso de: código do pedido/i);
+    },
+  },
+  {
+    name: "api runtime cadastro coleta dados antes de registrar",
+    run: () => {
+      const reply = buildApiFallbackReply(
+        "quero fazer meu cadastro",
+        [
+          {
+            apiId: "api-cadastro-lead",
+            nome: "Cadastro de lead",
+            config: {
+              runtime: {
+                intentType: "create_record",
+                requiredFields: [
+                  { name: "nome", label: "nome" },
+                  { name: "telefone", label: "telefone" },
+                ],
+                requiresConfirmation: true,
+              },
+            },
+            campos: [],
+          },
+        ],
+        {
+          normalizeText: normalizeFixtureText,
+          buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+          singularizeToken: (value: string) => value,
+          intentType: "create_record",
+          apiId: "api-cadastro-lead",
+        }
+      );
+
+      assert.match(reply ?? "", /preciso de: nome e telefone/i);
+      assert.match(reply ?? "", /confirmo antes de registrar/i);
+    },
+  },
+  {
     name: "api runtime herda comparacao de catalogo quando a api retorna produtos",
     run: async () => {
       const result = await executeSalesOrchestrator(
@@ -3257,6 +3598,61 @@ const tests: TestCase[] = [
 
       assert.match(String(reply || ""), /Peso da embalagem: 6500 g/i);
       assert.doesNotMatch(String(reply || ""), /Altura: 81 cm/i);
+    },
+  },
+  {
+    name: "api runtime usa apenas api de catalogo para resposta de catalogo",
+    run: () => {
+      const reply = resolveApiCatalogReply(
+        "entre esses dois, qual voce indica?",
+        {},
+        [
+          {
+            apiId: "api-lookup-produto",
+            nome: "Consulta de pedido",
+            config: { runtime: { intentType: "lookup_by_identifier" } },
+            campos: [
+              { nome: "sku", valor: "PED-01" },
+              { nome: "nome", valor: "Pedido interno" },
+              { nome: "preco", valor: 1 },
+              { nome: "estoque", valor: 1 },
+            ],
+          },
+          {
+            apiId: "api-catalogo-1",
+            nome: "Catálogo 1",
+            config: { runtime: { intentType: "catalog_search" } },
+            campos: [
+              { nome: "sku", valor: "KIT-08" },
+              { nome: "nome", valor: "Kit Mesa Posta Classic" },
+              { nome: "preco", valor: 320 },
+              { nome: "estoque", valor: 2 },
+            ],
+          },
+          {
+            apiId: "api-catalogo-2",
+            nome: "Catálogo 2",
+            config: { runtime: { intentType: "catalog_search" } },
+            campos: [
+              { nome: "sku", valor: "KIT-09" },
+              { nome: "nome", valor: "Kit Mesa Posta Premium" },
+              { nome: "preco", valor: 250 },
+              { nome: "estoque", valor: 7 },
+              { nome: "frete_gratis", valor: true },
+            ],
+          },
+        ],
+        {
+          semanticApiDecision: {
+            kind: "api_comparison",
+            comparisonMode: "best_choice",
+            referencedProductIndexes: [1, 2],
+          },
+        }
+      );
+
+      assert.match(reply ?? "", /Kit Mesa Posta Premium/i);
+      assert.doesNotMatch(reply ?? "", /Pedido interno/i);
     },
   },
   {
@@ -3362,6 +3758,8 @@ const tests: TestCase[] = [
           intent: "api_fact_query",
           confidence: 0.9,
           reason: "Cliente pediu um campo factual da API.",
+          apiId: "api-imovel",
+          intentType: "lookup_by_identifier",
           targetFieldHints: ["matricula"],
           supportFieldHints: ["status", "data_leilao"],
           usedLlm: true,
@@ -3369,6 +3767,8 @@ const tests: TestCase[] = [
       });
 
       assert.equal(decision?.kind, "api_fact_query");
+      assert.equal(decision?.apiId, "api-imovel");
+      assert.equal(decision?.intentType, "lookup_by_identifier");
       assert.deepEqual(decision?.targetFieldHints, ["matricula"]);
       assert.deepEqual(decision?.supportFieldHints, ["status", "data_leilao"]);
     },
@@ -3390,6 +3790,27 @@ const tests: TestCase[] = [
       assert.equal(decision?.kind, "api_comparison");
       assert.equal(decision?.comparisonMode, "best_choice");
       assert.deepEqual(decision?.referencedProductIndexes, [1, 2]);
+    },
+  },
+  {
+    name: "api runtime semantico mapeia cadastro estruturado",
+    run: () => {
+      const decision = buildApiDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "api_create_record",
+          confidence: 0.91,
+          reason: "Cliente pediu cadastro.",
+          apiId: "api-cadastro-lead",
+          intentType: "create_record",
+          targetFieldHints: [],
+          supportFieldHints: [],
+          usedLlm: true,
+        },
+      });
+
+      assert.equal(decision?.kind, "api_create_record");
+      assert.equal(decision?.apiId, "api-cadastro-lead");
+      assert.equal(decision?.intentType, "create_record");
     },
   },
   {
@@ -4289,7 +4710,7 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "domain router deixa busca verbal de vitrine para o stage semantico",
+    name: "domain router assume busca verbal concreta na vitrine",
     run: () => {
       const decision = resolveChatDomainRoute({
         latestUserMessage: "me mostra saleiro",
@@ -4309,7 +4730,8 @@ const tests: TestCase[] = [
         focusedApiContext: null,
       });
 
-      assert.equal(decision.domain, "general");
+      assert.equal(decision.domain, "catalog");
+      assert.equal(decision.shouldUseTool, true);
     },
   },
   {
@@ -4499,7 +4921,7 @@ const tests: TestCase[] = [
     },
   },
   {
-    name: "domain router nao assume catalogo por busca curta de vitrine sem contexto recente",
+    name: "domain router assume catalogo por busca curta concreta em vitrine",
     run: () => {
       const decision = resolveChatDomainRoute({
         latestUserMessage: "saleiro azul",
@@ -4519,7 +4941,8 @@ const tests: TestCase[] = [
         focusedApiContext: null,
       });
 
-      assert.notEqual(decision.domain, "catalog");
+      assert.equal(decision.domain, "catalog");
+      assert.equal(decision.shouldUseTool, true);
     },
   },
   {

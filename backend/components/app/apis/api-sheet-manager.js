@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { CheckCircle2, Clock3, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle2, Clock3, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
 
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,12 @@ const emptyForm = {
   bearerToken: "",
   apiKeyName: "x-api-key",
   apiKeyValue: "",
+  runtimeIntentType: "generic_fact",
+  runtimeDescriptionForIntent: "",
+  runtimeResponsePath: "",
+  runtimePreviewPath: "",
+  runtimeAutoExecute: false,
+  runtimeRequiresConfirmation: false,
   headerRows: [{ id: "header-1", key: "", value: "" }],
   bodyFields: [{ id: "field-1", name: "", type: "string", required: false }],
   bodyText: "",
@@ -43,6 +49,7 @@ const authTypeOptions = [
 
 const editorTabs = [
   { id: "body", label: "Body" },
+  { id: "runtime", label: "Runtime" },
   { id: "authorization", label: "Authorization" },
   { id: "headers", label: "Headers" },
   { id: "description", label: "Descrição" },
@@ -57,6 +64,67 @@ const fieldTypeOptions = [
   { value: "string", label: "string" },
   { value: "number", label: "number" },
   { value: "boolean", label: "boolean" },
+]
+
+const runtimeIntentTypeOptions = [
+  { value: "generic_fact", label: "Fato genérico" },
+  { value: "lookup_by_identifier", label: "Consulta por identificador" },
+  { value: "knowledge_search", label: "Busca informativa" },
+  { value: "catalog_search", label: "Busca de catálogo" },
+  { value: "create_record", label: "Cadastro / envio de dados" },
+]
+
+const runtimePresetOptions = [
+  {
+    id: "create_record",
+    label: "Cadastro",
+    method: "POST",
+    intentType: "create_record",
+    descriptionForIntent: "Cadastra ou envia dados do cliente depois de coletar os campos obrigatórios e confirmar com o usuário.",
+    autoExecute: false,
+    requiresConfirmation: true,
+    fields: [
+      { name: "nome", type: "string", required: true },
+      { name: "telefone", type: "string", required: true },
+      { name: "mensagem", type: "string", required: false },
+    ],
+  },
+  {
+    id: "lookup_by_identifier",
+    label: "Consulta por código",
+    method: "GET",
+    intentType: "lookup_by_identifier",
+    descriptionForIntent: "Consulta um registro específico por código, id, documento ou outro identificador informado pelo usuário.",
+    autoExecute: false,
+    requiresConfirmation: false,
+    fields: [{ name: "codigo", type: "string", required: true }],
+  },
+  {
+    id: "knowledge_search",
+    label: "Busca informativa",
+    method: "GET",
+    intentType: "knowledge_search",
+    descriptionForIntent: "Busca informações factuais em uma base de conhecimento ou serviço informativo sem criar registros.",
+    autoExecute: false,
+    requiresConfirmation: false,
+    fields: [{ name: "termo", type: "string", required: true }],
+  },
+  {
+    id: "catalog_search",
+    label: "Catálogo",
+    method: "GET",
+    intentType: "catalog_search",
+    descriptionForIntent: "Busca produtos por termo, categoria, cor, material, preço, estoque ou disponibilidade.",
+    autoExecute: false,
+    requiresConfirmation: false,
+    fields: [
+      { name: "nome", type: "string", required: false },
+      { name: "preco", type: "number", required: false },
+      { name: "estoque", type: "number", required: false },
+      { name: "link", type: "string", required: false },
+      { name: "imagem", type: "string", required: false },
+    ],
+  },
 ]
 
 const inputClassName =
@@ -104,6 +172,10 @@ function truncateMiddleValue(value) {
 
   const visibleLength = Math.max(8, Math.ceil(text.length / 2))
   return text.length <= visibleLength ? text : `${text.slice(0, visibleLength)}...`
+}
+
+function getRuntimeIntentTypeLabel(value) {
+  return runtimeIntentTypeOptions.find((option) => option.value === value)?.label || "Fato genérico"
 }
 
 function stringifyBody(value) {
@@ -224,6 +296,22 @@ function resolveAuthorization(config) {
   }
 }
 
+function resolveRuntimeConfig(config) {
+  const runtime = config?.runtime && typeof config.runtime === "object" ? config.runtime : {}
+  const intentType = runtimeIntentTypeOptions.some((option) => option.value === runtime.intentType)
+    ? runtime.intentType
+    : "generic_fact"
+
+  return {
+    runtimeIntentType: intentType,
+    runtimeDescriptionForIntent: String(runtime.descriptionForIntent || ""),
+    runtimeResponsePath: String(runtime.responsePath || ""),
+    runtimePreviewPath: String(runtime.previewPath || ""),
+    runtimeAutoExecute: runtime.autoExecute === true,
+    runtimeRequiresConfirmation: runtime.requiresConfirmation === true,
+  }
+}
+
 function normalizeInitialApi(api) {
   return {
     id: api.id,
@@ -239,6 +327,7 @@ function normalizeInitialApi(api) {
 function buildFormFromApi(api) {
   const config = api?.config && typeof api.config === "object" ? api.config : {}
   const authorization = resolveAuthorization(config)
+  const runtime = resolveRuntimeConfig(config)
   const inferredBodyFields = inferBodyFieldsFromBody(config?.http?.body)
   const bodyFields = Array.isArray(config?.bodyFields)
     ? config.bodyFields.map((field, index) => ({
@@ -264,6 +353,7 @@ function buildFormFromApi(api) {
     bearerToken: authorization.bearerToken,
     apiKeyName: authorization.apiKeyName,
     apiKeyValue: authorization.apiKeyValue,
+    ...runtime,
     headerRows: buildHeaderRows(config?.http?.headers, authorization.reservedKeys),
     bodyFields: bodyFields.length ? bodyFields : emptyForm.bodyFields,
     bodyText: stringifyBody(config?.http?.body),
@@ -285,8 +375,35 @@ function buildHeadersFromRows(rows) {
 
 function buildConfigFromForm(form) {
   const baseConfig = form.baseConfig && typeof form.baseConfig === "object" ? form.baseConfig : {}
+  const requiredFields = (Array.isArray(form.bodyFields) ? form.bodyFields : [])
+    .filter((field) => field?.required === true && String(field?.name || "").trim())
+    .map((field) => ({
+      name: String(field.name).trim(),
+      source: String(field.name).trim(),
+      param: String(field.name).trim(),
+      description: "",
+    }))
+  const runtimeFields = (Array.isArray(form.bodyFields) ? form.bodyFields : [])
+    .map((field) => ({
+      nome: String(field?.name || "").trim(),
+      tipo: String(field?.type || "string").trim() || "string",
+      path: String(field?.name || "").trim(),
+      descricao: "",
+    }))
+    .filter((field) => field.nome)
   const nextConfig = {
     ...baseConfig,
+    runtime: {
+      ...(baseConfig.runtime && typeof baseConfig.runtime === "object" ? baseConfig.runtime : {}),
+      intentType: form.runtimeIntentType || "generic_fact",
+      descriptionForIntent: String(form.runtimeDescriptionForIntent || "").trim(),
+      responsePath: String(form.runtimeResponsePath || "").trim(),
+      previewPath: String(form.runtimePreviewPath || "").trim(),
+      autoExecute: form.runtimeAutoExecute === true,
+      requiresConfirmation: form.runtimeRequiresConfirmation === true,
+      requiredFields,
+      fields: runtimeFields,
+    },
     http: {
       ...(baseConfig.http && typeof baseConfig.http === "object" ? baseConfig.http : {}),
       headers: buildHeadersFromRows(form.headerRows),
@@ -346,6 +463,26 @@ function buildConfigFromForm(form) {
     delete nextConfig.http
   }
 
+  if (!nextConfig.runtime.descriptionForIntent) {
+    delete nextConfig.runtime.descriptionForIntent
+  }
+
+  if (!nextConfig.runtime.responsePath) {
+    delete nextConfig.runtime.responsePath
+  }
+
+  if (!nextConfig.runtime.previewPath) {
+    delete nextConfig.runtime.previewPath
+  }
+
+  if (!nextConfig.runtime.requiredFields.length) {
+    delete nextConfig.runtime.requiredFields
+  }
+
+  if (!nextConfig.runtime.fields.length) {
+    delete nextConfig.runtime.fields
+  }
+
   return nextConfig
 }
 
@@ -376,6 +513,61 @@ export function ApiSheetManager({
   const editing = Boolean(form.id)
   const internalApi = useMemo(() => isInternalApi(form), [form])
   const agendaInternalApi = useMemo(() => isAgendaInternalApi(form), [form])
+  const runtimeWarnings = useMemo(() => {
+    const warnings = []
+    const method = String(form.method || "GET").toUpperCase()
+    const hasRuntimeIntentType = Boolean(String(form.runtimeIntentType || "").trim())
+    const requiredFields = (Array.isArray(form.bodyFields) ? form.bodyFields : []).filter(
+      (field) => field?.required === true && String(field?.name || "").trim(),
+    )
+    const configuredFields = (Array.isArray(form.bodyFields) ? form.bodyFields : []).filter((field) => String(field?.name || "").trim())
+
+    if (!hasRuntimeIntentType) {
+      warnings.push("Defina o tipo de intenção do runtime.")
+    }
+
+    if (method !== "GET" && form.runtimeAutoExecute && !requiredFields.length) {
+      warnings.push("Non-GET com execução automática precisa de campos obrigatórios.")
+    }
+
+    if (method !== "GET" && form.runtimeAutoExecute && !form.runtimeRequiresConfirmation) {
+      warnings.push("Non-GET autoexecutável deve exigir confirmação.")
+    }
+
+    if (form.runtimeIntentType === "create_record" && !form.runtimeRequiresConfirmation) {
+      warnings.push("Cadastro deve exigir confirmação antes de executar.")
+    }
+
+    if (form.runtimeIntentType === "catalog_search") {
+      const fieldNames = configuredFields.map((field) => String(field.name || "").toLowerCase())
+      const hasCatalogName = fieldNames.some((name) => ["nome", "titulo", "title", "produto"].includes(name))
+      if (!hasCatalogName) {
+        warnings.push("Catálogo precisa de um campo de nome, título ou produto.")
+      }
+      const hasCommercialField = fieldNames.some((name) => ["preco", "valor", "estoque", "link", "imagem", "thumbnail"].includes(name))
+      if (!hasCommercialField) {
+        warnings.push("Catálogo deve mapear preço, estoque, link ou imagem quando a API retornar esses dados.")
+      }
+    }
+
+    if (form.runtimeIntentType === "lookup_by_identifier" && !requiredFields.length) {
+      warnings.push("Consulta por identificador deve ter pelo menos um campo obrigatório.")
+    }
+
+    if (form.runtimeIntentType === "create_record" && !requiredFields.length) {
+      warnings.push("Cadastro deve ter campos obrigatórios para coleta segura.")
+    }
+
+    if (!String(form.runtimeDescriptionForIntent || "").trim()) {
+      warnings.push("Descrição para decisão da IA ajuda a evitar conflito entre APIs.")
+    }
+
+    if (!configuredFields.length) {
+      warnings.push("Configure campos para o agente consumir a resposta com segurança.")
+    }
+
+    return warnings
+  }, [form])
 
   useEffect(() => {
     let active = true
@@ -508,6 +700,29 @@ export function ApiSheetManager({
         headerRows: nextRows.length ? nextRows : [{ id: `header-${Date.now()}`, key: "", value: "" }],
       }
     })
+  }
+
+  function applyRuntimePreset(preset) {
+    if (!preset) {
+      return
+    }
+
+    setForm((current) => ({
+      ...current,
+      method: isInternalApi(current) ? current.method : preset.method,
+      runtimeIntentType: preset.intentType,
+      runtimeDescriptionForIntent: preset.descriptionForIntent,
+      runtimeAutoExecute: preset.autoExecute,
+      runtimeRequiresConfirmation: preset.requiresConfirmation,
+      bodyFields: preset.fields.map((field, index) => ({
+        id: `field-${preset.id}-${index + 1}`,
+        name: field.name,
+        type: field.type,
+        required: field.required,
+      })),
+    }))
+    setEditorTab("runtime")
+    setBodySubtab("fields")
   }
 
   function startCreate() {
@@ -742,6 +957,9 @@ export function ApiSheetManager({
                           {api.active ? <CheckCircle2 className="h-3 w-3" /> : <XCircle className="h-3 w-3" />}
                           {api.active ? "Ativa" : "Inativa"}
                         </span>
+                        <span className="inline-flex items-center rounded-lg border border-white/10 bg-white/[0.03] px-2 py-0.5 text-xs font-medium text-slate-300">
+                          {getRuntimeIntentTypeLabel(api.config?.runtime?.intentType || "generic_fact")}
+                        </span>
                       </div>
                       <p className="mt-2 truncate text-sm text-slate-400">{api.url}</p>
                       {api.description ? <p className="mt-1 text-xs text-slate-500">{api.description}</p> : null}
@@ -754,6 +972,12 @@ export function ApiSheetManager({
                 ))}
               </div>
             </div>
+          ) : null}
+
+          {!loading ? (
+            <p className="text-xs text-slate-500">
+              O runtime usa até 4 APIs ativas vinculadas ao agente. Priorize as APIs mais importantes para atendimento.
+            </p>
           ) : null}
 
           {!loading ? (
@@ -854,7 +1078,105 @@ export function ApiSheetManager({
                 )
               })}
             </div>
+            {runtimeWarnings.length ? (
+              <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <div className="space-y-1">
+                    {runtimeWarnings.map((warning) => (
+                      <p key={warning}>{warning}</p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
           </div>
+          {editorTab === "runtime" ? (
+            <div className="grid gap-4">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm font-semibold text-white">Presets rápidos</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {runtimePresetOptions.map((preset) => (
+                    <Button
+                      key={preset.id}
+                      type="button"
+                      variant="ghost"
+                      onClick={() => applyRuntimePreset(preset)}
+                      className="h-9 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-slate-200"
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className={labelClassName}>Tipo de intenção</span>
+                  <div className="mt-1">
+                    <AppSelect
+                      options={runtimeIntentTypeOptions}
+                      value={form.runtimeIntentType}
+                      onChangeValue={(value) => updateForm("runtimeIntentType", value || "generic_fact")}
+                    />
+                  </div>
+                </label>
+                <div className="flex flex-wrap items-end gap-3">
+                  <ToggleSwitchButton
+                    checked={form.runtimeAutoExecute}
+                    onChange={(value) => updateForm("runtimeAutoExecute", value)}
+                    labelOn="Autoexecuta"
+                    labelOff="Não autoexecuta"
+                  />
+                  <ToggleSwitchButton
+                    checked={form.runtimeRequiresConfirmation}
+                    onChange={(value) => updateForm("runtimeRequiresConfirmation", value)}
+                    labelOn="Exige confirmação"
+                    labelOff="Sem confirmação"
+                  />
+                </div>
+              </div>
+
+              <label className="block">
+                <span className={labelClassName}>Descrição para decisão da IA</span>
+                <textarea
+                  value={form.runtimeDescriptionForIntent}
+                  onChange={(event) => updateForm("runtimeDescriptionForIntent", event.target.value)}
+                  placeholder="Exemplo: Busca produtos por termo, categoria, cor, material ou disponibilidade."
+                  className={cn(textareaClassName, "min-h-[120px]")}
+                />
+              </label>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <label className="block">
+                  <span className={labelClassName}>Response path</span>
+                  <input
+                    value={form.runtimeResponsePath}
+                    onChange={(event) => updateForm("runtimeResponsePath", event.target.value)}
+                    placeholder="data.items"
+                    className={inputClassName}
+                  />
+                </label>
+                <label className="block">
+                  <span className={labelClassName}>Preview path</span>
+                  <input
+                    value={form.runtimePreviewPath}
+                    onChange={(event) => updateForm("runtimePreviewPath", event.target.value)}
+                    placeholder="summary"
+                    className={inputClassName}
+                  />
+                </label>
+              </div>
+
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm font-semibold text-white">Campos obrigatórios do runtime</p>
+                <p className="mt-1 text-sm text-slate-400">
+                  Os campos marcados como obrigatórios na aba Body viram `runtime.requiredFields` e bloqueiam execução automática quando faltarem.
+                </p>
+              </div>
+            </div>
+          ) : null}
+
           {editorTab === "authorization" ? (
             <div className="grid gap-4">
               {internalApi ? (

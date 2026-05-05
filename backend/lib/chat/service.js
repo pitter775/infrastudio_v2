@@ -50,6 +50,7 @@ import {
   stripAssistantMetaReply,
 } from "@/lib/chat/reply-formatting"
 import { shouldRefreshSummary, summarizeConversation } from "@/lib/chat/summary-stage"
+import { classifySemanticApiConfirmationStage } from "@/lib/chat/semantic-intent-stage"
 import {
   requestAutoPauseHandoff,
   requestHumanHandoff,
@@ -832,6 +833,7 @@ export function updateContextFromAiResult(input) {
     catalogo: isPlainObject(input.nextContext?.catalogo) ? { ...input.nextContext.catalogo } : {},
     agenda: isPlainObject(input.nextContext?.agenda) ? { ...input.nextContext.agenda } : {},
     billing: isPlainObject(input.nextContext?.billing) ? { ...input.nextContext.billing } : {},
+    apiRuntime: isPlainObject(input.nextContext?.apiRuntime) ? { ...input.nextContext.apiRuntime } : {},
   }
   if (isPlainObject(nextContext.ui) && "catalogAction" in nextContext.ui) {
     delete nextContext.ui.catalogAction
@@ -913,6 +915,43 @@ export function updateContextFromAiResult(input) {
             }
           : null
         : nextContext.billing?.comparisonFocus ?? null,
+    }
+  }
+
+  const apiRuntimeContextUpdate = isPlainObject(input.ai?.metadata?.apiRuntimeContextUpdate)
+    ? input.ai.metadata.apiRuntimeContextUpdate
+    : null
+  if (apiRuntimeContextUpdate) {
+    nextContext.apiRuntime = {
+      ...(isPlainObject(nextContext.apiRuntime) ? nextContext.apiRuntime : {}),
+      lastApiId:
+        typeof apiRuntimeContextUpdate.lastApiId === "string"
+          ? apiRuntimeContextUpdate.lastApiId
+          : nextContext.apiRuntime?.lastApiId ?? null,
+      lastIntent:
+        typeof apiRuntimeContextUpdate.lastIntent === "string"
+          ? apiRuntimeContextUpdate.lastIntent
+          : nextContext.apiRuntime?.lastIntent ?? null,
+      lastIntentType:
+        typeof apiRuntimeContextUpdate.lastIntentType === "string"
+          ? apiRuntimeContextUpdate.lastIntentType
+          : nextContext.apiRuntime?.lastIntentType ?? null,
+      missingRequiredFields: Array.isArray(apiRuntimeContextUpdate.missingRequiredFields)
+        ? apiRuntimeContextUpdate.missingRequiredFields.filter((field) => typeof field === "string" && field.trim())
+        : Array.isArray(nextContext.apiRuntime?.missingRequiredFields)
+          ? nextContext.apiRuntime.missingRequiredFields
+          : [],
+      blockedReasons: Array.isArray(apiRuntimeContextUpdate.blockedReasons)
+        ? apiRuntimeContextUpdate.blockedReasons.filter((reason) => typeof reason === "string" && reason.trim())
+        : Array.isArray(nextContext.apiRuntime?.blockedReasons)
+          ? nextContext.apiRuntime.blockedReasons
+          : [],
+      pendingConfirmation:
+        typeof apiRuntimeContextUpdate.pendingConfirmation === "boolean"
+          ? apiRuntimeContextUpdate.pendingConfirmation
+          : nextContext.apiRuntime?.pendingConfirmation === true,
+      updatedAt:
+        typeof apiRuntimeContextUpdate.updatedAt === "string" ? apiRuntimeContextUpdate.updatedAt : new Date().toISOString(),
     }
   }
 
@@ -1189,6 +1228,66 @@ export function updateContextFromAiResult(input) {
   }
 
   return nextContext
+}
+
+export async function resolveApiRuntimeConfirmationContext(input = {}) {
+  const currentContext = input.currentContext && typeof input.currentContext === "object" && !Array.isArray(input.currentContext)
+    ? input.currentContext
+    : {}
+  const extraContext = input.extraContext && typeof input.extraContext === "object" && !Array.isArray(input.extraContext)
+    ? input.extraContext
+    : null
+  const baseContext = mergeContext(currentContext, extraContext)
+  const apiRuntime = baseContext?.apiRuntime
+
+  if (
+    !apiRuntime ||
+    typeof apiRuntime !== "object" ||
+    Array.isArray(apiRuntime) ||
+    apiRuntime.pendingConfirmation !== true ||
+    !apiRuntime.lastApiId ||
+    apiRuntime.lastIntentType !== "create_record"
+  ) {
+    return baseContext
+  }
+
+  const classifier = input.classifySemanticApiConfirmationStage ?? classifySemanticApiConfirmationStage
+  const decision = await classifier({
+    latestUserMessage: input.message,
+    pendingApiRuntime: apiRuntime,
+    openAiKey: input.openAiKey ?? process.env.OPENAI_API_KEY?.trim(),
+    model: input.model ?? process.env.OPENAI_CHAT_MODEL?.trim() ?? "gpt-4o-mini",
+  }).catch(() => null)
+
+  const decisionApiId = typeof decision?.apiId === "string" && decision.apiId.trim() ? decision.apiId.trim() : apiRuntime.lastApiId
+  const confidence = Number(decision?.confidence ?? 0)
+  if (decision?.intent === "api_confirm_create_record" && confidence >= 0.75 && decisionApiId === apiRuntime.lastApiId) {
+    return mergeContext(baseContext, {
+      apiRuntime: {
+        ...(isPlainObject(baseContext.apiRuntime) ? baseContext.apiRuntime : {}),
+        pendingConfirmation: false,
+        confirmedApiId: apiRuntime.lastApiId,
+        confirmedIntentType: "create_record",
+        confirmedAt: new Date().toISOString(),
+        confirmationSource: "semantic_api_confirmation",
+      },
+    })
+  }
+
+  if (decision?.intent === "api_cancel_create_record" && confidence >= 0.75 && decisionApiId === apiRuntime.lastApiId) {
+    return mergeContext(baseContext, {
+      apiRuntime: {
+        ...(isPlainObject(baseContext.apiRuntime) ? baseContext.apiRuntime : {}),
+        pendingConfirmation: false,
+        cancelledApiId: apiRuntime.lastApiId,
+        cancelledIntentType: "create_record",
+        cancelledAt: new Date().toISOString(),
+        confirmationSource: "semantic_api_confirmation",
+      },
+    })
+  }
+
+  return baseContext
 }
 
 export function prepareAiReplyPayload(input) {
@@ -1850,8 +1949,13 @@ function attachRuntimeDiagnostics(result, runtimeState, extra = {}) {
         id: api?.id ?? null,
         nome: api?.nome ?? api?.name ?? null,
         metodo: api?.metodo ?? api?.method ?? null,
+        intentType: api?.config?.runtime?.intentType ?? "generic_fact",
+        ok: api?.ok !== false,
+        status: api?.status ?? null,
+        fieldCount: Array.isArray(api?.campos) ? api.campos.length : 0,
         cacheHit: api?.cache?.hit === true,
       })),
+      apiRuntimeDiagnostics: extra.aiResult?.metadata?.apiRuntimeDiagnostics ?? null,
       handoffDecision: typeof handoffDecision?.decision === "string" ? handoffDecision.decision : null,
       handoffReason: typeof handoffDecision?.reason === "string" ? handoffDecision.reason : null,
       handoffRequested: extra.handoffRequested === true,
@@ -2493,12 +2597,27 @@ export async function processChatRequest(body, options = {}) {
       })
     }
 
+    const apiRuntimeBaseContext = await resolveApiRuntimeConfirmationContext({
+      currentContext,
+      extraContext: isPlainObject(runtimeState.prelude.effectiveBody.context) ? runtimeState.prelude.effectiveBody.context : null,
+      message: runtimeState.prelude.message,
+      classifySemanticApiConfirmationStage: options.classifySemanticApiConfirmationStage,
+    })
+    runtimeState.session.chat.contexto = apiRuntimeBaseContext
+    const apiRuntimeContext = mergeContext(
+      apiRuntimeBaseContext,
+      {
+        currentMessage: runtimeState.prelude.message,
+        message: runtimeState.prelude.message,
+        latestUserMessage: runtimeState.prelude.message,
+      },
+    )
     const runtimeApis =
       runtimeState.resolved?.agente?.id && runtimeState.resolved?.projeto?.id
         ? await (options.loadAgentRuntimeApis ?? loadAgentRuntimeApis)({
             agenteId: runtimeState.resolved.agente.id,
             projetoId: runtimeState.resolved.projeto.id,
-            context: runtimeState.session.chat.contexto ?? runtimeState.session.initialContext ?? {},
+            context: apiRuntimeContext,
           })
         : []
 
@@ -2510,6 +2629,19 @@ export async function processChatRequest(body, options = {}) {
         description: "APIs do agente carregadas para o runtime.",
         payload: {
           apiCount: Array.isArray(runtimeApis) ? runtimeApis.length : 0,
+          apis: runtimeApis.map((api) => ({
+            id: api?.id ?? api?.apiId ?? null,
+            nome: api?.nome ?? api?.name ?? null,
+            intentType: api?.config?.runtime?.intentType ?? "generic_fact",
+            ok: api?.ok !== false,
+            status: api?.status ?? null,
+            fieldCount: Array.isArray(api?.campos) ? api.campos.length : 0,
+            requiredFields: Array.isArray(api?.config?.runtime?.requiredFields)
+              ? api.config.runtime.requiredFields.map((field) =>
+                  typeof field === "string" ? field : field?.label || field?.name || field?.nome || field?.param || ""
+                ).filter(Boolean)
+              : [],
+          })),
         },
       })
     }
@@ -2540,7 +2672,7 @@ export async function processChatRequest(body, options = {}) {
           : []
     } catch {}
     const aiContext = mergeContext(
-      currentContext,
+      apiRuntimeBaseContext,
       isPlainObject(runtimeState.prelude.effectiveBody.context) ? runtimeState.prelude.effectiveBody.context : null,
       runtimeApis.length ? { runtimeApis } : null,
       agendaSlots.length
@@ -2605,6 +2737,7 @@ export async function processChatRequest(body, options = {}) {
         heuristicStage: effectiveAiResult?.metadata?.heuristicStage ?? null,
         domainStage: effectiveAiResult?.metadata?.domainStage ?? null,
         catalogDiagnostics: effectiveAiResult?.metadata?.catalogDiagnostics ?? null,
+        apiRuntimeDiagnostics: effectiveAiResult?.metadata?.apiRuntimeDiagnostics ?? null,
         inputTokens: effectiveAiResult?.usage?.inputTokens ?? 0,
         outputTokens: effectiveAiResult?.usage?.outputTokens ?? 0,
         handoffDecision: escalationState?.handoffDecision?.decision ?? null,
@@ -2615,7 +2748,7 @@ export async function processChatRequest(body, options = {}) {
     const finalResult = await finalizeV2AiTurn(runtimeState, effectiveAiResult, options)
 
     return attachRuntimeDiagnostics(finalResult, runtimeState, {
-      aiResult: escalationState.aiResult,
+      aiResult: effectiveAiResult,
       runtimeApis,
       handoffDecision: escalationState?.handoffDecision ?? null,
       handoffRequested: escalationState?.handoffRequested === true,

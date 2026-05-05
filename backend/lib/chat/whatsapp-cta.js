@@ -190,6 +190,37 @@ function buildCatalogLoadMoreAction(input = {}) {
   }
 }
 
+function buildApiRuntimeConfirmAction(input = {}) {
+  const apiRuntime = input.nextContext?.apiRuntime
+  if (!apiRuntime || typeof apiRuntime !== "object" || Array.isArray(apiRuntime)) {
+    return null
+  }
+
+  const apiId = String(apiRuntime.lastApiId || "").trim()
+  const intentType = String(apiRuntime.lastIntentType || "").trim()
+  if (apiRuntime.pendingConfirmation !== true || !apiId || intentType !== "create_record") {
+    return null
+  }
+
+  return {
+    type: "message",
+    label: "Confirmar cadastro",
+    icon: "check",
+    message: "Confirmar cadastro",
+    userBubbleText: "Confirmar cadastro",
+    skipUserBubble: true,
+    source: "widget_api_runtime_confirm",
+    extraContext: {
+      apiRuntime: {
+        pendingConfirmation: false,
+        confirmedApiId: apiId,
+        confirmedIntentType: intentType,
+        confirmedAt: new Date().toISOString(),
+      },
+    },
+  }
+}
+
 export function buildChatWidgetActions(input = {}) {
   if (input.channelKind === "whatsapp") {
     return []
@@ -197,6 +228,7 @@ export function buildChatWidgetActions(input = {}) {
 
   const actions = []
   const catalogLoadMoreAction = buildCatalogLoadMoreAction(input)
+  const apiRuntimeConfirmAction = buildApiRuntimeConfirmAction(input)
   const whatsappAction = buildWhatsAppActionPayload(input)
   const agendaAction =
     hasConfirmedAgendaReservation(input.nextContext) || isCatalogConversationContext(input.nextContext)
@@ -205,6 +237,10 @@ export function buildChatWidgetActions(input = {}) {
 
   if (catalogLoadMoreAction) {
     actions.push(catalogLoadMoreAction)
+  }
+
+  if (apiRuntimeConfirmAction) {
+    actions.push(apiRuntimeConfirmAction)
   }
 
   if (whatsappAction) {

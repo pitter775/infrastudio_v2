@@ -6,6 +6,129 @@ import {
   resolveCatalogExecutionState,
 } from "@/lib/chat/catalog-intent-handler"
 
+const API_RUNTIME_INTENT_TYPES = new Set([
+  "create_record",
+  "lookup_by_identifier",
+  "knowledge_search",
+  "catalog_search",
+  "generic_fact",
+])
+
+export function normalizeApiRuntimeIntentType(value) {
+  const normalized = String(value || "").trim().toLowerCase()
+  return API_RUNTIME_INTENT_TYPES.has(normalized) ? normalized : "generic_fact"
+}
+
+function hasExplicitApiRuntimeIntentType(api) {
+  return Boolean(String(api?.config?.runtime?.intentType || api?.configuracoes?.runtime?.intentType || "").trim())
+}
+
+function getApiRuntimeIntentType(api) {
+  return normalizeApiRuntimeIntentType(api?.config?.runtime?.intentType || api?.configuracoes?.runtime?.intentType)
+}
+
+function shouldUseApiForFactLookup(api, customDeps = {}) {
+  const intentType = getApiRuntimeIntentType(api)
+  if (intentType === "create_record") {
+    return customDeps?.intentType === "create_record"
+  }
+  return true
+}
+
+function shouldUseApiAsCatalog(api) {
+  const intentType = getApiRuntimeIntentType(api)
+  return intentType === "catalog_search" || (!hasExplicitApiRuntimeIntentType(api) && intentType === "generic_fact")
+}
+
+function getApiRuntimeRequiredFields(api) {
+  const requiredFields = api?.config?.runtime?.requiredFields
+  if (!Array.isArray(requiredFields)) {
+    return []
+  }
+
+  return requiredFields
+    .map((field) => {
+      if (typeof field === "string") {
+        return { name: sanitizeString(field), label: formatApiFieldLabel(field) }
+      }
+
+      const name = sanitizeString(field?.name || field?.nome || field?.param || field?.contextPath || field?.source)
+      const label = sanitizeString(field?.label || field?.titulo || field?.description || field?.descricao) || formatApiFieldLabel(name)
+      return name ? { name, label } : null
+    })
+    .filter(Boolean)
+}
+
+function hasApiRuntimeFieldValue(api, fieldName, deps) {
+  const normalizedName = normalizeApiFieldName(fieldName, deps)
+  return (Array.isArray(api?.campos) ? api.campos : []).some((field) => {
+    const normalizedField = normalizeApiFieldName(field?.nome, deps)
+    return (
+      normalizedField &&
+      (normalizedField === normalizedName || normalizedField.endsWith(`_${normalizedName}`) || normalizedField.endsWith(normalizedName)) &&
+      field?.valor != null &&
+      String(field.valor).trim()
+    )
+  })
+}
+
+function resolveTargetRuntimeApis(apis = [], customDeps = {}) {
+  const desiredApiId = sanitizeString(customDeps?.apiId)
+  const desiredIntentType = normalizeApiRuntimeIntentType(customDeps?.intentType)
+  const hasExplicitIntent = Boolean(sanitizeString(customDeps?.intentType))
+  const availableApis = (apis ?? []).filter((api) => api && typeof api === "object")
+
+  if (desiredApiId) {
+    return availableApis.filter((api) => sanitizeString(api?.apiId || api?.id) === desiredApiId)
+  }
+
+  if (hasExplicitIntent) {
+    return availableApis.filter((api) => getApiRuntimeIntentType(api) === desiredIntentType)
+  }
+
+  return availableApis
+}
+
+function buildMissingRequiredFieldsReply(message, apis = [], deps, customDeps = {}) {
+  const targetApis = resolveTargetRuntimeApis(apis, customDeps)
+  const candidates = targetApis
+    .map((api) => {
+      const missingFields = getApiRuntimeRequiredFields(api).filter((field) => !hasApiRuntimeFieldValue(api, field.name, deps))
+      return {
+        api,
+        intentType: getApiRuntimeIntentType(api),
+        missingFields,
+      }
+    })
+    .filter((item) => item.missingFields.length)
+
+  if (!candidates.length) {
+    return null
+  }
+
+  const preferred =
+    candidates.find((item) => item.intentType === customDeps?.intentType) ??
+    candidates.find((item) => item.intentType === "create_record") ??
+    candidates[0]
+  const labels = preferred.missingFields.map((field) => field.label).filter(Boolean)
+  if (!labels.length) {
+    return null
+  }
+
+  const apiName = sanitizeString(preferred.api?.nome || preferred.api?.name) || "essa API"
+  const fieldList = labels.length === 1 ? labels[0] : labels.slice(0, -1).join(", ") + " e " + labels.at(-1)
+
+  if (preferred.intentType === "create_record") {
+    return `Para fazer esse cadastro com segurança, preciso de: ${fieldList}. Me envie esses dados e eu confirmo antes de registrar.`
+  }
+
+  if (preferred.intentType === "lookup_by_identifier") {
+    return `Para consultar ${apiName}, preciso de: ${fieldList}.`
+  }
+
+  return `Para usar ${apiName} com segurança, preciso de: ${fieldList}.`
+}
+
 const ANALYTICAL_QUERY_SIGNALS = [
   "vale a pena",
   "compensa",
@@ -202,6 +325,10 @@ function normalizeApiFieldName(name, deps) {
 }
 
 function groupApiFieldsAsCatalogItem(api, deps) {
+  if (!shouldUseApiAsCatalog(api)) {
+    return null
+  }
+
   const fields = Array.isArray(api?.campos) ? api.campos : []
   if (!fields.length) {
     return null
@@ -896,7 +1023,9 @@ function buildAnalyticalFallbackFields(apiContexts = [], deps) {
 }
 
 function resolveApiFieldLookupPlan(message, apiContexts, deps, customDeps = {}) {
-  const availableApis = apiContexts.filter((api) => Array.isArray(api.campos) && api.campos.length > 0)
+  const availableApis = apiContexts.filter(
+    (api) => Array.isArray(api.campos) && api.campos.length > 0 && shouldUseApiForFactLookup(api, customDeps)
+  )
   if (!availableApis.length) {
     return {
       availableApis: [],
@@ -937,7 +1066,7 @@ function resolveApiFieldLookupPlan(message, apiContexts, deps, customDeps = {}) 
   }
 
   const baseMatches = hintMatches.length ? hintMatches : intentMatches.length ? intentMatches : findMatchingApiFields(availableApis, message, deps)
-  const directMatches = mergePreferredApiFields(baseMatches[0] ?? preferredApiId, baseMatches)
+  const directMatches = mergePreferredApiFields(preferredApiId, baseMatches)
     .sort((left, right) => right.score - left.score || left.nome.localeCompare(right.nome))
   const primaryField = directMatches[0] ?? hintMatches[0] ?? intentMatches[0] ?? null
   const supportMatches = primaryField ? findSupportFields(availableApis, primaryField, message, deps, customDeps) : []
@@ -979,7 +1108,7 @@ function buildDirectApiReply(message, apiContexts, deps, customDeps = {}) {
 
   const topScore = matches[0]?.score ?? 0
   const strongMatches = matches.filter((field) => field.score >= topScore - 3)
-  const ambiguousAcrossApis = !lookupPlan.preferredApiId && !lookupPlan.hasStructuredHints && countDistinctApiIds(strongMatches) > 1
+  const ambiguousAcrossApis = !lookupPlan.preferredApiId && countDistinctApiIds(strongMatches) > 1
 
   if (strongMatches.length > 2 || topScore < 20 || ambiguousAcrossApis) {
     return null
@@ -998,7 +1127,9 @@ function buildDirectApiReply(message, apiContexts, deps, customDeps = {}) {
 
 export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
   const deps = getDeps(customDeps)
-  const availableApis = (apis ?? []).filter((api) => Array.isArray(api.campos) && api.campos.length > 0)
+  const availableApis = (apis ?? []).filter(
+    (api) => Array.isArray(api.campos) && api.campos.length > 0 && shouldUseApiForFactLookup(api, customDeps)
+  )
   const failedApis = (apis ?? []).filter((api) => api.erro)
   if (!availableApis.length && !failedApis.length) {
     return { instructions: "", fields: [], apis: [] }
@@ -1027,14 +1158,14 @@ export function buildFocusedApiContext(message, apis = [], customDeps = {}) {
   }
   const primaryField = lookupPlan.hintMatches[0] ?? lookupPlan.intentMatches[0] ?? lookupPlan.directMatches[0] ?? null
   const selectedFields = lookupPlan.hintMatches.length
-    ? mergePreferredApiFields(primaryField ?? lookupPlan.hintMatches[0], lookupPlan.hintMatches, lookupPlan.supportMatches).slice(0, 6)
+    ? mergePreferredApiFields(lookupPlan.preferredApiId ? primaryField : "", lookupPlan.hintMatches, lookupPlan.supportMatches).slice(0, 6)
     : lookupPlan.intentMatches.length
-      ? mergePreferredApiFields(primaryField ?? lookupPlan.intentMatches[0], lookupPlan.intentMatches, lookupPlan.supportMatches).slice(0, 6)
+      ? mergePreferredApiFields(lookupPlan.preferredApiId ? primaryField : "", lookupPlan.intentMatches, lookupPlan.supportMatches).slice(0, 6)
       : lookupPlan.directMatches.length
         ? lookupPlan.directMatches.slice(0, 6)
         : lookupPlan.fallbackMatches
   const scopedSelectedFields =
-    !lookupPlan.preferredApiId && !lookupPlan.hasStructuredHints && countDistinctApiIds(selectedFields) > 1 ? [] : selectedFields
+    !lookupPlan.preferredApiId && countDistinctApiIds(selectedFields) > 1 ? [] : selectedFields
   const fieldLines = scopedSelectedFields.map(
     (field) => `- ${formatApiFieldLabel(field.nome)} (${field.nome}): ${formatApiFieldValue(field.nome, field.valor, deps)}`
   )
@@ -1058,9 +1189,14 @@ export function buildApiFallbackReply(message, apis = [], customDeps = {}) {
   const deps = getDeps(customDeps)
   const analytical = isAnalyticalQuery(message, deps)
   const directReply = buildDirectApiReply(message, apis, deps, customDeps)
+  const missingRequiredFieldsReply = buildMissingRequiredFieldsReply(message, apis, deps, customDeps)
 
   if (directReply && !analytical) {
     return directReply
+  }
+
+  if (missingRequiredFieldsReply && !analytical) {
+    return missingRequiredFieldsReply
   }
 
   if (!analytical && !(Array.isArray(customDeps?.targetFieldHints) && customDeps.targetFieldHints.length) && !hasApiExplicitLookupSignal(message, deps)) {

@@ -6,11 +6,12 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 const apiFields =
   "id, projeto_id, nome, url, metodo, descricao, ativo, configuracoes, created_at, updated_at"
 const apiListFields =
-  "id, projeto_id, nome, url, metodo, descricao, ativo, created_at, updated_at"
+  "id, projeto_id, nome, url, metodo, descricao, ativo, configuracoes, created_at, updated_at"
 const apiRuntimeFieldSchemaWithApiId = "api_id, id, nome, tipo, descricao"
 const apiVersionFields =
   "id, api_id, projeto_id, version_number, nome, url, metodo, descricao, configuracoes, ativo, source, note, created_by, created_at"
 const runtimeApiCache = new Map()
+const runtimeIntentTypes = new Set(["create_record", "lookup_by_identifier", "knowledge_search", "catalog_search", "generic_fact"])
 
 function userCanAccessProject(user, projectId) {
   if (user?.role === "admin") {
@@ -53,7 +54,7 @@ function mapApiSummary(row) {
     method: row.metodo || "GET",
     description: row.descricao || "",
     active: row.ativo !== false,
-    config: null,
+    config: row.configuracoes ?? null,
     fieldSchema: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -139,9 +140,82 @@ function buildApiRequestBody(api, context = null, overrideBody) {
   })
 }
 
-function shouldExecuteRuntimeApi(api) {
+function normalizeRuntimeIntentType(value) {
+  const normalized = String(value || "").trim().toLowerCase()
+  return runtimeIntentTypes.has(normalized) ? normalized : "generic_fact"
+}
+
+function getRuntimeIntentType(api) {
+  return normalizeRuntimeIntentType(api?.config?.runtime?.intentType)
+}
+
+function getRuntimeRequiredFields(api) {
+  const requiredFields = api?.config?.runtime?.requiredFields
+  if (!Array.isArray(requiredFields)) {
+    return []
+  }
+
+  return requiredFields
+    .map((field) => {
+      if (typeof field === "string") {
+        return { name: field, source: field, label: field }
+      }
+
+      const name = String(field?.name || field?.nome || field?.param || field?.contextPath || "").trim()
+      const source = String(field?.contextPath || field?.path || field?.source || field?.param || name).trim()
+      const label = String(field?.label || field?.titulo || field?.nome || name || source).trim()
+      return name || source ? { name: name || source, source: source || name, label: label || name || source } : null
+    })
+    .filter(Boolean)
+}
+
+function resolveMissingRuntimeRequiredFields(api, context = null) {
+  return getRuntimeRequiredFields(api).filter((field) => {
+    const value =
+      resolveRuntimeApiParameterValue(api, context, field.name) ??
+      getRuntimeContextValue(context, field.source)
+    return value == null || !String(value).trim()
+  })
+}
+
+function isRuntimeApiConfirmedForExecution(api, context = null) {
+  const apiRuntime = context?.apiRuntime
+  if (!apiRuntime || typeof apiRuntime !== "object" || Array.isArray(apiRuntime)) {
+    return false
+  }
+
+  const apiId = String(api?.id || api?.apiId || "").trim()
+  const confirmedApiId = String(apiRuntime.confirmedApiId || "").trim()
+  const confirmedIntentType = normalizeRuntimeIntentType(apiRuntime.confirmedIntentType || apiRuntime.lastIntentType)
+  const confirmedAt = String(apiRuntime.confirmedAt || "").trim()
+
+  return Boolean(
+    apiId &&
+      confirmedApiId === apiId &&
+      confirmedIntentType === getRuntimeIntentType(api) &&
+      confirmedAt &&
+      apiRuntime.pendingConfirmation !== true
+  )
+}
+
+export function shouldExecuteRuntimeApi(api, context = null) {
   const method = String(api?.method || "GET").toUpperCase()
-  return method === "GET" || api?.config?.runtime?.autoExecute === true
+  if (method === "GET" || method === "HEAD") {
+    return true
+  }
+
+  const runtimeConfig = api?.config?.runtime ?? {}
+  const intentType = getRuntimeIntentType(api)
+  const missingRequiredFields = resolveMissingRuntimeRequiredFields(api, context)
+  if (missingRequiredFields.length) {
+    return false
+  }
+
+  if (intentType === "create_record" || runtimeConfig.requiresConfirmation === true) {
+    return runtimeConfig.autoExecute === true && isRuntimeApiConfirmedForExecution(api, context)
+  }
+
+  return runtimeConfig.autoExecute === true
 }
 
 function tryParseApiPayload(contentType, text) {
@@ -1030,7 +1104,15 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
   const startedAt = Date.now()
 
   try {
-    if (!shouldExecuteRuntimeApi(api)) {
+    if (!shouldExecuteRuntimeApi(api, runtimeContext)) {
+      const missingRequiredFields = resolveMissingRuntimeRequiredFields(api, runtimeContext)
+      const intentType = getRuntimeIntentType(api)
+      const preview =
+        missingRequiredFields.length
+          ? `API ${api.method} cadastrada. Faltam dados obrigatórios para executar com segurança: ${missingRequiredFields.map((field) => field.label).join(", ")}.`
+          : intentType === "create_record"
+            ? `API ${api.method} de cadastro cadastrada. Não foi executada automaticamente no runtime para evitar efeito colateral.`
+            : `API ${api.method} cadastrada. Não foi executada automaticamente no runtime para evitar efeito colateral.`
       return {
         id: api.id,
         apiId: api.id,
@@ -1041,7 +1123,7 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
         status: 0,
         durationMs: 0,
         contentType: "",
-        preview: `API ${api.method} cadastrada. Não foi executada automaticamente no runtime para evitar efeito colateral.`,
+        preview,
         campos: [],
         config: api.config,
         cache: {

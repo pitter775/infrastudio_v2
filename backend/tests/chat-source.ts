@@ -13,6 +13,10 @@ export {
 } from "@/lib/chat/api-runtime";
 
 export {
+  shouldExecuteRuntimeApi,
+} from "@/lib/apis";
+
+export {
   appendOptionalHumanOffer,
   buildHumanHandoffReply,
   classifyHumanEscalationNeed,
@@ -98,6 +102,7 @@ export {
   resolveChatChannel,
   splitCatalogReplyForWhatsApp,
   updateContextFromAiResult,
+  resolveApiRuntimeConfirmationContext,
   buildWhatsAppMessageSequence,
   resolveCanonicalWhatsAppExternalIdentifier,
   sanitizeWhatsAppCustomerFacingReply,

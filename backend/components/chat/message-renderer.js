@@ -371,7 +371,21 @@ export function AiTraceBlock({ trace, compact = false }) {
           </div>
           {trace.runtimeApis?.length ? (
             <div className="mt-2 border-t border-white/10 pt-2 text-slate-400">
-              APIs: {trace.runtimeApis.map((api) => `${api.nome || "API"}${api.cacheHit ? " (cache)" : ""}`).join(", ")}
+              APIs: {trace.runtimeApis.map((api) => `${api.nome || "API"} [${api.intentType || "generic_fact"}]${api.cacheHit ? " (cache)" : ""}`).join(", ")}
+            </div>
+          ) : null}
+          {trace.apiRuntimeDiagnostics?.selectedApiId || trace.apiRuntimeDiagnostics?.semanticKind ? (
+            <div className="mt-2 border-t border-white/10 pt-2 text-slate-400">
+              API runtime: {trace.apiRuntimeDiagnostics.semanticKind || "n/a"} em {trace.apiRuntimeDiagnostics.selectedApiId || "sem API selecionada"}
+              {trace.apiRuntimeDiagnostics.selectedMissingRequiredFields?.length ? (
+                <div>Faltando: {trace.apiRuntimeDiagnostics.selectedMissingRequiredFields.join(", ")}</div>
+              ) : null}
+              {trace.apiRuntimeDiagnostics.selectedBlockedReasons?.length ? (
+                <div>Bloqueios: {trace.apiRuntimeDiagnostics.selectedBlockedReasons.join(", ")}</div>
+              ) : null}
+              {trace.apiRuntimeDiagnostics.conflictingApiIds?.length ? (
+                <div>Conflito: {trace.apiRuntimeDiagnostics.conflictingApiIds.join(", ")}</div>
+              ) : null}
             </div>
           ) : null}
         </div>

@@ -392,7 +392,7 @@ export function buildApiDecisionFromSemanticIntent(input) {
     return null
   }
 
-  if (["api_fact_query", "api_status_query", "api_comparison"].includes(semanticIntent.intent)) {
+  if (["api_fact_query", "api_status_query", "api_comparison", "api_create_record"].includes(semanticIntent.intent)) {
     return {
       kind: semanticIntent.intent,
       confidence: semanticIntent.confidence,
@@ -404,6 +404,8 @@ export function buildApiDecisionFromSemanticIntent(input) {
         ? semanticIntent.supportFieldHints.map((item) => sanitizeString(item)).filter(Boolean)
         : [],
       comparisonMode: sanitizeString(semanticIntent.comparisonMode),
+      apiId: sanitizeString(semanticIntent.apiId),
+      intentType: normalizeSemanticApiIntentType(semanticIntent.intentType),
       referencedProductIndexes: Array.isArray(semanticIntent.referencedProductIndexes)
         ? semanticIntent.referencedProductIndexes
             .map((item) => Number(item))
@@ -414,6 +416,19 @@ export function buildApiDecisionFromSemanticIntent(input) {
   }
 
   return null
+}
+
+const SEMANTIC_API_INTENT_TYPES = new Set([
+  "create_record",
+  "lookup_by_identifier",
+  "knowledge_search",
+  "catalog_search",
+  "generic_fact",
+])
+
+function normalizeSemanticApiIntentType(value) {
+  const normalized = sanitizeString(value).toLowerCase()
+  return SEMANTIC_API_INTENT_TYPES.has(normalized) ? normalized : "generic_fact"
 }
 
 export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
@@ -1038,10 +1053,13 @@ export async function classifySemanticApiIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de APIs estruturadas ja disponiveis no runtime.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"api_fact_query|api_status_query|api_comparison|other","confidence":0..1,"reason":"string","targetFieldHints":["string"],"supportFieldHints":["string"],"comparisonMode":"best_choice|highest_price|lowest_price|","referencedProductIndexes":[1,2]}.',
+            'Schema: {"intent":"api_fact_query|api_status_query|api_comparison|api_create_record|other","confidence":0..1,"reason":"string","apiId":"string","intentType":"create_record|lookup_by_identifier|knowledge_search|catalog_search|generic_fact|","targetFieldHints":["string"],"supportFieldHints":["string"],"comparisonMode":"best_choice|highest_price|lowest_price|","referencedProductIndexes":[1,2]}.',
             "Use api_fact_query para pedido factual sobre campos disponiveis, como valor, data, endereco, documento, descricao.",
             "Use api_status_query para status, codigo, pedido, estoque, disponibilidade, rastreio.",
             "Use api_comparison para comparacao ou melhor opcao entre registros/itens retornados.",
+            "Use api_create_record somente quando o cliente pedir cadastro, envio, registro, lead ou abertura de solicitação em API de create_record.",
+            "Escolha apiId e intentType da API mais compatível. Se houver conflito entre APIs de cadastro, consulta, conhecimento e catálogo, reduza a confiança ou retorne other.",
+            "Nunca classifique create_record como consulta factual sem pedido explícito de cadastro e dados obrigatórios suficientes.",
             "Quando a intencao for factual ou status, preencha targetFieldHints com campos curtos e literais do runtime, por exemplo matricula, cartorio, valor, status, codigo, data_leilao, endereco, cidade, descricao.",
             "Quando fizer sentido adicionar contexto util, preencha supportFieldHints com campos complementares curtos e literais, por exemplo status, data_leilao, valor_minimo, ocupacao, cidade.",
             "Quando a intencao for api_comparison, preencha comparisonMode com best_choice, highest_price ou lowest_price.",
@@ -1056,6 +1074,8 @@ export async function classifySemanticApiIntentStage(input = {}) {
             runtimeApis: runtimeApis.slice(0, 6).map((api) => ({
               apiId: sanitizeString(api?.apiId),
               nome: sanitizeString(api?.nome),
+              intentType: normalizeSemanticApiIntentType(api?.config?.runtime?.intentType),
+              descriptionForIntent: sanitizeString(api?.config?.runtime?.descriptionForIntent),
               campos: Array.isArray(api?.campos)
                 ? api.campos.slice(0, 12).map((field) => sanitizeString(field?.nome)).filter(Boolean)
                 : [],
@@ -1073,7 +1093,7 @@ export async function classifySemanticApiIntentStage(input = {}) {
             properties: {
               intent: {
                 type: "string",
-                enum: ["api_fact_query", "api_status_query", "api_comparison", "other"],
+                enum: ["api_fact_query", "api_status_query", "api_comparison", "api_create_record", "other"],
               },
               confidence: {
                 type: "number",
@@ -1082,6 +1102,13 @@ export async function classifySemanticApiIntentStage(input = {}) {
               },
               reason: {
                 type: "string",
+              },
+              apiId: {
+                type: "string",
+              },
+              intentType: {
+                type: "string",
+                enum: ["create_record", "lookup_by_identifier", "knowledge_search", "catalog_search", "generic_fact", ""],
               },
               targetFieldHints: {
                 type: "array",
@@ -1105,11 +1132,21 @@ export async function classifySemanticApiIntentStage(input = {}) {
                 },
               },
             },
-            required: ["intent", "confidence", "reason", "targetFieldHints", "supportFieldHints", "comparisonMode", "referencedProductIndexes"],
+            required: [
+              "intent",
+              "confidence",
+              "reason",
+              "apiId",
+              "intentType",
+              "targetFieldHints",
+              "supportFieldHints",
+              "comparisonMode",
+              "referencedProductIndexes",
+            ],
           },
         },
       },
-      max_output_tokens: 100,
+      max_output_tokens: 140,
     }),
   })
 
@@ -1125,6 +1162,8 @@ export async function classifySemanticApiIntentStage(input = {}) {
     intent: sanitizeString(parsed?.intent),
     confidence: Number(parsed?.confidence ?? 0) || 0,
     reason: sanitizeString(parsed?.reason),
+    apiId: sanitizeString(parsed?.apiId),
+    intentType: normalizeSemanticApiIntentType(parsed?.intentType),
     targetFieldHints: Array.isArray(parsed?.targetFieldHints)
       ? parsed.targetFieldHints.map((item) => sanitizeString(item)).filter(Boolean)
       : [],
@@ -1135,6 +1174,104 @@ export async function classifySemanticApiIntentStage(input = {}) {
     referencedProductIndexes: Array.isArray(parsed?.referencedProductIndexes)
       ? parsed.referencedProductIndexes.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item >= 1)
       : [],
+    usedLlm: true,
+  }
+}
+
+export async function classifySemanticApiConfirmationStage(input = {}) {
+  const latestUserMessage = sanitizeString(input?.latestUserMessage)
+  const openAiKey = sanitizeString(input?.openAiKey)
+  const model = sanitizeString(input?.model) || "gpt-4o-mini"
+  const pendingApiRuntime = input?.pendingApiRuntime && typeof input.pendingApiRuntime === "object" && !Array.isArray(input.pendingApiRuntime)
+    ? input.pendingApiRuntime
+    : null
+
+  if (!latestUserMessage || !openAiKey || !pendingApiRuntime?.lastApiId || pendingApiRuntime?.lastIntentType !== "create_record") {
+    return null
+  }
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openAiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: "system",
+          content: [
+            "Classifique se a mensagem confirma ou cancela um cadastro de API que ja esta pendente.",
+            "Retorne somente JSON valido.",
+            'Schema: {"intent":"api_confirm_create_record|api_cancel_create_record|other","confidence":0..1,"reason":"string","apiId":"string"}.',
+            "Use api_confirm_create_record somente quando o cliente aprovar explicitamente registrar/enviar o cadastro pendente.",
+            "Use api_cancel_create_record quando o cliente negar, pedir para parar ou corrigir antes de registrar.",
+            "Se a mensagem trouxer novos dados, duvida, pergunta ou ambiguidade, retorne other.",
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            message: latestUserMessage,
+            pendingApiRuntime: {
+              lastApiId: sanitizeString(pendingApiRuntime.lastApiId),
+              lastIntentType: sanitizeString(pendingApiRuntime.lastIntentType),
+              missingRequiredFields: Array.isArray(pendingApiRuntime.missingRequiredFields)
+                ? pendingApiRuntime.missingRequiredFields.map((item) => sanitizeString(item)).filter(Boolean)
+                : [],
+              blockedReasons: Array.isArray(pendingApiRuntime.blockedReasons)
+                ? pendingApiRuntime.blockedReasons.map((item) => sanitizeString(item)).filter(Boolean)
+                : [],
+            },
+          }),
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "semantic_api_confirmation",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              intent: {
+                type: "string",
+                enum: ["api_confirm_create_record", "api_cancel_create_record", "other"],
+              },
+              confidence: {
+                type: "number",
+                minimum: 0,
+                maximum: 1,
+              },
+              reason: {
+                type: "string",
+              },
+              apiId: {
+                type: "string",
+              },
+            },
+            required: ["intent", "confidence", "reason", "apiId"],
+          },
+        },
+      },
+      max_output_tokens: 80,
+    }),
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = await response.json().catch(() => null)
+  const parsed = parseResponseJson(payload)
+  if (!parsed) return null
+
+  return {
+    intent: sanitizeString(parsed?.intent),
+    confidence: Number(parsed?.confidence ?? 0) || 0,
+    reason: sanitizeString(parsed?.reason),
+    apiId: sanitizeString(parsed?.apiId),
     usedLlm: true,
   }
 }

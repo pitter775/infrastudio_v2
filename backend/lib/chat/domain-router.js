@@ -91,7 +91,7 @@ function hasCatalogSignal(message, context = {}) {
   }
 
   if (hasStorefrontCatalogContext(context) && !hasRecentCatalogContext(context)) {
-    return hasExplicitMlItemSignal(normalized)
+    return hasExplicitMlItemSignal(normalized) || hasMeaningfulCatalogSearchCandidate(normalized)
   }
 
   if (hasExplicitCatalogObjectSignal(normalized)) {
@@ -146,7 +146,11 @@ function hasMeaningfulCatalogSearchCandidate(message) {
 
   return buildProductSearchCandidates(message).some((candidate) => {
     const normalizedCandidate = normalizeText(candidate)
-    return normalizedCandidate && !ignored.has(normalizedCandidate)
+    if (!normalizedCandidate || ignored.has(normalizedCandidate)) {
+      return false
+    }
+
+    return normalizedCandidate.split(/\s+/).some((token) => token && !ignored.has(token))
   })
 }
 
@@ -278,7 +282,7 @@ function isLikelyCatalogAnswerAfterPrompt(message, history = []) {
     return false
   }
 
-  return hasRecentCatalogPrompt(history) && hasCatalogFollowUpSignal(normalized)
+  return hasRecentCatalogPrompt(history) && (hasCatalogFollowUpSignal(normalized) || hasMeaningfulCatalogSearchCandidate(normalized))
 }
 
 function isCatalogFollowUpWithRecentState(message, history = [], context = {}) {

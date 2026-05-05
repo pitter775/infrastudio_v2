@@ -52,7 +52,7 @@ function mapMessageRole(autor) {
 }
 
 function isSemanticApiFactualDecision(decision) {
-  return ["api_fact_query", "api_status_query"].includes(decision?.kind)
+  return ["api_fact_query", "api_status_query", "api_create_record"].includes(decision?.kind)
 }
 
 function getAgentRuntimeConfig(context = {}) {
@@ -253,6 +253,8 @@ function buildHeuristicReplyResult(reply, metadata = {}) {
       catalogDiagnostics: metadata.catalogDiagnostics ?? null,
       billingDiagnostics: metadata.billingDiagnostics ?? null,
       billingContextUpdate: metadata.billingContextUpdate ?? null,
+      apiRuntimeDiagnostics: metadata.apiRuntimeDiagnostics ?? null,
+      apiRuntimeContextUpdate: metadata.apiRuntimeContextUpdate ?? null,
       routingDecision: metadata.routingDecision ?? null,
       focus: metadata.focus ?? null,
     },
@@ -405,6 +407,130 @@ function buildExplicitCatalogActionRoutingOverride(baseDecision, latestUserMessa
       subject: context?.catalogo?.produtoAtual?.nome || latestUserMessage,
       confidence: 1,
     },
+  }
+}
+
+function normalizeRuntimeApiIntentType(api) {
+  const value = String(api?.config?.runtime?.intentType || "").trim().toLowerCase()
+  return ["create_record", "lookup_by_identifier", "knowledge_search", "catalog_search", "generic_fact"].includes(value)
+    ? value
+    : "generic_fact"
+}
+
+function formatRuntimeFieldLabel(value) {
+  return String(value || "")
+    .split(".")
+    .pop()
+    .replace(/_/g, " ")
+    .trim()
+}
+
+function getRuntimeRequiredFieldsForDiagnostics(api) {
+  const requiredFields = api?.config?.runtime?.requiredFields
+  if (!Array.isArray(requiredFields)) {
+    return []
+  }
+
+  return requiredFields
+    .map((field) => {
+      if (typeof field === "string") {
+        const name = String(field || "").trim()
+        return name ? { name, label: formatRuntimeFieldLabel(name) } : null
+      }
+
+      const name = String(field?.name || field?.nome || field?.param || field?.contextPath || field?.source || "").trim()
+      const label = String(field?.label || field?.titulo || field?.description || field?.descricao || "").trim() || formatRuntimeFieldLabel(name)
+      return name ? { name, label } : null
+    })
+    .filter(Boolean)
+}
+
+function hasRuntimeFieldValueForDiagnostics(api, fieldName) {
+  const normalizedName = normalizeText(String(fieldName || "").replace(/\./g, "_"))
+  return (Array.isArray(api?.campos) ? api.campos : []).some((field) => {
+    const normalizedField = normalizeText(String(field?.nome || "").replace(/\./g, "_"))
+    return (
+      normalizedField &&
+      (normalizedField === normalizedName || normalizedField.endsWith(`_${normalizedName}`) || normalizedField.endsWith(normalizedName)) &&
+      field?.valor != null &&
+      String(field.valor).trim()
+    )
+  })
+}
+
+function buildRuntimeApiDiagnosticItem(api) {
+  const intentType = normalizeRuntimeApiIntentType(api)
+  const requiredFields = getRuntimeRequiredFieldsForDiagnostics(api)
+  const missingRequiredFields = requiredFields.filter((field) => !hasRuntimeFieldValueForDiagnostics(api, field.name))
+  const method = String(api?.metodo || api?.method || "").toUpperCase()
+  const executed = Number(api?.status ?? 0) > 0 || Number(api?.durationMs ?? 0) > 0 || Boolean(String(api?.contentType || "").trim())
+  const blockedReasons = [
+    intentType === "create_record" && !executed ? "create_record_sem_execucao_automatica" : "",
+    api?.config?.runtime?.requiresConfirmation === true && !executed ? "requires_confirmation" : "",
+    missingRequiredFields.length ? "missing_required_fields" : "",
+    api?.ok === false ? "api_unavailable_or_not_executed" : "",
+  ].filter(Boolean)
+
+  return {
+    id: api?.apiId ?? api?.id ?? null,
+    nome: api?.nome ?? api?.name ?? null,
+    method: method || null,
+    intentType,
+    ok: api?.ok !== false,
+    status: api?.status ?? null,
+    cacheHit: api?.cache?.hit === true,
+    fields: Array.isArray(api?.campos) ? api.campos.length : 0,
+    requiredFields: requiredFields.map((field) => field.label),
+    missingRequiredFields: missingRequiredFields.map((field) => field.label),
+    blockedReasons,
+  }
+}
+
+function buildApiRuntimeDiagnosticsPayload({ runtimeApis = [], semanticApiDecision = null, focusedApiContext = null, routingDecision = null } = {}) {
+  const apiItems = (runtimeApis ?? []).map(buildRuntimeApiDiagnosticItem)
+  const selectedApiId = semanticApiDecision?.apiId || focusedApiContext?.fields?.[0]?.apiId || null
+  const selectedApi = selectedApiId ? apiItems.find((api) => api.id === selectedApiId) ?? null : null
+  const conflictingApiIds =
+    !selectedApiId && semanticApiDecision?.intentType
+      ? apiItems.filter((api) => api.intentType === semanticApiDecision.intentType).map((api) => api.id).filter(Boolean)
+      : []
+
+  return {
+    selectedApiId,
+    intentType: semanticApiDecision?.intentType || null,
+    semanticKind: semanticApiDecision?.kind || null,
+    routeDomain: routingDecision?.domain || null,
+    routeReason: routingDecision?.reason || null,
+    focusedFieldCount: Array.isArray(focusedApiContext?.fields) ? focusedApiContext.fields.length : 0,
+    selectedMissingRequiredFields: selectedApi?.missingRequiredFields ?? [],
+    selectedBlockedReasons: selectedApi?.blockedReasons ?? [],
+    conflictingApiIds: conflictingApiIds.length > 1 ? conflictingApiIds : [],
+    apis: apiItems,
+  }
+}
+
+function buildApiRuntimeContextUpdate({ semanticApiDecision = null, apiRuntimeDiagnostics = null } = {}) {
+  if (!apiRuntimeDiagnostics?.selectedApiId && !apiRuntimeDiagnostics?.intentType && !apiRuntimeDiagnostics?.semanticKind) {
+    return null
+  }
+
+  const missingRequiredFields = Array.isArray(apiRuntimeDiagnostics?.selectedMissingRequiredFields)
+    ? apiRuntimeDiagnostics.selectedMissingRequiredFields.filter((field) => typeof field === "string" && field.trim())
+    : []
+  const blockedReasons = Array.isArray(apiRuntimeDiagnostics?.selectedBlockedReasons)
+    ? apiRuntimeDiagnostics.selectedBlockedReasons.filter((reason) => typeof reason === "string" && reason.trim())
+    : []
+
+  return {
+    lastApiId: typeof apiRuntimeDiagnostics.selectedApiId === "string" ? apiRuntimeDiagnostics.selectedApiId : null,
+    lastIntent: typeof apiRuntimeDiagnostics.semanticKind === "string" ? apiRuntimeDiagnostics.semanticKind : semanticApiDecision?.kind ?? null,
+    lastIntentType:
+      typeof apiRuntimeDiagnostics.intentType === "string" ? apiRuntimeDiagnostics.intentType : semanticApiDecision?.intentType ?? null,
+    missingRequiredFields,
+    blockedReasons,
+    pendingConfirmation:
+      blockedReasons.includes("requires_confirmation") || blockedReasons.includes("create_record_sem_execucao_automatica"),
+    updatedAt: new Date().toISOString(),
   }
 }
 
@@ -746,6 +872,16 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     hasValidAgent: Boolean(context?.agente?.id && agentName && agentPromptBase),
     hasOpenAiKey: Boolean(openAiKey),
   })
+  const apiRuntimeDiagnostics = buildApiRuntimeDiagnosticsPayload({
+    runtimeApis,
+    semanticApiDecision,
+    focusedApiContext,
+    routingDecision,
+  })
+  const apiRuntimeContextUpdate = buildApiRuntimeContextUpdate({
+    semanticApiDecision,
+    apiRuntimeDiagnostics,
+  })
   const heuristicMetadata = {
     agenteId: context?.agente?.id ?? null,
     agenteNome: context?.agente?.nome ?? null,
@@ -776,6 +912,8 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       billingReplyMetadata: catalogPricingReply?.metadata ?? null,
       billingContextUpdate,
     }),
+    apiRuntimeDiagnostics,
+    apiRuntimeContextUpdate,
   }
 
   if (!context?.agente?.id || !agentName || !agentPromptBase) {
@@ -795,6 +933,8 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       buildApiFallbackReply(latestUserMessage, runtimeApis, {
         targetFieldHints: semanticApiDecision?.targetFieldHints,
         supportFieldHints: semanticApiDecision?.supportFieldHints,
+        apiId: semanticApiDecision?.apiId,
+        intentType: semanticApiDecision?.intentType,
       })
     const apiReplyText = typeof apiReply === "string" ? apiReply : apiReply?.reply
     if (apiReplyText) {
@@ -1021,6 +1161,10 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       domainStage: pipelineState.conversationDomainStage ?? "general",
       catalogoProdutoAtual: (shouldUseMercadoLivre || shouldUseApiRuntime) ? currentCatalogProduct ?? null : null,
       catalogDiagnostics: heuristicMetadata.catalogDiagnostics ?? null,
+      billingDiagnostics: heuristicMetadata.billingDiagnostics ?? null,
+      billingContextUpdate: heuristicMetadata.billingContextUpdate ?? null,
+      apiRuntimeDiagnostics: heuristicMetadata.apiRuntimeDiagnostics ?? null,
+      apiRuntimeContextUpdate: heuristicMetadata.apiRuntimeContextUpdate ?? null,
       routingDecision,
       focus: routingDecision.focus ?? null,
     },
