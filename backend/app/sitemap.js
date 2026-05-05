@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { buildStoreProductRef } from "@/lib/mercado-livre-store-core/sanitize"
 
 const SITE_URL = "https://www.infrastudio.pro"
 
@@ -20,7 +21,7 @@ export default async function sitemap() {
       .eq("ativo", true),
     supabase
       .from("mercadolivre_produtos_snapshot")
-      .select("projeto_id, slug, updated_at")
+      .select("projeto_id, ml_item_id, slug, titulo, updated_at")
       .eq("status", "active")
       .gt("estoque", 0),
   ])
@@ -48,19 +49,29 @@ export default async function sitemap() {
     priority: 0.8,
   }))
 
-  const productEntries = Array.isArray(productsResult.data)
-    ? productsResult.data
-        .filter((product) => product?.slug && storeSlugByProjectId.has(String(product.projeto_id)))
-        .map((product) => {
-          const storeSlug = storeSlugByProjectId.get(String(product.projeto_id))
-          return {
-            url: `${SITE_URL}/loja/${storeSlug}/produto/${product.slug}`,
-            lastModified: parseDate(product.updated_at, now),
-            changeFrequency: "daily",
-            priority: 0.7,
-          }
+  const productEntriesByUrl = new Map()
+
+  if (Array.isArray(productsResult.data)) {
+    for (const product of productsResult.data) {
+      const storeSlug = storeSlugByProjectId.get(String(product?.projeto_id))
+      const productRef = buildStoreProductRef(product?.ml_item_id, product?.slug || product?.titulo)
+      if (!storeSlug || !productRef) {
+        continue
+      }
+
+      const url = `${SITE_URL}/loja/${storeSlug}/produto/${productRef}`
+      if (!productEntriesByUrl.has(url)) {
+        productEntriesByUrl.set(url, {
+          url,
+          lastModified: parseDate(product.updated_at, now),
+          changeFrequency: "daily",
+          priority: 0.7,
         })
-    : []
+      }
+    }
+  }
+
+  const productEntries = Array.from(productEntriesByUrl.values())
 
   return [
     {
