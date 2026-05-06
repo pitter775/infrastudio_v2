@@ -1308,7 +1308,7 @@ export async function resolveApiRuntimeConfirmationContext(input = {}) {
 export function prepareAiReplyPayload(input) {
   const isWhatsAppChannel = input.channelKind === "whatsapp"
   const catalogAwareAssets = decorateCatalogAssetsWithListingSession(input.ai.assets ?? [], input.nextContext)
-  const structuredEnvelope = input.channelKind === "whatsapp" ? null : extractStructuredReplyEnvelope(input.ai.reply)
+  const structuredEnvelope = extractStructuredReplyEnvelope(input.ai.reply)
   const metadataCatalogSearch =
     isPlainObject(input.ai?.metadata?.catalogoBusca) ? input.ai.metadata.catalogoBusca : null
   const catalogListingSessionId =

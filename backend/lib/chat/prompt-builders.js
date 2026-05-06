@@ -388,5 +388,10 @@ export function formatHeuristicReply(reply) {
 }
 
 export function prefersStructuredReply(context) {
+  const channelKind = String(context?.channel?.kind ?? context?.canal ?? "").trim().toLowerCase()
+  if (channelKind === "whatsapp") {
+    return false
+  }
+
   return Boolean(context?.ui?.structured_response)
 }

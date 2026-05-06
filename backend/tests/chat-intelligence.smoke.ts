@@ -8616,6 +8616,24 @@ const tests: TestCase[] = [
       assert.match(whatsappPayload.whatsappEmbeddedSequence[2] || "", /responda 1, 2 ou 3/i)
       assert.equal(whatsappPayload.whatsappContactNameForTitle, "Julia Rodrigues")
       assert.equal(whatsappPayload.contactSnapshot.contatoTelefone, "5511999999999")
+
+      const structuredWhatsAppPayload = prepareAiReplyPayload({
+        channelKind: "whatsapp",
+        ai: {
+          reply: JSON.stringify({
+            reply: "Olá!\n\nComo posso te ajudar hoje?",
+            followUpReply: "",
+            ui: {},
+          }),
+          assets: [],
+        },
+        nextContext: {},
+        normalizedExternalIdentifier: "5511999999999",
+      })
+
+      assert.equal(structuredWhatsAppPayload.primaryReply, "Olá!\n\nComo posso te ajudar hoje?")
+      assert.equal(structuredWhatsAppPayload.whatsappEmbeddedMessage, "Olá!\n\nComo posso te ajudar hoje?")
+      assert.doesNotMatch(structuredWhatsAppPayload.whatsappEmbeddedMessage, /"reply"|followUpReply|\{|\}/)
     },
   },
   {
