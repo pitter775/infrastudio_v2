@@ -38,6 +38,27 @@ function buildLockedRuntimeContext(project) {
   }
 }
 
+function isPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+}
+
+function mergeContext(base, extra) {
+  if (!isPlainObject(extra)) {
+    return base
+  }
+
+  const next = { ...base }
+  for (const [key, value] of Object.entries(extra)) {
+    if (isPlainObject(value) && isPlainObject(next[key])) {
+      next[key] = mergeContext(next[key], value)
+    } else {
+      next[key] = value
+    }
+  }
+
+  return next
+}
+
 export async function POST(request, context) {
   const user = await getSessionUser()
 
@@ -59,7 +80,12 @@ export async function POST(request, context) {
     payload = {}
   }
 
-  const runtimeContext = buildLockedRuntimeContext(project)
+  const runtimeContext = mergeContext(
+    buildLockedRuntimeContext(project),
+    payload?.testContext && typeof payload.testContext === "object" && !Array.isArray(payload.testContext)
+      ? payload.testContext
+      : null,
+  )
   if (payload?.agendaDate) {
     runtimeContext.agenda.dataConsulta = String(payload.agendaDate).slice(0, 10)
   }

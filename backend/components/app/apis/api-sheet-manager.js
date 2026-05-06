@@ -216,7 +216,8 @@ function stringifyBody(value) {
 
 function tryParseJson(value) {
   try {
-    return JSON.parse(String(value || "").trim())
+    const normalized = String(value || "").trim()
+    return normalized ? JSON.parse(normalized) : null
   } catch {
     return null
   }
@@ -528,6 +529,7 @@ export function ApiSheetManager({
   const [form, setForm] = useState(emptyForm)
   const [responseResult, setResponseResult] = useState(null)
   const [agendaDate, setAgendaDate] = useState("")
+  const [testContextText, setTestContextText] = useState("")
 
   const inEditor = mode === "editor"
   const editing = Boolean(form.id)
@@ -635,6 +637,7 @@ export function ApiSheetManager({
       setBodySubtab("fields")
       setResponseResult(null)
       setAgendaDate("")
+      setTestContextText("")
       setStatus({ type: "idle", message: "" })
     }
   }, [resetSignal])
@@ -752,6 +755,7 @@ export function ApiSheetManager({
     setBodySubtab("fields")
     setResponseResult(null)
     setAgendaDate("")
+    setTestContextText("")
     setStatus({ type: "idle", message: "" })
   }
 
@@ -778,6 +782,7 @@ export function ApiSheetManager({
     setBodySubtab("fields")
     setResponseResult(null)
     setAgendaDate("")
+    setTestContextText("")
     setStatus({ type: "idle", message: "" })
 
     try {
@@ -866,6 +871,11 @@ export function ApiSheetManager({
     setStatus({ type: "idle", message: "" })
 
     try {
+      const parsedTestContext = tryParseJson(testContextText)
+      if (String(testContextText || "").trim() && (!parsedTestContext || typeof parsedTestContext !== "object" || Array.isArray(parsedTestContext))) {
+        throw new Error("Contexto de teste precisa ser um JSON válido em formato de objeto.")
+      }
+
       const response = await fetch(`${endpoint}/test`, {
         method: "POST",
         headers: {
@@ -885,6 +895,7 @@ export function ApiSheetManager({
             headers: buildHeadersFromRows(form.headerRows),
             body: String(form.bodyText || "").trim() ? tryParseJson(form.bodyText) ?? form.bodyText : undefined,
           },
+          testContext: parsedTestContext || undefined,
         }),
       })
 
@@ -1247,6 +1258,20 @@ export function ApiSheetManager({
                   Os campos marcados como obrigatórios na aba Body viram `runtime.requiredFields` e bloqueiam execução automática quando faltarem.
                 </p>
               </div>
+
+              <label className="block">
+                <span className={labelClassName}>Contexto de teste</span>
+                <textarea
+                  value={testContextText}
+                  onChange={(event) => setTestContextText(event.target.value)}
+                  placeholder='{"id":"c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2"}'
+                  className={cn(textareaClassName, "min-h-[120px] font-mono text-xs")}
+                  spellCheck={false}
+                />
+                <span className="mt-2 block text-xs leading-5 text-slate-500">
+                  Usado apenas no botão Send. Para testar URLs com {"{id}"}, informe id ou propertyId aqui.
+                </span>
+              </label>
             </div>
           ) : null}
 

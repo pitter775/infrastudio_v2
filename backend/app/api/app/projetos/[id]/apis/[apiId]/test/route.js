@@ -30,6 +30,27 @@ function buildLockedRuntimeContext(project) {
   }
 }
 
+function isPlainObject(value) {
+  return value && typeof value === "object" && !Array.isArray(value)
+}
+
+function mergeContext(base, extra) {
+  if (!isPlainObject(extra)) {
+    return base
+  }
+
+  const next = { ...base }
+  for (const [key, value] of Object.entries(extra)) {
+    if (isPlainObject(value) && isPlainObject(next[key])) {
+      next[key] = mergeContext(next[key], value)
+    } else {
+      next[key] = value
+    }
+  }
+
+  return next
+}
+
 export async function POST(request, context) {
   const user = await getSessionUser()
 
@@ -52,7 +73,12 @@ export async function POST(request, context) {
   }
 
   const { result, error } = await testApiForUser(apiId, project.id, user, {
-    runtimeContext: buildLockedRuntimeContext(project),
+    runtimeContext: mergeContext(
+      buildLockedRuntimeContext(project),
+      payload?.testContext && typeof payload.testContext === "object" && !Array.isArray(payload.testContext)
+        ? payload.testContext
+        : null,
+    ),
     testOverrides:
       payload?.testOverrides && typeof payload.testOverrides === "object" && !Array.isArray(payload.testOverrides)
         ? payload.testOverrides
