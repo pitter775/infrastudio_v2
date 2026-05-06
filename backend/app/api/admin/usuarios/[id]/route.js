@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 
+import { deleteProjectsOwnedByUsuario } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 import { deleteUsuario, setUsuarioAtivo } from "@/lib/usuarios"
 
@@ -18,7 +19,7 @@ export async function PATCH(request, context) {
   const body = await request.json()
 
   if (typeof body.ativo !== "boolean") {
-    return NextResponse.json({ error: "O campo ativo e obrigatorio." }, { status: 400 })
+    return NextResponse.json({ error: "O campo ativo é obrigatório." }, { status: 400 })
   }
 
   const updated = await setUsuarioAtivo(id, body.ativo)
@@ -38,6 +39,19 @@ export async function DELETE(_request, context) {
   }
 
   const { id } = await context.params
+
+  if (id === user.id) {
+    return NextResponse.json({ error: "Você não pode excluir o próprio usuário logado." }, { status: 400 })
+  }
+
+  const projectsResult = await deleteProjectsOwnedByUsuario(id)
+  if (!projectsResult.ok) {
+    return NextResponse.json(
+      { error: projectsResult.error ?? "Não foi possível excluir os projetos do usuário.", code: projectsResult.code ?? null },
+      { status: 500 },
+    )
+  }
+
   const deleted = await deleteUsuario(id)
 
   if (!deleted) {

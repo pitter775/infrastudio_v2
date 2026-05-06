@@ -507,22 +507,88 @@ export async function setUsuarioAtivo(usuarioId, ativo) {
 }
 
 export async function deleteUsuario(usuarioId) {
-  const supabase = getSupabaseAdminClient()
-  const { error: membershipsError } = await supabase
-    .from("usuarios_projetos")
-    .delete()
-    .eq("usuario_id", usuarioId)
-
-  if (membershipsError) {
-    console.error("[usuarios] failed to delete usuario memberships", membershipsError)
+  if (!usuarioId) {
     return false
   }
 
-  const { error } = await supabase.from("usuarios").delete().eq("id", usuarioId)
+  const supabase = getSupabaseAdminClient()
 
-  if (error) {
-    console.error("[usuarios] failed to delete usuario", error)
+  async function run(step, operation) {
+    const { error } = await operation()
+    if (error) {
+      console.error(`[usuarios] failed to delete usuario at ${step}`, error)
+      return false
+    }
+    return true
+  }
+
+  const { count: ownedProjectCount, error: ownedProjectError } = await supabase
+    .from("projetos")
+    .select("id", { count: "exact", head: true })
+    .eq("owner_user_id", usuarioId)
+
+  if (ownedProjectError) {
+    console.error("[usuarios] failed to validate owned projects before delete", ownedProjectError)
     return false
+  }
+
+  if ((ownedProjectCount ?? 0) > 0) {
+    console.error("[usuarios] refusing to delete usuario with owned projects", { usuarioId, ownedProjectCount })
+    return false
+  }
+
+  const feedbackIdsResult = await supabase.from("feedbacks").select("id").eq("usuario_id", usuarioId)
+  if (feedbackIdsResult.error) {
+    console.error("[usuarios] failed to read usuario feedbacks before delete", feedbackIdsResult.error)
+    return false
+  }
+
+  const feedbackIds = (feedbackIdsResult.data ?? []).map((item) => item.id).filter(Boolean)
+
+  for (let index = 0; index < feedbackIds.length; index += 100) {
+    const ids = feedbackIds.slice(index, index + 100)
+    if (!ids.length) {
+      continue
+    }
+
+    if (!(await run("feedback_mensagens.feedback_id", () => supabase.from("feedback_mensagens").delete().in("feedback_id", ids)))) {
+      return false
+    }
+  }
+
+  const steps = [
+    ["avisos_leituras", () => supabase.from("avisos_leituras").delete().eq("usuario_id", usuarioId)],
+    ["email_verifications", () => supabase.from("email_verifications").delete().eq("usuario_id", usuarioId)],
+    ["feedback_mensagens.usuario_id", () => supabase.from("feedback_mensagens").update({ usuario_id: null }).eq("usuario_id", usuarioId)],
+    ["feedbacks", () => supabase.from("feedbacks").delete().eq("usuario_id", usuarioId)],
+    ["agente_versoes", () => supabase.from("agente_versoes").update({ created_by: null }).eq("created_by", usuarioId)],
+    ["api_versoes", () => supabase.from("api_versoes").update({ created_by: null }).eq("created_by", usuarioId)],
+    ["chat_handoff_eventos", () => supabase.from("chat_handoff_eventos").update({ usuario_id: null }).eq("usuario_id", usuarioId)],
+    [
+      "chat_handoffs.requested_by_usuario_id",
+      () => supabase.from("chat_handoffs").update({ requested_by_usuario_id: null }).eq("requested_by_usuario_id", usuarioId),
+    ],
+    [
+      "chat_handoffs.claimed_by_usuario_id",
+      () => supabase.from("chat_handoffs").update({ claimed_by_usuario_id: null }).eq("claimed_by_usuario_id", usuarioId),
+    ],
+    [
+      "chat_handoffs.released_by_usuario_id",
+      () => supabase.from("chat_handoffs").update({ released_by_usuario_id: null }).eq("released_by_usuario_id", usuarioId),
+    ],
+    ["whatsapp_handoff_contatos", () => supabase.from("whatsapp_handoff_contatos").update({ usuario_id: null }).eq("usuario_id", usuarioId)],
+    ["projetos_checkout_intencoes", () => supabase.from("projetos_checkout_intencoes").update({ usuario_id: null }).eq("usuario_id", usuarioId)],
+    ["consumos", () => supabase.from("consumos").update({ usuario_id: null }).eq("usuario_id", usuarioId)],
+    ["chats", () => supabase.from("chats").update({ usuario_id: null }).eq("usuario_id", usuarioId)],
+    ["usuarios_limites_ia", () => supabase.from("usuarios_limites_ia").delete().eq("usuario_id", usuarioId)],
+    ["usuarios_projetos", () => supabase.from("usuarios_projetos").delete().eq("usuario_id", usuarioId)],
+    ["usuarios", () => supabase.from("usuarios").delete().eq("id", usuarioId)],
+  ]
+
+  for (const [step, operation] of steps) {
+    if (!(await run(step, operation))) {
+      return false
+    }
   }
 
   return true

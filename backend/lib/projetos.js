@@ -737,7 +737,11 @@ export async function getProjectDeletePermission(user, projectId) {
 }
 
 async function deleteRowsByProject(supabase, table, projectId) {
-  const { error } = await supabase.from(table).delete().eq("projeto_id", projectId)
+  return deleteRowsByColumn(supabase, table, "projeto_id", projectId)
+}
+
+async function deleteRowsByColumn(supabase, table, column, value) {
+  const { error } = await supabase.from(table).delete().eq(column, value)
 
   if (error) {
     console.error(`[projetos] failed to delete ${table}`, error)
@@ -745,6 +749,23 @@ async function deleteRowsByProject(supabase, table, projectId) {
   }
 
   return { ok: true }
+}
+
+async function deleteProjectTableByColumn({ supabase, projectId, projectName, table, column }) {
+  const result = await deleteRowsByColumn(supabase, table, column, projectId)
+
+  if (result.ok) {
+    return { ok: true }
+  }
+
+  const errorMessage = result.error?.message?.trim()
+  const errorDetails = result.error?.details?.trim()
+  const errorHint = result.error?.hint?.trim()
+  const suffix = [errorMessage, errorDetails, errorHint].filter(Boolean).join(" | ")
+  return failProjectDelete(
+    { supabase, projectId, projectName, step: table, error: result.error },
+    suffix ? `Falha ao limpar ${table}. ${suffix}` : `Falha ao limpar ${table}.`,
+  )
 }
 
 async function logProjectDeleteFailure({ supabase, projectId, projectName, step, error }) {
@@ -1009,6 +1030,27 @@ export async function deleteProject(projectId, confirmationName) {
     }
   }
 
+  const mercadoLivreTables = [
+    { table: "mercadolivre_loja_eventos", column: "projeto_id" },
+    { table: "mercadolivre_produtos_snapshot", column: "projeto_id" },
+    { table: "mercadolivre_lojas_sync", column: "project_id" },
+    { table: "mercadolivre_lojas", column: "projeto_id" },
+  ]
+
+  for (const item of mercadoLivreTables) {
+    const result = await deleteProjectTableByColumn({
+      supabase,
+      projectId,
+      projectName: project.nome,
+      table: item.table,
+      column: item.column,
+    })
+
+    if (!result.ok) {
+      return result
+    }
+  }
+
   const projectTables = [
     "agenda_reservas",
     "agenda_horarios",
@@ -1071,6 +1113,37 @@ export async function deleteProject(projectId, confirmationName) {
       { supabase, projectId, projectName: project.nome, step: "projetos", error },
       "Falha ao excluir o projeto.",
     )
+  }
+
+  return { ok: true }
+}
+
+export async function deleteProjectsOwnedByUsuario(usuarioId) {
+  if (!usuarioId) {
+    return { ok: false, error: "Usuário inválido." }
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const { data, error } = await supabase
+    .from("projetos")
+    .select("id, nome")
+    .eq("owner_user_id", usuarioId)
+    .order("created_at", { ascending: true })
+
+  if (error) {
+    console.error("[projetos] failed to list owned projects before user delete", error)
+    return { ok: false, error: "Não foi possível carregar os projetos do usuário." }
+  }
+
+  for (const project of data ?? []) {
+    const result = await deleteProject(project.id, project.nome)
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: result.error || `Não foi possível excluir o projeto ${project.nome || project.id}.`,
+        code: result.code ?? null,
+      }
+    }
   }
 
   return { ok: true }

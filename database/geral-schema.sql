@@ -246,6 +246,7 @@ CREATE TABLE public.chat_widgets (
   cor_primaria character varying NOT NULL DEFAULT '#2563eb'::character varying,
   fundo_transparente boolean NOT NULL DEFAULT true,
   whatsapp_celular text,
+  identificacao_contato_ativa boolean NOT NULL DEFAULT false,
   CONSTRAINT chat_widgets_pkey PRIMARY KEY (id),
   CONSTRAINT chat_widgets_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
   CONSTRAINT chat_widgets_agente_id_fkey FOREIGN KEY (agente_id) REFERENCES public.agentes(id),
@@ -469,6 +470,8 @@ CREATE TABLE public.mercadolivre_produtos_snapshot (
   categoria_nome character varying,
   descricao_curta text,
   descricao_longa text,
+  ml_date_created timestamp without time zone,
+  ml_last_updated timestamp without time zone,
   CONSTRAINT mercadolivre_produtos_snapshot_pkey PRIMARY KEY (id),
   CONSTRAINT mercadolivre_produtos_snapshot_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
 );
