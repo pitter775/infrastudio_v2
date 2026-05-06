@@ -31,7 +31,7 @@ function mapChatHandoff(row) {
 
 export function shouldPauseAssistantForHandoff(handoff) {
   const metadata = handoff?.metadata && typeof handoff.metadata === "object" ? handoff.metadata : {}
-  return handoff?.status === "human" || metadata?.autoPause?.active === true
+  return handoff?.status === "human" || handoff?.status === "pending_human" || metadata?.autoPause?.active === true
 }
 
 function normalizeIsoTimestamp(value) {

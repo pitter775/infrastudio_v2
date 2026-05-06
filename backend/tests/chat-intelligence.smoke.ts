@@ -54,6 +54,7 @@ import {
   resolveDeterministicCatalogFollowUpDecision,
   enrichLeadContext,
   ensureActiveChatSession,
+  applyAiHumanEscalation,
   executeSalesOrchestrator,
   executeV2RuntimePrelude,
   extractRecentMercadoLivreProductsFromAssets,
@@ -7494,11 +7495,59 @@ const tests: TestCase[] = [
         context: leadContextFixture,
         history: handoffFixture.recoveryHistory,
       });
+      const outOfScopeDecision = await classifyHumanEscalationNeed({
+        projetoId: "proj-1",
+        channelKind: "whatsapp",
+        message: "qual a garantia estendida?",
+        aiReply: "Você pode entrar em contato conosco pelo telefone. Nossa equipe está pronta para te ajudar!",
+        aiMetadata: {},
+        context: leadContextFixture,
+        history: [],
+      });
+      const escalation = await applyAiHumanEscalation(
+        {
+          prelude: {
+            message: "qro falar com um humano",
+            channelKind: "whatsapp",
+            effectiveBody: { whatsappChannelId: "wa-1" },
+          },
+          session: {
+            chat: {
+              id: "chat-1",
+              projetoId: null,
+              agenteId: "agent-1",
+              contexto: {},
+            },
+            initialContext: {},
+          },
+          resolved: {
+            projeto: { id: "proj-1", nome: "Projeto" },
+            agente: { id: "agent-1" },
+          },
+          history: [],
+        } as any,
+        {
+          reply: "Resposta anterior do agente.",
+          assets: [],
+          metadata: {},
+        },
+        {
+          requestRuntimeHumanHandoff: async (payload: any) => ({
+            handoff: { id: "handoff-1", status: "pending_human", ...payload },
+            recipientsCount: 1,
+            hasWhatsAppDestination: true,
+          }),
+        }
+      );
 
       assert.equal(explicitIntent, true);
       assert.match(offer, /atendente humano/i);
       assert.match(reply, /WhatsApp/i);
       assert.equal(decision.decision, "none");
+      assert.equal(outOfScopeDecision.decision, "request_handoff");
+      assert.equal(escalation.handoffRequested, true);
+      assert.equal(escalation.handoff.projetoId, "proj-1");
+      assert.match(escalation.aiResult.reply, /acionei um atendente humano/i);
     },
   },
   {
@@ -9074,6 +9123,7 @@ const tests: TestCase[] = [
       )
 
       assert.equal(shouldPauseAssistantForHandoff({ status: "human" } as any), true)
+      assert.equal(shouldPauseAssistantForHandoff({ status: "pending_human" } as any), true)
       assert.equal(paused.paused, true)
       assert.equal(paused.result.chatId, "chat-60")
       assert.equal(running.paused, false)

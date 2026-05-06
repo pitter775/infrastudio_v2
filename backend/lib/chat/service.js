@@ -2190,13 +2190,14 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
 
 export async function applyAiHumanEscalation(runtimeState, aiResult, options = {}) {
   const explicitHumanHandoffRequested = isHumanHandoffIntent(runtimeState.prelude.message)
+  const projectId = runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null
   const aiHumanEscalationDecision = explicitHumanHandoffRequested
     ? {
         decision: "request_handoff",
         reason: "Cliente pediu atendimento humano explicitamente.",
       }
     : await classifyHumanEscalationNeed({
-        projetoId: runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null,
+        projetoId: projectId,
         channelKind: runtimeState.prelude.channelKind,
         message: runtimeState.prelude.message,
         aiReply: String(aiResult?.reply ?? ""),
@@ -2229,7 +2230,7 @@ export async function applyAiHumanEscalation(runtimeState, aiResult, options = {
   const shouldRequestHandoff =
     explicitHumanHandoffRequested || aiHumanEscalationDecision?.decision === "request_handoff"
 
-  if (!shouldRequestHandoff || !runtimeState.session.chat.projetoId) {
+  if (!shouldRequestHandoff || !projectId) {
     return {
       aiResult,
       handoffDecision: aiHumanEscalationDecision,
@@ -2241,7 +2242,7 @@ export async function applyAiHumanEscalation(runtimeState, aiResult, options = {
   const handoffResponse = await (options.requestRuntimeHumanHandoff ?? requestRuntimeHumanHandoff)(
     {
       chatId: runtimeState.session.chat.id,
-      projetoId: runtimeState.session.chat.projetoId,
+      projetoId: projectId,
       agenteId: runtimeState.resolved?.agente?.id ?? runtimeState.session.chat.agenteId ?? null,
       canalWhatsappId: getChatWhatsAppChannelId(runtimeState.session.chat, runtimeState.prelude.effectiveBody),
       channelKind: runtimeState.prelude.channelKind,

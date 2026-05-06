@@ -93,6 +93,7 @@ export {
   loadChatHistory,
   persistAssistantTurn,
   ensureActiveChatSession,
+  applyAiHumanEscalation,
   applyBillingGuardrail,
   applyHandoffGuardrail,
   persistAssistantState,

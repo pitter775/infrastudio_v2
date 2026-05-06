@@ -44,6 +44,9 @@ function looksOutOfDomainReply(aiReply) {
     /\bfora do escopo\b/,
     /\bnao encontrei essa informacao\b/,
     /\bpreciso que um atendente\b/,
+    /\bentre em contato conosco\b/,
+    /\bentrar em contato conosco\b/,
+    /\bnossa equipe esta pronta para te ajudar\b/,
   ].some((pattern) => pattern.test(normalized))
 }
 
@@ -57,7 +60,7 @@ export async function classifyHumanEscalationNeed(input) {
 
   if (looksOutOfDomainReply(input?.aiReply)) {
     return {
-      decision: "offer_handoff",
+      decision: "request_handoff",
       reason: "Resposta indica que a pergunta fugiu do dominio atual do agente.",
     }
   }
