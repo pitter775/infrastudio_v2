@@ -6,6 +6,7 @@ import { createLogEntry } from "@/lib/logs"
 import {
   listBillingPlans,
   refreshProjectBillingState,
+  getTopUpExpirationDate,
   restartProjectBillingCycle,
   updateProjectBillingSettings,
 } from "@/lib/billing"
@@ -331,7 +332,7 @@ async function confirmProjectTopUp({ supabase, intent, resourceId, resourcePaylo
   const tokens = Number(intent.tokens || 0)
   const cost = toNumberOrNull(intent.valor) ?? 0
 
-  await supabase.from("tokens_avulsos").insert({
+  const topUpPayload = {
     projeto_id: intent.projeto_id,
     tokens,
     custo: cost,
@@ -339,7 +340,19 @@ async function confirmProjectTopUp({ supabase, intent, resourceId, resourcePaylo
     utilizado: false,
     tokens_utilizados: 0,
     created_at: now,
-  })
+    expires_at: getTopUpExpirationDate(now),
+  }
+  const topUpInsert = await supabase.from("tokens_avulsos").insert(topUpPayload)
+
+  if (topUpInsert.error && /expires_at|schema cache|column/i.test(String(topUpInsert.error.message || ""))) {
+    const { expires_at: _expiresAt, ...fallbackTopUpPayload } = topUpPayload
+    const fallbackInsert = await supabase.from("tokens_avulsos").insert(fallbackTopUpPayload)
+    if (fallbackInsert.error) {
+      throw fallbackInsert.error
+    }
+  } else if (topUpInsert.error) {
+    throw topUpInsert.error
+  }
 
   await supabase
     .from("projetos_checkout_intencoes")

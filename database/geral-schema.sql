@@ -630,6 +630,7 @@ CREATE TABLE public.tokens_avulsos (
   utilizado boolean DEFAULT false,
   created_at timestamp without time zone DEFAULT now(),
   tokens_utilizados integer NOT NULL DEFAULT 0,
+  expires_at timestamp without time zone,
   CONSTRAINT tokens_avulsos_pkey PRIMARY KEY (id),
   CONSTRAINT tokens_avulsos_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
 );

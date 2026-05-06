@@ -22,23 +22,33 @@ function normalizeNullableNumber(value) {
   return value == null ? null : normalizeNumber(value, 0)
 }
 
-function firstDayOfCurrentMonth() {
-  const now = new Date()
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0))
+function addMonthsUtc(value, months = 1) {
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value)
+  if (Number.isNaN(date.getTime())) {
+    return new Date()
+  }
+
+  const day = date.getUTCDate()
+  const next = new Date(date.getTime())
+  next.setUTCDate(1)
+  next.setUTCMonth(next.getUTCMonth() + months)
+  const lastDay = new Date(Date.UTC(next.getUTCFullYear(), next.getUTCMonth() + 1, 0)).getUTCDate()
+  next.setUTCDate(Math.min(day, lastDay))
+  return next
 }
 
-function firstDayOfNextMonth() {
-  const now = new Date()
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0))
-}
-
-function getCurrentCycleWindow() {
-  const start = firstDayOfCurrentMonth()
-  const end = new Date(firstDayOfNextMonth().getTime() - 1)
+export function getBillingCycleWindow(startDate = new Date()) {
+  const start = startDate instanceof Date ? new Date(startDate.getTime()) : new Date(startDate)
+  const safeStart = Number.isNaN(start.getTime()) ? new Date() : start
+  const end = addMonthsUtc(safeStart, 1)
   return {
-    startIso: start.toISOString(),
+    startIso: safeStart.toISOString(),
     endIso: end.toISOString(),
   }
+}
+
+export function getTopUpExpirationDate(startDate = new Date()) {
+  return addMonthsUtc(startDate, 1).toISOString()
 }
 
 function percentage(used, limit) {
@@ -202,8 +212,46 @@ function mapSubscription(row, plan) {
   }
 }
 
+function isExpiredSubscription(row) {
+  if (!row?.data_fim) {
+    return false
+  }
+
+  const endDate = new Date(row.data_fim)
+  return !Number.isNaN(endDate.getTime()) && endDate.getTime() <= Date.now()
+}
+
+function applySubscriptionExpirationToConfig(config, subscription, plan) {
+  if (!config || !plan?.isFree || !isExpiredSubscription(subscription)) {
+    return config
+  }
+
+  return {
+    ...config,
+    blocked: true,
+    blockedReason: "O plano Free deste projeto expirou. Escolha um plano mensal para continuar usando.",
+  }
+}
+
 function mapTopUps(rows) {
   const list = Array.isArray(rows) ? rows : []
+  const availableRows = list
+    .map((item) => {
+      const total = normalizeNumber(item.tokens, 0)
+      const used = Math.min(total, normalizeNumber(item.tokens_utilizados, 0))
+      const expired = isExpiredTopUpRow(item)
+      const available = expired ? 0 : Math.max(0, total - used)
+      return {
+        available,
+        expiresAt: toIsoDate(item.expires_at),
+      }
+    })
+    .filter((item) => item.available > 0)
+  const nextExpiration = availableRows
+    .map((item) => item.expiresAt)
+    .filter(Boolean)
+    .sort()[0] ?? null
+
   return {
     totalTokens: list.reduce((sum, item) => sum + normalizeNumber(item.tokens, 0), 0),
     totalCost: list.reduce((sum, item) => sum + normalizeNumber(item.custo, 0), 0),
@@ -211,14 +259,23 @@ function mapTopUps(rows) {
     availableTokens: list.reduce((sum, item) => {
       const total = normalizeNumber(item.tokens, 0)
       const used = Math.min(total, normalizeNumber(item.tokens_utilizados, 0))
-      return sum + Math.max(0, total - used)
+      return sum + (isExpiredTopUpRow(item) ? 0 : Math.max(0, total - used))
     }, 0),
-    availableCount: list.filter((item) => {
-      const total = normalizeNumber(item.tokens, 0)
-      const used = Math.min(total, normalizeNumber(item.tokens_utilizados, 0))
-      return Math.max(0, total - used) > 0
-    }).length,
+    availableCount: availableRows.length,
+    expiresAt: nextExpiration,
+    expiresInDays: nextExpiration
+      ? Math.max(0, Math.ceil((new Date(nextExpiration).getTime() - Date.now()) / 86_400_000))
+      : null,
   }
+}
+
+function isExpiredTopUpRow(row) {
+  if (!row?.expires_at) {
+    return false
+  }
+
+  const expiresAt = new Date(row.expires_at)
+  return !Number.isNaN(expiresAt.getTime()) && expiresAt.getTime() <= Date.now()
 }
 
 function mapPendingCheckout(row) {
@@ -244,19 +301,21 @@ async function listTopUpsWithFallback(projectId, deps = {}) {
   const runtimeOnly = deps.runtimeOnly === true
   let primaryQuery = supabase
     .from("tokens_avulsos")
-    .select("id, tokens, custo, origem, utilizado, tokens_utilizados, created_at")
+    .select("id, tokens, custo, origem, utilizado, tokens_utilizados, created_at, expires_at")
     .eq("projeto_id", projectId)
     .order("created_at", { ascending: true })
 
   if (runtimeOnly) {
-    primaryQuery = primaryQuery.or("utilizado.is.null,utilizado.eq.false")
+    primaryQuery = primaryQuery
+      .or("utilizado.is.null,utilizado.eq.false")
+      .or(`expires_at.is.null,expires_at.gte.${new Date().toISOString()}`)
   }
 
   const primary = await primaryQuery
 
   const hasSchemaError =
     primary.error &&
-    /tokens_utilizados|schema cache|column/i.test(String(primary.error.message || ""))
+    /tokens_utilizados|expires_at|schema cache|column/i.test(String(primary.error.message || ""))
 
   if (!hasSchemaError) {
     return {
@@ -285,6 +344,7 @@ async function listTopUpsWithFallback(projectId, deps = {}) {
     data: (fallback.data ?? []).map((item) => ({
       ...item,
       tokens_utilizados: item.utilizado ? normalizeNumber(item.tokens, 0) : 0,
+      expires_at: null,
     })),
     supportsPartialTracking: false,
     error: fallback.error,
@@ -526,7 +586,7 @@ export async function refreshProjectBillingState(projectId, deps = {}) {
 
 async function loadProjectBillingRuntime(projectId, deps = {}) {
   const supabase = deps.supabase ?? getSupabaseAdminClient()
-  const [projectPlanResult, cycleResult, plans, topUpsResult] = await Promise.all([
+  const [projectPlanResult, cycleResult, subscriptionResult, plans, topUpsResult] = await Promise.all([
     supabase
       .from("projetos_planos")
       .select(
@@ -544,18 +604,30 @@ async function loadProjectBillingRuntime(projectId, deps = {}) {
       .order("data_inicio", { ascending: false, nullsFirst: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("projetos_assinaturas")
+      .select("id, projeto_id, plano_id, status, data_inicio, data_fim, renovar_automatico, updated_at")
+      .eq("projeto_id", projectId)
+      .order("updated_at", { ascending: false, nullsFirst: false })
+      .limit(1)
+      .maybeSingle(),
     listBillingPlans({ cache: true }),
     listTopUpsWithFallback(projectId, { supabase, runtimeOnly: true }),
   ])
 
-  const selectedPlanId = projectPlanResult.data?.plano_id ?? cycleResult.data?.plano_id ?? null
+  const selectedPlanId = projectPlanResult.data?.plano_id ?? subscriptionResult.data?.plano_id ?? cycleResult.data?.plano_id ?? null
   const plan = plans.find((item) => item.id === selectedPlanId) ?? null
-  const config = mapProjectBillingConfig(projectPlanResult.data ?? null, plan)
+  const config = applySubscriptionExpirationToConfig(
+    mapProjectBillingConfig(projectPlanResult.data ?? null, plan),
+    subscriptionResult.data ?? null,
+    plan,
+  )
 
   return {
     supabase,
     plan,
     config,
+    subscriptionRow: subscriptionResult.data ?? null,
     cycleRow: cycleResult.data ?? null,
     topUpRows: topUpsResult.data ?? [],
     topUps: mapTopUps(topUpsResult.data ?? []),
@@ -565,15 +637,26 @@ async function loadProjectBillingRuntime(projectId, deps = {}) {
 
 async function ensureOpenBillingCycle(projectId, deps = {}) {
   const runtime = await loadProjectBillingRuntime(projectId, deps)
-  const { startIso, endIso } = getCurrentCycleWindow()
+  const now = new Date()
+  const { startIso, endIso } = getBillingCycleWindow(now)
 
   if (runtime.cycleRow?.id) {
-    const cycleStart = runtime.cycleRow.data_inicio ? new Date(runtime.cycleRow.data_inicio).toISOString() : ""
-    const cycleEnd = runtime.cycleRow.data_fim ? new Date(runtime.cycleRow.data_fim).toISOString() : ""
-    const startsInsideWindow = cycleStart >= startIso
-    const endsInsideWindow = cycleEnd <= endIso
+    const cycleEnd = runtime.cycleRow.data_fim ? new Date(runtime.cycleRow.data_fim) : null
 
-    if (startsInsideWindow && endsInsideWindow) {
+    if (cycleEnd && !Number.isNaN(cycleEnd.getTime()) && cycleEnd.getTime() > now.getTime()) {
+      return runtime
+    }
+
+    const { error: closeCycleError } = await runtime.supabase
+      .from("projetos_ciclos_uso")
+      .update({
+        fechado: true,
+        data_fim: now.toISOString(),
+      })
+      .eq("id", runtime.cycleRow.id)
+
+    if (closeCycleError) {
+      console.error("[billing] failed to close expired billing cycle", closeCycleError)
       return runtime
     }
   }
@@ -626,7 +709,7 @@ export async function restartProjectBillingCycle(projectId, input = {}, deps = {
 
   const runtime = await loadProjectBillingRuntime(projectId, deps)
   const now = new Date()
-  const { endIso } = getCurrentCycleWindow()
+  const { endIso } = getBillingCycleWindow(now)
   const planId = input.planId ?? runtime.config?.planId ?? runtime.plan?.id ?? null
   const limits = {
     inputTokens: input.limits?.inputTokens ?? runtime.config?.limits?.inputTokens ?? null,
@@ -694,8 +777,8 @@ export async function restartProjectBillingCycle(projectId, input = {}, deps = {
   }
 }
 
-async function applyTopUpConsumption({ projectId, exceededTokens, topUpRows, supportsPartialTopUps, supabase }) {
-  if (!projectId || exceededTokens <= 0 || !Array.isArray(topUpRows) || topUpRows.length === 0) {
+async function applyTopUpConsumption({ projectId, tokensToConsume, topUpRows, supportsPartialTopUps, supabase }) {
+  if (!projectId || tokensToConsume <= 0 || !Array.isArray(topUpRows) || topUpRows.length === 0) {
     return
   }
 
@@ -703,7 +786,7 @@ async function applyTopUpConsumption({ projectId, exceededTokens, topUpRows, sup
     return
   }
 
-  let remainingToConsume = exceededTokens
+  let remainingToConsume = tokensToConsume
 
   for (const row of topUpRows) {
     if (remainingToConsume <= 0) {
@@ -714,7 +797,7 @@ async function applyTopUpConsumption({ projectId, exceededTokens, topUpRows, sup
     const usedTokens = Math.min(totalTokens, normalizeNumber(row.tokens_utilizados, 0))
     const availableTokens = Math.max(0, totalTokens - usedTokens)
 
-    if (!availableTokens) {
+    if (!availableTokens || isExpiredTopUpRow(row)) {
       continue
     }
 
@@ -1031,7 +1114,7 @@ function sumUsageEntries(entries) {
 
 export function buildBillingSnapshot(input) {
   const plan = input.plan ?? null
-  const config = mapProjectBillingConfig(input.projectPlan, plan)
+  const config = applySubscriptionExpirationToConfig(mapProjectBillingConfig(input.projectPlan, plan), input.subscription, plan)
   const cycle = mapBillingCycle(input.currentCycle, config)
   const subscription = mapSubscription(input.subscription, plan)
   const topUps = mapTopUps(input.topUps)
@@ -1212,7 +1295,11 @@ export async function getProjectBillingSnapshot(projectId, deps = {}) {
         topUps: {
           totalTokens: 0,
           totalCost: 0,
+          usedTokens: 0,
+          availableTokens: 0,
           availableCount: 0,
+          expiresAt: null,
+          expiresInDays: null,
         },
       }
     }
@@ -1488,17 +1575,9 @@ export async function registerProjectBillingUsage(projectId, tokens, cost, detai
       totalTokensToAdd,
   }
   const nextCost = normalizeNumber(runtime.cycleRow?.custo_total, 0) + costToAdd
-  const status = computeCycleStatus({
-    config: runtime.config,
-    cycleRow: runtime.cycleRow,
-    topUps: runtime.topUps,
-    nextUsage,
-    nextCost,
-  })
-
   await applyTopUpConsumption({
     projectId,
-    exceededTokens: status.exceededTokens,
+    tokensToConsume: totalTokensToAdd,
     topUpRows: runtime.topUpRows,
     supportsPartialTopUps: runtime.supportsPartialTopUps,
     supabase,
@@ -1506,6 +1585,13 @@ export async function registerProjectBillingUsage(projectId, tokens, cost, detai
 
   const refreshedTopUpsResult = await listTopUpsWithFallback(projectId, { supabase, runtimeOnly: true })
   const refreshedTopUps = mapTopUps(refreshedTopUpsResult.data ?? [])
+  const status = computeCycleStatus({
+    config: runtime.config,
+    cycleRow: runtime.cycleRow,
+    topUps: refreshedTopUps,
+    nextUsage,
+    nextCost,
+  })
 
   const { error: cycleUpdateError } = await supabase
     .from("projetos_ciclos_uso")

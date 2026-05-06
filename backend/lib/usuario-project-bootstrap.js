@@ -2,6 +2,7 @@ import "server-only"
 
 import { randomUUID } from "node:crypto"
 
+import { getBillingCycleWindow } from "@/lib/billing"
 import { getOrCreateDefaultModelId } from "@/lib/modelos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { deleteUsuario, getUsuarioById } from "@/lib/usuarios"
@@ -38,6 +39,7 @@ async function getFreeBillingPlan(supabase) {
 
 export async function applyInitialFreePlan({ supabase, projetoId, now }) {
   const freePlan = await getFreeBillingPlan(supabase)
+  const { endIso } = getBillingCycleWindow(new Date(now || Date.now()))
 
   if (!freePlan?.id) {
     return
@@ -102,8 +104,8 @@ export async function applyInitialFreePlan({ supabase, projetoId, now }) {
     plano_id: freePlan.id,
     status: "ativo",
     data_inicio: now,
-    data_fim: null,
-    renovar_automatico: true,
+    data_fim: endIso,
+    renovar_automatico: false,
     updated_at: now,
   }
 

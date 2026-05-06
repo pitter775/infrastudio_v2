@@ -23,7 +23,14 @@ function renderUsage(used, limit, formatter) {
 export function BillingSummaryCard({ billing }) {
   const config = billing?.projectPlan
   const cycle = billing?.currentCycle
+  const topUps = billing?.topUps
   const isUserScoped = billing?.scope?.kind === "user"
+  const planTokenLimit = cycle?.limits?.totalTokens ?? config?.limits?.totalTokens ?? null
+  const totalUsedTokens = cycle?.usage?.totalTokens ?? 0
+  const extraUsedTokens = topUps?.usedTokens ?? 0
+  const planUsedTokens = Math.max(0, totalUsedTokens - extraUsedTokens)
+  const planRemainingTokens = planTokenLimit == null ? null : Math.max(0, planTokenLimit - planUsedTokens)
+  const extraRemainingTokens = topUps?.availableTokens ?? 0
 
   return (
     <section className="mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
@@ -59,12 +66,12 @@ export function BillingSummaryCard({ billing }) {
         </div>
 
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{isUserScoped ? "Seus tokens no ciclo" : "Tokens no ciclo"}</div>
+          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{isUserScoped ? "Seus créditos do plano" : "Créditos do plano"}</div>
           <div className="mt-2 text-sm font-semibold text-zinc-950">
-            {renderUsage(cycle?.usage?.totalTokens ?? 0, cycle?.limits?.totalTokens ?? config?.limits?.totalTokens ?? null, formatInteger)}
+            {planRemainingTokens == null ? "Sem limite definido" : `${formatInteger(planRemainingTokens)} restantes`}
           </div>
           <div className="mt-1 text-xs text-zinc-500">
-            {cycle?.usagePercent?.totalTokens != null ? `${cycle.usagePercent.totalTokens}% usado` : "Sem limite definido"}
+            {planTokenLimit == null ? "Plano sem limite mensal de créditos" : `${formatInteger(planUsedTokens)} de ${formatInteger(planTokenLimit)} usados`}
           </div>
         </div>
 
@@ -79,12 +86,16 @@ export function BillingSummaryCard({ billing }) {
         </div>
 
         <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-4">
-          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{isUserScoped ? "Escopo" : "Tokens avulsos"}</div>
+          <div className="text-xs uppercase tracking-[0.14em] text-zinc-500">{isUserScoped ? "Escopo" : "Créditos extras"}</div>
           <div className="mt-2 text-sm font-semibold text-zinc-950">
-            {isUserScoped ? "Seu usuário" : formatInteger(billing?.topUps?.totalTokens ?? 0)}
+            {isUserScoped ? "Seu usuário" : `${formatInteger(extraRemainingTokens)} restantes`}
           </div>
           <div className="mt-1 text-xs text-zinc-500">
-            {isUserScoped ? billing?.scope?.email || "Consumo privado" : `${billing?.topUps?.availableCount ?? 0} lote(s) disponível(is)`}
+            {isUserScoped
+              ? billing?.scope?.email || "Consumo privado"
+              : topUps?.expiresInDays != null
+                ? `Expiram em ${topUps.expiresInDays} dia(s)`
+                : `${topUps?.availableCount ?? 0} lote(s) disponível(is)`}
           </div>
         </div>
       </div>

@@ -124,7 +124,7 @@ function PagamentoSucessoContent() {
 
         <p className="mt-4 text-base leading-7 text-slate-300">
           {paymentType === "topup"
-            ? "A recarga não troca o plano atual. Quando o Mercado Pago confirmar, os créditos entram como saldo extra no mesmo projeto."
+            ? "A recarga não troca o plano atual. Quando o Mercado Pago confirmar, os créditos entram como saldo extra no mesmo projeto e valem por 1 mês."
             : "A troca de plano só é aplicada quando o Mercado Pago confirmar oficialmente o pagamento."}
         </p>
 
@@ -136,7 +136,7 @@ function PagamentoSucessoContent() {
                 <>
                   <p className="font-semibold text-white">Recarga identificada</p>
                   <p>{`${formatCredits(topUpTokens)} por R$ ${topUpPrice.toFixed(2).replace(".", ",")}`}</p>
-                  <p className="text-slate-400">O plano do projeto continua o mesmo. Apenas os créditos disponíveis aumentam.</p>
+                  <p className="text-slate-400">O plano do projeto continua o mesmo. Os créditos extras são consumidos primeiro e valem por 1 mês.</p>
                 </>
               ) : (
                 <>
