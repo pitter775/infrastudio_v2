@@ -73,7 +73,7 @@
     if (!widgetId && !widgetSlug && !(canal === "admin_agent_test" && projeto && agente)) {
       return;
     }
-    var instanceKey = widgetId || widgetSlug || requestedInstanceKey || ["admin-agent-test", projeto, agente, externalIdentifier || Date.now()].join(":");
+    var instanceKey = requestedInstanceKey || widgetId || widgetSlug || ["admin-agent-test", projeto, agente, externalIdentifier || Date.now()].join(":");
 
     var widgetTitle = script.getAttribute("data-title") || "Chat";
     var apiBase = script.getAttribute("data-api-base") || new URL(script.src).origin;
@@ -413,6 +413,10 @@
     sortMessagesChronologically();
 
     async function loadInitialWidgetConfig() {
+      if (isAdminAgentTestMode()) {
+        return {};
+      }
+
       if (!widgetId && !widgetSlug) {
         return {};
       }
@@ -4362,5 +4366,9 @@
       });
     };
     syncLegacyApi();
+
+    if (isAdminAgentTestMode()) {
+      setOpen(true);
+    }
   });
 })();
