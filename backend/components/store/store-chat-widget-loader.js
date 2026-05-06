@@ -31,15 +31,8 @@ export function StoreChatWidgetLoader({ config }) {
     syncAttribute('data-api-base', config.apiBase)
     syncAttribute('data-projeto', config.projeto)
     syncAttribute('data-agente', config.agente)
-    syncAttribute('data-title', config.title)
-    syncAttribute('data-theme', config.theme)
-    syncAttribute('data-accent', config.accent)
     syncAttribute('data-store-slug', config.storeSlug)
     syncAttribute('data-context', serializedContext)
-    syncAttribute(
-      'data-transparent',
-      typeof config.transparent === 'boolean' ? (config.transparent ? 'true' : 'false') : undefined,
-    )
 
     window.dispatchEvent(
       new CustomEvent('infrastudio-chat:context-sync', {
@@ -55,11 +48,7 @@ export function StoreChatWidgetLoader({ config }) {
     config.apiBase,
     config.projeto,
     config.agente,
-    config.title,
-    config.theme,
-    config.accent,
     config.storeSlug,
-    config.transparent,
     serializedContext,
     scriptId,
   ])
@@ -78,12 +67,8 @@ export function StoreChatWidgetLoader({ config }) {
       data-api-base={config.apiBase || undefined}
       data-projeto={config.projeto || undefined}
       data-agente={config.agente || undefined}
-      data-title={config.title || undefined}
-      data-theme={config.theme || undefined}
-      data-accent={config.accent || undefined}
       data-store-slug={config.storeSlug || undefined}
       data-context={serializedContext}
-      data-transparent={typeof config.transparent === 'boolean' ? (config.transparent ? 'true' : 'false') : undefined}
     />
   )
 }

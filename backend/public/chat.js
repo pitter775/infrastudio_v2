@@ -64,10 +64,6 @@
         agente: agente.trim(),
         context: script.getAttribute("data-context") || "",
         externalIdentifier: script.getAttribute("data-identificador-externo") || "",
-        title: script.getAttribute("data-title") || "",
-        theme: script.getAttribute("data-theme") || "",
-        accent: script.getAttribute("data-accent") || "",
-        transparent: script.getAttribute("data-transparent"),
         autoOpen: script.getAttribute("data-auto-open") || script.getAttribute("data-open") || "",
         apiBase: apiBase,
       };
@@ -103,13 +99,6 @@
       agente: agente.trim(),
       context: script.getAttribute("data-context") || "",
       externalIdentifier: script.getAttribute("data-identificador-externo") || "",
-      title: payload.ui && payload.ui.title ? payload.ui.title : "",
-      theme: payload.ui && payload.ui.theme ? payload.ui.theme : "",
-      accent: payload.ui && payload.ui.accent ? payload.ui.accent : "",
-      transparent:
-        payload.ui && typeof payload.ui.transparent === "boolean"
-          ? String(payload.ui.transparent)
-          : null,
       autoOpen: script.getAttribute("data-auto-open") || script.getAttribute("data-open") || "",
       apiBase: apiBase,
     };
@@ -139,18 +128,6 @@
       script.setAttribute("data-identificador-externo", config.externalIdentifier);
     }
 
-    if (config.title) {
-      script.setAttribute("data-title", config.title);
-    }
-    if (config.theme) {
-      script.setAttribute("data-theme", config.theme);
-    }
-    if (config.accent) {
-      script.setAttribute("data-accent", config.accent);
-    }
-    if (config.transparent === "true" || config.transparent === "false") {
-      script.setAttribute("data-transparent", config.transparent);
-    }
     if (config.autoOpen) {
       script.setAttribute("data-auto-open", config.autoOpen);
     }

@@ -453,10 +453,39 @@
       }
     }
 
+    function applyInitialWidgetUiConfig(config) {
+      var ui = config && config.ui && typeof config.ui === "object" ? config.ui : null;
+      if (!ui) {
+        return;
+      }
+
+      if (typeof ui.title === "string" && ui.title.trim()) {
+        widgetTitle = ui.title.trim();
+      }
+
+      var configTheme = String(ui.theme || "").trim().toLowerCase();
+      if (configTheme === "light" || configTheme === "dark") {
+        theme = configTheme;
+      }
+
+      if (typeof ui.accent === "string" && ui.accent.trim()) {
+        accent = ui.accent.trim();
+      }
+
+      if (typeof ui.transparent === "boolean") {
+        transparent = ui.transparent;
+      }
+
+      if (typeof ui.identificacaoContatoAtiva === "boolean") {
+        leadCaptureEnabled = isAdminAgentTestMode() ? false : ui.identificacaoContatoAtiva === true;
+      }
+    }
+
     initialUiConfig = await loadInitialWidgetConfig();
     if ((widgetId || widgetSlug) && !initialUiConfig) {
       return;
     }
+    applyInitialWidgetUiConfig(initialUiConfig);
 
     var host = document.createElement("div");
     host.id = "infrastudio-chat-widget-root-" + instanceKey;
@@ -615,7 +644,7 @@
       ".chat-ui-rail::-webkit-scrollbar { display: none; }",
       ".chat-ui-rail.is-dragging { cursor: grabbing; scroll-snap-type: none; user-select: none; }",
       ".chat-ui-list { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }",
-      ".chat-ui-list-item { display: flex; align-items: flex-start; gap: 8px; padding: 10px 11px; border-radius: 14px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.04)") + "; font-size: 12px; line-height: 1.45; color: inherit; }",
+      ".chat-ui-list-item { display: flex; align-items: flex-start; gap: 8px; padding: 4px 0; border-radius: 0; border: 0; background: transparent; font-size: 12px; line-height: 1.45; color: inherit; }",
       ".chat-ui-list-item::before { content: ''; width: 6px; height: 6px; margin-top: 6px; border-radius: 999px; background: color-mix(in srgb, " + accent + " 74%, white 26%); flex: 0 0 6px; }",
       ".chat-ui-cards { }",
       ".chat-ui-card { display: grid; gap: 4px; border-radius: 10px; border: 1px solid " + headerBorder + "; background: " + (theme === "light" ? "rgba(255,255,255,0.76)" : "rgba(255,255,255,0.04)") + "; padding: 9px 10px; }",

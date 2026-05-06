@@ -64,12 +64,6 @@ export function HomeChatWidgetLoader({ config }) {
       data-api-base={config.apiBase || undefined}
       data-projeto={config.projeto || undefined}
       data-agente={config.agente || undefined}
-      data-title={config.title || undefined}
-      data-theme={config.theme || undefined}
-      data-accent={config.accent || undefined}
-      data-transparent={
-        typeof config.transparent === "boolean" ? (config.transparent ? "true" : "false") : undefined
-      }
     />
   )
 }
