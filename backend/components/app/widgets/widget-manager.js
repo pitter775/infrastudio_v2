@@ -54,11 +54,24 @@ function normalizeWidget(widget) {
 
 function buildWidgetSnippet(project, widget) {
   return [
-    "<!-- Cole este script antes de fechar o </body> da pagina -->",
+    "<!-- Cole este script antes de fechar o </body> da página -->",
     `<script`,
     `  src="${PUBLIC_DOMAIN}/chat-widget.js"`,
     `  data-widget="${widget.slug}"`,
     `  data-agente="${project.agent?.slug || project.agent?.id || ""}"`,
+    `  defer`,
+    `></script>`,
+  ].join("\n")
+}
+
+function buildWidgetContextSnippet(project, widget) {
+  return [
+    "<!-- Use data-context quando a página já tiver o ID do imóvel, produto, pedido ou outro recurso -->",
+    `<script`,
+    `  src="${PUBLIC_DOMAIN}/chat-widget.js"`,
+    `  data-widget="${widget.slug}"`,
+    `  data-agente="${project.agent?.slug || project.agent?.id || ""}"`,
+    `  data-context='{"propertyId":"c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2","id":"c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2"}'`,
     `  defer`,
     `></script>`,
   ].join("\n")
@@ -532,6 +545,19 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
           </div>
 
           <div>
+            <div className="mb-2 text-sm font-semibold text-white">Exemplo com contexto da página</div>
+            <JsonCodeBlock
+              value={buildWidgetContextSnippet(project, selectedWidget)}
+              className="rounded-xl border-white/10 bg-transparent p-0"
+            />
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Troque o UUID pelo identificador real renderizado na página. APIs cadastradas com URL como
+              {" "}<code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">/api/imoveis/{"{id}"}</code>{" "}
+              podem usar esse contexto para consultar o recurso certo.
+            </p>
+          </div>
+
+          <div>
             <div className="mb-2 text-sm font-semibold text-white">Compatibilidade</div>
             <JsonCodeBlock
               value={buildCompatSnippet(project, selectedWidget)}
@@ -546,8 +572,8 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
           {[
             ["1. Host no controle", "O chat só deve existir quando o host permitir. Fora do contexto autorizado, a ação esperada é destroy()."],
             ["2. Mount mínimo", "No mount inicial use projeto, agente, apiBase e strictHostControl: true."],
-            ["3. Contexto certo", "Envie context com tenant, user, resource, route e ui apenas quando esses dados existirem de verdade."],
-            ["4. Recurso específico", "O agente pode iniciar focado em um recurso do sistema, como resource: { id: propertyId, tipo: 'imovel' }. Quando o agente já tem uma API configurada, esse contexto permite buscar ou filtrar os dados certos para atender apenas aquele imóvel, produto, pedido ou cadastro."],
+            ["3. Contexto certo", "Envie data-context com tenant, user, resource, route, id ou propertyId apenas quando esses dados existirem de verdade."],
+            ["4. Recurso específico", "O agente pode iniciar focado em um recurso do sistema usando data-context, como { propertyId: 'uuid-do-imovel', id: 'uuid-do-imovel' }. Quando o agente já tem uma API configurada com {id} na URL, esse contexto permite buscar ou filtrar os dados certos para atender apenas aquele imóvel, produto, pedido ou cadastro."],
             ["5. Política de exibição", "Use policy e allowedRoutes para bloquear o widget fora das rotas e cenários permitidos."],
             ["6. Atualização segura", "Se só mudou o recurso na mesma tela, use updateContext(). Se mudou tenant, agente ou perfil, prefira destroy() e mount() limpo."],
             ["7. Sessão visível ou oculta", "hide() e show({ open: true }) servem para esconder e reabrir a mesma sessão autorizada sem destruir tudo."],
@@ -558,16 +584,25 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
             </div>
           ))}
           <div className="pt-2">
-            <div className="mb-2 text-sm font-semibold text-white">Exemplo com API do agente</div>
+            <div className="mb-2 text-sm font-semibold text-white">Exemplo HTML com API do agente</div>
+            <JsonCodeBlock
+              value={buildWidgetContextSnippet(project, selectedWidget || { slug: "meu-widget" })}
+              className="rounded-xl border-white/10 bg-transparent p-0"
+            />
+          </div>
+          <div className="pt-2">
+            <div className="mb-2 text-sm font-semibold text-white">Exemplo dinâmico com API do agente</div>
             <JsonCodeBlock
               value={[
-                "const propertyId = 'imovel_123'",
+                "const propertyId = 'c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2'",
                 "",
                 "const script = document.createElement('script')",
                 `script.src = '${PUBLIC_DOMAIN}/chat-widget.js'`,
                 `script.dataset.widget = '${selectedWidget?.slug || "meu-widget"}'`,
                 `script.dataset.agente = '${project.agent?.slug || project.agent?.id || "meu-agente"}'`,
                 "script.dataset.context = JSON.stringify({",
+                "  id: propertyId,",
+                "  propertyId,",
                 "  tenant: { id: 'cliente_001' },",
                 "  user: { id: 'usuario_789', nome: 'Maria' },",
                 "  resource: { id: propertyId, tipo: 'imovel' },",
