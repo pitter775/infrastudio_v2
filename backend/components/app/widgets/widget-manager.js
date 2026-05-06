@@ -546,18 +546,45 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
       {!loading && currentTab === "docs" ? (
         <div className="mt-5 space-y-3">
           {[
-            ["1. Host no controle", "O chat so deve existir quando o host permitir. Fora do contexto autorizado, a acao esperada e destroy()."],
-            ["2. Mount minimo", "No mount inicial use projeto, agente, apiBase e strictHostControl: true."],
+            ["1. Host no controle", "O chat só deve existir quando o host permitir. Fora do contexto autorizado, a ação esperada é destroy()."],
+            ["2. Mount mínimo", "No mount inicial use projeto, agente, apiBase e strictHostControl: true."],
             ["3. Contexto certo", "Envie context com tenant, user, resource, route e ui apenas quando esses dados existirem de verdade."],
-            ["4. Política de exibição", "Use policy e allowedRoutes para bloquear o widget fora das rotas e cenários permitidos."],
-            ["5. Atualizacao segura", "Se so mudou o recurso na mesma tela, use updateContext(). Se mudou tenant, agente ou perfil, prefira destroy() e mount() limpo."],
-            ["6. Sessão visível ou oculta", "hide() e show({ open: true }) servem para esconder e reabrir a mesma sessão autorizada sem destruir tudo."],
-          ].map(([title, text]) => (
+            ["4. Recurso específico", "O agente pode iniciar focado em um recurso do sistema, como resource: { id: propertyId, tipo: 'imovel' }. Quando o agente já tem uma API configurada, esse contexto permite buscar ou filtrar os dados certos para atender apenas aquele imóvel, produto, pedido ou cadastro."],
+            ["5. Política de exibição", "Use policy e allowedRoutes para bloquear o widget fora das rotas e cenários permitidos."],
+            ["6. Atualização segura", "Se só mudou o recurso na mesma tela, use updateContext(). Se mudou tenant, agente ou perfil, prefira destroy() e mount() limpo."],
+            ["7. Sessão visível ou oculta", "hide() e show({ open: true }) servem para esconder e reabrir a mesma sessão autorizada sem destruir tudo."],
+          ].map(([title, text], index) => (
             <div key={title} className="flex items-start gap-3 border-b border-white/5 pb-3 text-sm">
-              <p className="shrink-0 font-semibold text-white">{title}</p>
+              <p className="shrink-0 font-semibold text-white">{index + 1}. {String(title).replace(/^\d+\.\s*/, "")}</p>
               <p className="leading-6 text-slate-400">{text}</p>
             </div>
           ))}
+          <div className="pt-2">
+            <div className="mb-2 text-sm font-semibold text-white">Exemplo com API do agente</div>
+            <JsonCodeBlock
+              value={[
+                "const propertyId = 'imovel_123'",
+                "",
+                "const script = document.createElement('script')",
+                `script.src = '${PUBLIC_DOMAIN}/chat-widget.js'`,
+                `script.dataset.widget = '${selectedWidget?.slug || "meu-widget"}'`,
+                `script.dataset.agente = '${project.agent?.slug || project.agent?.id || "meu-agente"}'`,
+                "script.dataset.context = JSON.stringify({",
+                "  tenant: { id: 'cliente_001' },",
+                "  user: { id: 'usuario_789', nome: 'Maria' },",
+                "  resource: { id: propertyId, tipo: 'imovel' },",
+                "  route: { path: window.location.pathname },",
+                "})",
+                "",
+                "document.body.appendChild(script)",
+              ].join("\n")}
+              className="rounded-xl border-white/10 bg-transparent p-0"
+            />
+            <p className="mt-2 text-sm leading-6 text-slate-400">
+              Use esse formato quando o sistema externo já sabe qual entidade está aberta e a API vinculada ao agente
+              consegue carregar os dados a partir desse identificador.
+            </p>
+          </div>
         </div>
       ) : null}
     </section>
