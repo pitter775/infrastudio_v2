@@ -1,11 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { AlertTriangle, CheckCircle2, Clock3, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
+import { AlertTriangle, CheckCircle2, CircleHelp, Clock3, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
 
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
 import { JsonCodeBlock } from "@/components/ui/json-code-block"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ToggleSwitchButton } from "@/components/ui/toggle-switch-button"
 import { cn } from "@/lib/utils"
 
@@ -132,6 +133,25 @@ const inputClassName =
 const textareaClassName =
   "mt-1 w-full resize-y rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
 const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
+
+function RuntimeToggleHelp({ children, label }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-500/20 bg-sky-500/10 text-sky-100 transition hover:bg-sky-500/15"
+          aria-label={label}
+        >
+          <CircleHelp className="h-4 w-4" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[280px] text-left leading-relaxed text-slate-100">
+        {children}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
 
 function isInternalUrl(value) {
   const rawValue = String(value || "").trim()
@@ -769,6 +789,34 @@ export function ApiSheetManager({
     }
   }
 
+  async function handleDeleteApi(api) {
+    if (!api?.id || !window.confirm(`Remover a API "${api.name || "sem nome"}"?`)) {
+      return
+    }
+
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      const response = await fetch(`${endpoint}/${api.id}`, {
+        method: "DELETE",
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível remover a API.")
+      }
+
+      setApis((current) => current.filter((item) => item.id !== api.id))
+      if (form.id === api.id) {
+        setForm(emptyForm)
+        setMode("list")
+      }
+      setStatus({ type: "success", message: "API removida." })
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    }
+  }
+
   async function handleSave(event) {
     event?.preventDefault?.()
     setSaving(true)
@@ -908,6 +956,7 @@ export function ApiSheetManager({
   }
 
   return (
+    <TooltipProvider>
     <section className={cn("flex h-full min-h-0 flex-col px-6 text-slate-300", compact && "mt-0")}>
       {status.message ? (
         <p
@@ -934,11 +983,9 @@ export function ApiSheetManager({
             <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
               <div className="divide-y divide-white/10">
                 {apis.map((api) => (
-                  <button
+                  <div
                     key={api.id}
-                    type="button"
-                    onClick={() => startEdit(api)}
-                    className="flex w-full items-center justify-between gap-4 px-4 py-4 text-left transition hover:bg-white/[0.04]"
+                    className="flex w-full flex-col gap-4 px-4 py-4 text-left transition hover:bg-white/[0.04] sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
@@ -964,11 +1011,27 @@ export function ApiSheetManager({
                       <p className="mt-2 truncate text-sm text-slate-400">{api.url}</p>
                       {api.description ? <p className="mt-1 text-xs text-slate-500">{api.description}</p> : null}
                     </div>
-                    <span className="inline-flex items-center gap-2 text-sm text-slate-400">
-                      <Pencil className="h-4 w-4" />
-                      Editar
-                    </span>
-                  </button>
+                    <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => startEdit(api)}
+                        className="h-9 gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-sm text-slate-300 hover:border-sky-500/30 hover:bg-sky-500/10 hover:text-sky-100"
+                      >
+                        <Pencil className="h-4 w-4" />
+                        Editar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => handleDeleteApi(api)}
+                        className="h-9 gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 text-sm text-red-100 hover:bg-red-500/15"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Remover
+                      </Button>
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1122,18 +1185,28 @@ export function ApiSheetManager({
                   </div>
                 </label>
                 <div className="flex flex-wrap items-end gap-3">
-                  <ToggleSwitchButton
-                    checked={form.runtimeAutoExecute}
-                    onChange={(value) => updateForm("runtimeAutoExecute", value)}
-                    labelOn="Autoexecuta"
-                    labelOff="Não autoexecuta"
-                  />
-                  <ToggleSwitchButton
-                    checked={form.runtimeRequiresConfirmation}
-                    onChange={(value) => updateForm("runtimeRequiresConfirmation", value)}
-                    labelOn="Exige confirmação"
-                    labelOff="Sem confirmação"
-                  />
+                  <div className="flex items-center gap-2">
+                    <ToggleSwitchButton
+                      checked={form.runtimeAutoExecute}
+                      onChange={(value) => updateForm("runtimeAutoExecute", value)}
+                      labelOn="Autoexecuta"
+                      labelOff="Não autoexecuta"
+                    />
+                    <RuntimeToggleHelp label="O que significa não autoexecuta">
+                      Não autoexecuta: o agente pode usar a API como contexto, mas não dispara a requisição sozinho durante a conversa.
+                    </RuntimeToggleHelp>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ToggleSwitchButton
+                      checked={form.runtimeRequiresConfirmation}
+                      onChange={(value) => updateForm("runtimeRequiresConfirmation", value)}
+                      labelOn="Exige confirmação"
+                      labelOff="Sem confirmação"
+                    />
+                    <RuntimeToggleHelp label="O que significa sem confirmação">
+                      Sem confirmação: quando a API for executada, o agente não precisa pedir uma aprovação final do usuário antes do envio.
+                    </RuntimeToggleHelp>
+                  </div>
                 </div>
               </div>
 
@@ -1466,5 +1539,6 @@ export function ApiSheetManager({
         </form>
       )}
     </section>
+    </TooltipProvider>
   )
 }

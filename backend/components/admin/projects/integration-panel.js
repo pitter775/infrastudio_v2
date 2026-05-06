@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, BookOpen, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
 
 import { ApiSheetManager } from '@/components/app/apis/api-sheet-manager'
 import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
@@ -205,9 +205,10 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
             <Button
               type="button"
               variant="ghost"
-              className="hidden h-7 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs text-slate-300 md:inline-flex"
+              className="hidden h-7 gap-1.5 rounded-lg border border-sky-500/20 bg-sky-500/10 px-2.5 text-xs text-sky-100 hover:bg-sky-500/15 md:inline-flex"
               onClick={() => setApiResetSignal((value) => value + 1)}
             >
+              <ArrowLeft className="h-3.5 w-3.5" />
               Voltar para lista
             </Button>
           ) : null
@@ -287,9 +288,10 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
               <Button
                 type="button"
                 variant="ghost"
-                className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-300"
+                className="h-10 gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
                 onClick={() => setApiResetSignal((value) => value + 1)}
               >
+                <ArrowLeft className="h-4 w-4" />
                 Voltar para lista
               </Button>
             </div>
