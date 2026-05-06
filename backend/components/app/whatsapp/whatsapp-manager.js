@@ -79,9 +79,6 @@ function formatWhatsappPhone(value) {
   const localDigits = hasBrazilCountryCode ? digits.slice(2) : digits
   const areaCode = localDigits.slice(0, 2)
   const subscriber = localDigits.slice(2)
-  const prefixLength = subscriber.length > 8 ? 5 : 4
-  const prefix = subscriber.slice(0, prefixLength)
-  const suffix = subscriber.slice(prefixLength, prefixLength + 4)
 
   let formatted = country ? `+${country}` : ""
   if (areaCode) {
@@ -90,11 +87,29 @@ function formatWhatsappPhone(value) {
       formatted += ")"
     }
   }
-  if (prefix) {
-    formatted += `${areaCode ? " " : ""}${prefix}`
-  }
-  if (suffix) {
-    formatted += `-${suffix}`
+
+  if (subscriber) {
+    if (subscriber.length > 8) {
+      const mobileDigit = subscriber.slice(0, 1)
+      const prefix = subscriber.slice(1, 5)
+      const suffix = subscriber.slice(5, 9)
+
+      formatted += `${areaCode ? " " : ""}${mobileDigit}`
+      if (prefix) {
+        formatted += ` ${prefix}`
+      }
+      if (suffix) {
+        formatted += `-${suffix}`
+      }
+    } else {
+      const prefix = subscriber.slice(0, 4)
+      const suffix = subscriber.slice(4, 8)
+
+      formatted += `${areaCode ? " " : ""}${prefix}`
+      if (suffix) {
+        formatted += `-${suffix}`
+      }
+    }
   }
 
   return formatted.trim()
@@ -752,10 +767,10 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
       {!loading && channels.length === 0 ? (
       <form id="whatsapp-channel-form" className="grid gap-3 md:grid-cols-[minmax(0,1fr)_150px]" onSubmit={createChannel}>
         <label className="block">
-          <span className={labelClassName}>Numero</span>
+          <span className={labelClassName}>Número</span>
           <input
             value={number}
-            placeholder="+55 (11) 99999-9999"
+            placeholder="+55 (11) 9 9999-9999"
             inputMode="tel"
             autoComplete="tel"
             maxLength={20}
@@ -768,7 +783,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           type="submit"
           disabled={saving}
           variant="ghost"
-          className="mt-6 h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+          className="mt-6 h-12 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {saving ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
           {saving ? "Criando canal..." : "Criar canal"}
@@ -965,7 +980,7 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
               <input
                 value={contactForm.numero}
                 onChange={(event) => updateContactForm("numero", formatWhatsappPhone(event.target.value))}
-                placeholder="+55 (11) 99999-9999"
+                placeholder="+55 (11) 9 9999-9999"
                 inputMode="tel"
                 autoComplete="tel"
                 maxLength={20}
