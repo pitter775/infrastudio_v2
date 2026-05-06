@@ -1425,6 +1425,25 @@
       return picker;
     }
 
+    function normalizeActionText(value) {
+      return String(value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim()
+        .toLowerCase();
+    }
+
+    function isGenericContinueAction(action) {
+      if (!action || (action.type !== "event" && !action.message)) {
+        return false;
+      }
+
+      var label = normalizeActionText(action && action.label);
+      var message = normalizeActionText(action && action.message);
+      var genericTexts = ["", "continuar", "quero continuar"];
+      return genericTexts.indexOf(label) !== -1 && genericTexts.indexOf(message) !== -1;
+    }
+
     function createMessageActions(message) {
       if (!message || !message.isAi || !Array.isArray(message.actions) || !message.actions.length) {
         return null;
@@ -1439,6 +1458,10 @@
 
       message.actions.forEach(function (action) {
         if (!action || !action.type) {
+          return;
+        }
+
+        if (isGenericContinueAction(action)) {
           return;
         }
 

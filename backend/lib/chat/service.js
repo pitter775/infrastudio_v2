@@ -378,6 +378,13 @@ function normalizeUiActionItem(item) {
     return null
   }
 
+  const normalizedLabel = normalizeContinueActionText(label)
+  const normalizedMessage = normalizeContinueActionText(item.message)
+  const genericContinueTexts = new Set(["", "continuar", "quero continuar"])
+  if (genericContinueTexts.has(normalizedLabel) && genericContinueTexts.has(normalizedMessage)) {
+    return null
+  }
+
   return {
     label,
     type,
@@ -385,6 +392,14 @@ function normalizeUiActionItem(item) {
     message: typeof item.message === "string" && item.message.trim() ? item.message.trim() : undefined,
     eventName: typeof item.eventName === "string" && item.eventName.trim() ? item.eventName.trim() : undefined,
   }
+}
+
+function normalizeContinueActionText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase()
 }
 
 function normalizeUiCardItem(item) {

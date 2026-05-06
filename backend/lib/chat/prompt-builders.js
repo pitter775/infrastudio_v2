@@ -373,7 +373,7 @@ export function buildChannelReplyInstruction(channelKind) {
 export function buildStructuredReplyInstruction() {
   return [
     "Quando fizer sentido, responda em JSON valido.",
-    'Use o formato: {"reply":"texto curto","followUpReply":"","ui":{"blocks":[{"type":"text","variant":"title","text":"titulo discreto"},{"type":"badges","items":["tag 1","tag 2"]},{"type":"list","items":["item 1","item 2"]},{"type":"actions","items":[{"label":"Continuar","type":"message","message":"Quero continuar"}]}]}}.',
+    'Use o formato: {"reply":"texto curto","followUpReply":"","ui":{"blocks":[{"type":"text","variant":"title","text":"titulo discreto"},{"type":"badges","items":["tag 1","tag 2"]},{"type":"list","items":["item 1","item 2"]}]}}.',
     "Se não precisar de bloco visual, ainda assim mantenha reply curto e organizado.",
     "Não use markdown, não use crase e não devolva texto antes ou depois do JSON.",
   ].join("\n")
