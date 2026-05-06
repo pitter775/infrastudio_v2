@@ -141,6 +141,7 @@ export async function GET(request) {
           theme: widget?.tema ?? null,
           accent: widget?.corPrimaria ?? null,
           transparent: widget?.fundoTransparente ?? null,
+          identificacaoContatoAtiva: widget?.identificacaoContatoAtiva === true,
           whatsappCelular: widget?.whatsappCelular ?? null,
         },
       },

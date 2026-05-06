@@ -19,6 +19,7 @@ const emptyForm = {
   theme: "dark",
   accent: "#2563eb",
   transparent: true,
+  identificationBoxEnabled: false,
   active: true,
 }
 
@@ -46,6 +47,7 @@ function normalizeWidget(widget) {
     theme: widget.tema || "dark",
     accent: widget.corPrimaria || "#2563eb",
     transparent: widget.fundoTransparente !== false,
+    identificationBoxEnabled: widget.identificacaoContatoAtiva === true,
     active: widget.ativo !== false,
   }
 }
@@ -61,6 +63,7 @@ function buildWidgetSnippet(project, widget) {
     `  data-theme="${widget.theme}"`,
     `  data-accent="${widget.accent}"`,
     `  data-transparent="${widget.transparent ? "true" : "false"}"`,
+    `  data-identificacao-contato="${widget.identificationBoxEnabled ? "true" : "false"}"`,
     `  defer`,
     `></script>`,
   ].join("\n")
@@ -78,6 +81,7 @@ function buildCompatSnippet(project, widget) {
     `  data-theme="${widget.theme}"`,
     `  data-accent="${widget.accent}"`,
     `  data-transparent="${widget.transparent ? "true" : "false"}"`,
+    `  data-identificacao-contato="${widget.identificationBoxEnabled ? "true" : "false"}"`,
     `  data-api-base="${PUBLIC_DOMAIN}"`,
     `  defer`,
     `></script>`,
@@ -240,6 +244,7 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
           tema: form.theme,
           corPrimaria: form.accent,
           fundoTransparente: form.transparent,
+          identificacaoContatoAtiva: form.identificationBoxEnabled,
           ativo: form.active,
           agenteId: project.agent?.id || null,
         }),
@@ -386,9 +391,12 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
             </label>
           </div>
 
-          <div className="grid gap-3 pt-1 md:grid-cols-[220px_180px]">
+          <div className="grid gap-3 pt-1 md:grid-cols-[220px_220px_180px]">
             <div className="flex items-end">
               <ToggleSwitchButton checked={form.transparent} onChange={(value) => updateForm("transparent", value)} labelOn="Fundo transparente" labelOff="Fundo sólido" />
+            </div>
+            <div className="flex items-end">
+              <ToggleSwitchButton checked={form.identificationBoxEnabled} onChange={(value) => updateForm("identificationBoxEnabled", value)} labelOn="Identificação ativa" labelOff="Identificação inativa" />
             </div>
             <div className="flex items-end">
               <ToggleSwitchButton checked={form.active} onChange={(value) => updateForm("active", value)} labelOn="Widget ativo" labelOff="Widget inativo" />

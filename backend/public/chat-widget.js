@@ -55,7 +55,7 @@
 
   var bootScript = getCurrentScript();
 
-  ready(function () {
+  ready(async function () {
     var script = bootScript || getCurrentScript();
     if (!script) {
       return;
@@ -87,6 +87,8 @@
     var shouldAutoOpenOnScroll = ["true", "1", "yes", "open"].indexOf(String(script.getAttribute("data-auto-open") || script.getAttribute("data-open") || "").trim().toLowerCase()) !== -1;
     var autoOpenScrollArmed = shouldAutoOpenOnScroll;
     var transparent = script.getAttribute("data-transparent") !== "false";
+    var leadCaptureEnabled = ["true", "1", "yes", "on"].indexOf(String(script.getAttribute("data-identificacao-contato") || script.getAttribute("data-lead-capture") || "").trim().toLowerCase()) !== -1;
+    var initialUiConfig = null;
     var hasAgent = Boolean(agente || script.getAttribute("data-agent-status") === "online");
     var cleanup = [];
     var storageKey = null;
@@ -243,6 +245,10 @@
         (widgetContext && widgetContext.channel && widgetContext.channel.kind === "admin_agent_test") ||
         (widgetContext && widgetContext.admin && widgetContext.admin.source === "agent_simulator")
       );
+    }
+
+    if (isAdminAgentTestMode()) {
+      leadCaptureEnabled = false;
     }
 
     function getLocationSignature() {
@@ -405,6 +411,48 @@
     }
 
     sortMessagesChronologically();
+
+    async function loadInitialWidgetConfig() {
+      if (!widgetId && !widgetSlug) {
+        return {};
+      }
+
+      try {
+        var params = new URLSearchParams();
+        if (widgetId) {
+          params.set("widgetId", widgetId);
+        }
+        if (widgetSlug) {
+          params.set("widgetSlug", widgetSlug);
+        }
+        if (projeto) {
+          params.set("projeto", projeto);
+        }
+        if (agente) {
+          params.set("agente", agente);
+        }
+
+        var response = await fetch(apiBase + "/api/chat/config?" + params.toString(), {
+          method: "GET",
+          credentials: "omit",
+        });
+
+        if (!response.ok) {
+          return null;
+        }
+
+        return await response.json().catch(function () {
+          return {};
+        });
+      } catch (error) {
+        return null;
+      }
+    }
+
+    initialUiConfig = await loadInitialWidgetConfig();
+    if ((widgetId || widgetSlug) && !initialUiConfig) {
+      return;
+    }
 
     var host = document.createElement("div");
     host.id = "infrastudio-chat-widget-root-" + instanceKey;
@@ -1291,7 +1339,7 @@
 
       inlineActionState = null;
 
-      if (leadContact && (leadContact.email || leadContact.phone)) {
+      if (!leadCaptureEnabled || (leadContact && (leadContact.email || leadContact.phone))) {
         void sendMessage(buildAgendaSelectionMessage(selection), {
           userBubbleText: "Quero agendar " + selection.label,
           extraContext: {
@@ -2795,7 +2843,7 @@
     }
 
     function shouldPromptLeadCapture() {
-      return !loading && !contactBoxOpen && !hasLeadIdentity(leadContact) && !leadCaptureDismissed;
+      return leadCaptureEnabled && !loading && !contactBoxOpen && !hasLeadIdentity(leadContact) && !leadCaptureDismissed;
     }
 
     function requestLeadCapture() {
@@ -2810,8 +2858,12 @@
     }
 
     function syncContactBox() {
+      if (!leadCaptureEnabled && contactBoxOpen && !pendingAgendaSelection) {
+        contactBoxOpen = false;
+      }
       contactBox.classList.toggle("is-open", contactBoxOpen);
       composer.classList.toggle("is-identifying", contactBoxOpen);
+      contactTool.style.display = leadCaptureEnabled ? "" : "none";
       contactTool.classList.toggle("is-active", hasLeadIdentity(leadContact));
       contactTool.setAttribute(
         "title",
@@ -3236,6 +3288,10 @@
 
         if (payload && payload.ui && payload.ui.title) {
           updateWidgetTitle(payload.ui.title);
+        }
+        if (payload && payload.ui && typeof payload.ui.identificacaoContatoAtiva === "boolean") {
+          leadCaptureEnabled = isAdminAgentTestMode() ? false : payload.ui.identificacaoContatoAtiva === true;
+          syncContactBox();
         }
         if (payload && payload.loja && payload.loja.slug) {
           storeSlug = String(payload.loja.slug || "").trim();
@@ -3991,6 +4047,9 @@
       }
     });
     addListener(contactTool, "click", function () {
+      if (!leadCaptureEnabled) {
+        return;
+      }
       emojiPickerOpen = false;
       syncEmojiPicker();
       contactBoxOpen = !contactBoxOpen;

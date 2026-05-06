@@ -16,6 +16,7 @@ function mapChatWidget(row) {
     tema: row.tema === "light" ? "light" : "dark",
     corPrimaria: row.cor_primaria?.trim() || "#2563eb",
     fundoTransparente: Boolean(row.fundo_transparente),
+    identificacaoContatoAtiva: row.identificacao_contato_ativa === true,
     ativo: row.ativo !== false,
     createdAt: row.created_at ?? new Date().toISOString(),
     updatedAt: row.updated_at ?? new Date().toISOString(),
@@ -23,7 +24,7 @@ function mapChatWidget(row) {
 }
 
 const selectFields =
-  "id, nome, slug, projeto_id, agente_id, dominio, whatsapp_celular, tema, cor_primaria, fundo_transparente, ativo, created_at, updated_at"
+  "id, nome, slug, projeto_id, agente_id, dominio, whatsapp_celular, tema, cor_primaria, fundo_transparente, identificacao_contato_ativa, ativo, created_at, updated_at"
 
 function userCanAccessProject(user, projectId) {
   if (user?.role === "admin") {
@@ -191,6 +192,8 @@ function normalizeWidgetInput(input, project) {
       tema: input.tema === "light" || input.theme === "light" ? "light" : "dark",
       cor_primaria: String(input.corPrimaria || input.accent || "#2563eb").trim() || "#2563eb",
       fundo_transparente: input.fundoTransparente === false || input.transparent === false ? false : true,
+      identificacao_contato_ativa:
+        input.identificacaoContatoAtiva === true || input.identificationBoxEnabled === true ? true : false,
       ativo: input.ativo === false || input.active === false ? false : true,
       updated_at: new Date().toISOString(),
     },
@@ -465,6 +468,7 @@ export async function ensureDefaultChatWidgetForAgent(project, agent, user) {
         tema: "dark",
         cor_primaria: "#2563eb",
         fundo_transparente: true,
+        identificacao_contato_ativa: false,
         ativo: true,
         updated_at: new Date().toISOString(),
       })
@@ -525,6 +529,7 @@ export async function ensureProjectHasDefaultWidget(project, user) {
         tema: "dark",
         cor_primaria: "#2563eb",
         fundo_transparente: true,
+        identificacao_contato_ativa: false,
         ativo: true,
         updated_at: new Date().toISOString(),
       })

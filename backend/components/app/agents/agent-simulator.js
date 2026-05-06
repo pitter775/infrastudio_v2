@@ -80,6 +80,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
     script.dataset.theme = widgetIdentity.theme
     script.dataset.accent = widgetIdentity.accent
     script.dataset.transparent = "true"
+    script.dataset.identificacaoContato = "false"
     script.dataset.agentStatus = "online"
 
     if (widgetIdentity.id) {
