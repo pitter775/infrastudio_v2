@@ -168,6 +168,15 @@ function buildCatalogLoadMoreAction(input = {}) {
     return null
   }
 
+  const hasMore =
+    input.nextContext?.catalogo?.listingSession?.hasMore === true ||
+    input.nextContext?.catalogo?.paginationHasMore === true
+  const listingSource = String(input.nextContext?.catalogo?.listingSession?.source || "").trim()
+
+  if (listingSource === "api_runtime" && !hasMore) {
+    return null
+  }
+
   const listingSessionId =
     typeof input.nextContext?.catalogo?.listingSession?.id === "string" && input.nextContext.catalogo.listingSession.id.trim()
       ? input.nextContext.catalogo.listingSession.id.trim()

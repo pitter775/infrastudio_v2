@@ -1018,6 +1018,9 @@ export function updateContextFromAiResult(input) {
     const snapshotCreatedAt = new Date().toISOString()
     const snapshotTurnId = Number(input.historyLengthSource ?? 0)
     const snapshotId = `${input.chatId}:${snapshotTurnId}:${snapshotCreatedAt}`
+    const listingSource = recentMercadoLivreProducts.every((product) => product?.source === "api_runtime")
+      ? "api_runtime"
+      : "storefront_snapshot"
     const listingSession = buildCatalogListingSessionState({
       ...(nextContext.catalogo.listingSession ?? {}),
       id: sanitizeCatalogString(nextContext.catalogo.listingSession?.id) || snapshotId,
@@ -1029,7 +1032,7 @@ export function updateContextFromAiResult(input) {
       poolLimit: nextContext.catalogo?.paginationPoolLimit ?? 24,
       hasMore: nextContext.catalogo?.paginationHasMore === true,
       total: nextContext.catalogo?.paginationTotal ?? recentMercadoLivreProducts.length,
-      source: "storefront_snapshot",
+      source: listingSource,
     })
     nextContext.catalogo = {
       ...(isPlainObject(nextContext.catalogo) ? nextContext.catalogo : {}),

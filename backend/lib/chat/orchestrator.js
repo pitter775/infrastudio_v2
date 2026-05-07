@@ -389,6 +389,32 @@ function buildExplicitCatalogActionRoutingOverride(baseDecision, latestUserMessa
     return baseDecision
   }
 
+  const recentProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
+  const explicitProductId = String(context?.ui?.catalogProductId || context?.catalogProductId || "").trim()
+  const hasApiRuntimeCatalogContext =
+    String(context?.catalogo?.listingSession?.source || "").trim() === "api_runtime" ||
+    recentProducts.some((product) => {
+      const productId = String(product?.id || product?.productId || "").trim()
+      return product?.source === "api_runtime" || Boolean(explicitProductId && productId === explicitProductId && product?.apiId)
+    })
+
+  if (hasApiRuntimeCatalogContext) {
+    return {
+      ...(baseDecision ?? {}),
+      domain: "api_runtime",
+      source: "api",
+      confidence: 1,
+      reason: `explicit_api_catalog_action_${explicitAction}`,
+      shouldUseTool: true,
+      focus: {
+        domain: "api_runtime",
+        source: "api",
+        subject: context?.catalogo?.produtoAtual?.nome || latestUserMessage,
+        confidence: 1,
+      },
+    }
+  }
+
   const hasMercadoLivreCapability =
     Number(baseDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0
   if (!hasMercadoLivreCapability) {
@@ -1022,7 +1048,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const selectedMercadoLivreProductShouldAttachAsset = mercadoLivreState?.selectedProductShouldAttachAsset === true
   const mercadoLivreReply = resolveMercadoLivreHeuristicReply(mercadoLivreState)
   const apiSearchTerm = getApiSearchTermFromDecision(semanticApiDecision)
-  const baseApiCatalogSearchState = shouldUseApiRuntime ? buildApiCatalogSearchState(runtimeApis) : null
+  const baseApiCatalogSearchState = shouldUseApiRuntime ? buildApiCatalogSearchState(runtimeApis, { searchTerm: apiSearchTerm }) : null
   const apiCatalogSearchState =
     baseApiCatalogSearchState && apiSearchTerm
       ? {

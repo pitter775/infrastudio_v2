@@ -6315,6 +6315,143 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "api runtime renderiza lista de catalogo com multiplos itens",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "traga apartamentos no edificio villa" }] as never,
+        {
+          agente: {
+            id: "agent-api-open-search-list",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111112",
+            nome: "Nexo Imoveis",
+          },
+          runtimeApis: [
+            {
+              apiId: "api-busca-imoveis-list",
+              id: "api-busca-imoveis-list",
+              nome: "Buscar imoveis",
+              method: "GET",
+              url: "https://nexo-imoveis.vercel.app/api/imoveis/busca?titulo={titulo}",
+              missingParams: ["titulo"],
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  availabilityScope: "open_search",
+                  autoExecute: true,
+                  descriptionForIntent: "Use para buscar imoveis por nome, titulo ou termo de busca.",
+                },
+              },
+              campos: [],
+            },
+          ],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => null,
+          loadAgentRuntimeApis: async () => [
+            {
+              apiId: "api-busca-imoveis-list",
+              id: "api-busca-imoveis-list",
+              nome: "Buscar imoveis",
+              method: "GET",
+              ok: true,
+              status: 200,
+              missingParams: [],
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  availabilityScope: "open_search",
+                  autoExecute: true,
+                },
+              },
+              catalogItems: [
+                [
+                  { nome: "id", valor: "imovel-1" },
+                  { nome: "titulo", valor: "EDIFICIO VILLA DI SAN LUCAS" },
+                  { nome: "descricao", valor: "Apartamento no 1 andar." },
+                  { nome: "valor_publico", valor: 128000 },
+                  { nome: "cidade", valor: "Sao Paulo" },
+                  { nome: "estado", valor: "SP" },
+                ],
+                [
+                  { nome: "id", valor: "imovel-2" },
+                  { nome: "titulo", valor: "EDIFICIO VILLA BELLA" },
+                  { nome: "descricao", valor: "Apartamento com varanda." },
+                  { nome: "valor_publico", valor: 220000 },
+                  { nome: "cidade", valor: "Sao Paulo" },
+                  { nome: "estado", valor: "SP" },
+                ],
+              ],
+              campos: [],
+            },
+          ],
+        }
+      );
+
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.equal(result.assets?.length, 2);
+      assert.equal(result.assets?.[0]?.provider, "api_runtime");
+      assert.equal(result.metadata?.catalogoBusca?.listingSession?.source, "api_runtime");
+      assert.match(result.reply, /2 op/i);
+    },
+  },
+  {
+    name: "api runtime responde detalhe por acao estruturada Saber mais",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "Saber mais" }] as never,
+        {
+          agente: {
+            id: "agent-api-product-detail",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111113",
+            nome: "Nexo Imoveis",
+          },
+          conversation: { mode: "listing" },
+          ui: {
+            catalogAction: "product_detail",
+            catalogProductId: "imovel-2",
+          },
+          catalogo: {
+            listingSession: {
+              id: "api-listing-1",
+              source: "api_runtime",
+              matchedProductIds: ["imovel-1", "imovel-2"],
+              total: 2,
+            },
+            ultimosProdutos: [
+              { id: "imovel-1", nome: "EDIFICIO VILLA DI SAN LUCAS", source: "api_runtime", apiId: "api-busca" },
+              {
+                id: "imovel-2",
+                nome: "EDIFICIO VILLA BELLA",
+                descricao: "Apartamento com varanda.",
+                preco: 220000,
+                cidade: "Sao Paulo",
+                estado: "SP",
+                source: "api_runtime",
+                apiId: "api-busca",
+              },
+            ],
+          },
+          runtimeApis: [],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => null,
+        }
+      );
+
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.match(result.reply, /EDIFICIO VILLA BELLA/i);
+      assert.equal(result.metadata?.catalogoProdutoAtual?.id, "imovel-2");
+    },
+  },
+  {
     name: "orquestrador respeita produto recente em foco",
     run: async () => {
       const result = await executeSalesOrchestrator(

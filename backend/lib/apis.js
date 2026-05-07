@@ -475,6 +475,59 @@ function extractConfiguredRuntimeFields(api, payload) {
     }))
 }
 
+function extractCatalogRuntimeItems(api, payload) {
+  if (getRuntimeIntentType(api) !== "catalog_search") {
+    return []
+  }
+
+  const runtimeConfig = api?.config?.runtime
+  const responseRoot = runtimeConfig?.responsePath ? readPathValue(payload, runtimeConfig.responsePath) : payload
+  const configuredFields = Array.isArray(runtimeConfig?.fields) ? runtimeConfig.fields : []
+  const catalogRootCandidates = [
+    responseRoot,
+    readPathValue(responseRoot, "imoveis"),
+    readPathValue(responseRoot, "items"),
+    readPathValue(responseRoot, "results"),
+    readPathValue(responseRoot, "data.items"),
+    readPathValue(responseRoot, "data.results"),
+    readPathValue(responseRoot, "data.imoveis"),
+  ]
+  const catalogItems =
+    catalogRootCandidates.find((item) => Array.isArray(item) && item.some((entry) => entry && typeof entry === "object" && !Array.isArray(entry))) ??
+    []
+
+  return catalogItems
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+    .slice(0, 8)
+    .map((item) => {
+      const entries = configuredFields.length
+        ? configuredFields.map((field) => {
+            const path = field?.path || field?.nome
+            const value = readPathValue(item, path)
+            return value == null || value === ""
+              ? null
+              : {
+                  nome: String(field.nome || path || "campo").trim(),
+                  tipo: String(field.tipo || typeof value || "string").trim() || "string",
+                  descricao: String(field.descricao || "").trim(),
+                  valor: normalizeFieldValue(value),
+                }
+          })
+        : Object.entries(item)
+            .filter(([, value]) => value == null || ["string", "number", "boolean"].includes(typeof value))
+            .slice(0, 40)
+            .map(([key, value]) => ({
+              nome: key,
+              tipo: typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "string",
+              descricao: "",
+              valor: normalizeFieldValue(value),
+            }))
+
+      return entries.filter(Boolean)
+    })
+    .filter((fields) => fields.length)
+}
+
 function buildApiPreviewContent(api, payload, rawText) {
   const runtimeConfig = api?.config?.runtime
   const responseRoot = runtimeConfig?.responsePath ? readPathValue(payload, runtimeConfig.responsePath) : payload
@@ -1284,6 +1337,7 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
     const text = await response.text()
     const payload = tryParseApiPayload(contentType, text)
     const campos = extractConfiguredRuntimeFields(api, payload)
+    const catalogItems = extractCatalogRuntimeItems(api, payload)
 
     const result = {
       id: api.id,
@@ -1297,6 +1351,7 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
       contentType,
       preview: buildApiPreviewContent(api, payload, text),
       campos,
+      catalogItems,
       config: api.config,
       cache: {
         hit: false,

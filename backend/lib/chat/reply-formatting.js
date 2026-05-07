@@ -22,7 +22,9 @@ export function extractRecentMercadoLivreProductsFromAssets(assets) {
       (asset) =>
         isPlainObject(asset) &&
         typeof asset.id === "string" &&
-        (asset.id.startsWith("mercado-livre-") || /^MLB\d+$/i.test(asset.id))
+        (asset.provider === "api_runtime" ||
+          asset.id.startsWith("mercado-livre-") ||
+          /^MLB[\w-]+$/i.test(asset.id))
     )
     .map((asset, index) => ({
       id: typeof asset.id === "string" ? asset.id : null,
@@ -39,6 +41,12 @@ export function extractRecentMercadoLivreProductsFromAssets(assets) {
       availableQuantity:
         Number.isFinite(Number(asset.metadata?.availableQuantity)) ? Number(asset.metadata.availableQuantity) : 0,
       status: typeof asset.metadata?.status === "string" ? asset.metadata.status : null,
+      source: asset.provider === "api_runtime" ? "api_runtime" : "mercado_livre",
+      apiId: typeof asset.metadata?.apiId === "string" ? asset.metadata.apiId : null,
+      apiNome: typeof asset.metadata?.apiNome === "string" ? asset.metadata.apiNome : null,
+      cidade: typeof asset.metadata?.cidade === "string" ? asset.metadata.cidade : null,
+      estado: typeof asset.metadata?.estado === "string" ? asset.metadata.estado : null,
+      endereco: typeof asset.metadata?.endereco === "string" ? asset.metadata.endereco : null,
       cardIndex: index,
     }))
     .filter((asset) => asset.nome)

@@ -213,6 +213,8 @@ Ja feito:
   - escolha semantica entre multiplas APIs agora recebe metodo, URL, descricao e campos obrigatorios, e prioriza `catalog_search` para busca por termo em vez de consulta por identificador
   - quando a IA extrai um unico valor com nome generico para uma API com um unico parametro ausente, o orquestrador remapeia esse valor para o parametro real antes de recarregar a API
   - APIs runtime agora aceitam `runtime.availabilityScope` para esconder APIs de item atual fora do contexto com id/propertyId e esconder busca aberta quando o chat estiver travado em um item
+  - API runtime de catalogo agora preserva multiplos itens retornados por uma unica API em `catalogItems`, gera assets horizontais no widget e reaproveita a acao estruturada `Saber mais` via `catalogAction=product_detail` sem depender de texto livre
+  - listagens de API runtime tambem passam a criar `listingSession.source = api_runtime`, permitindo separar continuidade de API customizada da continuidade Mercado Livre
 - o `domain-router` de billing tambem ficou mais fail-closed:
   - sem `pricingCatalog` estruturado real no runtime, o roteador nao assume billing so por `planos`, `assinatura` ou similares
   - isso joga mais casos para o `intent-stage` e reduz chute textual no roteador

@@ -330,6 +330,10 @@ function groupApiFieldsAsCatalogItem(api, deps) {
   }
 
   const fields = Array.isArray(api?.campos) ? api.campos : []
+  return groupApiFieldListAsCatalogItem(api, fields, deps)
+}
+
+function groupApiFieldListAsCatalogItem(api, fields, deps, itemIndex = 0) {
   if (!fields.length) {
     return null
   }
@@ -345,9 +349,10 @@ function groupApiFieldsAsCatalogItem(api, deps) {
   }
   const id =
     sanitizeString(readField("id")) ||
+    sanitizeString(readField("propertyid", "property_id", "uuid")) ||
     sanitizeString(readField("sku")) ||
     sanitizeString(readField("codigo")) ||
-    sanitizeString(api?.apiId)
+    (sanitizeString(api?.apiId) ? `${sanitizeString(api.apiId)}:${itemIndex + 1}` : "")
   const nome =
     sanitizeString(readField("nome")) ||
     sanitizeString(readField("titulo")) ||
@@ -416,6 +421,8 @@ function groupApiFieldsAsCatalogItem(api, deps) {
     source: "api_runtime",
     apiId: sanitizeString(api?.apiId),
     apiNome: sanitizeString(api?.nome),
+    sourceListingSessionId: sanitizeString(api?.listingSessionId),
+    cardIndex: itemIndex,
   }
 
   return {
@@ -426,7 +433,18 @@ function groupApiFieldsAsCatalogItem(api, deps) {
 
 export function extractApiCatalogProducts(apis = [], customDeps = {}) {
   const deps = getDeps(customDeps)
-  return (apis ?? []).map((api) => groupApiFieldsAsCatalogItem(api, deps)).filter(Boolean)
+  return (apis ?? [])
+    .flatMap((api) => {
+      const catalogItems = Array.isArray(api?.catalogItems) ? api.catalogItems : []
+      if (catalogItems.length) {
+        return catalogItems
+          .map((fields, index) => groupApiFieldListAsCatalogItem(api, Array.isArray(fields) ? fields : [], deps, index))
+          .filter(Boolean)
+      }
+
+      return [groupApiFieldsAsCatalogItem(api, deps)].filter(Boolean)
+    })
+    .filter(Boolean)
 }
 
 export function buildApiCatalogSearchState(apis = [], customDeps = {}) {
@@ -436,7 +454,7 @@ export function buildApiCatalogSearchState(apis = [], customDeps = {}) {
   }
 
   return {
-    ultimaBusca: null,
+    ultimaBusca: sanitizeString(customDeps?.searchTerm),
     paginationOffset: 0,
     paginationNextOffset: 0,
     paginationPoolLimit: products.length,
@@ -444,7 +462,46 @@ export function buildApiCatalogSearchState(apis = [], customDeps = {}) {
     paginationTotal: products.length,
     produtoAtual: products.length === 1 ? products[0] : null,
     ultimosProdutos: products,
+    listingSession: {
+      id: buildApiListingSessionId(customDeps?.searchTerm, products),
+      snapshotId: "",
+      searchTerm: sanitizeString(customDeps?.searchTerm),
+      matchedProductIds: products.map((item) => sanitizeString(item?.id)).filter(Boolean),
+      offset: 0,
+      nextOffset: 0,
+      poolLimit: products.length,
+      hasMore: false,
+      total: products.length,
+      source: "api_runtime",
+    },
   }
+}
+
+function buildApiListingSessionId(searchTerm, products = []) {
+  const seed = [
+    sanitizeString(searchTerm),
+    ...(Array.isArray(products) ? products.map((item) => sanitizeString(item?.id)).filter(Boolean).slice(0, 8) : []),
+  ]
+    .filter(Boolean)
+    .join(":")
+
+  return seed ? `api:${Buffer.from(seed).toString("base64url").slice(0, 32)}` : `api:${Date.now().toString(36)}`
+}
+
+function buildApiCatalogSearchReply(products = [], searchTerm = "") {
+  const total = Array.isArray(products) ? products.length : 0
+  if (!total) {
+    return null
+  }
+
+  if (total === 1) {
+    return `${products[0]?.nome || "Encontrei uma opção"} parece a opção mais consistente para seguir agora.`
+  }
+
+  const term = sanitizeString(searchTerm)
+  return term
+    ? `Encontrei ${total} opções para ${term}. Vou te mostrar as principais agora.`
+    : `Encontrei ${total} opções. Vou te mostrar as principais agora.`
 }
 
 export function buildApiCatalogAssets(apis = [], customDeps = {}) {
@@ -531,6 +588,22 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
   }
 
   const semanticApiDecision = customDeps?.semanticApiDecision
+  const explicitCatalogAction = sanitizeString(context?.ui?.catalogAction || context?.catalogAction).toLowerCase()
+  const explicitProductId = sanitizeString(context?.ui?.catalogProductId || context?.catalogProductId)
+  if (explicitCatalogAction === "product_detail" && explicitProductId) {
+    const selectedProduct = products.find((product) => {
+      const productId = sanitizeString(product?.id || product?.productId)
+      return productId && productId === explicitProductId
+    })
+    if (selectedProduct?.nome) {
+      return {
+        reply: buildApiSelectedCatalogReply(selectedProduct),
+        currentCatalogProduct: selectedProduct,
+        factContext: null,
+      }
+    }
+  }
+
   const semanticComparisonMode = normalizeCatalogComparisonIntent(semanticApiDecision?.comparisonMode)
   const executionState = resolveCatalogExecutionState({
     latestUserMessage: message,
@@ -595,7 +668,26 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
     }
   }
 
+  if (semanticApiDecision?.kind === "api_catalog_search" && products.length > 1) {
+    return {
+      reply: buildApiCatalogSearchReply(products, getApiSearchTermFromSemanticDecision(semanticApiDecision)),
+      currentCatalogProduct: null,
+      factContext: null,
+    }
+  }
+
   return null
+}
+
+function getApiSearchTermFromSemanticDecision(decision = null) {
+  const values =
+    decision?.parameterValues && typeof decision.parameterValues === "object" && !Array.isArray(decision.parameterValues)
+      ? Object.values(decision.parameterValues)
+          .map((value) => sanitizeString(value))
+          .filter(Boolean)
+      : []
+
+  return values[0] || ""
 }
 
 export function resolveApiCatalogReply(message, context = {}, apis = [], customDeps = {}) {
