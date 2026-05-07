@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { AlertTriangle, CheckCircle2, CircleHelp, Clock3, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
+import { CheckCircle2, CircleHelp, Clock3, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
 
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
@@ -535,62 +535,6 @@ export function ApiSheetManager({
   const editing = Boolean(form.id)
   const internalApi = useMemo(() => isInternalApi(form), [form])
   const agendaInternalApi = useMemo(() => isAgendaInternalApi(form), [form])
-  const runtimeWarnings = useMemo(() => {
-    const warnings = []
-    const method = String(form.method || "GET").toUpperCase()
-    const hasRuntimeIntentType = Boolean(String(form.runtimeIntentType || "").trim())
-    const requiredFields = (Array.isArray(form.bodyFields) ? form.bodyFields : []).filter(
-      (field) => field?.required === true && String(field?.name || "").trim(),
-    )
-    const configuredFields = (Array.isArray(form.bodyFields) ? form.bodyFields : []).filter((field) => String(field?.name || "").trim())
-
-    if (!hasRuntimeIntentType) {
-      warnings.push("Defina o tipo de intenção do runtime.")
-    }
-
-    if (method !== "GET" && form.runtimeAutoExecute && !requiredFields.length) {
-      warnings.push("Non-GET com execução automática precisa de campos obrigatórios.")
-    }
-
-    if (method !== "GET" && form.runtimeAutoExecute && !form.runtimeRequiresConfirmation) {
-      warnings.push("Non-GET autoexecutável deve exigir confirmação.")
-    }
-
-    if (form.runtimeIntentType === "create_record" && !form.runtimeRequiresConfirmation) {
-      warnings.push("Cadastro deve exigir confirmação antes de executar.")
-    }
-
-    if (form.runtimeIntentType === "catalog_search") {
-      const fieldNames = configuredFields.map((field) => String(field.name || "").toLowerCase())
-      const hasCatalogName = fieldNames.some((name) => ["nome", "titulo", "title", "produto"].includes(name))
-      if (!hasCatalogName) {
-        warnings.push("Catálogo precisa de um campo de nome, título ou produto.")
-      }
-      const hasCommercialField = fieldNames.some((name) => ["preco", "valor", "estoque", "link", "imagem", "thumbnail"].includes(name))
-      if (!hasCommercialField) {
-        warnings.push("Catálogo deve mapear preço, estoque, link ou imagem quando a API retornar esses dados.")
-      }
-    }
-
-    if (form.runtimeIntentType === "lookup_by_identifier" && !requiredFields.length) {
-      warnings.push("Consulta por identificador deve ter pelo menos um campo obrigatório.")
-    }
-
-    if (form.runtimeIntentType === "create_record" && !requiredFields.length) {
-      warnings.push("Cadastro deve ter campos obrigatórios para coleta segura.")
-    }
-
-    if (!String(form.runtimeDescriptionForIntent || "").trim()) {
-      warnings.push("Descrição para decisão da IA ajuda a evitar conflito entre APIs.")
-    }
-
-    if (!configuredFields.length) {
-      warnings.push("Configure campos para o agente consumir a resposta com segurança.")
-    }
-
-    return warnings
-  }, [form])
-
   useEffect(() => {
     let active = true
 
@@ -1098,7 +1042,7 @@ export function ApiSheetManager({
             <div className="mt-3 flex flex-col gap-3 lg:flex-row">
               {internalApi ? (
                 <>
-                  <div className="flex h-12 w-full items-center rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-slate-400 lg:max-w-[170px]">
+                  <div className="flex h-12 w-full items-center rounded-xl border border-white/10 bg-[#0a1020] px-3 text-sm text-slate-400 lg:max-w-[112px]">
                     {truncateMiddleValue(form.method)}
                   </div>
                   <div className="flex h-12 flex-1 items-center rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-slate-400">
@@ -1107,7 +1051,7 @@ export function ApiSheetManager({
                 </>
               ) : (
                 <>
-                  <div className="w-full lg:max-w-[170px]">
+                  <div className="w-full lg:max-w-[112px]">
                     <AppSelect options={methodOptions} value={form.method} onChangeValue={(value) => updateForm("method", value)} />
                   </div>
                   <input
@@ -1152,18 +1096,6 @@ export function ApiSheetManager({
                 )
               })}
             </div>
-            {runtimeWarnings.length ? (
-              <div className="mt-3 rounded-xl border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div className="space-y-1">
-                    {runtimeWarnings.map((warning) => (
-                      <p key={warning}>{warning}</p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </div>
           {editorTab === "runtime" ? (
             <div className="grid gap-4">

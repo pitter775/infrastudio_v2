@@ -441,7 +441,8 @@ function normalizeApiInput(input) {
 
   let url
   try {
-    url = new URL(rawUrl)
+    const urlForValidation = rawUrl.replace(/\{[^{}]+\}/g, "placeholder")
+    url = new URL(urlForValidation)
   } catch {
     return { error: "URL inválida." }
   }
@@ -463,7 +464,7 @@ function normalizeApiInput(input) {
   return {
     payload: {
       nome: name,
-      url: url.toString(),
+      url: rawUrl,
       metodo: method,
       descricao: String(input.descricao || input.description || "").trim(),
       ativo: input.ativo === false || input.active === false ? false : true,

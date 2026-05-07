@@ -49,7 +49,7 @@ function buildStyles({ minHeight = 48, tone = "dark", accentColor = "#0ea5e9" } 
     }),
     menu: (base) => ({
       ...base,
-      zIndex: 60,
+      zIndex: 2147483647,
       overflow: "hidden",
       borderRadius: 16,
       border: light ? "1px solid rgba(15,23,42,0.08)" : "1px solid rgba(255,255,255,0.08)",
@@ -58,7 +58,7 @@ function buildStyles({ minHeight = 48, tone = "dark", accentColor = "#0ea5e9" } 
     }),
     menuPortal: (base) => ({
       ...base,
-      zIndex: 9999,
+      zIndex: 2147483647,
     }),
     menuList: (base) => ({
       ...base,
