@@ -218,6 +218,7 @@ Ja feito:
   - busca de catalogo da API runtime com um unico resultado agora responde como item encontrado, com detalhes estruturados, antes de cair em resposta factual curta por campos
   - todo resultado de API runtime `catalog_search`, inclusive item unico, deve gerar asset/card quando houver dados minimos de catalogo; a bolha textual apenas vende/contextualiza o card
   - cards de API runtime agora tambem reconhecem campos de imagem em formatos comuns (`imagem`, `imagens`, `image`, `images`, `foto`, `fotos`, `thumbnail`, `pictures`, `galeria`), inclusive array/JSON string com objetos `{ url }`
+  - quando a API de catalogo tiver `runtime.fields` configurado apenas para entrada/teste, a extracao de cards ainda mescla os campos escalares automaticos do item retornado para nao perder descricao, valor, cidade e imagens
 - o `domain-router` de billing tambem ficou mais fail-closed:
   - sem `pricingCatalog` estruturado real no runtime, o roteador nao assume billing so por `planos`, `assinatura` ou similares
   - isso joga mais casos para o `intent-stage` e reduz chute textual no roteador

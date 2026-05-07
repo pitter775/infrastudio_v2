@@ -346,6 +346,14 @@ function isCatalogMediaFieldName(name) {
   ].includes(normalized)
 }
 
+function normalizeCatalogFieldKey(name) {
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+}
+
 function getRuntimeContextValue(context, path) {
   if (!path) {
     return undefined
@@ -523,28 +531,38 @@ function extractCatalogRuntimeItems(api, payload) {
     .filter((item) => item && typeof item === "object" && !Array.isArray(item))
     .slice(0, 8)
     .map((item) => {
-      const entries = configuredFields.length
-        ? configuredFields.map((field) => {
-            const path = field?.path || field?.nome
-            const value = readPathValue(item, path)
-            return value == null || value === ""
-              ? null
-              : {
-                  nome: String(field.nome || path || "campo").trim(),
-                  tipo: String(field.tipo || typeof value || "string").trim() || "string",
-                  descricao: String(field.descricao || "").trim(),
-                  valor: normalizeFieldValue(value),
-                }
-          })
-        : Object.entries(item)
-            .filter(([key, value]) => value == null || ["string", "number", "boolean"].includes(typeof value) || isCatalogMediaFieldName(key))
-            .slice(0, 40)
-            .map(([key, value]) => ({
-              nome: key,
-              tipo: typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "string",
-              descricao: "",
-              valor: normalizeFieldValue(value),
-            }))
+      const automaticEntries = Object.entries(item)
+        .filter(([key, value]) => value == null || ["string", "number", "boolean"].includes(typeof value) || isCatalogMediaFieldName(key))
+        .slice(0, 40)
+        .map(([key, value]) => ({
+          nome: key,
+          tipo: typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "string",
+          descricao: "",
+          valor: normalizeFieldValue(value),
+        }))
+
+      const configuredEntries = configuredFields.length
+        ? configuredFields
+            .map((field) => {
+              const path = field?.path || field?.nome
+              const value = readPathValue(item, path)
+              return value == null || value === ""
+                ? null
+                : {
+                    nome: String(field.nome || path || "campo").trim(),
+                    tipo: String(field.tipo || typeof value || "string").trim() || "string",
+                    descricao: String(field.descricao || "").trim(),
+                    valor: normalizeFieldValue(value),
+                  }
+            })
+            .filter(Boolean)
+        : []
+
+      const configuredNames = new Set(configuredEntries.map((entry) => normalizeCatalogFieldKey(entry.nome)))
+      const entries = [
+        ...configuredEntries,
+        ...automaticEntries.filter((entry) => !configuredNames.has(normalizeCatalogFieldKey(entry.nome))),
+      ]
 
       return entries.filter(Boolean)
     })
