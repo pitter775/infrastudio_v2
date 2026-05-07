@@ -101,6 +101,126 @@ function buildPreviewUrl(project, widget) {
   return `/widget-contract-test?${params.toString()}`
 }
 
+function buildWidgetLlmGuidePrompt({ project, widget }) {
+  return [
+    "Contrato da aba Chat widget do InfraStudio.",
+    "Use este contrato como fonte de verdade para orientar dúvidas sobre instalação, comportamento, contexto, segurança e uso do Chat widget.",
+    "Não invente opções fora deste contrato. Se faltar algum dado, peça exatamente o dado que falta. Responda em português do Brasil.",
+    "",
+    "Objetivo do Chat widget:",
+    "- Publicar o chat do agente em sites externos, lojas, páginas públicas, áreas logadas e páginas com recurso específico.",
+    "- Levar para o agente o contexto correto da página quando o sistema externo souber qual item, imóvel, produto, pedido, cliente ou cadastro está aberto.",
+    "- Permitir atendimento aberto na home pública e atendimento travado em um item atual quando existir data-context.",
+    "",
+    "Abas do painel:",
+    "- Editar: configura título, slug, domínio permitido, tema, cor, fundo, identificação e status ativo.",
+    "- Ver código fonte: mostra o snippet recomendado, exemplo com data-context e fallback de compatibilidade.",
+    "- Documentação: explica contrato de instalação, contexto, políticas de exibição, atualização e este botão de cópia para LLM.",
+    "",
+    "Campos de configuração:",
+    "- Título: nome interno do widget no InfraStudio.",
+    "- Slug: identificador público usado no script data-widget. Deve ser estável depois de instalado no site.",
+    "- Domínio permitido: restringe onde o widget pode rodar. Use o domínio real do cliente, por exemplo https://cliente.com.br.",
+    "- Tema: define visual dark ou light.",
+    "- Cor: cor primária do widget.",
+    "- Fundo transparente: deixa o widget integrado ao fundo do site.",
+    "- Identificação ativa: habilita caixa de identificação do contato quando o fluxo precisa capturar nome, telefone ou dados do visitante.",
+    "- Widget ativo: permite ou bloqueia uso público do widget.",
+    "",
+    "Snippet recomendado:",
+    buildWidgetSnippet(project, widget || { slug: "meu-widget" }),
+    "",
+    "Snippet com contexto de recurso específico:",
+    buildWidgetContextSnippet(project, widget || { slug: "meu-widget" }),
+    "",
+    "Contrato do data-context:",
+    "- data-context deve ser JSON válido em string.",
+    "- Use id quando houver um identificador principal do recurso atual.",
+    "- Use propertyId quando a página representa um imóvel e as APIs do agente usam propertyId ou {id}.",
+    "- Use resource para detalhar tipo e id do item atual, por exemplo { id, tipo: 'imovel' }.",
+    "- Use tenant quando o sistema externo tiver contexto de cliente, conta ou organização.",
+    "- Use user quando a página já souber o usuário logado ou visitante identificado.",
+    "- Use route para enviar caminho, origem ou seção da página atual.",
+    "- Não envie dados sensíveis, tokens, senhas, cookies, CPF completo ou dados privados desnecessários.",
+    "",
+    "Política de uso por cenário:",
+    "- Home pública: instale sem data-context específico ou com contexto genérico da rota. O agente pode usar APIs de busca aberta, catálogo e FAQ.",
+    "- Página de item/imóvel/produto: instale com data-context contendo id/propertyId/resource. O agente deve usar APIs de item atual ou consulta por identificador.",
+    "- Área logada: use data-context com user e tenant apenas se esses dados forem necessários para atendimento.",
+    "- Checkout, pedido ou suporte: use resource com tipo pedido, compra, protocolo ou atendimento quando o agente tiver API compatível.",
+    "",
+    "Política de relação com APIs do agente:",
+    "- APIs de busca aberta funcionam melhor quando o visitante pergunta por nome, título, bairro, cidade, categoria ou termo.",
+    "- APIs de item atual funcionam melhor quando o widget envia id ou propertyId no data-context.",
+    "- Se a API usa URL com {id}, o contexto precisa ter id ou campo equivalente mapeável.",
+    "- Se a API usa query como ?titulo={titulo}, o agente precisa extrair o termo da mensagem do visitante.",
+    "- Evite ter duas APIs com intenção parecida e descrições fracas, porque o agente pode escolher a errada.",
+    "",
+    "Controle de host e exibição:",
+    "- O widget só deve existir em hosts permitidos.",
+    "- Fora do host, rota ou política autorizada, a ação correta é não montar ou destruir o widget.",
+    "- Use allowedRoutes/policy no host externo quando precisar bloquear rotas específicas.",
+    "- hide() e show({ open: true }) escondem e reabrem a mesma sessão autorizada.",
+    "- updateContext() deve ser usado quando só mudou o recurso na mesma tela.",
+    "- destroy() seguido de mount() limpo é preferível quando muda tenant, agente, usuário, permissão ou perfil.",
+    "",
+    "Boas práticas de instalação:",
+    "- Cole o script antes de fechar o </body>.",
+    "- Use defer.",
+    "- Mantenha data-widget e data-agente exatamente como gerados pelo InfraStudio.",
+    "- Não duplique o script na mesma página.",
+    "- Em SPAs, atualize contexto ao trocar item sem reload.",
+    "- Teste em página real e no preview antes de entregar ao cliente.",
+    "",
+    "Erros comuns:",
+    "- Slug do widget diferente do cadastrado.",
+    "- Domínio permitido incompatível com o domínio real.",
+    "- JSON inválido em data-context.",
+    "- Enviar propertyId na home pública sem ter item atual.",
+    "- Instalar widget de outro projeto ou outro agente.",
+    "- Alterar slug depois que o script já está publicado.",
+    "- Esperar que API de item atual funcione sem id/propertyId no contexto.",
+    "",
+    "Estado atual no InfraStudio:",
+    JSON.stringify(
+      {
+        projeto: {
+          id: project?.id || null,
+          nome: project?.name || project?.nome || project?.title || null,
+          slug: project?.slug || null,
+          routeKey: project?.routeKey || null,
+        },
+        agente: {
+          id: project?.agent?.id || null,
+          slug: project?.agent?.slug || null,
+          nome: project?.agent?.name || project?.agent?.nome || null,
+        },
+        widget: widget
+          ? {
+              id: widget.id || null,
+              titulo: widget.name || null,
+              slug: widget.slug || null,
+              dominioPermitido: widget.domain || null,
+              tema: widget.theme || null,
+              corPrimaria: widget.accent || null,
+              fundoTransparente: Boolean(widget.transparent),
+              identificacaoAtiva: Boolean(widget.identificationBoxEnabled),
+              ativo: widget.active !== false,
+            }
+          : null,
+      },
+      null,
+      2,
+    ),
+    "",
+    "Como orientar o usuário:",
+    "- Se ele quer chat aberto na home, orientar instalação simples sem item atual.",
+    "- Se ele quer chat travado em imóvel/produto/pedido, orientar instalação com data-context do recurso atual.",
+    "- Se o agente não encontra dados, revisar APIs vinculadas, descrição para decisão da IA e contexto enviado pelo widget.",
+    "- Se o widget não aparece, revisar domínio permitido, slug, agente, status ativo e console do navegador.",
+  ].join("\n")
+}
+
 export function WidgetManager({ project, initialWidgetId = null, activeTab: controlledActiveTab, onTabChange, onFooterStateChange, onStatsChange, compact = false }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const endpoint = `/api/app/projetos/${projectIdentifier}/widgets`
@@ -275,6 +395,30 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
   async function copySnippet(text) {
     await navigator.clipboard.writeText(text)
     setStatus({ type: "success", message: "Snippet copiado." })
+  }
+
+  async function copyWidgetGuideForLlm() {
+    const prompt = buildWidgetLlmGuidePrompt({ project, widget: selectedWidget || form || null })
+
+    try {
+      await navigator.clipboard.writeText(prompt)
+      setStatus({ type: "success", message: "Contrato do Chat widget copiado para LLM." })
+    } catch {
+      try {
+        const textarea = document.createElement("textarea")
+        textarea.value = prompt
+        textarea.setAttribute("readonly", "")
+        textarea.style.position = "fixed"
+        textarea.style.left = "-9999px"
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand("copy")
+        document.body.removeChild(textarea)
+        setStatus({ type: "success", message: "Contrato do Chat widget copiado para LLM." })
+      } catch {
+        setStatus({ type: "error", message: "Não foi possível copiar o contrato do Chat widget." })
+      }
+    }
   }
 
   return (
@@ -569,6 +713,23 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
 
       {!loading && currentTab === "docs" ? (
         <div className="mt-5 space-y-3">
+          <div className="flex flex-wrap items-start justify-between gap-3 pb-2">
+            <div>
+              <div className="text-sm font-semibold text-white">Documentação do Chat widget</div>
+              <p className="mt-1 text-sm leading-6 text-slate-400">
+                Funcionamento, opções de uso, contexto da página e instalação em sites externos.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={copyWidgetGuideForLlm}
+              className="h-9 shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 transition hover:bg-sky-500/20"
+            >
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
+              Copiar para LLM (GPT)
+            </Button>
+          </div>
           {[
             ["1. Host no controle", "O chat só deve existir quando o host permitir. Fora do contexto autorizado, a ação esperada é destroy()."],
             ["2. Mount mínimo", "No mount inicial use projeto, agente, apiBase e strictHostControl: true."],

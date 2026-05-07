@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ChevronRight, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2, X } from 'lucide-react'
+import { Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -32,6 +32,90 @@ function TinyEntityAvatar({ src, label }) {
       title={label || ""}
     />
   )
+}
+
+function buildAgentLlmGuidePrompt({ project, agent, draftAgentJson, connectionItems, hasUnsavedChanges }) {
+  return [
+    'Contrato da aba Agente do InfraStudio.',
+    'Use este contrato como fonte de verdade para orientar dúvidas sobre configuração do agente neste projeto.',
+    'Não invente opções fora deste contrato. Se algum dado faltar, peça o dado exato que falta.',
+    '',
+    'Objetivo da aba Agente:',
+    '- Configurar identidade, prompt/base de atendimento, site, logo, status e conexões do agente.',
+    '- O agente só responde bem quando o prompt explica o negócio, limites, tom, oferta, regras e quando usar integrações.',
+    '- O agente pode depender de APIs, WhatsApp, Chat widget e Mercado Livre vinculados ao projeto.',
+    '',
+    'Abas internas da aba Agente:',
+    '- Editar agente: ajusta nome, site, logo e prompt/base de conhecimento do agente.',
+    '- Conexões: mostra integrações disponíveis para abrir e configurar APIs, WhatsApp, Chat widget e Mercado Livre.',
+    '- Histórico: mostra versões anteriores do agente e permite restaurar versão quando necessário.',
+    '- Ver JSON: mostra o rascunho técnico atual do agente, incluindo configuracoes/runtimeConfig.',
+    '- Copiar para LLM (GPT): copia este contrato e o estado atual para tirar dúvidas fora do InfraStudio. Não abre nova aba.',
+    '',
+    'Políticas de preenchimento do agente:',
+    '- Nome: deve identificar claramente o assistente do projeto.',
+    '- Site: use a URL oficial do negócio quando existir. Ajuda a compor identidade e contexto.',
+    '- Logo: use URL pública da marca ou deixe vazio quando não houver asset confiável.',
+    '- Prompt/base: deve conter fatos reais do negócio, o que o agente pode ou não prometer, tom de voz, serviços/produtos, regras comerciais e instruções de atendimento.',
+    '- Não colocar segredos, tokens, chaves privadas ou credenciais no prompt.',
+    '- Não usar o prompt para corrigir integração mal configurada. APIs, WhatsApp e widgets devem ser configurados nas abas próprias.',
+    '- Se o agente usa APIs parecidas, o prompt pode reforçar limites, mas a decisão principal deve vir do Runtime de cada API.',
+    '- Alterações locais precisam ser salvas para virar estado real do agente.',
+    '',
+    'Políticas de conexões:',
+    '- APIs: usadas quando o agente precisa consultar, buscar catálogo ou enviar dados externos.',
+    '- WhatsApp: usado para atendimento e continuidade fora do widget, quando canal estiver ativo/conectado.',
+    '- Chat widget: controla o chat público/embutido e contexto enviado pelo site.',
+    '- Mercado Livre: usado quando há loja/conector com catálogo real.',
+    '- Conexões precisam estar ativas e corretamente vinculadas ao agente para participar do runtime.',
+    '',
+    'Políticas de histórico:',
+    '- Versões servem para comparar e restaurar configurações anteriores.',
+    '- Restaurar versão deve ser usado quando uma edição piorou o comportamento.',
+    '- Antes de restaurar, confira se a versão antiga ainda faz sentido com as integrações atuais.',
+    '',
+    'Checklist de qualidade do prompt:',
+    '- Diz quem é o agente e qual negócio representa.',
+    '- Explica o público atendido.',
+    '- Lista serviços/produtos reais.',
+    '- Define tom de voz.',
+    '- Define limites do que não deve responder ou prometer.',
+    '- Orienta quando pedir dados do cliente.',
+    '- Orienta quando consultar integrações, sem inventar dados se a integração não retornar informação.',
+    '- Evita conteúdo genérico demais.',
+    '',
+    'Estado atual do projeto e agente:',
+    JSON.stringify(
+      {
+        projeto: {
+          id: project?.id || null,
+          nome: project?.name || project?.nome || '',
+          slug: project?.slug || '',
+          routeKey: project?.routeKey || '',
+        },
+        agenteSalvo: {
+          id: agent?.id || null,
+          nome: agent?.name || agent?.nome || '',
+          ativo: agent?.active !== false,
+          siteUrl: agent?.siteUrl || '',
+          logoUrl: agent?.logoUrl || '',
+          runtimeConfig: agent?.runtimeConfig ?? null,
+        },
+        rascunhoAtual: draftAgentJson,
+        haAlteracoesNaoSalvas: hasUnsavedChanges,
+        conexoes: connectionItems.map((item) => ({
+          tipo: item.type,
+          titulo: item.title,
+          descricao: item.description,
+          painel: item.panel,
+        })),
+      },
+      null,
+      2,
+    ),
+    '',
+    'Ao responder, use português do Brasil e indique exatamente o que o usuário deve revisar no painel do InfraStudio.',
+  ].join('\n')
 }
 
 export function ProjectPanel({
@@ -91,6 +175,7 @@ export function ProjectPanel({
     { id: 'connections', label: 'Conexoes', icon: PlugZap },
     { id: 'history', label: 'Histórico', icon: History },
     { id: 'json', label: 'Ver JSON', icon: Files },
+    { id: 'copy-llm', label: 'Copiar para LLM (GPT)', icon: ClipboardCopy, actionOnly: true },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
   const draftAgentConfig = useMemo(
@@ -165,7 +250,42 @@ export function ProjectPanel({
     }
   }, [activeAgentTab, initialAgentTab])
 
+  async function copyAgentGuidePromptForLlm() {
+    const prompt = buildAgentLlmGuidePrompt({
+      project,
+      agent,
+      draftAgentJson,
+      connectionItems,
+      hasUnsavedChanges,
+    })
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(prompt)
+      } else {
+        const textarea = document.createElement('textarea')
+        textarea.value = prompt
+        textarea.setAttribute('readonly', '')
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        textarea.remove()
+      }
+
+      setEditorStatus({ type: 'success', message: 'Contrato da aba Agente copiado para LLM.' })
+    } catch {
+      setEditorStatus({ type: 'error', message: 'Não foi possível copiar o contrato da aba Agente.' })
+    }
+  }
+
   function handleAgentTabChange(tabId) {
+    if (tabId === 'copy-llm') {
+      copyAgentGuidePromptForLlm()
+      return
+    }
+
     setActiveAgentTab(tabId)
     onAgentTabChange?.(tabId)
   }

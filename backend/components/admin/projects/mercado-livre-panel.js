@@ -8,6 +8,152 @@ import { cn } from '@/lib/utils'
 import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl } from '@/lib/mercado-livre-webhook'
 import { MercadoLivreStorePanel } from './mercado-livre-store-panel'
 
+function buildMercadoLivreLlmGuidePrompt({
+  project,
+  projectIdentifier,
+  redirectUri,
+  webhookUrl,
+  storeName,
+  appId,
+  clientSecret,
+  seedId,
+  connectorMeta,
+  snapshotStatus,
+}) {
+  return [
+    'Contrato da aba Mercado Livre do InfraStudio.',
+    'Use este contrato como fonte de verdade para orientar dúvidas sobre cadastro, conexão, OAuth, sincronização, testes, pedidos e perguntas do Mercado Livre dentro do InfraStudio.',
+    'Não invente opções fora deste contrato. Se faltar algum dado, peça exatamente o dado que falta. Responda em português do Brasil.',
+    '',
+    'Objetivo da integração:',
+    '- Conectar uma loja Mercado Livre ao projeto do InfraStudio.',
+    '- Ler produtos ativos da loja para formar snapshot interno usado pelo atendimento e pela loja pública.',
+    '- Permitir testar itens, consultar pedidos e responder perguntas do Mercado Livre a partir do painel.',
+    '- Permitir que o agente gere sugestões de resposta para perguntas usando o contexto do item e do projeto.',
+    '',
+    'Abas disponíveis:',
+    '- Conexão: resolve a loja por URL de produto, salva Nome da loja, Seed ID, App ID e Client Secret, inicia OAuth e atualiza snapshot da loja.',
+    '- Tutorial: mostra passo a passo, links oficiais, Redirect URI, Webhook e este botão de cópia para LLM.',
+    '- Loja: configura dados comerciais e apresentação da loja pública do projeto.',
+    '- Teste: carrega uma amostra dos itens ativos elegíveis da loja após OAuth.',
+    '- Pedidos: consulta pedidos recentes da conta conectada.',
+    '- Perguntas: lista perguntas do Mercado Livre, permite responder e gerar sugestão com IA.',
+    '',
+    'Política de dados sensíveis:',
+    '- App ID pode ser compartilhado para diagnóstico quando necessário.',
+    '- Client Secret é senha do aplicativo. O usuário deve colar no InfraStudio, mas não deve enviar para terceiros nem colar em chats externos.',
+    '- OAuth Access Token e Refresh Token nunca devem ser expostos ao usuário nem copiados para LLM.',
+    '- Este contrato deve orientar o usuário sem pedir Client Secret em texto aberto.',
+    '',
+    'Como conseguir os dados no Mercado Livre:',
+    '- Abrir o painel de desenvolvedores do Mercado Livre: https://developers.mercadolivre.com.br/devcenter',
+    '- Entrar na conta dona da loja ou na conta autorizada a administrar a loja.',
+    '- Abrir Meus aplicativos ou criar um novo aplicativo.',
+    '- Escolher aplicativo do tipo Web quando houver opção de tipo.',
+    '- Copiar o App ID do aplicativo e colar no campo App ID do InfraStudio.',
+    '- Copiar o Client Secret do aplicativo e colar no campo Client secret do InfraStudio.',
+    '- Configurar Redirect URI exatamente igual ao Link de retorno gerado pelo InfraStudio.',
+    '- Configurar Webhook ou URL de notificações exatamente igual ao Link de notificações gerado pelo InfraStudio.',
+    '- Salvar o aplicativo no Mercado Livre antes de clicar em Salvar conexão no InfraStudio.',
+    '- Depois de salvar no InfraStudio, clicar em Conectar conta e permitir o acesso no OAuth do Mercado Livre.',
+    '',
+    'Campos da aba Conexão:',
+    '- Produto cadastrado na loja: URL pública de qualquer produto da loja. O InfraStudio tenta descobrir seller_id, nome da loja e Seed ID automaticamente.',
+    '- Nome da loja: nome interno exibido no painel. Pode ser preenchido automaticamente ou ajustado manualmente.',
+    '- Seed ID: identificador do vendedor/loja usado para vincular dados da loja. Pode vir do seller_id encontrado pela URL do produto.',
+    '- App ID: identificador público do aplicativo criado no DevCenter do Mercado Livre.',
+    '- Client secret: segredo do aplicativo. Deve ser salvo no InfraStudio e tratado como senha.',
+    '',
+    'Fluxo correto de configuração:',
+    '- Primeiro: colar uma URL de produto da loja e avançar para tentar resolver a loja automaticamente.',
+    '- Segundo: revisar Nome da loja e Seed ID.',
+    '- Terceiro: criar ou abrir aplicativo no DevCenter do Mercado Livre.',
+    '- Quarto: configurar Redirect URI e Webhook no aplicativo do Mercado Livre com os links do InfraStudio.',
+    '- Quinto: colar App ID e Client Secret no InfraStudio.',
+    '- Sexto: clicar em Salvar conexão.',
+    '- Sétimo: clicar em Conectar conta e permitir o OAuth.',
+    '- Oitavo: clicar em Atualizar loja para gravar snapshot dos produtos elegíveis no banco.',
+    '- Nono: usar Teste para validar itens, Pedidos para validar pedidos e Perguntas para validar atendimento.',
+    '',
+    'Política de OAuth:',
+    '- Salvar conexão apenas grava dados do app; não autoriza acesso à conta.',
+    '- Conectar conta abre o OAuth oficial do Mercado Livre.',
+    '- A conta que autoriza precisa ter acesso à loja que será atendida.',
+    '- Se o OAuth voltar para destino inesperado, revisar App ID, Redirect URI e configuração do app.',
+    '- Se a conta já estiver conectada, o painel mostra Conta conectada e o botão de OAuth fica travado.',
+    '',
+    'Política do snapshot da loja:',
+    '- Atualizar loja busca produtos da conta conectada e grava um snapshot interno.',
+    '- O snapshot prioriza produtos ativos e com estoque.',
+    '- Produtos pausados, finalizados, sem estoque ou inelegíveis podem não aparecer.',
+    '- O total do snapshot indica quantos produtos ficaram disponíveis para consulta interna.',
+    '- Se o total vier zero, verificar se a loja tem anúncios ativos com estoque e se o OAuth foi feito na conta correta.',
+    '',
+    'Política da aba Teste:',
+    '- A aba Teste só funciona após salvar conexão e concluir OAuth.',
+    '- Atualizar listagem carrega uma amostra limitada de itens para validação visual.',
+    '- Se falhar, revisar conta conectada, permissões OAuth, App ID, Client Secret e status dos anúncios.',
+    '',
+    'Política da aba Pedidos:',
+    '- Pedidos dependem de OAuth válido e permissões da conta.',
+    '- A consulta é paginada e limitada para evitar custo e lentidão.',
+    '- Se não aparecer pedido, pode ser ausência real, conta errada ou limitação de permissão.',
+    '',
+    'Política da aba Perguntas:',
+    '- Perguntas dependem de OAuth válido e anúncios com perguntas abertas.',
+    '- A sugestão com IA usa texto da pergunta, item e contexto do projeto.',
+    '- Antes de enviar resposta ao Mercado Livre, revisar se não há promessa indevida, preço incorreto, prazo incorreto ou dado sem confirmação.',
+    '',
+    'Erros comuns:',
+    '- Redirect URI diferente por uma barra, protocolo ou domínio.',
+    '- Webhook sem o identificador do projeto no final.',
+    '- Trocar App ID com Client Secret.',
+    '- Salvar conexão e esquecer de Conectar conta.',
+    '- Usar OAuth de uma conta que não é dona da loja.',
+    '- Tentar atualizar loja antes do OAuth.',
+    '- Loja sem produtos ativos com estoque.',
+    '- Produto de exemplo não pertence à loja correta.',
+    '',
+    'Links gerados por este projeto:',
+    `- Link de retorno/Redirect URI: ${redirectUri || 'não disponível'}`,
+    `- Link de notificações/Webhook: ${webhookUrl || 'não disponível'}`,
+    '',
+    'Estado atual no InfraStudio:',
+    JSON.stringify(
+      {
+        projeto: {
+          id: project?.id || null,
+          nome: project?.name || project?.nome || project?.title || null,
+          identificador: projectIdentifier || null,
+          slug: project?.slug || null,
+          routeKey: project?.routeKey || null,
+        },
+        conexaoMercadoLivre: {
+          connectorId: connectorMeta?.id || null,
+          nomeLoja: storeName || null,
+          appId: appId || null,
+          clientSecretPreenchido: Boolean(clientSecret),
+          seedId: seedId || null,
+          oauthConectado: Boolean(connectorMeta?.oauthConnected),
+          oauthNickname: connectorMeta?.oauthNickname || null,
+          oauthUserId: connectorMeta?.oauthUserId || null,
+          produtosNoSnapshot: Number(snapshotStatus?.total || 0) || 0,
+          ultimaAtualizacaoSnapshot: snapshotStatus?.lastSyncAt || null,
+        },
+      },
+      null,
+      2,
+    ),
+    '',
+    'Como orientar o usuário:',
+    '- Se ele estiver cadastrando do zero, conduza pelo fluxo correto de configuração.',
+    '- Se OAuth falhar, priorize checar Redirect URI, App ID, Client Secret e conta autorizada.',
+    '- Se produtos não aparecem, priorize checar OAuth, conta correta, anúncios ativos com estoque e snapshot atualizado.',
+    '- Se perguntas ou pedidos não aparecem, priorize checar OAuth, permissões, conta correta e existência real desses dados no Mercado Livre.',
+    '- Não peça token OAuth, refresh token ou Client Secret em texto aberto.',
+  ].join('\n')
+}
+
 export function MercadoLivrePanel({
   project,
   activeTab: controlledActiveTab,
@@ -153,6 +299,49 @@ export function MercadoLivrePanel({
       }, 1800)
     } catch {
       setFeedback({ tone: 'error', text: 'Não foi possível copiar o link.' })
+    }
+  }
+
+  async function copyMercadoLivreGuideForLlm() {
+    const prompt = buildMercadoLivreLlmGuidePrompt({
+      project,
+      projectIdentifier,
+      redirectUri,
+      webhookUrl,
+      storeName,
+      appId,
+      clientSecret,
+      seedId,
+      connectorMeta,
+      snapshotStatus,
+    })
+
+    try {
+      await navigator.clipboard.writeText(prompt)
+      setCopiedField('llm-guide')
+      setFeedback({ tone: 'success', text: 'Contrato do Mercado Livre copiado para LLM.' })
+      window.setTimeout(() => {
+        setCopiedField((current) => (current === 'llm-guide' ? '' : current))
+      }, 1800)
+    } catch {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = prompt
+        textarea.setAttribute('readonly', '')
+        textarea.style.position = 'fixed'
+        textarea.style.left = '-9999px'
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+        setCopiedField('llm-guide')
+        setFeedback({ tone: 'success', text: 'Contrato do Mercado Livre copiado para LLM.' })
+        window.setTimeout(() => {
+          setCopiedField((current) => (current === 'llm-guide' ? '' : current))
+        }, 1800)
+      } catch {
+        setFeedback({ tone: 'error', text: 'Não foi possível copiar o contrato do Mercado Livre.' })
+      }
     }
   }
 
@@ -1195,24 +1384,35 @@ export function MercadoLivrePanel({
 
       {currentTab === 'tutorial' ? (
         <div className="grid gap-7 bg-transparent p-0 text-sm text-slate-300">
-          <div className="grid gap-2">
-            <p className="text-base font-semibold text-white">Tutorial rapido</p>
-            <p className="text-slate-400">Como conectar o Mercado Livre sem complicacao</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid gap-2">
+              <p className="text-base font-semibold text-white">Tutorial rápido</p>
+              <p className="text-slate-400">Como conectar o Mercado Livre sem complicação</p>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={copyMercadoLivreGuideForLlm}
+              className="h-9 shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 transition hover:bg-sky-500/20"
+            >
+              {copiedField === 'llm-guide' ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+              {copiedField === 'llm-guide' ? 'Copiado' : 'Copiar para LLM (GPT)'}
+            </Button>
           </div>
 
           <div className="grid gap-4 bg-transparent p-0">
-            <p className="text-sm font-semibold text-white">O que e cada coisa</p>
+            <p className="text-sm font-semibold text-white">O que é cada coisa</p>
             <div className="grid gap-3">
               {[
                 {
                   step: '01',
                   title: 'APP ID',
-                  description: 'E o numero do seu aplicativo no Mercado Livre.',
+                  description: 'É o número do seu aplicativo no Mercado Livre.',
                 },
                 {
                   step: '02',
                   title: 'CLIENT SECRET',
-                  description: 'E a senha do aplicativo. Copie e cole sem alterar nada.',
+                  description: 'É a senha do aplicativo. Copie e cole sem alterar nada.',
                 },
                 {
                   step: '03',
@@ -1245,7 +1445,7 @@ export function MercadoLivrePanel({
                 '4. Clique em Criar aplicativo.',
                 '5. Escolha o tipo Web.',
                 '6. No Redirect URI, cole o Link de retorno abaixo.',
-                '7. No Webhook, cole o Link de notificacoes abaixo.',
+                '7. No Webhook, cole o Link de notificações abaixo.',
                 '8. Salve o aplicativo.',
                 '9. Copie o APP ID e cole no campo APP ID aqui no sistema.',
                 '10. Copie o CLIENT SECRET e cole no campo CLIENT SECRET aqui no sistema.',
@@ -1266,7 +1466,7 @@ export function MercadoLivrePanel({
             <div className="grid gap-3">
               {[
                 'Colar o Redirect URI errado. Tem que ser exatamente igual.',
-                'Colar um Webhook sem o parametro do projeto no final.',
+                'Colar um Webhook sem o parâmetro do projeto no final.',
                 'Trocar APP ID com CLIENT SECRET.',
                 'Salvar a conexão e esquecer de clicar em Conectar conta.',
                 'Tentar testar antes de permitir o acesso no OAuth.',
@@ -1296,9 +1496,9 @@ export function MercadoLivrePanel({
               },
               {
                 id: 'webhook',
-                label: 'Link de notificacoes',
+                label: 'Link de notificações',
                 value: webhookUrl,
-                helper: 'Use este link no campo de webhook. Ele ja vai com a identificacao deste projeto.',
+                helper: 'Use este link no campo de webhook. Ele já vai com a identificação deste projeto.',
               },
             ].map((item) => (
               <div key={item.id} className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
