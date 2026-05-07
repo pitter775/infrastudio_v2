@@ -29,7 +29,7 @@ export function JsonCodeBlock({ value, className = "" }) {
 
   return (
     <pre
-      className={`whitespace-pre-wrap break-all rounded-xl border border-white/10 bg-[#0a1020] p-4 font-mono text-xs leading-5 text-slate-300 ${className}`}
+      className={`whitespace-pre-wrap break-words rounded-xl border border-white/10 bg-[#0a1020] p-4 font-mono text-xs leading-5 text-slate-300 ${className}`}
     >
       {tokenizeJson(text).map((token, index) => (
         <span key={`${index}-${token}`} className={tokenClassName(token)}>

@@ -636,6 +636,11 @@ Ainda errado / fragil:
 
 ## Registro curto
 
+- API runtime passou a resolver busca de catalogo com parametro dinamico vindo do stage semantico
+  - `classifySemanticApiIntentStage` agora pode devolver `api_catalog_search` e `parameterValues`
+  - o orquestrador recarrega as APIs do agente com esses parametros estruturados antes de responder
+  - respostas de catalogo sem `responsePath` configurado agora tentam extrair automaticamente o primeiro item de arrays comuns como `imoveis`, `items`, `results` e `data.items`
+  - isso fecha o caso de URL `...?titulo={titulo}` em que o teste manual funcionava, mas o chat nao consultava a API com o termo pedido
 - o fluxo factual de produto no catalogo ganhou camada canonica compartilhada
   - novo normalizador `catalog-product-facts.js` separa `dimensions.product`, `dimensions.package`, `weight.product`, `weight.package`, alem de `material`, `cor`, `garantia`, `estoque`, `frete` e `link`
   - `buildFocusedProductFactualReply` agora responde por slot factual e nao despeja o bloco cru de atributos

@@ -355,7 +355,7 @@ function groupApiFieldsAsCatalogItem(api, deps) {
     sanitizeString(readField("produto")) ||
     sanitizeString(readField("sku")) ||
     sanitizeString(api?.nome)
-  const preco = sanitizeNumber(readField("preco", "valor"), null)
+  const preco = sanitizeNumber(readField("preco", "valor", "valor_publico", "valor_minimo", "valor_avaliacao", "valor_primeiro_leilao"), null)
   const availableQuantity = sanitizeNumber(readField("estoque", "quantidade"), 0)
   const status =
     sanitizeString(readField("status")) ||

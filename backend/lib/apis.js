@@ -385,7 +385,7 @@ function extractConfiguredRuntimeFields(api, payload) {
         path: field.nome,
       }))
 
-  return fieldDefinitions
+  const configuredResult = fieldDefinitions
     .map((field) => {
       const path = field?.path || field?.nome
       const value = readPathValue(responseRoot, path)
@@ -402,6 +402,38 @@ function extractConfiguredRuntimeFields(api, payload) {
       }
     })
     .filter(Boolean)
+
+  if (configuredResult.length || getRuntimeIntentType(api) !== "catalog_search") {
+    return configuredResult
+  }
+
+  const catalogRootCandidates = [
+    readPathValue(responseRoot, "imoveis"),
+    readPathValue(responseRoot, "items"),
+    readPathValue(responseRoot, "results"),
+    readPathValue(responseRoot, "data.items"),
+    readPathValue(responseRoot, "data.results"),
+    readPathValue(responseRoot, "data.imoveis"),
+    responseRoot,
+  ]
+  const catalogItem =
+    catalogRootCandidates.find((item) => Array.isArray(item) && item[0] && typeof item[0] === "object")?.[0] ??
+    catalogRootCandidates.find((item) => item && typeof item === "object" && !Array.isArray(item)) ??
+    null
+
+  if (!catalogItem || typeof catalogItem !== "object" || Array.isArray(catalogItem)) {
+    return configuredResult
+  }
+
+  return Object.entries(catalogItem)
+    .filter(([, value]) => value == null || ["string", "number", "boolean"].includes(typeof value))
+    .slice(0, 40)
+    .map(([key, value]) => ({
+      nome: key,
+      tipo: typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "string",
+      descricao: "",
+      valor: normalizeFieldValue(value),
+    }))
 }
 
 function buildApiPreviewContent(api, payload, rawText) {
@@ -1077,6 +1109,7 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
       status: 0,
       durationMs: null,
       contentType: "",
+      missingParams: resolvedRequest.missingParams,
       preview: `Parametros ausentes para consultar a API: ${resolvedRequest.missingParams.join(", ")}.`,
       campos: [],
       config: api.config,

@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import { CheckCircle2, CircleHelp, Clock3, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { CheckCircle2, CircleHelp, Clock3, LoaderCircle, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
 
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
@@ -73,59 +73,6 @@ const runtimeIntentTypeOptions = [
   { value: "knowledge_search", label: "Busca informativa" },
   { value: "catalog_search", label: "Busca de catálogo" },
   { value: "create_record", label: "Cadastro / envio de dados" },
-]
-
-const runtimePresetOptions = [
-  {
-    id: "create_record",
-    label: "Cadastro",
-    method: "POST",
-    intentType: "create_record",
-    descriptionForIntent: "Cadastra ou envia dados do cliente depois de coletar os campos obrigatórios e confirmar com o usuário.",
-    autoExecute: false,
-    requiresConfirmation: true,
-    fields: [
-      { name: "nome", type: "string", required: true },
-      { name: "telefone", type: "string", required: true },
-      { name: "mensagem", type: "string", required: false },
-    ],
-  },
-  {
-    id: "lookup_by_identifier",
-    label: "Consulta por código",
-    method: "GET",
-    intentType: "lookup_by_identifier",
-    descriptionForIntent: "Consulta um registro específico por código, id, documento ou outro identificador informado pelo usuário.",
-    autoExecute: false,
-    requiresConfirmation: false,
-    fields: [{ name: "codigo", type: "string", required: true }],
-  },
-  {
-    id: "knowledge_search",
-    label: "Busca informativa",
-    method: "GET",
-    intentType: "knowledge_search",
-    descriptionForIntent: "Busca informações factuais em uma base de conhecimento ou serviço informativo sem criar registros.",
-    autoExecute: false,
-    requiresConfirmation: false,
-    fields: [{ name: "termo", type: "string", required: true }],
-  },
-  {
-    id: "catalog_search",
-    label: "Catálogo",
-    method: "GET",
-    intentType: "catalog_search",
-    descriptionForIntent: "Busca produtos por termo, categoria, cor, material, preço, estoque ou disponibilidade.",
-    autoExecute: false,
-    requiresConfirmation: false,
-    fields: [
-      { name: "nome", type: "string", required: false },
-      { name: "preco", type: "number", required: false },
-      { name: "estoque", type: "number", required: false },
-      { name: "link", type: "string", required: false },
-      { name: "imagem", type: "string", required: false },
-    ],
-  },
 ]
 
 const inputClassName =
@@ -530,6 +477,7 @@ export function ApiSheetManager({
   const [responseResult, setResponseResult] = useState(null)
   const [agendaDate, setAgendaDate] = useState("")
   const [testContextText, setTestContextText] = useState("")
+  const responseBoxRef = useRef(null)
 
   const inEditor = mode === "editor"
   const editing = Boolean(form.id)
@@ -618,6 +566,10 @@ export function ApiSheetManager({
       return null
     }
 
+    if (responseResult.responseJson && typeof responseResult.responseJson === "object") {
+      return JSON.stringify(responseResult.responseJson, null, 2)
+    }
+
     if (typeof responseResult.preview === "string") {
       try {
         return JSON.stringify(JSON.parse(responseResult.preview), null, 2)
@@ -628,6 +580,18 @@ export function ApiSheetManager({
 
     return JSON.stringify(responseResult, null, 2)
   }, [responseResult])
+
+  useEffect(() => {
+    if (!responseResult || sending) {
+      return
+    }
+
+    const scrollTimer = window.setTimeout(() => {
+      responseBoxRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })
+    }, 80)
+
+    return () => window.clearTimeout(scrollTimer)
+  }, [responseResult, sending])
 
   function updateForm(field, value) {
     setForm((current) => ({ ...current, [field]: value }))
@@ -679,29 +643,6 @@ export function ApiSheetManager({
         headerRows: nextRows.length ? nextRows : [{ id: `header-${Date.now()}`, key: "", value: "" }],
       }
     })
-  }
-
-  function applyRuntimePreset(preset) {
-    if (!preset) {
-      return
-    }
-
-    setForm((current) => ({
-      ...current,
-      method: isInternalApi(current) ? current.method : preset.method,
-      runtimeIntentType: preset.intentType,
-      runtimeDescriptionForIntent: preset.descriptionForIntent,
-      runtimeAutoExecute: preset.autoExecute,
-      runtimeRequiresConfirmation: preset.requiresConfirmation,
-      bodyFields: preset.fields.map((field, index) => ({
-        id: `field-${preset.id}-${index + 1}`,
-        name: field.name,
-        type: field.type,
-        required: field.required,
-      })),
-    }))
-    setEditorTab("runtime")
-    setBodySubtab("fields")
   }
 
   function startCreate() {
@@ -1082,7 +1023,7 @@ export function ApiSheetManager({
                 disabled={sending}
                 className="h-12 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 text-sm text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                <Send className="h-4 w-4" />
+                {sending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 {sending ? "Enviando..." : "Send"}
               </Button>
             </div>
@@ -1111,23 +1052,6 @@ export function ApiSheetManager({
           </div>
           {editorTab === "runtime" ? (
             <div className="grid gap-4">
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-semibold text-white">Presets rápidos</p>
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {runtimePresetOptions.map((preset) => (
-                    <Button
-                      key={preset.id}
-                      type="button"
-                      variant="ghost"
-                      onClick={() => applyRuntimePreset(preset)}
-                      className="h-9 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-slate-200"
-                    >
-                      {preset.label}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
                   <span className={labelClassName}>Tipo de intenção</span>
@@ -1174,13 +1098,6 @@ export function ApiSheetManager({
                   className={cn(textareaClassName, "min-h-[120px]")}
                 />
               </label>
-
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <p className="text-sm font-semibold text-white">Campos obrigatórios do runtime</p>
-                <p className="mt-1 text-sm text-slate-400">
-                  Os campos marcados como obrigatórios na aba Body viram `runtime.requiredFields` e bloqueiam execução automática quando faltarem.
-                </p>
-              </div>
 
               {urlPathParams.length ? (
                 <label className="block">
@@ -1457,7 +1374,7 @@ export function ApiSheetManager({
             </div>
           ) : null}
 
-          <div className="mt-5 border-t border-white/10 pt-5">
+          <div ref={responseBoxRef} className="mt-5 scroll-mt-24 border-t border-white/10 pt-5">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>

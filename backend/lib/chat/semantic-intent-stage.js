@@ -392,7 +392,7 @@ export function buildApiDecisionFromSemanticIntent(input) {
     return null
   }
 
-  if (["api_fact_query", "api_status_query", "api_comparison", "api_create_record"].includes(semanticIntent.intent)) {
+  if (["api_fact_query", "api_status_query", "api_comparison", "api_create_record", "api_catalog_search"].includes(semanticIntent.intent)) {
     return {
       kind: semanticIntent.intent,
       confidence: semanticIntent.confidence,
@@ -406,6 +406,14 @@ export function buildApiDecisionFromSemanticIntent(input) {
       comparisonMode: sanitizeString(semanticIntent.comparisonMode),
       apiId: sanitizeString(semanticIntent.apiId),
       intentType: normalizeSemanticApiIntentType(semanticIntent.intentType),
+      parameterValues:
+        semanticIntent.parameterValues && typeof semanticIntent.parameterValues === "object" && !Array.isArray(semanticIntent.parameterValues)
+          ? Object.fromEntries(
+              Object.entries(semanticIntent.parameterValues)
+                .map(([key, value]) => [sanitizeString(key), sanitizeString(value)])
+                .filter(([key, value]) => key && value),
+            )
+          : {},
       referencedProductIndexes: Array.isArray(semanticIntent.referencedProductIndexes)
         ? semanticIntent.referencedProductIndexes
             .map((item) => Number(item))
@@ -1053,16 +1061,18 @@ export async function classifySemanticApiIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de APIs estruturadas ja disponiveis no runtime.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"api_fact_query|api_status_query|api_comparison|api_create_record|other","confidence":0..1,"reason":"string","apiId":"string","intentType":"create_record|lookup_by_identifier|knowledge_search|catalog_search|generic_fact|","targetFieldHints":["string"],"supportFieldHints":["string"],"comparisonMode":"best_choice|highest_price|lowest_price|","referencedProductIndexes":[1,2]}.',
+            'Schema: {"intent":"api_fact_query|api_status_query|api_comparison|api_create_record|api_catalog_search|other","confidence":0..1,"reason":"string","apiId":"string","intentType":"create_record|lookup_by_identifier|knowledge_search|catalog_search|generic_fact|","targetFieldHints":["string"],"supportFieldHints":["string"],"parameterValues":{"campo":"valor"},"comparisonMode":"best_choice|highest_price|lowest_price|","referencedProductIndexes":[1,2]}.',
             "Use api_fact_query para pedido factual sobre campos disponiveis, como valor, data, endereco, documento, descricao.",
             "Use api_status_query para status, codigo, pedido, estoque, disponibilidade, rastreio.",
             "Use api_comparison para comparacao ou melhor opcao entre registros/itens retornados.",
+            "Use api_catalog_search quando a API de catalogo precisa buscar itens, produtos ou registros a partir de um termo informado pelo cliente.",
             "Use api_create_record somente quando o cliente pedir cadastro, envio, registro, lead ou abertura de solicitação em API de create_record.",
             "Escolha apiId e intentType da API mais compatível. Se houver conflito entre APIs de cadastro, consulta, conhecimento e catálogo, reduza a confiança ou retorne other.",
             "Nunca classifique create_record como consulta factual sem pedido explícito de cadastro e dados obrigatórios suficientes.",
             "Quando a intencao for factual ou status, preencha targetFieldHints com campos curtos e literais do runtime, por exemplo matricula, cartorio, valor, status, codigo, data_leilao, endereco, cidade, descricao.",
             "Quando fizer sentido adicionar contexto util, preencha supportFieldHints com campos complementares curtos e literais, por exemplo status, data_leilao, valor_minimo, ocupacao, cidade.",
             "Quando a intencao for api_comparison, preencha comparisonMode com best_choice, highest_price ou lowest_price.",
+            "Quando a API tiver parametros ausentes na URL ou campos obrigatorios, extraia valores literais da mensagem em parameterValues. Exemplo: para URL com {titulo} e mensagem 'imovel EDIFICIO VILLA', retorne parameterValues.titulo='EDIFICIO VILLA'.",
             "Quando a intencao comparar itens numerados da lista, preencha referencedProductIndexes com numeros 1-based reais.",
             "Se nao houver evidência suficiente, retorne other.",
           ].join("\n"),
@@ -1079,6 +1089,7 @@ export async function classifySemanticApiIntentStage(input = {}) {
               campos: Array.isArray(api?.campos)
                 ? api.campos.slice(0, 12).map((field) => sanitizeString(field?.nome)).filter(Boolean)
                 : [],
+              missingParams: Array.isArray(api?.missingParams) ? api.missingParams.map((item) => sanitizeString(item)).filter(Boolean) : [],
             })),
           }),
         },
@@ -1093,7 +1104,7 @@ export async function classifySemanticApiIntentStage(input = {}) {
             properties: {
               intent: {
                 type: "string",
-                enum: ["api_fact_query", "api_status_query", "api_comparison", "api_create_record", "other"],
+                enum: ["api_fact_query", "api_status_query", "api_comparison", "api_create_record", "api_catalog_search", "other"],
               },
               confidence: {
                 type: "number",
@@ -1122,6 +1133,12 @@ export async function classifySemanticApiIntentStage(input = {}) {
                   type: "string",
                 },
               },
+              parameterValues: {
+                type: "object",
+                additionalProperties: {
+                  type: "string",
+                },
+              },
               comparisonMode: {
                 type: "string",
               },
@@ -1140,13 +1157,14 @@ export async function classifySemanticApiIntentStage(input = {}) {
               "intentType",
               "targetFieldHints",
               "supportFieldHints",
+              "parameterValues",
               "comparisonMode",
               "referencedProductIndexes",
             ],
           },
         },
       },
-      max_output_tokens: 140,
+      max_output_tokens: 180,
     }),
   })
 
@@ -1170,6 +1188,14 @@ export async function classifySemanticApiIntentStage(input = {}) {
     supportFieldHints: Array.isArray(parsed?.supportFieldHints)
       ? parsed.supportFieldHints.map((item) => sanitizeString(item)).filter(Boolean)
       : [],
+    parameterValues:
+      parsed?.parameterValues && typeof parsed.parameterValues === "object" && !Array.isArray(parsed.parameterValues)
+        ? Object.fromEntries(
+            Object.entries(parsed.parameterValues)
+              .map(([key, value]) => [sanitizeString(key), sanitizeString(value)])
+              .filter(([key, value]) => key && value),
+          )
+        : {},
     comparisonMode: sanitizeString(parsed?.comparisonMode),
     referencedProductIndexes: Array.isArray(parsed?.referencedProductIndexes)
       ? parsed.referencedProductIndexes.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item >= 1)

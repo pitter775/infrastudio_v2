@@ -1,4 +1,5 @@
 import { buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReplyResolution } from "@/lib/chat/api-runtime"
+import { loadAgentRuntimeApis } from "@/lib/apis"
 import { buildBillingContextUpdate, buildBillingReplyResult } from "@/lib/chat/billing-intent-handler"
 import { hasRecentCatalogSnapshot } from "@/lib/chat/catalog-follow-up"
 import { resolveCatalogDecisionState } from "@/lib/chat/catalog-intent-handler"
@@ -52,7 +53,7 @@ function mapMessageRole(autor) {
 }
 
 function isSemanticApiFactualDecision(decision) {
-  return ["api_fact_query", "api_status_query", "api_create_record"].includes(decision?.kind)
+  return ["api_fact_query", "api_status_query", "api_create_record", "api_catalog_search"].includes(decision?.kind)
 }
 
 function getAgentRuntimeConfig(context = {}) {
@@ -327,7 +328,7 @@ function buildApiRoutingOverride(baseDecision, latestUserMessage, semanticApiDec
     return baseDecision
   }
 
-  if (["handoff", "agenda", "catalog", "billing"].includes(baseDecision?.domain)) {
+  if (["handoff", "agenda", "billing"].includes(baseDecision?.domain)) {
     return baseDecision
   }
 
@@ -546,6 +547,42 @@ function buildBaseRoutingDecision(latestUserMessage, history, context, runtimeAp
   })
 }
 
+async function reloadRuntimeApisWithSemanticParameters({ semanticApiDecision, context, runtimeApis, options = {} }) {
+  const parameterValues =
+    semanticApiDecision?.parameterValues && typeof semanticApiDecision.parameterValues === "object" && !Array.isArray(semanticApiDecision.parameterValues)
+      ? Object.fromEntries(
+          Object.entries(semanticApiDecision.parameterValues)
+            .map(([key, value]) => [String(key || "").trim(), String(value ?? "").trim()])
+            .filter(([key, value]) => key && value),
+        )
+      : {}
+  const selectedApiId = String(semanticApiDecision?.apiId || "").trim()
+  const needsReload = Object.keys(parameterValues).length > 0 && runtimeApis.some((api) => String(api?.apiId || api?.id || "").trim() === selectedApiId)
+
+  if (!needsReload || !context?.agente?.id || !context?.projeto?.id) {
+    return runtimeApis
+  }
+
+  const loadApis = options.loadAgentRuntimeApis ?? loadAgentRuntimeApis
+  const enrichedContext = {
+    ...context,
+    ...parameterValues,
+    apiRuntime: {
+      ...(context?.apiRuntime && typeof context.apiRuntime === "object" && !Array.isArray(context.apiRuntime) ? context.apiRuntime : {}),
+      parameterValues,
+      selectedApiId,
+    },
+  }
+
+  const reloadedApis = await loadApis({
+    agenteId: context.agente.id,
+    projetoId: context.projeto.id,
+    context: enrichedContext,
+  })
+
+  return Array.isArray(reloadedApis) && reloadedApis.length ? reloadedApis : runtimeApis
+}
+
 function hasLockedCatalogProductPricingPriority(routingDecision, context = {}) {
   if (routingDecision?.domain !== "catalog") {
     return false
@@ -596,7 +633,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const agentId = context?.agente?.id?.trim() || ""
   const agentPromptBase = context?.agente?.promptBase?.trim() || context?.agente?.descricao?.trim() || ""
   const latestUserMessage = [...(history ?? [])].reverse().find((item) => item.role === "user")?.content ?? ""
-  const runtimeApis = Array.isArray(context?.runtimeApis) ? context.runtimeApis : []
+  let runtimeApis = Array.isArray(context?.runtimeApis) ? context.runtimeApis : []
   const baseRuntimeConfig = getAgentRuntimeConfig(context)
   const structuredResponse = prefersStructuredReply(context)
   const initialFocusedApiContext = buildFocusedApiContext(latestUserMessage, runtimeApis)
@@ -673,6 +710,12 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         })
       : null
   const semanticApiDecision = buildApiDecisionFromSemanticIntent({ semanticIntent: semanticApiIntent })
+  runtimeApis = await reloadRuntimeApisWithSemanticParameters({
+    semanticApiDecision,
+    context: effectiveContext,
+    runtimeApis,
+    options,
+  })
   const focusedApiContext =
     semanticApiDecision?.targetFieldHints?.length || semanticApiDecision?.supportFieldHints?.length
       ? buildFocusedApiContext(latestUserMessage, runtimeApis, {
