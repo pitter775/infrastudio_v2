@@ -388,14 +388,25 @@ export function buildBillingDecisionFromSemanticIntent(input) {
 
 export function buildApiDecisionFromSemanticIntent(input) {
   const semanticIntent = input?.semanticIntent
-  if (!semanticIntent || semanticIntent.confidence < 0.7) {
+  if (!semanticIntent) {
     return null
   }
 
   if (["api_fact_query", "api_status_query", "api_comparison", "api_create_record", "api_catalog_search"].includes(semanticIntent.intent)) {
+    const parameterValues = normalizeSemanticApiParameterValues(semanticIntent.parameterValues)
+    const confidence = Number(semanticIntent.confidence ?? 0) || 0
+    const minimumConfidence =
+      semanticIntent.intent === "api_catalog_search" && Object.keys(parameterValues).length > 0
+        ? 0.55
+        : 0.7
+
+    if (confidence < minimumConfidence) {
+      return null
+    }
+
     return {
       kind: semanticIntent.intent,
-      confidence: semanticIntent.confidence,
+      confidence,
       reason: semanticIntent.reason ?? "Intencao estruturada de API runtime.",
       targetFieldHints: Array.isArray(semanticIntent.targetFieldHints)
         ? semanticIntent.targetFieldHints.map((item) => sanitizeString(item)).filter(Boolean)
@@ -406,7 +417,7 @@ export function buildApiDecisionFromSemanticIntent(input) {
       comparisonMode: sanitizeString(semanticIntent.comparisonMode),
       apiId: sanitizeString(semanticIntent.apiId),
       intentType: normalizeSemanticApiIntentType(semanticIntent.intentType),
-      parameterValues: normalizeSemanticApiParameterValues(semanticIntent.parameterValues),
+      parameterValues,
       referencedProductIndexes: Array.isArray(semanticIntent.referencedProductIndexes)
         ? semanticIntent.referencedProductIndexes
             .map((item) => Number(item))

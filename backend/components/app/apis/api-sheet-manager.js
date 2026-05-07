@@ -754,10 +754,15 @@ export function ApiSheetManager({
 
   async function handleSave(event) {
     event?.preventDefault?.()
-    setSaving(true)
     setStatus({ type: "idle", message: "" })
 
     try {
+      if (form.active && !String(form.runtimeDescriptionForIntent || "").trim()) {
+        setEditorTab("runtime")
+        throw new Error("Informe a descrição para decisão da IA. Ela ajuda o agente a escolher esta API corretamente durante a conversa.")
+      }
+
+      setSaving(true)
       const response = await fetch(editing ? `${endpoint}/${form.id}` : endpoint, {
         method: editing ? "PUT" : "POST",
         headers: {
@@ -1128,9 +1133,15 @@ export function ApiSheetManager({
                 <textarea
                   value={form.runtimeDescriptionForIntent}
                   onChange={(event) => updateForm("runtimeDescriptionForIntent", event.target.value)}
-                  placeholder="Exemplo: Busca produtos por termo, categoria, cor, material ou disponibilidade."
+                  placeholder="Exemplo: Use esta API quando o cliente quiser buscar imóveis pelo nome, título, condomínio, bairro, cidade ou termo de busca. Extraia o termo principal e use no parâmetro titulo."
                   className={cn(textareaClassName, "min-h-[120px]")}
+                  required={form.active}
                 />
+                {form.active ? (
+                  <span className="mt-2 block text-xs leading-5 text-slate-500">
+                    Obrigatório para API ativa. Ajuda o agente a decidir quando usar esta API.
+                  </span>
+                ) : null}
               </label>
 
               {urlPathParams.length ? (

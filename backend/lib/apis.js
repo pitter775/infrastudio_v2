@@ -493,13 +493,18 @@ function normalizeApiInput(input) {
     return { error: configValidation.error }
   }
 
+  const active = input.ativo === false || input.active === false ? false : true
+  if (active && !String(configValidation.value?.runtime?.descriptionForIntent || "").trim()) {
+    return { error: "Informe a descrição para decisão da IA. Ela ajuda o agente a escolher esta API corretamente durante a conversa." }
+  }
+
   return {
     payload: {
       nome: name,
       url: rawUrl,
       metodo: method,
       descricao: String(input.descricao || input.description || "").trim(),
-      ativo: input.ativo === false || input.active === false ? false : true,
+      ativo: active,
       configuracoes: configValidation.value ?? {},
       updated_at: new Date().toISOString(),
     },

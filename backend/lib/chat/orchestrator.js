@@ -557,7 +557,26 @@ async function reloadRuntimeApisWithSemanticParameters({ semanticApiDecision, co
         )
       : {}
   const selectedApiId = String(semanticApiDecision?.apiId || "").trim()
-  const needsReload = Object.keys(parameterValues).length > 0 && runtimeApis.some((api) => String(api?.apiId || api?.id || "").trim() === selectedApiId)
+  const targetApis = runtimeApis.filter((api) => {
+    const apiId = String(api?.apiId || api?.id || "").trim()
+    const intentType = String(api?.config?.runtime?.intentType || "").trim()
+    const hasMissingParams = Array.isArray(api?.missingParams) && api.missingParams.length > 0
+
+    if (selectedApiId) {
+      return apiId === selectedApiId
+    }
+
+    return hasMissingParams && intentType === semanticApiDecision?.intentType
+  })
+  const fallbackTargetApis =
+    targetApis.length > 0
+      ? targetApis
+      : !selectedApiId && semanticApiDecision?.kind === "api_catalog_search"
+        ? runtimeApis.filter((api) => String(api?.config?.runtime?.intentType || "").trim() === "catalog_search")
+        : []
+  const resolvedSelectedApiId =
+    selectedApiId || (fallbackTargetApis.length === 1 ? String(fallbackTargetApis[0]?.apiId || fallbackTargetApis[0]?.id || "").trim() : "")
+  const needsReload = Object.keys(parameterValues).length > 0 && Boolean(resolvedSelectedApiId)
 
   if (!needsReload || !context?.agente?.id || !context?.projeto?.id) {
     return runtimeApis
@@ -570,7 +589,7 @@ async function reloadRuntimeApisWithSemanticParameters({ semanticApiDecision, co
     apiRuntime: {
       ...(context?.apiRuntime && typeof context.apiRuntime === "object" && !Array.isArray(context.apiRuntime) ? context.apiRuntime : {}),
       parameterValues,
-      selectedApiId,
+      selectedApiId: resolvedSelectedApiId,
     },
   }
 
