@@ -378,6 +378,59 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
     .join("\n")
 }
 
+function buildApiListLlmGuidePrompt(project, apis = []) {
+  const activeApis = (Array.isArray(apis) ? apis : []).map((api) => ({
+    id: api.id || null,
+    nome: api.name || "",
+    metodo: api.method || "GET",
+    url: api.url || "",
+    descricao: api.description || "",
+    ativa: api.active !== false,
+    tipoIntencao: api.config?.runtime?.intentType || "generic_fact",
+    escopoUso: api.config?.runtime?.availabilityScope || "always",
+    descricaoParaDecisao: api.config?.runtime?.descriptionForIntent || "",
+    autoexecuta: api.config?.runtime?.autoExecute === true,
+    exigeConfirmacao: api.config?.runtime?.requiresConfirmation === true,
+  }))
+
+  return [
+    buildLlmApiGuidePrompt(emptyForm),
+    "",
+    "Contexto da lista de APIs deste projeto:",
+    "- Este texto foi copiado pela lista inicial de APIs, antes de abrir uma API específica.",
+    "- Use este contexto para orientar o usuário sobre qual API criar, editar, ativar, desativar ou separar por intenção.",
+    "- Ao avaliar conflito entre APIs, priorize Tipo de intenção, Escopo de uso e Descrição para decisão da IA.",
+    "- Se houver API de busca aberta e API de item atual, elas devem ter escopos diferentes para evitar escolha errada pelo agente.",
+    "",
+    "Projeto atual:",
+    JSON.stringify(
+      {
+        id: project?.id || null,
+        nome: project?.name || project?.nome || project?.title || null,
+        slug: project?.slug || null,
+        routeKey: project?.routeKey || null,
+        agente: {
+          id: project?.agent?.id || null,
+          nome: project?.agent?.name || project?.agent?.nome || null,
+          slug: project?.agent?.slug || null,
+        },
+      },
+      null,
+      2,
+    ),
+    "",
+    "APIs cadastradas atualmente:",
+    activeApis.length ? JSON.stringify(activeApis, null, 2) : "Nenhuma API cadastrada ainda.",
+    "",
+    "Checklist para orientar o usuário:",
+    "- Se a dúvida for cadastro de API nova, indique método, URL, campos, tipo de intenção, escopo, autoexecução, confirmação e descrição para decisão da IA.",
+    "- Se a dúvida for erro de escolha do agente, revise se as APIs ativas têm escopos parecidos ou descrições vagas.",
+    "- Se a API funciona no Send mas não no chat, revise vínculo com agente, API ativa, descrição para decisão da IA, escopo e contexto do Chat widget.",
+    "- Se a API usa {id}, recomende Consulta por identificador + Item atual.",
+    "- Se a API usa busca?titulo={titulo}, recomende Busca de catálogo + Busca aberta.",
+  ].join("\n")
+}
+
 function inferBodyFieldsFromBody(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return []
@@ -1006,6 +1059,30 @@ export function ApiSheetManager({
     }
   }
 
+  async function copyApiListGuideForLlm() {
+    const prompt = buildApiListLlmGuidePrompt(project, apis)
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(prompt)
+      } else {
+        const textarea = document.createElement("textarea")
+        textarea.value = prompt
+        textarea.setAttribute("readonly", "")
+        textarea.style.position = "fixed"
+        textarea.style.opacity = "0"
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand("copy")
+        textarea.remove()
+      }
+
+      setStatus({ type: "success", message: "Contrato da lista de APIs copiado para LLM." })
+    } catch {
+      setStatus({ type: "error", message: "Não foi possível copiar o contrato da lista de APIs." })
+    }
+  }
+
   function handleSend() {
     sendDraftRequest()
   }
@@ -1146,6 +1223,26 @@ export function ApiSheetManager({
 
       {!inEditor ? (
         <div className="-mr-6 min-h-0 flex-1 space-y-4 overflow-y-auto pr-6">
+          {!loading ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-white">APIs do agente</p>
+                <p className="mt-1 text-xs leading-5 text-slate-500">
+                  Copie o contrato para tirar dúvidas sobre cadastro, conflito e uso das APIs.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={copyApiListGuideForLlm}
+                className="h-9 shrink-0 gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 hover:bg-sky-500/15"
+              >
+                <ClipboardCopy className="h-3.5 w-3.5" />
+                Copiar para LLM (GPT)
+              </Button>
+            </div>
+          ) : null}
+
           {loading ? (
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
               Carregando APIs...
