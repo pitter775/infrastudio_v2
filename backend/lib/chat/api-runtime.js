@@ -495,7 +495,7 @@ function buildApiCatalogSearchReply(products = [], searchTerm = "") {
   }
 
   if (total === 1) {
-    return `${products[0]?.nome || "Encontrei uma opção"} parece a opção mais consistente para seguir agora.`
+    return buildApiSelectedCatalogReply(products[0])
   }
 
   const term = sanitizeString(searchTerm)
@@ -550,11 +550,15 @@ function buildApiSelectedCatalogReply(product) {
   if (!product?.nome) {
     return null
   }
+  const locationLabel = [product.cidade, product.estado].filter(Boolean).join(" - ")
   return [
-    `${product.nome} parece a opcao mais consistente para seguir agora.`,
-    product.preco != null ? `Preco atual: ${formatCurrencyValue(product.preco)}.` : "",
+    `Encontrei o imóvel ${product.nome}.`,
+    product.descricao ? `Detalhes: ${product.descricao}.` : "",
+    locationLabel ? `Localização: ${locationLabel}.` : "",
+    product.endereco ? `Endereço: ${product.endereco}.` : "",
+    product.preco != null ? `Preço atual: ${formatCurrencyValue(product.preco)}.` : "",
     sanitizeNumber(product.availableQuantity, 0) > 0 ? `Tenho ${sanitizeNumber(product.availableQuantity, 0)} em estoque.` : "",
-    product.freeShipping ? "Esse item esta com frete gratis." : "",
+    product.freeShipping ? "Esse item está com frete grátis." : "",
     product.warranty ? `Garantia informada: ${product.warranty}.` : "",
     product.link ? "Se quiser, eu posso te mandar o link direto." : "",
   ]
@@ -601,6 +605,14 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
         currentCatalogProduct: selectedProduct,
         factContext: null,
       }
+    }
+  }
+
+  if (semanticApiDecision?.kind === "api_catalog_search") {
+    return {
+      reply: buildApiCatalogSearchReply(products, getApiSearchTermFromSemanticDecision(semanticApiDecision)),
+      currentCatalogProduct: products.length === 1 ? products[0] : null,
+      factContext: null,
     }
   }
 
@@ -664,14 +676,6 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
     return {
       reply: buildApiSelectedCatalogReply(executionState.currentCatalogProduct),
       currentCatalogProduct: executionState.currentCatalogProduct,
-      factContext: null,
-    }
-  }
-
-  if (semanticApiDecision?.kind === "api_catalog_search" && products.length > 1) {
-    return {
-      reply: buildApiCatalogSearchReply(products, getApiSearchTermFromSemanticDecision(semanticApiDecision)),
-      currentCatalogProduct: null,
       factContext: null,
     }
   }
