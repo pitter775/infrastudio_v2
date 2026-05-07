@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CheckCircle2, CircleHelp, Clock3, LoaderCircle, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
+import { CheckCircle2, Clock3, LoaderCircle, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
 
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
@@ -121,20 +121,14 @@ const textareaClassName =
   "mt-1 w-full resize-y rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
 const labelClassName = "text-xs font-semibold uppercase tracking-[0.18em] text-slate-500"
 
-function RuntimeToggleHelp({ children, label }) {
+function RuntimeHoverHelp({ children, content }) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-sky-500/20 bg-sky-500/10 text-sky-100 transition hover:bg-sky-500/15"
-          aria-label={label}
-        >
-          <CircleHelp className="h-4 w-4" />
-        </button>
+        {children}
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-[280px] text-left leading-relaxed text-slate-100">
-        {children}
+        {content}
       </TooltipContent>
     </Tooltip>
   )
@@ -1121,64 +1115,56 @@ export function ApiSheetManager({
           {editorTab === "runtime" ? (
             <div className="grid gap-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className="inline-flex items-center gap-2">
-                    <span className={labelClassName}>Tipo de intenção</span>
-                    <RuntimeToggleHelp label="Ajuda sobre tipo de intenção">
-                      Define o que a API faz. Use Busca de catálogo para procurar por termo, Consulta por identificador para id/propertyId, Busca informativa para FAQ e Cadastro para envio de dados.
-                    </RuntimeToggleHelp>
-                  </span>
+                <div className="block">
+                  <RuntimeHoverHelp content="Define o que a API faz. Use Busca de catálogo para procurar por termo, Consulta por identificador para id/propertyId, Busca informativa para FAQ e Cadastro para envio de dados.">
+                    <span className={cn(labelClassName, "inline-flex cursor-help")}>Tipo de intenção</span>
+                  </RuntimeHoverHelp>
                   <div className="mt-1">
                     <AppSelect
+                      instanceId="runtime-intent-type"
                       options={runtimeIntentTypeOptions}
                       value={form.runtimeIntentType}
                       onChangeValue={(value) => updateForm("runtimeIntentType", value || "generic_fact")}
                       formatOptionLabel={formatRuntimeIntentOption}
                     />
                   </div>
-                </label>
-                <label className="block">
-                  <span className="inline-flex items-center gap-2">
-                    <span className={labelClassName}>Escopo de uso</span>
-                    <RuntimeToggleHelp label="Ajuda sobre escopo de uso">
-                      Controla onde a API aparece para o agente. Busca aberta funciona na home sem item fixo. Item atual funciona só quando o chat recebe id/propertyId no contexto.
-                    </RuntimeToggleHelp>
-                  </span>
+                </div>
+                <div className="block">
+                  <RuntimeHoverHelp content="Controla onde a API aparece para o agente. Busca aberta funciona na home sem item fixo. Item atual funciona só quando o chat recebe id/propertyId no contexto.">
+                    <span className={cn(labelClassName, "inline-flex cursor-help")}>Escopo de uso</span>
+                  </RuntimeHoverHelp>
                   <div className="mt-1">
                     <AppSelect
+                      instanceId="runtime-availability-scope"
                       options={runtimeAvailabilityScopeOptions}
                       value={form.runtimeAvailabilityScope}
                       onChangeValue={(value) => updateForm("runtimeAvailabilityScope", normalizeRuntimeAvailabilityScope(value))}
                       formatOptionLabel={formatRuntimeIntentOption}
                     />
                   </div>
-                </label>
+                </div>
               </div>
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <RuntimeHoverHelp content="Não autoexecuta: o agente pode usar a API como contexto, mas não dispara a requisição sozinho durante a conversa.">
+                  <span className="inline-flex">
                     <ToggleSwitchButton
                       checked={form.runtimeAutoExecute}
                       onChange={(value) => updateForm("runtimeAutoExecute", value)}
                       labelOn="Autoexecuta"
                       labelOff="Não autoexecuta"
                     />
-                    <RuntimeToggleHelp label="O que significa não autoexecuta">
-                      Não autoexecuta: o agente pode usar a API como contexto, mas não dispara a requisição sozinho durante a conversa.
-                    </RuntimeToggleHelp>
-                  </div>
-                  <div className="flex items-center gap-2">
+                  </span>
+                </RuntimeHoverHelp>
+                <RuntimeHoverHelp content="Sem confirmação: quando a API for executada, o agente não precisa pedir uma aprovação final do usuário antes do envio.">
+                  <span className="inline-flex">
                     <ToggleSwitchButton
                       checked={form.runtimeRequiresConfirmation}
                       onChange={(value) => updateForm("runtimeRequiresConfirmation", value)}
                       labelOn="Exige confirmação"
                       labelOff="Sem confirmação"
                     />
-                    <RuntimeToggleHelp label="O que significa sem confirmação">
-                      Sem confirmação: quando a API for executada, o agente não precisa pedir uma aprovação final do usuário antes do envio.
-                    </RuntimeToggleHelp>
-                  </div>
-                </div>
+                  </span>
+                </RuntimeHoverHelp>
               </div>
 
               <label className="block">

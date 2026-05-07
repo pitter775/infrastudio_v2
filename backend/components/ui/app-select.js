@@ -87,6 +87,7 @@ export function AppSelect({
   onChangeValue,
   formatOptionLabel,
   placeholder = "Selecione",
+  instanceId,
   isClearable = false,
   menuPlacement = "auto",
   minHeight = 48,
@@ -101,7 +102,7 @@ export function AppSelect({
   return (
     <Select
       unstyled={false}
-      instanceId={`app-select-${placeholder}`}
+      instanceId={instanceId || `app-select-${placeholder}`}
       options={options}
       value={selectedOption}
       onChange={(option) => onChangeValue?.(option?.value ?? "")}
