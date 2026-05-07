@@ -2389,9 +2389,21 @@
     }
 
     function createProductAssetAction(asset) {
-      var actionUrl = asset.targetUrl || asset.publicUrl || "";
+      var isApiRuntimeAsset = asset && asset.provider === "api_runtime";
+      var actionUrl = isApiRuntimeAsset ? (asset.targetUrl || "") : (asset.targetUrl || asset.publicUrl || "");
       if (!actionUrl) {
         return null;
+      }
+      if (isApiRuntimeAsset) {
+        var apiAction = document.createElement("a");
+        apiAction.className = "chat-asset-action primary";
+        apiAction.href = actionUrl;
+        apiAction.target = "_blank";
+        apiAction.rel = "noreferrer noopener";
+        apiAction.textContent = "Abrir detalhes";
+        apiAction.setAttribute("aria-label", "Abrir detalhes");
+        apiAction.setAttribute("title", "Abrir detalhes");
+        return apiAction;
       }
       var action = document.createElement("a");
       action.className = "chat-mercado-link";
@@ -2467,7 +2479,7 @@
     }
 
     function resolveProductDetailUrl(asset) {
-      if (!asset || !storeSlug) {
+      if (!asset) {
         return "";
       }
 
@@ -2476,6 +2488,14 @@
         (asset.metadata && typeof asset.metadata.detailUrl === "string" ? asset.metadata.detailUrl.trim() : "");
       if (explicitDetailUrl) {
         return explicitDetailUrl;
+      }
+
+      if (asset.provider === "api_runtime") {
+        return typeof asset.targetUrl === "string" ? asset.targetUrl.trim() : "";
+      }
+
+      if (!storeSlug) {
+        return "";
       }
 
       var productSlug =

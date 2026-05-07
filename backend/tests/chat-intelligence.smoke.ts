@@ -6394,6 +6394,7 @@ const tests: TestCase[] = [
       assert.equal(result.assets?.length, 1);
       assert.equal(result.assets?.[0]?.provider, "api_runtime");
       assert.equal(result.assets?.[0]?.id, "imovel-condominio");
+      assert.equal(result.assets?.[0]?.priceLabel?.replace(/\s/u, " "), "R$ 240.000,00");
       assert.equal(result.assets?.[0]?.publicUrl, "https://cdn.nexo.test/condominio-1.jpg");
       assert.deepEqual(result.assets?.[0]?.images, [
         "https://cdn.nexo.test/condominio-1.jpg",
@@ -6401,6 +6402,83 @@ const tests: TestCase[] = [
       ]);
       assert.match(result.reply, /card/i);
       assert.match(result.reply, /CONDOMINIO TIRADENTES/i);
+    },
+  },
+  {
+    name: "api runtime nao mistura card de outra api quando detalhe usa produto em contexto",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "Saber mais" }] as never,
+        {
+          agente: {
+            id: "agent-api-product-detail-no-cross-asset",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111115",
+            nome: "Nexo Imoveis",
+          },
+          conversation: { mode: "listing" },
+          ui: {
+            catalogAction: "product_detail",
+            catalogProductId: "imovel-villa",
+          },
+          catalogo: {
+            listingSession: {
+              id: "api-listing-villa",
+              source: "api_runtime",
+              matchedProductIds: ["imovel-villa"],
+              total: 1,
+            },
+            ultimosProdutos: [
+              {
+                id: "imovel-villa",
+                nome: "EDIFICIO VILLA DI SAN LUCAS",
+                descricao: "Apartamento no primeiro andar.",
+                preco: 128000,
+                source: "api_runtime",
+                apiId: "api-busca",
+              },
+            ],
+          },
+          runtimeApis: [
+            {
+              apiId: "api-item-atual",
+              id: "api-item-atual",
+              nome: "Consultar imovel",
+              method: "GET",
+              ok: true,
+              status: 200,
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  availabilityScope: "current_item",
+                  autoExecute: true,
+                },
+              },
+              catalogItems: [
+                [
+                  { nome: "id", valor: "imovel-comercial" },
+                  { nome: "titulo", valor: "Imovel Comercial" },
+                  { nome: "valor_publico", valor: 900000 },
+                  { nome: "imagens", valor: JSON.stringify([{ url: "https://cdn.nexo.test/comercial.jpg" }]) },
+                ],
+              ],
+              campos: [],
+            },
+          ],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => null,
+        }
+      );
+
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.match(result.reply, /EDIFICIO VILLA DI SAN LUCAS/i);
+      assert.equal(result.assets?.[0]?.id, "imovel-villa");
+      assert.equal(result.assets?.[0]?.publicUrl, "");
+      assert.doesNotMatch(JSON.stringify(result.assets ?? []), /comercial\.jpg/i);
     },
   },
   {

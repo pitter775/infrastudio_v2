@@ -400,8 +400,9 @@ function groupApiFieldListAsCatalogItem(api, fields, deps, itemIndex = 0) {
   const fieldMap = new Map(fields.map((field) => [normalizeApiFieldName(field.nome, deps), field.valor]))
   const readField = (...keys) => {
     for (const key of keys) {
-      if (fieldMap.has(key)) {
-        return fieldMap.get(key)
+      const normalizedKey = normalizeApiFieldName(key, deps)
+      if (fieldMap.has(normalizedKey)) {
+        return fieldMap.get(normalizedKey)
       }
     }
     return undefined
@@ -568,8 +569,7 @@ function buildApiCatalogSearchReply(products = [], searchTerm = "") {
     : `Encontrei ${total} opções. Vou te mostrar as principais agora.`
 }
 
-export function buildApiCatalogAssets(apis = [], customDeps = {}) {
-  const products = extractApiCatalogProducts(apis, customDeps)
+export function buildApiCatalogAssetsFromProducts(products = []) {
   return products.slice(0, 6).map((product, index) => {
     const priceLabel = product.preco != null ? formatCurrencyValue(product.preco) : ""
     const locationLabel = [product.cidade, product.estado].filter(Boolean).join(" - ")
@@ -604,6 +604,10 @@ export function buildApiCatalogAssets(apis = [], customDeps = {}) {
       },
     }
   })
+}
+
+export function buildApiCatalogAssets(apis = [], customDeps = {}) {
+  return buildApiCatalogAssetsFromProducts(extractApiCatalogProducts(apis, customDeps))
 }
 
 function hasRecentApiListContext(contextProducts, products) {

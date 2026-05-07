@@ -1,4 +1,11 @@
-import { buildApiCatalogAssets, buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReplyResolution } from "@/lib/chat/api-runtime"
+import {
+  buildApiCatalogAssets,
+  buildApiCatalogAssetsFromProducts,
+  buildApiCatalogSearchState,
+  buildApiFallbackReply,
+  buildFocusedApiContext,
+  resolveApiCatalogReplyResolution,
+} from "@/lib/chat/api-runtime"
 import { loadAgentRuntimeApis } from "@/lib/apis"
 import { buildBillingContextUpdate, buildBillingReplyResult } from "@/lib/chat/billing-intent-handler"
 import { hasRecentCatalogSnapshot } from "@/lib/chat/catalog-follow-up"
@@ -274,6 +281,25 @@ function buildCatalogDiagnosticsPayload(input = {}) {
     matchedCount: input.matchedCount ?? 0,
     replyAssetsCount: input.replyAssetsCount ?? 0,
   }
+}
+
+function resolveApiCatalogAssetsForReply(baseAssets = [], apiReply = null) {
+  const currentProduct = apiReply?.currentCatalogProduct
+  if (!currentProduct || typeof currentProduct !== "object") {
+    return baseAssets
+  }
+
+  const currentId = String(currentProduct.id || currentProduct.productId || "").trim()
+  if (!currentId) {
+    return buildApiCatalogAssetsFromProducts([currentProduct])
+  }
+
+  const matchingAssets = baseAssets.filter((asset) => {
+    const assetId = String(asset?.id || asset?.metadata?.productId || "").trim()
+    return assetId && assetId === currentId
+  })
+
+  return matchingAssets.length ? matchingAssets : buildApiCatalogAssetsFromProducts([currentProduct])
 }
 
 function buildBillingDiagnosticsPayload(input = {}) {
@@ -1070,6 +1096,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           semanticApiDecision,
         })
       : null
+  const apiCatalogReplyAssets = resolveApiCatalogAssetsForReply(apiCatalogAssets, apiCatalogReply)
   const mercadoLivreAssets = Array.isArray(mercadoLivreState?.mercadoLivreAssets) ? mercadoLivreState.mercadoLivreAssets : []
   const mercadoLivreCatalogSearchState =
     mercadoLivreState?.catalogSearchState && typeof mercadoLivreState.catalogSearchState === "object"
@@ -1225,7 +1252,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           catalogoBusca: apiCatalogSearchState,
           catalogFactContext: apiReply?.factContext ?? null,
         }),
-        assets: apiCatalogAssets,
+        assets: apiCatalogReplyAssets,
       }
     }
   }
@@ -1241,7 +1268,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         catalogoBusca: apiCatalogSearchState,
         catalogFactContext: apiCatalogReply.factContext ?? null,
       }),
-      assets: apiCatalogAssets,
+      assets: apiCatalogReplyAssets,
     }
   }
 
