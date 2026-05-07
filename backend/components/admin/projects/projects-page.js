@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useRouter } from 'next/navigation'
-import { CheckCircle2, ChevronRight, List, LoaderCircle, MessageSquare, Pencil, Plus, Repeat, Store, Trash2 } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Coins, List, LoaderCircle, MessageSquare, Pencil, Plus, Repeat, Store, Trash2 } from 'lucide-react'
 import { AdminPageHeader } from '@/components/admin/page-header'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
 import { AppSelect } from '@/components/ui/app-select'
@@ -80,6 +80,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
   const [transferUserId, setTransferUserId] = useState('')
   const [transferring, setTransferring] = useState(false)
   const [transferError, setTransferError] = useState('')
+  const [creditingProjectId, setCreditingProjectId] = useState(null)
   const sheetHistoryActiveRef = useRef(false)
   const sheetPopClosingRef = useRef(false)
   const isAdmin = user?.role === 'admin'
@@ -260,6 +261,31 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
     setFeedback('Projeto transferido com sucesso.')
   }
 
+  async function handleAdminCreditProject(project) {
+    if (!project?.id || !isAdmin || creditingProjectId) {
+      return
+    }
+
+    setCreditingProjectId(project.id)
+    setFeedback(null)
+
+    const response = await fetch(`/api/admin/projetos/${project.id}/credits`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const payload = await response.json().catch(() => ({}))
+
+    if (!response.ok) {
+      setFeedback(payload.error ?? 'Não foi possível adicionar créditos.')
+      setCreditingProjectId(null)
+      return
+    }
+
+    await refreshProjects()
+    setCreditingProjectId(null)
+    setFeedback(`100K créditos adicionados em ${project.name}.`)
+  }
+
   const transferUserOptions = users
     .filter((item) => item?.id && item.id !== transferTarget?.owner?.id)
     .map((item) => ({
@@ -333,11 +359,36 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
         </div>
       </div>
 
+      {feedback ? (
+        <div className="mb-5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-100">
+          {feedback}
+        </div>
+      ) : null}
+
       {orderedProjects.length > 0 ? (
         <div className="flex flex-col gap-8 xl:flex-row xl:items-start">
           <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-start gap-5">
             {orderedProjects.map((project, index) => (
               <div key={project.id} className="min-w-0 max-w-[720px]">
+                {isAdmin ? (
+                  <div className="mb-2 flex justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      disabled={creditingProjectId === project.id}
+                      onClick={() => handleAdminCreditProject(project)}
+                      className="h-7 rounded-lg border border-cyan-400/20 bg-cyan-500/10 px-2.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-cyan-100 hover:bg-cyan-500/15 disabled:opacity-50"
+                      title="Adicionar 100K créditos sem cobrança"
+                    >
+                      {creditingProjectId === project.id ? (
+                        <LoaderCircle className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Coins className="mr-1.5 h-3.5 w-3.5" />
+                      )}
+                      +100K créditos
+                    </Button>
+                  </div>
+                ) : null}
                 <AdminProjectCard
                   project={project}
                   index={index}
