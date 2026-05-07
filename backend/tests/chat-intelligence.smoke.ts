@@ -6315,6 +6315,95 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "api runtime renderiza card quando catalogo retorna um unico item",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem imovel condominio?" }] as never,
+        {
+          agente: {
+            id: "agent-api-open-search-single",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111114",
+            nome: "Nexo Imoveis",
+          },
+          runtimeApis: [
+            {
+              apiId: "api-busca-imoveis-single",
+              id: "api-busca-imoveis-single",
+              nome: "Buscar imoveis",
+              method: "GET",
+              url: "https://nexo-imoveis.vercel.app/api/imoveis/busca?titulo={titulo}",
+              missingParams: ["titulo"],
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  availabilityScope: "open_search",
+                  autoExecute: true,
+                  descriptionForIntent: "Use para buscar imoveis por nome, titulo ou termo de busca.",
+                },
+              },
+              campos: [],
+            },
+          ],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => null,
+          loadAgentRuntimeApis: async () => [
+            {
+              apiId: "api-busca-imoveis-single",
+              id: "api-busca-imoveis-single",
+              nome: "Buscar imoveis",
+              method: "GET",
+              ok: true,
+              status: 200,
+              missingParams: [],
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  availabilityScope: "open_search",
+                  autoExecute: true,
+                },
+              },
+              catalogItems: [
+                [
+                  { nome: "id", valor: "imovel-condominio" },
+                  { nome: "titulo", valor: "CONDOMINIO TIRADENTES" },
+                  { nome: "descricao", valor: "Apartamento n 95, tipo B, localizado no Bloco 11." },
+                  { nome: "valor_avaliacao", valor: 240000 },
+                  { nome: "cidade", valor: "Sao Paulo" },
+                  { nome: "estado", valor: "SP" },
+                  {
+                    nome: "imagens",
+                    valor: JSON.stringify([
+                      { url: "https://cdn.nexo.test/condominio-1.jpg" },
+                      { url: "https://cdn.nexo.test/condominio-2.jpg" },
+                    ]),
+                  },
+                ],
+              ],
+              campos: [],
+            },
+          ],
+        }
+      );
+
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.equal(result.assets?.length, 1);
+      assert.equal(result.assets?.[0]?.provider, "api_runtime");
+      assert.equal(result.assets?.[0]?.id, "imovel-condominio");
+      assert.equal(result.assets?.[0]?.publicUrl, "https://cdn.nexo.test/condominio-1.jpg");
+      assert.deepEqual(result.assets?.[0]?.images, [
+        "https://cdn.nexo.test/condominio-1.jpg",
+        "https://cdn.nexo.test/condominio-2.jpg",
+      ]);
+      assert.match(result.reply, /card/i);
+      assert.match(result.reply, /CONDOMINIO TIRADENTES/i);
+    },
+  },
+  {
     name: "api runtime renderiza lista de catalogo com multiplos itens",
     run: async () => {
       const result = await executeSalesOrchestrator(

@@ -323,6 +323,29 @@ function normalizeFieldValue(value) {
   }
 }
 
+function isCatalogMediaFieldName(name) {
+  const normalized = String(name || "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+  return [
+    "imagem",
+    "imagens",
+    "image",
+    "images",
+    "foto",
+    "fotos",
+    "thumbnail",
+    "thumb",
+    "picture",
+    "pictures",
+    "photos",
+    "gallery",
+    "galeria",
+  ].includes(normalized)
+}
+
 function getRuntimeContextValue(context, path) {
   if (!path) {
     return undefined
@@ -514,7 +537,7 @@ function extractCatalogRuntimeItems(api, payload) {
                 }
           })
         : Object.entries(item)
-            .filter(([, value]) => value == null || ["string", "number", "boolean"].includes(typeof value))
+            .filter(([key, value]) => value == null || ["string", "number", "boolean"].includes(typeof value) || isCatalogMediaFieldName(key))
             .slice(0, 40)
             .map(([key, value]) => ({
               nome: key,

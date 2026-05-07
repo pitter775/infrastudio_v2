@@ -320,6 +320,65 @@ function sanitizeNumber(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function pushCatalogImageUrl(target, value) {
+  const raw = sanitizeString(value)
+  if (!raw) {
+    return
+  }
+
+  if (!target.includes(raw)) {
+    target.push(raw)
+  }
+}
+
+function collectCatalogImageUrls(value, target = []) {
+  if (value == null || target.length >= 6) {
+    return target
+  }
+
+  if (typeof value === "string") {
+    const text = value.trim()
+    if (!text) {
+      return target
+    }
+
+    if ((text.startsWith("[") && text.endsWith("]")) || (text.startsWith("{") && text.endsWith("}"))) {
+      try {
+        return collectCatalogImageUrls(JSON.parse(text), target)
+      } catch {
+        pushCatalogImageUrl(target, text)
+        return target
+      }
+    }
+
+    pushCatalogImageUrl(target, text)
+    return target
+  }
+
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectCatalogImageUrls(item, target))
+    return target
+  }
+
+  if (typeof value === "object") {
+    const candidates = [
+      value.publicUrl,
+      value.url,
+      value.src,
+      value.href,
+      value.imagem,
+      value.image,
+      value.thumbnail,
+      value.thumb,
+      value.foto,
+      value.path,
+    ]
+    candidates.forEach((item) => collectCatalogImageUrls(item, target))
+  }
+
+  return target
+}
+
 function normalizeApiFieldName(name, deps) {
   return deps.normalizeText(String(name || "").replace(/\./g, "_"))
 }
@@ -372,7 +431,11 @@ function groupApiFieldListAsCatalogItem(api, fields, deps, itemIndex = 0) {
   const material = sanitizeString(readField("material"))
   const cor = sanitizeString(readField("cor", "color"))
   const link = sanitizeString(readField("link", "url", "permalink"))
-  const imagem = sanitizeString(readField("imagem", "image", "thumbnail"))
+  const imagens = collectCatalogImageUrls(
+    readField("imagens", "images", "fotos", "photos", "pictures", "galeria", "gallery")
+  )
+  collectCatalogImageUrls(readField("imagem", "image", "thumbnail", "thumb", "foto", "picture"), imagens)
+  const imagem = imagens[0] || ""
   const cidade = sanitizeString(readField("cidade", "city"))
   const estado = sanitizeString(readField("estado", "uf", "state"))
   const endereco = sanitizeString(readField("endereco", "rua", "logradouro"))
@@ -404,6 +467,7 @@ function groupApiFieldListAsCatalogItem(api, fields, deps, itemIndex = 0) {
     preco,
     link,
     imagem,
+    imagens,
     cidade,
     estado,
     endereco,
@@ -524,7 +588,7 @@ export function buildApiCatalogAssets(apis = [], customDeps = {}) {
       priceLabel,
       targetUrl: product.link || "",
       publicUrl: product.imagem || "",
-      images: product.imagem ? [product.imagem] : [],
+      images: Array.isArray(product.imagens) && product.imagens.length ? product.imagens : product.imagem ? [product.imagem] : [],
       whatsappText: [priceLabel, locationLabel, product.descricao].filter(Boolean).join("\n"),
       metadata: {
         productId: product.id || "",
@@ -552,7 +616,7 @@ function buildApiSelectedCatalogReply(product) {
   }
   const locationLabel = [product.cidade, product.estado].filter(Boolean).join(" - ")
   return [
-    `Encontrei o imóvel ${product.nome}.`,
+    `Encontrei o imóvel ${product.nome} e separei o card para você avaliar melhor.`,
     product.descricao ? `Detalhes: ${product.descricao}.` : "",
     locationLabel ? `Localização: ${locationLabel}.` : "",
     product.endereco ? `Endereço: ${product.endereco}.` : "",

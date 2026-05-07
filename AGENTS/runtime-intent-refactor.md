@@ -216,6 +216,8 @@ Ja feito:
   - API runtime de catalogo agora preserva multiplos itens retornados por uma unica API em `catalogItems`, gera assets horizontais no widget e reaproveita a acao estruturada `Saber mais` via `catalogAction=product_detail` sem depender de texto livre
   - listagens de API runtime tambem passam a criar `listingSession.source = api_runtime`, permitindo separar continuidade de API customizada da continuidade Mercado Livre
   - busca de catalogo da API runtime com um unico resultado agora responde como item encontrado, com detalhes estruturados, antes de cair em resposta factual curta por campos
+  - todo resultado de API runtime `catalog_search`, inclusive item unico, deve gerar asset/card quando houver dados minimos de catalogo; a bolha textual apenas vende/contextualiza o card
+  - cards de API runtime agora tambem reconhecem campos de imagem em formatos comuns (`imagem`, `imagens`, `image`, `images`, `foto`, `fotos`, `thumbnail`, `pictures`, `galeria`), inclusive array/JSON string com objetos `{ url }`
 - o `domain-router` de billing tambem ficou mais fail-closed:
   - sem `pricingCatalog` estruturado real no runtime, o roteador nao assume billing so por `planos`, `assinatura` ou similares
   - isso joga mais casos para o `intent-stage` e reduz chute textual no roteador
