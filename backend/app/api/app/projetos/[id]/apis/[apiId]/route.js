@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { deleteApiForUser, getApiForUser, restoreApiVersionForUser, updateApiForUser } from "@/lib/apis"
+import { deleteApiForUser, ensureAgentApiLinkForUser, getApiForUser, restoreApiVersionForUser, updateApiForUser } from "@/lib/apis"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 
@@ -46,6 +46,21 @@ export async function PUT(request, context) {
 
   if (error) {
     return NextResponse.json({ error }, { status: 400 })
+  }
+
+  if (api?.id && api.active !== false && project.agent?.id) {
+    const linkResult = await ensureAgentApiLinkForUser(
+      {
+        agenteId: project.agent.id,
+        projetoId: project.id,
+        apiId: api.id,
+      },
+      user,
+    )
+
+    if (!linkResult.ok) {
+      return NextResponse.json({ api, error: linkResult.error }, { status: 200 })
+    }
   }
 
   return NextResponse.json({ api }, { status: 200 })

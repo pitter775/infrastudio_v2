@@ -861,6 +861,69 @@ export async function replaceAgentApiLinksForUser({ agenteId, projetoId, apiIds 
   }
 }
 
+export async function ensureAgentApiLinkForUser({ agenteId, projetoId, apiId }, user) {
+  if (!agenteId || !projetoId || !apiId || !userCanAccessProject(user, projetoId)) {
+    return { ok: false, error: "Acesso negado." }
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const [{ data: agent, error: agentError }, { data: api, error: apiError }] = await Promise.all([
+      supabase
+        .from("agentes")
+        .select("id")
+        .eq("id", agenteId)
+        .eq("projeto_id", projetoId)
+        .maybeSingle(),
+      supabase
+        .from("apis")
+        .select("id")
+        .eq("id", apiId)
+        .eq("projeto_id", projetoId)
+        .maybeSingle(),
+    ])
+
+    if (agentError || !agent) {
+      return { ok: false, error: "Agente não encontrado." }
+    }
+
+    if (apiError || !api) {
+      return { ok: false, error: "API não encontrada." }
+    }
+
+    const { data: existing, error: existingError } = await supabase
+      .from("agente_api")
+      .select("api_id")
+      .eq("agente_id", agenteId)
+      .eq("api_id", apiId)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingError) {
+      console.error("[apis] failed to check agent api link", existingError)
+      return { ok: false, error: "Não foi possível validar o vínculo da API." }
+    }
+
+    if (existing?.api_id) {
+      return { ok: true, error: null }
+    }
+
+    const { error: insertError } = await supabase
+      .from("agente_api")
+      .insert({ agente_id: agenteId, api_id: apiId })
+
+    if (insertError) {
+      console.error("[apis] failed to insert agent api link", insertError)
+      return { ok: false, error: "Não foi possível vincular a API ao agente." }
+    }
+
+    return { ok: true, error: null }
+  } catch (error) {
+    console.error("[apis] failed to ensure agent api link", error)
+    return { ok: false, error: "Não foi possível vincular a API ao agente." }
+  }
+}
+
 export async function createApiForUser(projetoId, input, user) {
   if (!projetoId || !userCanAccessProject(user, projetoId)) {
     return { api: null, error: "Acesso negado." }
@@ -1282,7 +1345,7 @@ export async function loadAgentRuntimeApis({ agenteId, projetoId, limit = 4, con
 
   try {
     const supabase = getSupabaseAdminClient()
-    const { data, error } = await supabase
+    let { data, error } = await supabase
       .from("agente_api")
       .select(`api_id, apis!inner(${apiFields})`)
       .eq("agente_id", agenteId)
@@ -1293,6 +1356,23 @@ export async function loadAgentRuntimeApis({ agenteId, projetoId, limit = 4, con
     if (error) {
       console.error("[apis] failed to load runtime apis", error)
       return []
+    }
+
+    if (!data?.length) {
+      const fallback = await supabase
+        .from("apis")
+        .select(apiFields)
+        .eq("projeto_id", projetoId)
+        .eq("ativo", true)
+        .order("updated_at", { ascending: false })
+        .limit(limit)
+
+      if (fallback.error) {
+        console.error("[apis] failed to load project runtime apis fallback", fallback.error)
+        return []
+      }
+
+      data = (fallback.data ?? []).map((api) => ({ api_id: api.id, apis: api }))
     }
 
     const apis = data

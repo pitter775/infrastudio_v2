@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 
-import { createApiForUser, listAgentApiIdsForUser, listApisForUser } from "@/lib/apis"
+import { createApiForUser, ensureAgentApiLinkForUser, listAgentApiIdsForUser, listApisForUser } from "@/lib/apis"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
 
@@ -51,6 +51,21 @@ export async function POST(request, context) {
 
   if (error) {
     return NextResponse.json({ error }, { status: api ? 200 : 400 })
+  }
+
+  if (api?.id && api.active !== false && loaded.project.agent?.id) {
+    const linkResult = await ensureAgentApiLinkForUser(
+      {
+        agenteId: loaded.project.agent.id,
+        projetoId: loaded.project.id,
+        apiId: api.id,
+      },
+      loaded.user,
+    )
+
+    if (!linkResult.ok) {
+      return NextResponse.json({ api, error: linkResult.error }, { status: 200 })
+    }
   }
 
   return NextResponse.json({ api }, { status: 201 })
