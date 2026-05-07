@@ -548,7 +548,7 @@ function buildBaseRoutingDecision(latestUserMessage, history, context, runtimeAp
 }
 
 async function reloadRuntimeApisWithSemanticParameters({ semanticApiDecision, context, runtimeApis, options = {} }) {
-  const parameterValues =
+  let parameterValues =
     semanticApiDecision?.parameterValues && typeof semanticApiDecision.parameterValues === "object" && !Array.isArray(semanticApiDecision.parameterValues)
       ? Object.fromEntries(
           Object.entries(semanticApiDecision.parameterValues)
@@ -576,6 +576,19 @@ async function reloadRuntimeApisWithSemanticParameters({ semanticApiDecision, co
         : []
   const resolvedSelectedApiId =
     selectedApiId || (fallbackTargetApis.length === 1 ? String(fallbackTargetApis[0]?.apiId || fallbackTargetApis[0]?.id || "").trim() : "")
+  const resolvedTargetApi = fallbackTargetApis.find((api) => String(api?.apiId || api?.id || "").trim() === resolvedSelectedApiId)
+  const missingParams = Array.isArray(resolvedTargetApi?.missingParams)
+    ? resolvedTargetApi.missingParams.map((item) => String(item || "").trim()).filter(Boolean)
+    : []
+  if (missingParams.length === 1 && !parameterValues[missingParams[0]]) {
+    const extractedValues = Object.values(parameterValues).map((value) => String(value || "").trim()).filter(Boolean)
+    if (extractedValues.length === 1) {
+      parameterValues = {
+        ...parameterValues,
+        [missingParams[0]]: extractedValues[0],
+      }
+    }
+  }
   const needsReload = Object.keys(parameterValues).length > 0 && Boolean(resolvedSelectedApiId)
 
   if (!needsReload || !context?.agente?.id || !context?.projeto?.id) {

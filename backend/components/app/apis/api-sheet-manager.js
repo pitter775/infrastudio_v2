@@ -24,6 +24,7 @@ const emptyForm = {
   apiKeyName: "x-api-key",
   apiKeyValue: "",
   runtimeIntentType: "generic_fact",
+  runtimeAvailabilityScope: "always",
   runtimeDescriptionForIntent: "",
   runtimeResponsePath: "",
   runtimePreviewPath: "",
@@ -54,6 +55,7 @@ const editorTabs = [
   { id: "authorization", label: "Authorization" },
   { id: "headers", label: "Headers" },
   { id: "description", label: "Descrição" },
+  { id: "guidance", label: "Guia" },
 ]
 
 const bodySubtabs = [
@@ -92,6 +94,24 @@ const runtimeIntentTypeOptions = [
     value: "create_record",
     label: "Cadastro / envio de dados",
     description: "Envia dados para criar lead, pedido, solicitação, cadastro ou registro.",
+  },
+]
+
+const runtimeAvailabilityScopeOptions = [
+  {
+    value: "always",
+    label: "Sempre disponível",
+    description: "O agente pode considerar esta API em qualquer conversa.",
+  },
+  {
+    value: "open_search",
+    label: "Busca aberta",
+    description: "Use na home ou atendimento aberto, quando não existe item travado no contexto.",
+  },
+  {
+    value: "context_item",
+    label: "Item atual",
+    description: "Use somente quando a conversa já abre com id/propertyId de um item específico.",
   },
 ]
 
@@ -163,6 +183,10 @@ function truncateMiddleValue(value) {
 
 function getRuntimeIntentTypeLabel(value) {
   return runtimeIntentTypeOptions.find((option) => option.value === value)?.label || "Fato genérico"
+}
+
+function normalizeRuntimeAvailabilityScope(value) {
+  return runtimeAvailabilityScopeOptions.some((option) => option.value === value) ? value : "always"
 }
 
 function formatRuntimeIntentOption(option, { context } = {}) {
@@ -305,6 +329,7 @@ function resolveRuntimeConfig(config) {
 
   return {
     runtimeIntentType: intentType,
+    runtimeAvailabilityScope: normalizeRuntimeAvailabilityScope(runtime.availabilityScope),
     runtimeDescriptionForIntent: String(runtime.descriptionForIntent || ""),
     runtimeResponsePath: String(runtime.responsePath || ""),
     runtimePreviewPath: String(runtime.previewPath || ""),
@@ -397,6 +422,7 @@ function buildConfigFromForm(form) {
     runtime: {
       ...(baseConfig.runtime && typeof baseConfig.runtime === "object" ? baseConfig.runtime : {}),
       intentType: form.runtimeIntentType || "generic_fact",
+      availabilityScope: normalizeRuntimeAvailabilityScope(form.runtimeAvailabilityScope),
       descriptionForIntent: String(form.runtimeDescriptionForIntent || "").trim(),
       responsePath: String(form.runtimeResponsePath || "").trim(),
       previewPath: String(form.runtimePreviewPath || "").trim(),
@@ -466,6 +492,10 @@ function buildConfigFromForm(form) {
 
   if (!nextConfig.runtime.descriptionForIntent) {
     delete nextConfig.runtime.descriptionForIntent
+  }
+
+  if (nextConfig.runtime.availabilityScope === "always") {
+    delete nextConfig.runtime.availabilityScope
   }
 
   if (!nextConfig.runtime.responsePath) {
@@ -1092,7 +1122,12 @@ export function ApiSheetManager({
             <div className="grid gap-4">
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="block">
-                  <span className={labelClassName}>Tipo de intenção</span>
+                  <span className="inline-flex items-center gap-2">
+                    <span className={labelClassName}>Tipo de intenção</span>
+                    <RuntimeToggleHelp label="Ajuda sobre tipo de intenção">
+                      Define o que a API faz. Use Busca de catálogo para procurar por termo, Consulta por identificador para id/propertyId, Busca informativa para FAQ e Cadastro para envio de dados.
+                    </RuntimeToggleHelp>
+                  </span>
                   <div className="mt-1">
                     <AppSelect
                       options={runtimeIntentTypeOptions}
@@ -1102,6 +1137,24 @@ export function ApiSheetManager({
                     />
                   </div>
                 </label>
+                <label className="block">
+                  <span className="inline-flex items-center gap-2">
+                    <span className={labelClassName}>Escopo de uso</span>
+                    <RuntimeToggleHelp label="Ajuda sobre escopo de uso">
+                      Controla onde a API aparece para o agente. Busca aberta funciona na home sem item fixo. Item atual funciona só quando o chat recebe id/propertyId no contexto.
+                    </RuntimeToggleHelp>
+                  </span>
+                  <div className="mt-1">
+                    <AppSelect
+                      options={runtimeAvailabilityScopeOptions}
+                      value={form.runtimeAvailabilityScope}
+                      onChangeValue={(value) => updateForm("runtimeAvailabilityScope", normalizeRuntimeAvailabilityScope(value))}
+                      formatOptionLabel={formatRuntimeIntentOption}
+                    />
+                  </div>
+                </label>
+              </div>
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="flex flex-wrap items-end gap-3">
                   <div className="flex items-center gap-2">
                     <ToggleSwitchButton
@@ -1416,6 +1469,49 @@ export function ApiSheetManager({
                   className={cn(textareaClassName, "min-h-[220px]")}
                 />
               </label>
+            </div>
+          ) : null}
+
+          {editorTab === "guidance" ? (
+            <div className="grid gap-3 text-sm leading-6 text-slate-300">
+              <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 p-4">
+                <p className="font-semibold text-sky-100">Como refinar o acerto do agente</p>
+                <p className="mt-2 text-slate-300">
+                  Use a descrição para decisão da IA para separar quando esta API deve ser usada e quando outra API parecida deve assumir.
+                </p>
+              </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="font-semibold text-white">Busca de catálogo</p>
+                  <p className="mt-2 text-slate-400">
+                    Para procurar por termo: nome, título, condomínio, bairro, cidade, produto ou categoria. Exemplo: use quando o cliente perguntar se tem Edifício Villa.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="font-semibold text-white">Consulta por identificador</p>
+                  <p className="mt-2 text-slate-400">
+                    Para buscar um registro exato por id, propertyId, código, protocolo ou documento. Não use para nomes ou títulos.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="font-semibold text-white">Busca informativa</p>
+                  <p className="mt-2 text-slate-400">
+                    Para FAQ, documentação, regras ou informações gerais que não retornam um item específico de catálogo.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                  <p className="font-semibold text-white">Cadastro / envio</p>
+                  <p className="mt-2 text-slate-400">
+                    Para criar lead, pedido, solicitação ou cadastro. Normalmente deve exigir confirmação antes de executar.
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4 text-slate-400">
+                <p className="font-semibold text-slate-200">Modelo bom</p>
+                <p className="mt-2">
+                  Use esta API somente quando o cliente quiser buscar imóveis por nome, título, condomínio, bairro, cidade ou termo de busca. Não use quando o cliente informar id ou propertyId.
+                </p>
+              </div>
             </div>
           ) : null}
 

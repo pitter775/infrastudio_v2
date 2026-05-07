@@ -12,6 +12,45 @@ const apiVersionFields =
   "id, api_id, projeto_id, version_number, nome, url, metodo, descricao, configuracoes, ativo, source, note, created_by, created_at"
 const runtimeApiCache = new Map()
 const runtimeIntentTypes = new Set(["create_record", "lookup_by_identifier", "knowledge_search", "catalog_search", "generic_fact"])
+const runtimeAvailabilityScopes = new Set(["always", "open_search", "context_item"])
+
+function normalizeRuntimeAvailabilityScope(value) {
+  const normalized = String(value || "").trim().toLowerCase()
+  return runtimeAvailabilityScopes.has(normalized) ? normalized : "always"
+}
+
+function hasRuntimeContextItem(context = null) {
+  if (!context || typeof context !== "object" || Array.isArray(context)) {
+    return false
+  }
+
+  return Boolean(
+    context.id ||
+      context.propertyId ||
+      context.resource?.id ||
+      context.imovel?.id ||
+      context.property?.id ||
+      context.catalogo?.produtoAtual?.id
+  )
+}
+
+function shouldExposeRuntimeApiInContext(api, context = null) {
+  const scope = normalizeRuntimeAvailabilityScope(api?.config?.runtime?.availabilityScope)
+  if (scope === "always") {
+    return true
+  }
+
+  const hasContextItem = hasRuntimeContextItem(context)
+  if (scope === "context_item") {
+    return hasContextItem
+  }
+
+  if (scope === "open_search") {
+    return !hasContextItem
+  }
+
+  return true
+}
 
 function userCanAccessProject(user, projectId) {
   if (user?.role === "admin") {
@@ -1256,7 +1295,10 @@ export async function loadAgentRuntimeApis({ agenteId, projetoId, limit = 4, con
       return []
     }
 
-    const apis = data.map((item) => mapApi(item.apis)).filter((api) => api.active).slice(0, limit)
+    const apis = data
+      .map((item) => mapApi(item.apis))
+      .filter((api) => api.active && shouldExposeRuntimeApiInContext(api, context))
+      .slice(0, limit)
     const apiIdsNeedingFieldSchema = apis
       .filter((api) => !Array.isArray(api?.config?.runtime?.fields) || api.config.runtime.fields.length === 0)
       .map((api) => api.id)

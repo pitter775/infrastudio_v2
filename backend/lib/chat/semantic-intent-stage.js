@@ -1093,6 +1093,9 @@ export async function classifySemanticApiIntentStage(input = {}) {
             "Use api_create_record somente quando o cliente pedir cadastro, envio, registro, lead ou abertura de solicitação em API de create_record.",
             "Escolha apiId e intentType da API mais compatível. Se houver conflito entre APIs de cadastro, consulta, conhecimento e catálogo, reduza a confiança ou retorne other.",
             "Nunca classifique create_record como consulta factual sem pedido explícito de cadastro e dados obrigatórios suficientes.",
+            "Quando o cliente informar nome, titulo, predio, produto, bairro, cidade ou termo de busca, prefira uma API catalog_search com parametro de busca, nao uma API de consulta por id.",
+            "Use lookup_by_identifier somente quando existir identificador exato como id, propertyId, codigo, protocolo ou documento compativel com os parametros da API.",
+            "Nao escolha API com parametro de URL ausente se a mensagem nao trouxer valor compativel para esse parametro.",
             "Quando a intencao for factual ou status, preencha targetFieldHints com campos curtos e literais do runtime, por exemplo matricula, cartorio, valor, status, codigo, data_leilao, endereco, cidade, descricao.",
             "Quando fizer sentido adicionar contexto util, preencha supportFieldHints com campos complementares curtos e literais, por exemplo status, data_leilao, valor_minimo, ocupacao, cidade.",
             "Quando a intencao for api_comparison, preencha comparisonMode com best_choice, highest_price ou lowest_price.",
@@ -1108,8 +1111,14 @@ export async function classifySemanticApiIntentStage(input = {}) {
             runtimeApis: runtimeApis.slice(0, 6).map((api) => ({
               apiId: sanitizeString(api?.apiId),
               nome: sanitizeString(api?.nome),
+              method: sanitizeString(api?.method),
+              url: sanitizeString(api?.url),
+              descricao: sanitizeString(api?.descricao),
               intentType: normalizeSemanticApiIntentType(api?.config?.runtime?.intentType),
               descriptionForIntent: sanitizeString(api?.config?.runtime?.descriptionForIntent),
+              requiredFields: Array.isArray(api?.config?.runtime?.requiredFields)
+                ? api.config.runtime.requiredFields.map((field) => sanitizeString(field?.name || field)).filter(Boolean)
+                : [],
               campos: Array.isArray(api?.campos)
                 ? api.campos.slice(0, 12).map((field) => sanitizeString(field?.nome)).filter(Boolean)
                 : [],

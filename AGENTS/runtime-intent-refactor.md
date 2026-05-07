@@ -210,6 +210,9 @@ Ja feito:
   - execucao de `create_record` ficou liberada apenas quando houver confirmacao estruturada no contexto, `autoExecute` ligado e todos os campos obrigatorios resolvidos
   - o widget ganhou acao estruturada `Confirmar cadastro` para confirmar API `create_record` sem depender de interpretacao textual livre
   - confirmacao/cancelamento textual de `create_record` agora passa por stage semantico dedicado antes da execucao, evitando lista de frases soltas
+  - escolha semantica entre multiplas APIs agora recebe metodo, URL, descricao e campos obrigatorios, e prioriza `catalog_search` para busca por termo em vez de consulta por identificador
+  - quando a IA extrai um unico valor com nome generico para uma API com um unico parametro ausente, o orquestrador remapeia esse valor para o parametro real antes de recarregar a API
+  - APIs runtime agora aceitam `runtime.availabilityScope` para esconder APIs de item atual fora do contexto com id/propertyId e esconder busca aberta quando o chat estiver travado em um item
 - o `domain-router` de billing tambem ficou mais fail-closed:
   - sem `pricingCatalog` estruturado real no runtime, o roteador nao assume billing so por `planos`, `assinatura` ou similares
   - isso joga mais casos para o `intent-stage` e reduz chute textual no roteador
