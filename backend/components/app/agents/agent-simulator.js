@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useRef } from "react"
-import { RefreshCcw, X } from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { ChevronDown, ChevronUp, RefreshCcw, X } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 
@@ -21,9 +21,31 @@ function dispatchWidgetEvent(name, detail) {
   window.dispatchEvent(new CustomEvent(name, { detail }))
 }
 
+function parseTestContext(value) {
+  const rawValue = String(value || "").trim()
+  if (!rawValue) {
+    return { value: {}, error: "" }
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue)
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { value: {}, error: "O contexto precisa ser um objeto JSON." }
+    }
+    return { value: parsed, error: "" }
+  } catch (error) {
+    return { value: {}, error: `JSON inválido: ${error.message}` }
+  }
+}
+
 export function AgentSimulator({ project, agent = project?.agent, open, onOpenChange }) {
   const scriptRef = useRef(null)
   const sessionIdRef = useRef(`${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`)
+  const [contextText, setContextText] = useState("")
+  const [appliedContext, setAppliedContext] = useState({})
+  const [contextError, setContextError] = useState("")
+  const [contextOpen, setContextOpen] = useState(false)
+  const [contextVersion, setContextVersion] = useState(0)
   const projectIdentifier = project?.routeKey || project?.slug || project?.id || ""
   const agentIdentifier = agent?.slug || agent?.id || ""
   const instanceKey = `admin-agent-test:${project?.id || "project"}:${agent?.id || "agent"}`
@@ -35,7 +57,6 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
     }),
     [widgetIdentity.id, widgetIdentity.slug],
   )
-
   useEffect(() => {
     if (!open || !project?.id || !agent?.id || !projectIdentifier || !agentIdentifier) {
       return undefined
@@ -64,6 +85,7 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
       ui: {
         structured_response: true,
       },
+      ...(appliedContext || {}),
     }
 
     script.id = scriptId
@@ -107,42 +129,88 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
       script.remove()
       scriptRef.current = null
     }
-  }, [agent?.id, agentIdentifier, instanceDetail, instanceKey, open, project?.id, projectIdentifier, widgetIdentity])
+  }, [agent?.id, agentIdentifier, appliedContext, instanceDetail, instanceKey, open, project?.id, projectIdentifier, widgetIdentity, contextVersion])
+
+  function reloadTest() {
+    const parsedContext = parseTestContext(contextText)
+    if (parsedContext.error) {
+      setContextError(parsedContext.error)
+      return
+    }
+
+    setContextError("")
+    setAppliedContext(parsedContext.value)
+    sessionIdRef.current = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+    if (scriptRef.current) {
+      scriptRef.current.remove()
+    }
+    setContextVersion((current) => current + 1)
+    onOpenChange?.(false)
+    window.setTimeout(() => onOpenChange?.(true), 0)
+  }
 
   if (!open) {
     return null
   }
 
   return (
-    <div className="fixed bottom-5 right-5 z-[141] flex translate-y-[-650px] items-center gap-2 rounded-lg border border-white/10 bg-[#0c1426]/95 px-3 py-2 shadow-[0_8px_18px_rgba(2,6,23,0.55)] backdrop-blur">
-      <span className="text-xs font-medium text-slate-200">Teste usando o Chat Widget real</span>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 rounded-lg"
-        title="Recarregar teste"
-        onClick={() => {
-          sessionIdRef.current = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-          if (scriptRef.current) {
-            scriptRef.current.remove()
-          }
-          onOpenChange?.(false)
-          window.setTimeout(() => onOpenChange?.(true), 0)
-        }}
-      >
-        <RefreshCcw className="h-3.5 w-3.5" />
-      </Button>
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7 rounded-lg"
-        title="Fechar teste"
-        onClick={() => onOpenChange?.(false)}
-      >
-        <X className="h-3.5 w-3.5" />
-      </Button>
+    <div className="fixed bottom-5 right-5 z-[141] w-[min(440px,calc(100vw-2rem))] translate-y-[-650px] rounded-lg border border-white/10 bg-[#0c1426]/95 px-3 py-2 shadow-[0_8px_18px_rgba(2,6,23,0.55)] backdrop-blur">
+      <div className="flex items-center gap-2">
+        <span className="min-w-0 flex-1 text-xs font-medium text-slate-200">Teste usando o Chat Widget real</span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 rounded-lg"
+          title="Contexto do chat para teste"
+          onClick={() => setContextOpen((current) => !current)}
+        >
+          {contextOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 rounded-lg"
+          title="Recarregar teste"
+          onClick={reloadTest}
+        >
+          <RefreshCcw className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 rounded-lg"
+          title="Fechar teste"
+          onClick={() => onOpenChange?.(false)}
+        >
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      {contextOpen ? (
+        <div className="mt-3 space-y-2 border-t border-white/10 pt-3">
+          <div>
+            <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+              Contexto do chat para teste
+            </label>
+            <textarea
+              value={contextText}
+              onChange={(event) => {
+                setContextText(event.target.value)
+                setContextError("")
+              }}
+              placeholder={'{"propertyId":"c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2"}'}
+              className="mt-1 min-h-20 w-full resize-y rounded-lg border border-white/10 bg-[#070d1a] px-3 py-2 font-mono text-xs text-slate-100 outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
+              spellCheck={false}
+            />
+          </div>
+          <p className="text-xs leading-5 text-slate-500">
+            Use para simular item atual no chat. O campo de variáveis da API vale apenas para o botão Send.
+          </p>
+          {contextError ? <p className="text-xs text-red-200">{contextError}</p> : null}
+        </div>
+      ) : null}
     </div>
   )
 }

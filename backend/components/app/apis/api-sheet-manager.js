@@ -1185,7 +1185,7 @@ export function ApiSheetManager({
 
               {urlPathParams.length ? (
                 <label className="block">
-                  <span className={labelClassName}>Variáveis da URL para teste</span>
+                  <span className={labelClassName}>Variáveis apenas para o botão Send</span>
                   <textarea
                     value={testContextText}
                     onChange={(event) => setTestContextText(event.target.value)}
@@ -1194,7 +1194,10 @@ export function ApiSheetManager({
                     spellCheck={false}
                   />
                   <span className="mt-2 block text-xs leading-5 text-slate-500">
-                    Usado pelo Send para substituir {urlPathParams.map((param) => `{${param}}`).join(", ")} na URL.
+                    Usado pelo Send para substituir {urlPathParams.map((param) => `{${param}}`).join(", ")} na URL. Não altera o contexto do chat.
+                    {form.runtimeAvailabilityScope === "context_item"
+                      ? " Para testar o agente com item atual, informe id ou propertyId no contexto do Chat Widget real."
+                      : ""}
                   </span>
                 </label>
               ) : null}
