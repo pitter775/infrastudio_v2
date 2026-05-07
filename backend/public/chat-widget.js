@@ -626,6 +626,7 @@
       ".chat-message-meta { margin-top: 8px; display: inline-flex; align-items: center; gap: 4px; font-size: 9px; line-height: 1; color: rgba(148,163,184,0.72); }",
       ".chat-message-meta .chat-icon { width: 10px; height: 10px; }",
       ".chat-token-button { margin-left: 4px; display: inline-flex; align-items: center; gap: 4px; min-height: 0; border-radius: 999px; border: 1px solid rgba(56,189,248,0.22); background: rgba(14,165,233,0.1); padding: 3px 6px; color: " + (theme === "light" ? "#0369a1" : "rgba(125,211,252,0.95)") + "; font-size: 9px; line-height: 1; font-weight: 800; cursor: default; }",
+      ".chat-token-button.is-api { border-color: rgba(16,185,129,0.24); background: rgba(16,185,129,0.1); color: " + (theme === "light" ? "#047857" : "rgba(110,231,183,0.95)") + "; }",
       ".chat-token-button .chat-icon { width: 10px; height: 10px; }",
       ".chat-rich { white-space: normal; }",
       ".chat-rich p { margin: 0; }",
@@ -1950,11 +1951,12 @@
       var productAssetCount = assets.filter(isCatalogProductAsset).length;
 
       assets.forEach(function (asset) {
-        if (!asset || (!asset.publicUrl && !asset.targetUrl)) {
+        var isProductAsset = isCatalogProductAsset(asset);
+        if (!asset || (!isProductAsset && !asset.publicUrl && !asset.targetUrl)) {
           return;
         }
 
-        if (isCatalogProductAsset(asset)) {
+        if (isProductAsset) {
           hasCatalogProducts = true;
           if (!productRail) {
             var carouselShell = document.createElement("div");
@@ -2130,12 +2132,17 @@
 
       var actions = document.createElement("div");
       actions.className = "chat-asset-actions";
-      actions.appendChild(createProductAssetAction(asset));
+      var productAction = createProductAssetAction(asset);
+      if (productAction) {
+        actions.appendChild(productAction);
+      }
       var askAction = createProductAskAction(asset);
       if (askAction) {
         actions.appendChild(askAction);
       }
-      body.appendChild(actions);
+      if (actions.childNodes.length) {
+        body.appendChild(actions);
+      }
 
       card.appendChild(body);
       return card;
@@ -2382,13 +2389,18 @@
     }
 
     function createProductAssetAction(asset) {
+      var actionUrl = asset.targetUrl || asset.publicUrl || "";
+      if (!actionUrl) {
+        return null;
+      }
       var action = document.createElement("a");
       action.className = "chat-mercado-link";
-      action.href = asset.targetUrl || asset.publicUrl || "#";
+      action.href = actionUrl;
       action.target = "_blank";
       action.rel = "noreferrer noopener";
-      action.setAttribute("aria-label", "Abrir no Mercado Livre");
-      action.setAttribute("title", "Abrir no Mercado Livre");
+      var actionLabel = asset.provider === "api_runtime" ? "Abrir detalhes" : "Abrir no Mercado Livre";
+      action.setAttribute("aria-label", actionLabel);
+      action.setAttribute("title", actionLabel);
       var icon = document.createElement("img");
       icon.src = assetBase + "/icomercado.png";
       icon.alt = "";
@@ -3307,6 +3319,66 @@
       return button;
     }
 
+    function formatApiDiagnosticsTitle(diagnostics) {
+      if (!diagnostics || typeof diagnostics !== "object") {
+        return "";
+      }
+
+      var apiDiagnostics = diagnostics.apiRuntimeDiagnostics && typeof diagnostics.apiRuntimeDiagnostics === "object"
+        ? diagnostics.apiRuntimeDiagnostics
+        : null;
+      if (!apiDiagnostics) {
+        return "";
+      }
+
+      var apis = Array.isArray(apiDiagnostics.apis) ? apiDiagnostics.apis : [];
+      var selectedApi = apiDiagnostics.selectedApiId
+        ? apis.filter(function (api) { return api && api.id === apiDiagnostics.selectedApiId; })[0]
+        : null;
+      var executedApis = apis.filter(function (api) { return api && api.executed === true; });
+      var params = apiDiagnostics.parameterValues && typeof apiDiagnostics.parameterValues === "object"
+        ? Object.keys(apiDiagnostics.parameterValues).map(function (key) {
+            return key + "=" + String(apiDiagnostics.parameterValues[key] || "");
+          }).join(", ")
+        : "";
+
+      return [
+        "API runtime",
+        "Rota: " + (apiDiagnostics.routeDomain || "-"),
+        "Motivo: " + (apiDiagnostics.routeReason || "-"),
+        "Intenção: " + (apiDiagnostics.semanticKind || "-"),
+        "Tipo: " + (apiDiagnostics.intentType || "-"),
+        "Confiança: " + (apiDiagnostics.semanticConfidence != null ? String(apiDiagnostics.semanticConfidence) : "-"),
+        "API selecionada: " + (selectedApi ? selectedApi.name || selectedApi.id : apiDiagnostics.selectedApiId || "-"),
+        "Executadas: " + executedApis.length + "/" + apis.length,
+        params ? "Parâmetros: " + params : "",
+        apiDiagnostics.selectedMissingRequiredFields && apiDiagnostics.selectedMissingRequiredFields.length
+          ? "Faltando: " + apiDiagnostics.selectedMissingRequiredFields.join(", ")
+          : "",
+        apiDiagnostics.selectedBlockedReasons && apiDiagnostics.selectedBlockedReasons.length
+          ? "Bloqueios: " + apiDiagnostics.selectedBlockedReasons.join(", ")
+          : "",
+      ].filter(Boolean).join("\n");
+    }
+
+    function createApiDiagnosticsButton(message) {
+      if (!isAdminAgentTestMode() || !message || !message.isAi) {
+        return null;
+      }
+
+      var title = formatApiDiagnosticsTitle(message.debugDiagnostics);
+      if (!title) {
+        return null;
+      }
+
+      var button = document.createElement("button");
+      button.type = "button";
+      button.className = "chat-token-button is-api";
+      button.title = title;
+      button.textContent = "API";
+      return button;
+    }
+
     async function syncWidgetUiConfig() {
       if (!widgetId && !widgetSlug) {
         return;
@@ -3407,6 +3479,10 @@
           var tokenButton = createDebugTokenButton(message);
           if (tokenButton) {
             meta.appendChild(tokenButton);
+          }
+          var apiDiagnosticsButton = createApiDiagnosticsButton(message);
+          if (apiDiagnosticsButton) {
+            meta.appendChild(apiDiagnosticsButton);
           }
           bubble.appendChild(meta);
           if (message.isAi && shouldRenderWhatsAppCta(message)) {
@@ -3599,6 +3675,7 @@
         catalogMessageMode: !isUser && typeof message.catalogMessageMode === "string" ? message.catalogMessageMode : null,
         catalogListingSessionId: !isUser && typeof message.catalogListingSessionId === "string" ? message.catalogListingSessionId : null,
         debugUsage: !isUser && message.debugUsage && typeof message.debugUsage === "object" ? message.debugUsage : null,
+        debugDiagnostics: !isUser && message.diagnostics && typeof message.diagnostics === "object" ? message.diagnostics : null,
         catalogLoading: false,
         createdAt: message.createdAt || new Date().toISOString(),
         manual: !isUser && message.manual === true,
@@ -3851,6 +3928,7 @@
             catalogAppendOnly: isCatalogLoadMore,
             catalogLoading: false,
             debugUsage: payload.debugUsage && typeof payload.debugUsage === "object" ? payload.debugUsage : null,
+            debugDiagnostics: payload.diagnostics && typeof payload.diagnostics === "object" ? payload.diagnostics : null,
             handoffAction: createHumanHandoffAction(payload.handoff),
             assets: Array.isArray(payload.assets) ? payload.assets : [],
           });

@@ -644,6 +644,10 @@ Ainda errado / fragil:
   - o orquestrador recarrega as APIs do agente com esses parametros estruturados antes de responder
   - respostas de catalogo sem `responsePath` configurado agora tentam extrair automaticamente o primeiro item de arrays comuns como `imoveis`, `items`, `results` e `data.items`
   - isso fecha o caso de URL `...?titulo={titulo}` em que o teste manual funcionava, mas o chat nao consultava a API com o termo pedido
+  - o orquestrador agora tem um fallback local fechado para exatamente uma API `catalog_search` com um unico parametro ausente, usado apenas quando o stage semantico nao resolve e a mensagem tem sinal catalogal minimo
+  - respostas de API runtime de catalogo agora tambem sobem `assets` de produto para o widget renderizar card, sem depender de Mercado Livre
+  - o Chat Widget real de teste mostra um badge `API` com diagnostico do runtime no tooltip, incluindo rota, API selecionada, parametros, execucao e bloqueios
+  - a busca de API runtime agora tambem sobe `catalogoBusca.ultimaBusca` a partir dos parametros extraidos, preservando melhor o estado de listagem para continuidade
 - o fluxo factual de produto no catalogo ganhou camada canonica compartilhada
   - novo normalizador `catalog-product-facts.js` separa `dimensions.product`, `dimensions.package`, `weight.product`, `weight.package`, alem de `material`, `cor`, `garantia`, `estoque`, `frete` e `link`
   - `buildFocusedProductFactualReply` agora responde por slot factual e nao despeja o bloco cru de atributos

@@ -368,6 +368,9 @@ function groupApiFieldsAsCatalogItem(api, deps) {
   const cor = sanitizeString(readField("cor", "color"))
   const link = sanitizeString(readField("link", "url", "permalink"))
   const imagem = sanitizeString(readField("imagem", "image", "thumbnail"))
+  const cidade = sanitizeString(readField("cidade", "city"))
+  const estado = sanitizeString(readField("estado", "uf", "state"))
+  const endereco = sanitizeString(readField("endereco", "rua", "logradouro"))
   const freeShippingValue = readField("frete_gratis", "frete gratis", "free_shipping", "free shipping")
   const freeShipping = freeShippingValue === true || String(freeShippingValue).toLowerCase() === "true"
   const descricao =
@@ -396,6 +399,9 @@ function groupApiFieldsAsCatalogItem(api, deps) {
     preco,
     link,
     imagem,
+    cidade,
+    estado,
+    endereco,
     availableQuantity,
     status,
     warranty,
@@ -439,6 +445,44 @@ export function buildApiCatalogSearchState(apis = [], customDeps = {}) {
     produtoAtual: products.length === 1 ? products[0] : null,
     ultimosProdutos: products,
   }
+}
+
+export function buildApiCatalogAssets(apis = [], customDeps = {}) {
+  const products = extractApiCatalogProducts(apis, customDeps)
+  return products.slice(0, 6).map((product, index) => {
+    const priceLabel = product.preco != null ? formatCurrencyValue(product.preco) : ""
+    const locationLabel = [product.cidade, product.estado].filter(Boolean).join(" - ")
+    const description = [priceLabel, locationLabel, product.descricao].filter(Boolean).join(" - ")
+
+    return {
+      id: product.id || `api-runtime-${index + 1}`,
+      kind: "product",
+      provider: "api_runtime",
+      categoria: "image",
+      nome: product.nome || "Item encontrado",
+      slug: product.id || `api-runtime-${index + 1}`,
+      descricao: description,
+      resumo: product.descricao || "",
+      priceValue: product.preco,
+      priceLabel,
+      targetUrl: product.link || "",
+      publicUrl: product.imagem || "",
+      images: product.imagem ? [product.imagem] : [],
+      whatsappText: [priceLabel, locationLabel, product.descricao].filter(Boolean).join("\n"),
+      metadata: {
+        productId: product.id || "",
+        apiId: product.apiId || "",
+        apiNome: product.apiNome || "",
+        status: product.status || "",
+        availableQuantity: product.availableQuantity ?? 0,
+        priceValue: product.preco,
+        cidade: product.cidade || "",
+        estado: product.estado || "",
+        endereco: product.endereco || "",
+        source: "api_runtime",
+      },
+    }
+  })
 }
 
 function hasRecentApiListContext(contextProducts, products) {

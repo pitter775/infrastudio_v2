@@ -57,6 +57,38 @@ export function AgentSimulator({ project, agent = project?.agent, open, onOpenCh
     }),
     [widgetIdentity.id, widgetIdentity.slug],
   )
+
+  useEffect(() => {
+    function handleApplyTestContext(event) {
+      const rawContext =
+        typeof event?.detail?.contextText === "string"
+          ? event.detail.contextText
+          : event?.detail?.context && typeof event.detail.context === "object"
+            ? JSON.stringify(event.detail.context, null, 2)
+            : ""
+      const parsedContext = parseTestContext(rawContext)
+      if (parsedContext.error) {
+        setContextError(parsedContext.error)
+        setContextOpen(true)
+        return
+      }
+
+      setContextText(rawContext)
+      setAppliedContext(parsedContext.value)
+      setContextError("")
+      setContextOpen(true)
+      sessionIdRef.current = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+      if (scriptRef.current) {
+        scriptRef.current.remove()
+      }
+      setContextVersion((current) => current + 1)
+      onOpenChange?.(true)
+    }
+
+    window.addEventListener("infrastudio-agent-test:set-context", handleApplyTestContext)
+    return () => window.removeEventListener("infrastudio-agent-test:set-context", handleApplyTestContext)
+  }, [onOpenChange])
+
   useEffect(() => {
     if (!open || !project?.id || !agent?.id || !projectIdentifier || !agentIdentifier) {
       return undefined

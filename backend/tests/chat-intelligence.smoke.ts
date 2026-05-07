@@ -6234,6 +6234,87 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador usa fallback fechado para busca aberta de api runtime",
+    run: async () => {
+      let receivedTitulo = "";
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "TRAGA O IMOVEL EDIFICIO VILLA" }] as never,
+        {
+          agente: {
+            id: "agent-api-open-search",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111111",
+            nome: "Nexo Imoveis",
+          },
+          runtimeApis: [
+            {
+              apiId: "api-busca-imoveis",
+              id: "api-busca-imoveis",
+              nome: "Buscar imoveis",
+              method: "GET",
+              url: "https://nexo-imoveis.vercel.app/api/imoveis/busca?titulo={titulo}",
+              missingParams: ["titulo"],
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  availabilityScope: "open_search",
+                  autoExecute: true,
+                  descriptionForIntent: "Use para buscar imoveis por nome, titulo ou termo de busca.",
+                },
+              },
+              campos: [],
+            },
+          ],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => null,
+          loadAgentRuntimeApis: async ({ context }: any) => {
+            receivedTitulo = String(context?.titulo || "");
+            return [
+              {
+                apiId: "api-busca-imoveis",
+                id: "api-busca-imoveis",
+                nome: "Buscar imoveis",
+                method: "GET",
+                url: "https://nexo-imoveis.vercel.app/api/imoveis/busca?titulo=EDIFICIO%20VILLA",
+                ok: true,
+                status: 200,
+                durationMs: 42,
+                missingParams: [],
+                config: {
+                  runtime: {
+                    intentType: "catalog_search",
+                    availabilityScope: "open_search",
+                    autoExecute: true,
+                  },
+                },
+                campos: [
+                  { nome: "id", valor: "imovel-1" },
+                  { nome: "titulo", valor: "EDIFICIO VILLA" },
+                  { nome: "descricao", valor: "Apartamento localizado no 1 andar." },
+                  { nome: "valor_publico", valor: 128000 },
+                  { nome: "cidade", valor: "Sao Paulo" },
+                  { nome: "estado", valor: "SP" },
+                ],
+              },
+            ];
+          },
+        }
+      );
+
+      assert.equal(receivedTitulo, "EDIFICIO VILLA");
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.equal(result.metadata?.apiRuntimeDiagnostics?.semanticKind, "api_catalog_search");
+      assert.equal(result.metadata?.apiRuntimeDiagnostics?.parameterValues?.titulo, "EDIFICIO VILLA");
+      assert.equal(result.metadata?.catalogoBusca?.ultimaBusca, "EDIFICIO VILLA");
+      assert.equal(result.assets?.[0]?.provider, "api_runtime");
+      assert.match(result.reply, /EDIFICIO VILLA/i);
+    },
+  },
+  {
     name: "orquestrador respeita produto recente em foco",
     run: async () => {
       const result = await executeSalesOrchestrator(

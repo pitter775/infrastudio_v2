@@ -183,6 +183,24 @@ function normalizeRuntimeAvailabilityScope(value) {
   return runtimeAvailabilityScopeOptions.some((option) => option.value === value) ? value : "always"
 }
 
+function buildUrlVariableExample(params = [], form = {}) {
+  const entries = params
+    .map((param) => String(param || "").trim())
+    .filter(Boolean)
+    .map((param) => {
+      const normalizedParam = param.toLowerCase()
+      const isIdentifier = ["id", "propertyid", "property_id", "uuid", "codigo", "código"].includes(normalizedParam)
+      const isCatalogTerm =
+        form.runtimeIntentType === "catalog_search" ||
+        form.runtimeAvailabilityScope === "open_search" ||
+        ["titulo", "title", "nome", "termo", "query", "q", "busca", "search"].includes(normalizedParam)
+      const value = isIdentifier ? "c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2" : isCatalogTerm ? "EDIFICIO VILLA" : "valor-de-teste"
+      return [param, value]
+    })
+
+  return JSON.stringify(Object.fromEntries(entries), null, 2)
+}
+
 function formatRuntimeIntentOption(option, { context } = {}) {
   if (context === "value") {
     return option.label
@@ -552,6 +570,7 @@ export function ApiSheetManager({
       ),
     [form.url],
   )
+  const urlVariableExample = useMemo(() => buildUrlVariableExample(urlPathParams, form), [form, urlPathParams])
   useEffect(() => {
     let active = true
 
@@ -823,6 +842,24 @@ export function ApiSheetManager({
 
   function handleSend() {
     sendDraftRequest()
+  }
+
+  function applyUrlVariablesToChatTest() {
+    const parsedTestContext = tryParseJson(testContextText)
+    if (String(testContextText || "").trim() && (!parsedTestContext || typeof parsedTestContext !== "object" || Array.isArray(parsedTestContext))) {
+      setStatus({ type: "error", message: "Variáveis da URL precisam ser um JSON válido em formato de objeto." })
+      return
+    }
+
+    window.dispatchEvent(
+      new CustomEvent("infrastudio-agent-test:set-context", {
+        detail: {
+          context: parsedTestContext || {},
+          contextText: JSON.stringify(parsedTestContext || {}, null, 2),
+        },
+      }),
+    )
+    setStatus({ type: "success", message: "Contexto enviado e teste do Chat Widget real recarregado." })
   }
 
   async function sendDraftRequest() {
@@ -1185,11 +1222,21 @@ export function ApiSheetManager({
 
               {urlPathParams.length ? (
                 <label className="block">
-                  <span className={labelClassName}>Variáveis apenas para o botão Send</span>
+                  <span className="flex flex-wrap items-center justify-between gap-2">
+                    <span className={labelClassName}>Variáveis apenas para o botão Send</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => setTestContextText(urlVariableExample)}
+                      className="h-8 rounded-lg border border-white/10 px-3 text-xs font-semibold text-slate-300 hover:border-sky-400/30 hover:bg-sky-500/10 hover:text-sky-100"
+                    >
+                      Preencher exemplo
+                    </Button>
+                  </span>
                   <textarea
                     value={testContextText}
                     onChange={(event) => setTestContextText(event.target.value)}
-                    placeholder={`{"${urlPathParams[0]}":"c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2"}`}
+                    placeholder={urlVariableExample}
                     className={cn(textareaClassName, "min-h-[120px] font-mono text-xs")}
                     spellCheck={false}
                   />
@@ -1199,6 +1246,16 @@ export function ApiSheetManager({
                       ? " Para testar o agente com item atual, informe id ou propertyId no contexto do Chat Widget real."
                       : ""}
                   </span>
+                  {form.runtimeAvailabilityScope === "context_item" ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={applyUrlVariablesToChatTest}
+                      className="mt-3 h-9 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 hover:bg-sky-500/15"
+                    >
+                      Usar no teste do chat
+                    </Button>
+                  ) : null}
                 </label>
               ) : null}
             </div>

@@ -1,4 +1,4 @@
-import { buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReplyResolution } from "@/lib/chat/api-runtime"
+import { buildApiCatalogAssets, buildApiCatalogSearchState, buildApiFallbackReply, buildFocusedApiContext, resolveApiCatalogReplyResolution } from "@/lib/chat/api-runtime"
 import { loadAgentRuntimeApis } from "@/lib/apis"
 import { buildBillingContextUpdate, buildBillingReplyResult } from "@/lib/chat/billing-intent-handler"
 import { hasRecentCatalogSnapshot } from "@/lib/chat/catalog-follow-up"
@@ -500,6 +500,12 @@ function buildApiRuntimeDiagnosticsPayload({ runtimeApis = [], semanticApiDecisi
     selectedApiId,
     intentType: semanticApiDecision?.intentType || null,
     semanticKind: semanticApiDecision?.kind || null,
+    semanticConfidence: semanticApiDecision?.confidence ?? null,
+    semanticReason: semanticApiDecision?.reason || null,
+    parameterValues:
+      semanticApiDecision?.parameterValues && typeof semanticApiDecision.parameterValues === "object" && !Array.isArray(semanticApiDecision.parameterValues)
+        ? semanticApiDecision.parameterValues
+        : {},
     routeDomain: routingDecision?.domain || null,
     routeReason: routingDecision?.reason || null,
     focusedFieldCount: Array.isArray(focusedApiContext?.fields) ? focusedApiContext.fields.length : 0,
@@ -545,6 +551,165 @@ function buildBaseRoutingDecision(latestUserMessage, history, context, runtimeAp
     focusedApiContext,
     runtimeConfig,
   })
+}
+
+function getRuntimeApiId(api) {
+  return String(api?.apiId || api?.id || "").trim()
+}
+
+function getRuntimeApiMissingParams(api) {
+  return Array.isArray(api?.missingParams) ? api.missingParams.map((item) => String(item || "").trim()).filter(Boolean) : []
+}
+
+function hasCatalogSearchSignal(message) {
+  const normalized = normalizeText(message)
+  if (!normalized || isGreetingOrAckMessage(message)) {
+    return false
+  }
+
+  return [
+    "imovel",
+    "imoveis",
+    "produto",
+    "item",
+    "busca",
+    "buscar",
+    "tem",
+    "procura",
+    "procurar",
+    "traga",
+    "trazer",
+    "titulo",
+    "titulos",
+    "nome",
+    "predio",
+    "apartamento",
+    "casa",
+    "terreno",
+    "condominio",
+  ].some((signal) => normalized.split(" ").includes(signal))
+}
+
+function extractSingleCatalogSearchTerm(message) {
+  const rawWords = String(message || "")
+    .replace(/[^\p{L}\p{N}\s-]/gu, " ")
+    .split(/\s+/)
+    .map((word) => word.trim())
+    .filter(Boolean)
+  const stopwords = new Set([
+    "a",
+    "as",
+    "busca",
+    "buscar",
+    "da",
+    "de",
+    "do",
+    "dos",
+    "e",
+    "em",
+    "esse",
+    "essa",
+    "este",
+    "esta",
+    "imovel",
+    "imoveis",
+    "me",
+    "nome",
+    "o",
+    "os",
+    "por",
+    "pode",
+    "procura",
+    "procurar",
+    "tem",
+    "tenho",
+    "titulo",
+    "titulos",
+    "traga",
+    "trazer",
+    "um",
+    "uma",
+    "vc",
+    "voce",
+  ])
+  const terms = rawWords.filter((word) => !stopwords.has(normalizeText(word)))
+  const value = (terms.length ? terms : rawWords).join(" ").trim()
+  if (!value || value.length < 2 || /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(value)) {
+    return ""
+  }
+
+  return value.slice(0, 120)
+}
+
+function isLikelyStandaloneCatalogSearchTerm(message, term) {
+  if (!term || isGreetingOrAckMessage(message)) {
+    return false
+  }
+
+  const termWords = term.split(/\s+/).filter(Boolean)
+  if (termWords.length < 2 || termWords.length > 8) {
+    return false
+  }
+
+  const normalized = normalizeText(message)
+  if (/\?$/.test(String(message || "").trim()) && !hasCatalogSearchSignal(message)) {
+    return false
+  }
+
+  return !["obrigado", "obrigada", "valeu", "beleza", "blz", "ok"].some((signal) => normalized === signal)
+}
+
+function buildSingleCatalogSearchFallbackDecision(latestUserMessage, runtimeApis = [], semanticApiDecision = null) {
+  if (semanticApiDecision) {
+    return null
+  }
+
+  const candidates = runtimeApis.filter((api) => normalizeRuntimeApiIntentType(api) === "catalog_search")
+  if (candidates.length !== 1) {
+    return null
+  }
+
+  const api = candidates[0]
+  const missingParams = getRuntimeApiMissingParams(api)
+  if (missingParams.length !== 1) {
+    return null
+  }
+
+  const term = extractSingleCatalogSearchTerm(latestUserMessage)
+  if (!hasCatalogSearchSignal(latestUserMessage) && !isLikelyStandaloneCatalogSearchTerm(latestUserMessage, term)) {
+    return null
+  }
+
+  if (!term) {
+    return null
+  }
+
+  return {
+    kind: "api_catalog_search",
+    confidence: 0.62,
+    reason: "single_catalog_search_parameter_fallback",
+    targetFieldHints: [],
+    supportFieldHints: [],
+    comparisonMode: "",
+    apiId: getRuntimeApiId(api),
+    intentType: "catalog_search",
+    parameterValues: {
+      [missingParams[0]]: term,
+    },
+    referencedProductIndexes: [],
+    usedLlm: false,
+  }
+}
+
+function getApiSearchTermFromDecision(decision = null) {
+  const values =
+    decision?.parameterValues && typeof decision.parameterValues === "object" && !Array.isArray(decision.parameterValues)
+      ? Object.values(decision.parameterValues)
+          .map((value) => String(value || "").trim())
+          .filter(Boolean)
+      : []
+
+  return values[0] || ""
 }
 
 async function reloadRuntimeApisWithSemanticParameters({ semanticApiDecision, context, runtimeApis, options = {} }) {
@@ -741,7 +906,9 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           model,
         })
       : null
-  const semanticApiDecision = buildApiDecisionFromSemanticIntent({ semanticIntent: semanticApiIntent })
+  const semanticApiDecision =
+    buildApiDecisionFromSemanticIntent({ semanticIntent: semanticApiIntent }) ??
+    buildSingleCatalogSearchFallbackDecision(latestUserMessage, runtimeApis, null)
   runtimeApis = await reloadRuntimeApisWithSemanticParameters({
     semanticApiDecision,
     context: effectiveContext,
@@ -854,7 +1021,16 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const selectedMercadoLivreProductReply = mercadoLivreState?.selectedProductSalesReply ?? null
   const selectedMercadoLivreProductShouldAttachAsset = mercadoLivreState?.selectedProductShouldAttachAsset === true
   const mercadoLivreReply = resolveMercadoLivreHeuristicReply(mercadoLivreState)
-  const apiCatalogSearchState = shouldUseApiRuntime ? buildApiCatalogSearchState(runtimeApis) : null
+  const apiSearchTerm = getApiSearchTermFromDecision(semanticApiDecision)
+  const baseApiCatalogSearchState = shouldUseApiRuntime ? buildApiCatalogSearchState(runtimeApis) : null
+  const apiCatalogSearchState =
+    baseApiCatalogSearchState && apiSearchTerm
+      ? {
+          ...baseApiCatalogSearchState,
+          ultimaBusca: apiSearchTerm,
+        }
+      : baseApiCatalogSearchState
+  const apiCatalogAssets = shouldUseApiRuntime ? buildApiCatalogAssets(runtimeApis) : []
   const apiCatalogProduct =
     (apiCatalogSearchState?.produtoAtual && typeof apiCatalogSearchState.produtoAtual === "object"
       ? apiCatalogSearchState.produtoAtual
@@ -1013,28 +1189,34 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       })
     const apiReplyText = typeof apiReply === "string" ? apiReply : apiReply?.reply
     if (apiReplyText) {
-      return buildHeuristicReplyResult(apiReplyText, {
-        ...heuristicMetadata,
-        heuristicStage: "api_runtime",
-        domainStage: "api_runtime",
-        provider: "api_runtime",
-        catalogoProdutoAtual: apiReply?.currentCatalogProduct ?? apiCatalogProduct ?? currentCatalogProduct ?? null,
-        catalogoBusca: apiCatalogSearchState,
-        catalogFactContext: apiReply?.factContext ?? null,
-      })
+      return {
+        ...buildHeuristicReplyResult(apiReplyText, {
+          ...heuristicMetadata,
+          heuristicStage: "api_runtime",
+          domainStage: "api_runtime",
+          provider: "api_runtime",
+          catalogoProdutoAtual: apiReply?.currentCatalogProduct ?? apiCatalogProduct ?? currentCatalogProduct ?? null,
+          catalogoBusca: apiCatalogSearchState,
+          catalogFactContext: apiReply?.factContext ?? null,
+        }),
+        assets: apiCatalogAssets,
+      }
     }
   }
 
   if (apiCatalogReply?.reply) {
-    return buildHeuristicReplyResult(apiCatalogReply.reply, {
-      ...heuristicMetadata,
-      heuristicStage: "api_catalog_runtime",
-      domainStage: "api_runtime",
-      provider: "api_runtime",
-      catalogoProdutoAtual: apiCatalogReply.currentCatalogProduct ?? apiCatalogProduct ?? currentCatalogProduct ?? null,
-      catalogoBusca: apiCatalogSearchState,
-      catalogFactContext: apiCatalogReply.factContext ?? null,
-    })
+    return {
+      ...buildHeuristicReplyResult(apiCatalogReply.reply, {
+        ...heuristicMetadata,
+        heuristicStage: "api_catalog_runtime",
+        domainStage: "api_runtime",
+        provider: "api_runtime",
+        catalogoProdutoAtual: apiCatalogReply.currentCatalogProduct ?? apiCatalogProduct ?? currentCatalogProduct ?? null,
+        catalogoBusca: apiCatalogSearchState,
+        catalogFactContext: apiCatalogReply.factContext ?? null,
+      }),
+      assets: apiCatalogAssets,
+    }
   }
 
   if (

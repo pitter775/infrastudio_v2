@@ -202,12 +202,20 @@ function isMercadoLivreProductAsset(asset) {
 }
 
 function isApiProductAsset(asset) {
+  const hasSupportContent =
+    typeof asset?.targetUrl === "string" && asset.targetUrl.trim()
+      ? true
+      : Boolean(
+          (typeof asset?.whatsappText === "string" && asset.whatsappText.trim()) ||
+            (typeof asset?.descricao === "string" && asset.descricao.trim()) ||
+            (typeof asset?.priceLabel === "string" && asset.priceLabel.trim()),
+        )
+
   return (
     isPlainObject(asset) &&
     asset.provider === "api_runtime" &&
     asset.kind === "product" &&
-    typeof asset.targetUrl === "string" &&
-    asset.targetUrl.trim()
+    hasSupportContent
   )
 }
 
