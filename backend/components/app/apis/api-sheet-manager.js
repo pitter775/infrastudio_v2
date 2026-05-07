@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CheckCircle2, Clock3, LoaderCircle, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
+import { CheckCircle2, ClipboardCopy, Clock3, LoaderCircle, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
 
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
@@ -237,6 +237,94 @@ function tryParseJson(value) {
   } catch {
     return null
   }
+}
+
+function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" } = {}) {
+  const activeIntent = runtimeIntentTypeOptions.find((option) => option.value === form.runtimeIntentType)
+  const activeScope = runtimeAvailabilityScopeOptions.find((option) => option.value === form.runtimeAvailabilityScope)
+  const bodyFields = (Array.isArray(form.bodyFields) ? form.bodyFields : [])
+    .map((field) => ({
+      name: String(field?.name || "").trim(),
+      type: String(field?.type || "string").trim(),
+      required: field?.required === true,
+    }))
+    .filter((field) => field.name)
+  const headers = (Array.isArray(form.headerRows) ? form.headerRows : [])
+    .map((row) => ({
+      key: String(row?.key || "").trim(),
+      value: String(row?.value || "").trim(),
+    }))
+    .filter((row) => row.key)
+
+  return [
+    "Você é um especialista em integração de APIs para agentes de IA no InfraStudio.",
+    "Explique para um usuário não técnico como cadastrar a API abaixo no painel, indicando exatamente quais campos preencher e quais opções escolher.",
+    "",
+    "Objetivo da resposta:",
+    "- Classificar o tipo correto da API.",
+    "- Explicar se ela deve ser Busca de catálogo, Consulta por identificador, Busca informativa, Cadastro / envio de dados ou Fato genérico.",
+    "- Explicar o escopo correto: Sempre disponível, Busca aberta ou Item atual.",
+    "- Indicar método, URL, variáveis entre chaves, headers, autorização, body, campos obrigatórios, Response Path, Preview Path e campos de resposta.",
+    "- Escrever uma boa Descrição para decisão da IA, deixando claro quando usar e quando não usar essa API.",
+    "- Avisar riscos de conflito com outras APIs parecidas.",
+    "- Se faltar exemplo de resposta, peça para o usuário clicar em Send e colar o JSON retornado.",
+    "",
+    "Regras importantes do InfraStudio:",
+    "- Busca de catálogo: use quando o cliente procura itens por nome, título, termo, categoria, bairro, cidade, condomínio ou característica.",
+    "- Consulta por identificador: use somente quando a conversa já tem id, propertyId, código, protocolo ou documento exato.",
+    "- Busca informativa: use para FAQ, documentação, regras ou base de conhecimento sem item específico.",
+    "- Cadastro / envio de dados: use para criar lead, pedido, solicitação ou cadastro; normalmente exige confirmação antes de executar.",
+    "- Escopo Busca aberta: a API aparece na home ou atendimento aberto, sem item travado.",
+    "- Escopo Item atual: a API só aparece quando o chat recebe id/propertyId/contexto de um item específico.",
+    "- Campo de variáveis do botão Send serve só para teste manual; não muda o contexto real do chat.",
+    "- Para substituir parâmetros da URL, os nomes precisam bater com as chaves entre chaves. Exemplo: {titulo} usa titulo.",
+    "",
+    "Dados atuais da API:",
+    JSON.stringify(
+      {
+        nome: form.name,
+        metodo: form.method,
+        url: form.url,
+        descricaoInterna: form.description,
+        ativa: form.active,
+        tipoIntencaoAtual: {
+          value: form.runtimeIntentType,
+          label: activeIntent?.label || "",
+          description: activeIntent?.description || "",
+        },
+        escopoAtual: {
+          value: form.runtimeAvailabilityScope,
+          label: activeScope?.label || "",
+          description: activeScope?.description || "",
+        },
+        descricaoParaDecisaoAtual: form.runtimeDescriptionForIntent,
+        autoexecuta: form.runtimeAutoExecute,
+        exigeConfirmacao: form.runtimeRequiresConfirmation,
+        responsePath: form.runtimeResponsePath,
+        previewPath: form.runtimePreviewPath,
+        variaveisNaUrl: urlPathParams,
+        authorization: {
+          type: form.authType,
+          authHeaderName: form.authHeaderName,
+          apiKeyName: form.apiKeyName,
+          hasBearerToken: Boolean(form.bearerToken),
+          hasApiKeyValue: Boolean(form.apiKeyValue),
+        },
+        headers,
+        bodyFields,
+        bodyJson: form.bodyText,
+      },
+      null,
+      2,
+    ),
+    responseValue
+      ? ["", "Exemplo de resposta capturado no Send:", responseValue].join("\n")
+      : "",
+    "",
+    "Entregue a resposta em português do Brasil, em formato de checklist, com os valores exatos que devo preencher no painel.",
+  ]
+    .filter(Boolean)
+    .join("\n")
 }
 
 function inferBodyFieldsFromBody(body) {
@@ -837,6 +925,33 @@ export function ApiSheetManager({
       setStatus({ type: "error", message: error.message })
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function copyGuidePromptForLlm() {
+    const prompt = buildLlmApiGuidePrompt(form, {
+      urlPathParams,
+      responseValue: responseValue || "",
+    })
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(prompt)
+      } else {
+        const textarea = document.createElement("textarea")
+        textarea.value = prompt
+        textarea.setAttribute("readonly", "")
+        textarea.style.position = "fixed"
+        textarea.style.opacity = "0"
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand("copy")
+        textarea.remove()
+      }
+
+      setStatus({ type: "success", message: "Texto para LLM copiado." })
+    } catch {
+      setStatus({ type: "error", message: "Não foi possível copiar o texto para LLM." })
     }
   }
 
@@ -1521,6 +1636,17 @@ export function ApiSheetManager({
           {editorTab === "guidance" ? (
             <div className="grid gap-3 text-sm leading-6 text-slate-300">
               <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 p-4">
+                <div className="mb-3 flex justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={copyGuidePromptForLlm}
+                    className="h-10 rounded-xl border border-sky-400/25 bg-sky-500/15 px-3 text-xs font-semibold text-sky-50 hover:bg-sky-500/20"
+                  >
+                    <ClipboardCopy className="h-4 w-4" />
+                    Copiar para LLM (GPT)
+                  </Button>
+                </div>
                 <p className="font-semibold text-sky-100">Como refinar o acerto do agente</p>
                 <p className="mt-2 text-slate-300">
                   Use a descrição para decisão da IA para separar quando esta API deve ser usada e quando outra API parecida deve assumir.
