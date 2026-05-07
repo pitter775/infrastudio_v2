@@ -18,7 +18,7 @@ import {
   Wand2,
 } from 'lucide-react'
 import { AgentSimulator } from '@/components/app/agents/agent-simulator'
-import { AdminProjectCard } from '@/components/admin/projects/project-card'
+import { AdminProjectCard, buildProjectUsageSummary } from '@/components/admin/projects/project-card'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { HorizontalDragScroll } from '@/components/ui/horizontal-drag-scroll'
@@ -74,10 +74,8 @@ import {
 import {
   IntegrationPanel,
   mergeIntegrationStats,
-  resolveProjectPlanSummary,
 } from './integration-panel'
 import { ProjectPanel } from './project-agent-panel'
-import { formatCredits } from '@/lib/public-planos'
 import { cn } from '@/lib/utils'
 
 export function AdminProjectDetailPage({ project }) {
@@ -200,45 +198,11 @@ export function AdminProjectDetailPage({ project }) {
       return undefined
     }
 
-    const planSummary = resolveProjectPlanSummary(project)
-    const baseMonthlyLimit =
-      project.billing?.currentCycle?.limits?.totalTokens ??
-      project.billing?.projectPlan?.limits?.totalTokens ??
-      null
-    const topUpAvailableTokens = Number(project.billing?.topUps?.availableTokens ?? 0)
-    const monthlyLimit =
-      baseMonthlyLimit == null ? (topUpAvailableTokens > 0 ? topUpAvailableTokens : null) : Number(baseMonthlyLimit) + topUpAvailableTokens
-    const usedTokens = Number(project.billing?.currentCycle?.usage?.totalTokens ?? 0)
-    const remainingTokens = monthlyLimit == null ? null : Math.max(0, Number(monthlyLimit) - usedTokens)
-    const providedUsagePercent = Number(project.billing?.currentCycle?.usagePercent?.totalTokens)
-    const shouldUseProvidedPercent = Number.isFinite(providedUsagePercent) && topUpAvailableTokens <= 0
-    const usagePercent = shouldUseProvidedPercent
-      ? providedUsagePercent
-      : monthlyLimit == null
-        ? 0
-        : (usedTokens / Math.max(Number(monthlyLimit), 1)) * 100
+    const usageSummary = buildProjectUsageSummary(project)
 
     window.dispatchEvent(
       new CustomEvent('admin-project-usage-summary', {
-        detail: {
-          projectId: project.id,
-          projectName: project.name,
-          planId: planSummary.planId,
-          planName: planSummary.planName,
-          isFree: planSummary.isFree,
-          subscriptionStatus: project.billing?.subscription?.status || '',
-          pendingCheckout: project.billing?.pendingCheckout || null,
-          billingBlocked: Boolean(project.billing?.status?.blocked || project.billing?.projectPlan?.blocked),
-          blockedReason: project.billing?.projectPlan?.blockedReason || '',
-          usedTokens,
-          monthlyLimit,
-          usagePercent,
-          topUpAvailableTokens,
-          remainingLabel: remainingTokens == null ? 'Sem limite' : formatCredits(remainingTokens),
-          limitLabel: monthlyLimit == null ? 'Sem limite' : formatCredits(monthlyLimit),
-          remainingPercentLabel: monthlyLimit == null ? null : `${Math.max(0, Math.round(100 - usagePercent))}%`,
-          cycleEndDate: project.billing?.currentCycle?.endDate ?? null,
-        },
+        detail: usageSummary,
       }),
     )
 

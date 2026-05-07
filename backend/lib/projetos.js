@@ -1182,10 +1182,7 @@ export async function getProjectForUser(identifier, user) {
       safeCount(supabase, "canais_whatsapp", project.id),
       safeCount(supabase, "chat_widgets", project.id),
       safeCount(supabase, "agente_arquivos", project.id),
-      getProjectBillingSnapshot(project.id, {
-        supabase,
-        usuarioId: user.role === "admin" ? null : user.id,
-      }),
+      getProjectBillingSnapshot(project.id, { supabase }),
     ])
     const agentVersions = agent?.id ? await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user) : []
     let chatWidgets = initialChatWidgets

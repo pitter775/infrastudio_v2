@@ -190,7 +190,7 @@ function formatPlanBadgeLabel(planName) {
   return `PLANO ${normalizedPlanName}`.toUpperCase()
 }
 
-function buildProjectUsageSummary(project) {
+export function buildProjectUsageSummary(project) {
   const planSummary = resolveProjectPlanSummary(project)
   const baseMonthlyLimit =
     project.billing?.currentCycle?.limits?.totalTokens ??
