@@ -535,6 +535,18 @@ export function ApiSheetManager({
   const editing = Boolean(form.id)
   const internalApi = useMemo(() => isInternalApi(form), [form])
   const agendaInternalApi = useMemo(() => isAgendaInternalApi(form), [form])
+  const methodHasBody = useMemo(() => !["GET", "DELETE", "HEAD"].includes(String(form.method || "GET").toUpperCase()), [form.method])
+  const urlPathParams = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          Array.from(String(form.url || "").matchAll(/\{([^{}]+)\}/g))
+            .map((match) => String(match[1] || "").trim())
+            .filter(Boolean),
+        ),
+      ),
+    [form.url],
+  )
   useEffect(() => {
     let active = true
 
@@ -817,7 +829,7 @@ export function ApiSheetManager({
     try {
       const parsedTestContext = tryParseJson(testContextText)
       if (String(testContextText || "").trim() && (!parsedTestContext || typeof parsedTestContext !== "object" || Array.isArray(parsedTestContext))) {
-        throw new Error("Contexto de teste precisa ser um JSON válido em formato de objeto.")
+        throw new Error("Variáveis da URL precisam ser um JSON válido em formato de objeto.")
       }
 
       const response = await fetch(`${endpoint}/test`, {
@@ -1163,27 +1175,6 @@ export function ApiSheetManager({
                 />
               </label>
 
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block">
-                  <span className={labelClassName}>Response path</span>
-                  <input
-                    value={form.runtimeResponsePath}
-                    onChange={(event) => updateForm("runtimeResponsePath", event.target.value)}
-                    placeholder="data.items"
-                    className={inputClassName}
-                  />
-                </label>
-                <label className="block">
-                  <span className={labelClassName}>Preview path</span>
-                  <input
-                    value={form.runtimePreviewPath}
-                    onChange={(event) => updateForm("runtimePreviewPath", event.target.value)}
-                    placeholder="summary"
-                    className={inputClassName}
-                  />
-                </label>
-              </div>
-
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-sm font-semibold text-white">Campos obrigatórios do runtime</p>
                 <p className="mt-1 text-sm text-slate-400">
@@ -1191,19 +1182,21 @@ export function ApiSheetManager({
                 </p>
               </div>
 
-              <label className="block">
-                <span className={labelClassName}>Contexto de teste</span>
-                <textarea
-                  value={testContextText}
-                  onChange={(event) => setTestContextText(event.target.value)}
-                  placeholder='{"id":"c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2"}'
-                  className={cn(textareaClassName, "min-h-[120px] font-mono text-xs")}
-                  spellCheck={false}
-                />
-                <span className="mt-2 block text-xs leading-5 text-slate-500">
-                  Usado apenas no botão Send. Para testar URLs com {"{id}"}, informe id ou propertyId aqui.
-                </span>
-              </label>
+              {urlPathParams.length ? (
+                <label className="block">
+                  <span className={labelClassName}>Variáveis da URL para teste</span>
+                  <textarea
+                    value={testContextText}
+                    onChange={(event) => setTestContextText(event.target.value)}
+                    placeholder={`{"${urlPathParams[0]}":"c47ae17f-ddbe-4c59-96b9-30e6d12c5ff2"}`}
+                    className={cn(textareaClassName, "min-h-[120px] font-mono text-xs")}
+                    spellCheck={false}
+                  />
+                  <span className="mt-2 block text-xs leading-5 text-slate-500">
+                    Usado pelo Send para substituir {urlPathParams.map((param) => `{${param}}`).join(", ")} na URL.
+                  </span>
+                </label>
+              ) : null}
             </div>
           ) : null}
 
@@ -1377,17 +1370,25 @@ export function ApiSheetManager({
 
               {!internalApi && bodySubtab === "json" ? (
                 <div className="grid gap-3">
-                  <p className="text-sm text-slate-400">Use para testar manualmente a requisição.</p>
-                  <label className="block">
-                    <span className={labelClassName}>Body da requisição</span>
-                    <textarea
-                      value={form.bodyText}
-                      onChange={(event) => updateForm("bodyText", event.target.value)}
-                      placeholder='{"clienteId": 1}'
-                      className={cn(textareaClassName, "min-h-[220px] font-mono text-xs")}
-                      spellCheck={false}
-                    />
-                  </label>
+                  {methodHasBody ? (
+                    <>
+                      <p className="text-sm text-slate-400">Use para testar manualmente o body enviado na requisição.</p>
+                      <label className="block">
+                        <span className={labelClassName}>Body da requisição</span>
+                        <textarea
+                          value={form.bodyText}
+                          onChange={(event) => updateForm("bodyText", event.target.value)}
+                          placeholder='{"clienteId": 1}'
+                          className={cn(textareaClassName, "min-h-[220px] font-mono text-xs")}
+                          spellCheck={false}
+                        />
+                      </label>
+                    </>
+                  ) : (
+                    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
+                      {form.method} não envia body. Para testar valores dentro da URL, use as variáveis da aba Runtime.
+                    </div>
+                  )}
                 </div>
               ) : null}
             </div>
