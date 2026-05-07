@@ -406,14 +406,7 @@ export function buildApiDecisionFromSemanticIntent(input) {
       comparisonMode: sanitizeString(semanticIntent.comparisonMode),
       apiId: sanitizeString(semanticIntent.apiId),
       intentType: normalizeSemanticApiIntentType(semanticIntent.intentType),
-      parameterValues:
-        semanticIntent.parameterValues && typeof semanticIntent.parameterValues === "object" && !Array.isArray(semanticIntent.parameterValues)
-          ? Object.fromEntries(
-              Object.entries(semanticIntent.parameterValues)
-                .map(([key, value]) => [sanitizeString(key), sanitizeString(value)])
-                .filter(([key, value]) => key && value),
-            )
-          : {},
+      parameterValues: normalizeSemanticApiParameterValues(semanticIntent.parameterValues),
       referencedProductIndexes: Array.isArray(semanticIntent.referencedProductIndexes)
         ? semanticIntent.referencedProductIndexes
             .map((item) => Number(item))
@@ -437,6 +430,26 @@ const SEMANTIC_API_INTENT_TYPES = new Set([
 function normalizeSemanticApiIntentType(value) {
   const normalized = sanitizeString(value).toLowerCase()
   return SEMANTIC_API_INTENT_TYPES.has(normalized) ? normalized : "generic_fact"
+}
+
+function normalizeSemanticApiParameterValues(value) {
+  if (Array.isArray(value)) {
+    return Object.fromEntries(
+      value
+        .map((item) => [sanitizeString(item?.name), sanitizeString(item?.value)])
+        .filter(([name, itemValue]) => name && itemValue),
+    )
+  }
+
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value)
+        .map(([key, itemValue]) => [sanitizeString(key), sanitizeString(itemValue)])
+        .filter(([key, itemValue]) => key && itemValue),
+    )
+  }
+
+  return {}
 }
 
 export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
@@ -1061,7 +1074,7 @@ export async function classifySemanticApiIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de APIs estruturadas ja disponiveis no runtime.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"api_fact_query|api_status_query|api_comparison|api_create_record|api_catalog_search|other","confidence":0..1,"reason":"string","apiId":"string","intentType":"create_record|lookup_by_identifier|knowledge_search|catalog_search|generic_fact|","targetFieldHints":["string"],"supportFieldHints":["string"],"parameterValues":{"campo":"valor"},"comparisonMode":"best_choice|highest_price|lowest_price|","referencedProductIndexes":[1,2]}.',
+            'Schema: {"intent":"api_fact_query|api_status_query|api_comparison|api_create_record|api_catalog_search|other","confidence":0..1,"reason":"string","apiId":"string","intentType":"create_record|lookup_by_identifier|knowledge_search|catalog_search|generic_fact|","targetFieldHints":["string"],"supportFieldHints":["string"],"parameterValues":[{"name":"campo","value":"valor"}],"comparisonMode":"best_choice|highest_price|lowest_price|","referencedProductIndexes":[1,2]}.',
             "Use api_fact_query para pedido factual sobre campos disponiveis, como valor, data, endereco, documento, descricao.",
             "Use api_status_query para status, codigo, pedido, estoque, disponibilidade, rastreio.",
             "Use api_comparison para comparacao ou melhor opcao entre registros/itens retornados.",
@@ -1072,7 +1085,7 @@ export async function classifySemanticApiIntentStage(input = {}) {
             "Quando a intencao for factual ou status, preencha targetFieldHints com campos curtos e literais do runtime, por exemplo matricula, cartorio, valor, status, codigo, data_leilao, endereco, cidade, descricao.",
             "Quando fizer sentido adicionar contexto util, preencha supportFieldHints com campos complementares curtos e literais, por exemplo status, data_leilao, valor_minimo, ocupacao, cidade.",
             "Quando a intencao for api_comparison, preencha comparisonMode com best_choice, highest_price ou lowest_price.",
-            "Quando a API tiver parametros ausentes na URL ou campos obrigatorios, extraia valores literais da mensagem em parameterValues. Exemplo: para URL com {titulo} e mensagem 'imovel EDIFICIO VILLA', retorne parameterValues.titulo='EDIFICIO VILLA'.",
+            "Quando a API tiver parametros ausentes na URL ou campos obrigatorios, extraia valores literais da mensagem em parameterValues. Exemplo: para URL com {titulo} e mensagem 'imovel EDIFICIO VILLA', retorne parameterValues=[{name:'titulo', value:'EDIFICIO VILLA'}].",
             "Quando a intencao comparar itens numerados da lista, preencha referencedProductIndexes com numeros 1-based reais.",
             "Se nao houver evidência suficiente, retorne other.",
           ].join("\n"),
@@ -1134,9 +1147,19 @@ export async function classifySemanticApiIntentStage(input = {}) {
                 },
               },
               parameterValues: {
-                type: "object",
-                additionalProperties: {
-                  type: "string",
+                type: "array",
+                items: {
+                  type: "object",
+                  additionalProperties: false,
+                  properties: {
+                    name: {
+                      type: "string",
+                    },
+                    value: {
+                      type: "string",
+                    },
+                  },
+                  required: ["name", "value"],
                 },
               },
               comparisonMode: {
@@ -1188,14 +1211,7 @@ export async function classifySemanticApiIntentStage(input = {}) {
     supportFieldHints: Array.isArray(parsed?.supportFieldHints)
       ? parsed.supportFieldHints.map((item) => sanitizeString(item)).filter(Boolean)
       : [],
-    parameterValues:
-      parsed?.parameterValues && typeof parsed.parameterValues === "object" && !Array.isArray(parsed.parameterValues)
-        ? Object.fromEntries(
-            Object.entries(parsed.parameterValues)
-              .map(([key, value]) => [sanitizeString(key), sanitizeString(value)])
-              .filter(([key, value]) => key && value),
-          )
-        : {},
+    parameterValues: normalizeSemanticApiParameterValues(parsed?.parameterValues),
     comparisonMode: sanitizeString(parsed?.comparisonMode),
     referencedProductIndexes: Array.isArray(parsed?.referencedProductIndexes)
       ? parsed.referencedProductIndexes.map((item) => Number(item)).filter((item) => Number.isInteger(item) && item >= 1)
