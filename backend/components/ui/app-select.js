@@ -85,6 +85,7 @@ export function AppSelect({
   options = [],
   value = "",
   onChangeValue,
+  formatOptionLabel,
   placeholder = "Selecione",
   isClearable = false,
   menuPlacement = "auto",
@@ -104,6 +105,7 @@ export function AppSelect({
       options={options}
       value={selectedOption}
       onChange={(option) => onChangeValue?.(option?.value ?? "")}
+      formatOptionLabel={formatOptionLabel}
       placeholder={placeholder}
       isClearable={isClearable}
       isSearchable={isSearchable}

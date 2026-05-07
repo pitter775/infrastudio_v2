@@ -68,11 +68,31 @@ const fieldTypeOptions = [
 ]
 
 const runtimeIntentTypeOptions = [
-  { value: "generic_fact", label: "Fato genérico" },
-  { value: "lookup_by_identifier", label: "Consulta por identificador" },
-  { value: "knowledge_search", label: "Busca informativa" },
-  { value: "catalog_search", label: "Busca de catálogo" },
-  { value: "create_record", label: "Cadastro / envio de dados" },
+  {
+    value: "generic_fact",
+    label: "Fato genérico",
+    description: "Consulta simples de informação, sem busca por item específico e sem envio de dados.",
+  },
+  {
+    value: "lookup_by_identifier",
+    label: "Consulta por identificador",
+    description: "Busca um registro específico por id, código, protocolo, documento ou outro identificador.",
+  },
+  {
+    value: "knowledge_search",
+    label: "Busca informativa",
+    description: "Procura conteúdo em base de conhecimento, FAQ, documentação ou serviço informativo.",
+  },
+  {
+    value: "catalog_search",
+    label: "Busca de catálogo",
+    description: "Busca itens, imóveis, produtos ou anúncios por termo informado pelo cliente.",
+  },
+  {
+    value: "create_record",
+    label: "Cadastro / envio de dados",
+    description: "Envia dados para criar lead, pedido, solicitação, cadastro ou registro.",
+  },
 ]
 
 const inputClassName =
@@ -143,6 +163,19 @@ function truncateMiddleValue(value) {
 
 function getRuntimeIntentTypeLabel(value) {
   return runtimeIntentTypeOptions.find((option) => option.value === value)?.label || "Fato genérico"
+}
+
+function formatRuntimeIntentOption(option, { context } = {}) {
+  if (context === "value") {
+    return option.label
+  }
+
+  return (
+    <div title={option.description} className="py-0.5">
+      <p className="text-sm font-medium">{option.label}</p>
+      {option.description ? <p className="mt-1 text-xs leading-4 text-slate-400">{option.description}</p> : null}
+    </div>
+  )
 }
 
 function stringifyBody(value) {
@@ -1060,6 +1093,7 @@ export function ApiSheetManager({
                       options={runtimeIntentTypeOptions}
                       value={form.runtimeIntentType}
                       onChangeValue={(value) => updateForm("runtimeIntentType", value || "generic_fact")}
+                      formatOptionLabel={formatRuntimeIntentOption}
                     />
                   </div>
                 </label>
