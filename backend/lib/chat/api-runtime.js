@@ -813,6 +813,32 @@ function buildApiCatalogExitFocusReply(catalogDecision = null) {
   return null
 }
 
+function isApiFocusAffirmation(message) {
+  const normalized = normalizeText(message)
+  if (!normalized || normalized.length > 80) {
+    return false
+  }
+
+  return /\b(gostei|interessei|curti|quero esse|quero este|pode ser|ok|beleza|legal)\b/.test(normalized)
+}
+
+function buildApiFocusedAffirmationReply(product) {
+  if (!product?.nome) {
+    return null
+  }
+
+  const locationLabel = [product.cidade, product.estado].filter(Boolean).join(" - ")
+  const priceLabel = product.preco != null ? formatCurrencyValue(product.preco) : ""
+  const contextPieces = [priceLabel, locationLabel].filter(Boolean)
+  return [
+    `Certo, vou manter ${product.nome} como foco.`,
+    contextPieces.length ? `Pelo que a API trouxe: ${contextPieces.join(" · ")}.` : "",
+    "Pode me perguntar sobre riscos, localização, valor, documentação ou próximos passos desse item.",
+  ]
+    .filter(Boolean)
+    .join(" ")
+}
+
 export function resolveApiCatalogReplyResolution(message, context = {}, apis = [], customDeps = {}) {
   const deps = getDeps(customDeps)
   const contextProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos.filter(Boolean) : []
@@ -849,6 +875,15 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
     (context?.catalogo?.produtoAtual && typeof context.catalogo.produtoAtual === "object" ? context.catalogo.produtoAtual : null) ??
     (products.length === 1 ? products[0] : null)
   if (earlyFocusedProduct?.nome) {
+    if (isApiFocusAffirmation(message)) {
+      return {
+        reply: buildApiFocusedAffirmationReply(earlyFocusedProduct),
+        currentCatalogProduct: earlyFocusedProduct,
+        factContext: null,
+        attachAssets: false,
+      }
+    }
+
     const advisoryReply = buildApiFocusedCatalogAdvisoryReply(message, earlyFocusedProduct, context, semanticCatalogDecision)
     if (advisoryReply) {
       return {
