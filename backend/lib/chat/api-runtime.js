@@ -733,18 +733,11 @@ function buildApiFocusedCatalogAdvisoryReply(message, product, context = {}, sem
   }
 
   const deps = getDeps()
-  const normalized = deps.normalizeText(message)
   const adviceType = sanitizeString(semanticCatalogDecision?.adviceType)
-  const asksRisk =
-    /\b(risco|riscos|problema|problemas|pendencia|pendencias|restricao|restricoes|atencao|validar|conferir)\b/.test(normalized)
-  const asksValue =
-    adviceType === "value_assessment" ||
-    /\b(vale a pena|compensa|faz sentido|preco|valor|custo|retorno|roi)\b/.test(normalized)
-  const asksFit =
-    adviceType === "fit_advice" ||
-    /\b(recomenda|indicaria|serve|adequado|bom para|melhor opcao)\b/.test(normalized)
+  const asksRisk = adviceType === "risk_assessment"
+  const asksValue = adviceType === "value_assessment"
 
-  if (!asksRisk && !asksValue && !asksFit && semanticCatalogDecision?.kind !== "current_product_commercial_advice") {
+  if (semanticCatalogDecision?.kind !== "current_product_commercial_advice") {
     return null
   }
 
@@ -813,15 +806,6 @@ function buildApiCatalogExitFocusReply(catalogDecision = null) {
   return null
 }
 
-function isApiFocusAffirmation(message) {
-  const normalized = normalizeText(message)
-  if (!normalized || normalized.length > 80) {
-    return false
-  }
-
-  return /\b(gostei|interessei|curti|quero esse|quero este|pode ser|ok|beleza|legal)\b/.test(normalized)
-}
-
 function buildApiFocusedAffirmationReply(product) {
   if (!product?.nome) {
     return null
@@ -875,7 +859,7 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
     (context?.catalogo?.produtoAtual && typeof context.catalogo.produtoAtual === "object" ? context.catalogo.produtoAtual : null) ??
     (products.length === 1 ? products[0] : null)
   if (earlyFocusedProduct?.nome) {
-    if (isApiFocusAffirmation(message)) {
+    if (catalogDecision?.kind === "current_product_affirmation") {
       return {
         reply: buildApiFocusedAffirmationReply(earlyFocusedProduct),
         currentCatalogProduct: earlyFocusedProduct,

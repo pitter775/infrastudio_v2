@@ -727,5 +727,7 @@ Ainda errado / fragil:
   - itens normalizados de API agora carregam `fields` e `rawContext` enxutos para contexto consultivo sem depender de campos fixos de Mercado Livre
   - o stage semantico de catalogo tambem pode rotear continuidade de API runtime quando a conversa tem `listingSession`/produto recente de `source = api_runtime`
   - perguntas consultivas sobre item em foco, como risco, viabilidade e pontos de validacao, agora respondem sobre o item atual e nao repetem card por padrao
+  - afirmacao/continuidade do item em foco saiu de lista de frases no API runtime e passou para intent semantico `current_product_affirmation`
+  - risco/pontos de atencao do item em foco passam pelo intent semantico `current_product_commercial_advice` com `risk_assessment`, sem regex textual no API runtime
   - `productFocus` passou a preservar `source`, permitindo separar foco de API runtime e Mercado Livre
   - o widget nao mostra parcelamento em 12x para cards de API runtime, pois API generica nao implica regra comercial do Mercado Livre

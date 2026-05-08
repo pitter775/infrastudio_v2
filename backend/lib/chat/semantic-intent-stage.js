@@ -184,6 +184,17 @@ export function buildCatalogDecisionFromSemanticIntent(input) {
     }
   }
 
+  if (semanticIntent.intent === "current_product_affirmation" && hasCurrentProduct) {
+    return {
+      kind: "current_product_affirmation",
+      confidence: semanticIntent.confidence,
+      reason: semanticIntent.reason ?? "Cliente sinalizou interesse em continuar com o produto em foco.",
+      matchedProducts: [],
+      usedLlm: Boolean(semanticIntent.usedLlm),
+      shouldBlockNewSearch: true,
+    }
+  }
+
   if (semanticIntent.intent === "recent_product_reference") {
     const referencedIds = Array.isArray(semanticIntent.referencedProductIds)
       ? semanticIntent.referencedProductIds.map((item) => sanitizeString(item)).filter(Boolean)
@@ -734,11 +745,12 @@ export async function classifySemanticIntentStage(input = {}) {
         {
           role: "system",
           content: [
-            "Classifique a mensagem do cliente no contexto de catálogo Mercado Livre.",
+            "Classifique a mensagem do cliente no contexto de catálogo de produtos.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"current_product_question|current_product_commercial_advice|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_alternative_search|catalog_search_refinement|new_catalog_search|catalog_browse|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false,"targetFactHints":["string"],"factScope":"product|package|shipping|commercial|general|","adviceType":"price_objection|improvement_suggestion|value_assessment|fit_advice|other|","relation":"same_type|similar|storewide|","priceConstraint":"below_current|any|"}.',
-            "Use current_product_commercial_advice quando o cliente pedir uma avaliacao consultiva do produto atual, questionar custo-beneficio, reclamar que esta caro, perguntar o que melhorar/validar antes de comprar ou pedir opiniao comercial sem pedir um campo factual isolado.",
-            "Para current_product_commercial_advice, preencha adviceType com price_objection, improvement_suggestion, value_assessment, fit_advice ou other e deixe targetFactHints vazio, exceto se o cliente tambem pedir um dado factual especifico.",
+            'Schema: {"intent":"current_product_question|current_product_commercial_advice|current_product_affirmation|recent_product_reference|recent_product_reference_ambiguous|recent_product_reference_unresolved|same_type_search|similar_items_search|catalog_alternative_search|catalog_search_refinement|new_catalog_search|catalog_browse|catalog_load_more|other","confidence":0..1,"reason":"string","targetType":"string","referencedProductIds":["string"],"excludeCurrentProduct":true|false,"targetFactHints":["string"],"factScope":"product|package|shipping|commercial|general|","adviceType":"price_objection|improvement_suggestion|value_assessment|fit_advice|risk_assessment|other|","relation":"same_type|similar|storewide|","priceConstraint":"below_current|any|"}.',
+            "Use current_product_commercial_advice quando o cliente pedir uma avaliacao consultiva do produto atual, questionar custo-beneficio, reclamar que esta caro, perguntar riscos, pontos de atencao, o que melhorar/validar antes de comprar ou pedir opiniao comercial sem pedir um campo factual isolado.",
+            "Para current_product_commercial_advice, preencha adviceType com price_objection, improvement_suggestion, value_assessment, fit_advice, risk_assessment ou other e deixe targetFactHints vazio, exceto se o cliente tambem pedir um dado factual especifico.",
+            "Use current_product_affirmation quando o cliente sinalizar interesse, aceitacao, aprovacao ou vontade de continuar no produto atual sem pedir alternativa, nova busca ou dado especifico.",
             "Use same_type_search apenas quando o cliente pedir outro item do mesmo tipo ou da mesma classe do produto atual.",
             "Quando usar same_type_search, extraia targetType curto e literal, por exemplo saleiro, jarra, xicara, prato.",
             "Use similar_items_search quando o cliente pedir algo parecido, similar, semelhante ou na mesma linha do produto atual, mesmo sem citar o tipo explicitamente.",
@@ -814,6 +826,7 @@ export async function classifySemanticIntentStage(input = {}) {
                 enum: [
                   "current_product_question",
                   "current_product_commercial_advice",
+                  "current_product_affirmation",
                   "recent_product_reference",
                   "recent_product_reference_ambiguous",
                   "recent_product_reference_unresolved",
@@ -859,7 +872,7 @@ export async function classifySemanticIntentStage(input = {}) {
               },
               adviceType: {
                 type: "string",
-                enum: ["", "price_objection", "improvement_suggestion", "value_assessment", "fit_advice", "other"],
+                enum: ["", "price_objection", "improvement_suggestion", "value_assessment", "fit_advice", "risk_assessment", "other"],
               },
               relation: {
                 type: "string",

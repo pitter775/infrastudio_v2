@@ -6680,7 +6680,7 @@ const tests: TestCase[] = [
               intent: "current_product_commercial_advice",
               confidence: 0.92,
               reason: "Pergunta consultiva sobre riscos do item atual.",
-              adviceType: "other",
+              adviceType: "risk_assessment",
               usedLlm: true,
             }) as never,
         }
@@ -6771,7 +6771,19 @@ const tests: TestCase[] = [
               parameterValues: {},
               usedLlm: true,
             }) as never,
-          classifySemanticIntentStage: async () => null,
+          classifySemanticIntentStage: async () =>
+            ({
+              intent: "current_product_commercial_advice",
+              confidence: 0.93,
+              reason: "Pergunta consultiva sobre riscos do item atual.",
+              targetType: "",
+              referencedProductIds: [],
+              excludeCurrentProduct: true,
+              targetFactHints: [],
+              factScope: "commercial",
+              adviceType: "risk_assessment",
+              usedLlm: true,
+            }) as never,
         }
       );
 
@@ -6855,7 +6867,19 @@ const tests: TestCase[] = [
               parameterValues: {},
               usedLlm: true,
             }) as never,
-          classifySemanticIntentStage: async () => null,
+          classifySemanticIntentStage: async () =>
+            ({
+              intent: "current_product_affirmation",
+              confidence: 0.91,
+              reason: "Cliente sinalizou interesse em continuar no item atual.",
+              targetType: "",
+              referencedProductIds: [],
+              excludeCurrentProduct: false,
+              targetFactHints: [],
+              factScope: "",
+              adviceType: "",
+              usedLlm: true,
+            }) as never,
         }
       );
 
