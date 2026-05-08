@@ -7,6 +7,7 @@ export {
 } from "@/lib/chat/catalog-follow-up";
 
 export {
+  buildApiCatalogAssets,
   buildApiFallbackReply,
   buildFocusedApiContext,
   resolveApiCatalogReply,

@@ -26,8 +26,18 @@ const emptyForm = {
   runtimeIntentType: "generic_fact",
   runtimeAvailabilityScope: "always",
   runtimeDescriptionForIntent: "",
+  runtimePresentation: "auto",
+  runtimeResponseShape: "auto",
   runtimeResponsePath: "",
   runtimePreviewPath: "",
+  runtimeDisplayTitlePath: "",
+  runtimeDisplaySubtitlePath: "",
+  runtimeDisplayDescriptionPath: "",
+  runtimeDisplayPricePath: "",
+  runtimeDisplayImagePath: "",
+  runtimeDisplayImagesPath: "",
+  runtimeDisplayLinkPath: "",
+  runtimeDisplayStatusPath: "",
   runtimeAutoExecute: false,
   runtimeRequiresConfirmation: false,
   headerRows: [{ id: "header-1", key: "", value: "" }],
@@ -115,6 +125,23 @@ const runtimeAvailabilityScopeOptions = [
   },
 ]
 
+const runtimePresentationOptions = [
+  { value: "auto", label: "Auto", description: "O runtime escolhe entre texto, card, lista, tabela ou resumo conforme os dados retornados." },
+  { value: "text", label: "Texto", description: "Responde em texto simples usando campos e preview da API." },
+  { value: "card", label: "Card", description: "Renderiza um registro principal em card quando houver título/nome e dados úteis." },
+  { value: "list", label: "Lista", description: "Renderiza vários itens como lista/cards quando a API retornar mais de um registro." },
+  { value: "table", label: "Tabela", description: "Usa formato tabular quando a resposta tiver linhas e colunas comparáveis." },
+  { value: "summary", label: "Resumo", description: "Resume retorno bruto ou grande sem tentar montar card." },
+]
+
+const runtimeResponseShapeOptions = [
+  { value: "auto", label: "Auto", description: "Detecta automaticamente se a resposta é item único, lista, tabela ou bruto." },
+  { value: "single_item", label: "Item único", description: "A resposta representa um registro principal." },
+  { value: "list", label: "Lista", description: "A resposta contém um array de registros." },
+  { value: "table", label: "Tabela", description: "A resposta contém linhas/colunas comparáveis." },
+  { value: "raw", label: "Bruto", description: "A resposta não tem estrutura confiável e deve ser tratada como texto/JSON bruto." },
+]
+
 const inputClassName =
   "mt-1 h-12 w-full rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
 const textareaClassName =
@@ -183,6 +210,14 @@ function normalizeRuntimeAvailabilityScope(value) {
   return runtimeAvailabilityScopeOptions.some((option) => option.value === value) ? value : "always"
 }
 
+function normalizeRuntimePresentation(value) {
+  return runtimePresentationOptions.some((option) => option.value === value) ? value : "auto"
+}
+
+function normalizeRuntimeResponseShape(value) {
+  return runtimeResponseShapeOptions.some((option) => option.value === value) ? value : "auto"
+}
+
 function buildUrlVariableExample(params = [], form = {}) {
   const entries = params
     .map((param) => String(param || "").trim())
@@ -242,6 +277,8 @@ function tryParseJson(value) {
 function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" } = {}) {
   const activeIntent = runtimeIntentTypeOptions.find((option) => option.value === form.runtimeIntentType)
   const activeScope = runtimeAvailabilityScopeOptions.find((option) => option.value === form.runtimeAvailabilityScope)
+  const activePresentation = runtimePresentationOptions.find((option) => option.value === form.runtimePresentation)
+  const activeResponseShape = runtimeResponseShapeOptions.find((option) => option.value === form.runtimeResponseShape)
   const bodyFields = (Array.isArray(form.bodyFields) ? form.bodyFields : [])
     .map((field) => ({
       name: String(field?.name || "").trim(),
@@ -349,6 +386,26 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
           description: activeScope?.description || "",
         },
         descricaoParaDecisaoAtual: form.runtimeDescriptionForIntent,
+        apresentacaoAtual: {
+          value: form.runtimePresentation,
+          label: activePresentation?.label || "",
+          description: activePresentation?.description || "",
+        },
+        formatoRespostaAtual: {
+          value: form.runtimeResponseShape,
+          label: activeResponseShape?.label || "",
+          description: activeResponseShape?.description || "",
+        },
+        display: {
+          titlePath: form.runtimeDisplayTitlePath,
+          subtitlePath: form.runtimeDisplaySubtitlePath,
+          descriptionPath: form.runtimeDisplayDescriptionPath,
+          pricePath: form.runtimeDisplayPricePath,
+          imagePath: form.runtimeDisplayImagePath,
+          imagesPath: form.runtimeDisplayImagesPath,
+          linkPath: form.runtimeDisplayLinkPath,
+          statusPath: form.runtimeDisplayStatusPath,
+        },
         autoexecuta: form.runtimeAutoExecute,
         exigeConfirmacao: form.runtimeRequiresConfirmation,
         responsePath: form.runtimeResponsePath,
@@ -535,8 +592,18 @@ function resolveRuntimeConfig(config) {
     runtimeIntentType: intentType,
     runtimeAvailabilityScope: normalizeRuntimeAvailabilityScope(runtime.availabilityScope),
     runtimeDescriptionForIntent: String(runtime.descriptionForIntent || ""),
+    runtimePresentation: normalizeRuntimePresentation(runtime.presentation),
+    runtimeResponseShape: normalizeRuntimeResponseShape(runtime.responseShape),
     runtimeResponsePath: String(runtime.responsePath || ""),
     runtimePreviewPath: String(runtime.previewPath || ""),
+    runtimeDisplayTitlePath: String(runtime.display?.titlePath || ""),
+    runtimeDisplaySubtitlePath: String(runtime.display?.subtitlePath || ""),
+    runtimeDisplayDescriptionPath: String(runtime.display?.descriptionPath || ""),
+    runtimeDisplayPricePath: String(runtime.display?.pricePath || ""),
+    runtimeDisplayImagePath: String(runtime.display?.imagePath || ""),
+    runtimeDisplayImagesPath: String(runtime.display?.imagesPath || ""),
+    runtimeDisplayLinkPath: String(runtime.display?.linkPath || ""),
+    runtimeDisplayStatusPath: String(runtime.display?.statusPath || ""),
     runtimeAutoExecute: runtime.autoExecute === true,
     runtimeRequiresConfirmation: runtime.requiresConfirmation === true,
   }
@@ -628,8 +695,20 @@ function buildConfigFromForm(form) {
       intentType: form.runtimeIntentType || "generic_fact",
       availabilityScope: normalizeRuntimeAvailabilityScope(form.runtimeAvailabilityScope),
       descriptionForIntent: String(form.runtimeDescriptionForIntent || "").trim(),
+      presentation: normalizeRuntimePresentation(form.runtimePresentation),
+      responseShape: normalizeRuntimeResponseShape(form.runtimeResponseShape),
       responsePath: String(form.runtimeResponsePath || "").trim(),
       previewPath: String(form.runtimePreviewPath || "").trim(),
+      display: {
+        titlePath: String(form.runtimeDisplayTitlePath || "").trim(),
+        subtitlePath: String(form.runtimeDisplaySubtitlePath || "").trim(),
+        descriptionPath: String(form.runtimeDisplayDescriptionPath || "").trim(),
+        pricePath: String(form.runtimeDisplayPricePath || "").trim(),
+        imagePath: String(form.runtimeDisplayImagePath || "").trim(),
+        imagesPath: String(form.runtimeDisplayImagesPath || "").trim(),
+        linkPath: String(form.runtimeDisplayLinkPath || "").trim(),
+        statusPath: String(form.runtimeDisplayStatusPath || "").trim(),
+      },
       autoExecute: form.runtimeAutoExecute === true,
       requiresConfirmation: form.runtimeRequiresConfirmation === true,
       requiredFields,
@@ -702,6 +781,14 @@ function buildConfigFromForm(form) {
     delete nextConfig.runtime.availabilityScope
   }
 
+  if (nextConfig.runtime.presentation === "auto") {
+    delete nextConfig.runtime.presentation
+  }
+
+  if (nextConfig.runtime.responseShape === "auto") {
+    delete nextConfig.runtime.responseShape
+  }
+
   if (!nextConfig.runtime.responsePath) {
     delete nextConfig.runtime.responsePath
   }
@@ -716,6 +803,16 @@ function buildConfigFromForm(form) {
 
   if (!nextConfig.runtime.fields.length) {
     delete nextConfig.runtime.fields
+  }
+
+  Object.keys(nextConfig.runtime.display).forEach((key) => {
+    if (!nextConfig.runtime.display[key]) {
+      delete nextConfig.runtime.display[key]
+    }
+  })
+
+  if (!Object.keys(nextConfig.runtime.display).length) {
+    delete nextConfig.runtime.display
   }
 
   return nextConfig
@@ -1467,6 +1564,37 @@ export function ApiSheetManager({
                 </RuntimeHoverHelp>
               </div>
 
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="block">
+                  <RuntimeHoverHelp content="Define como o chat deve mostrar o retorno da API. Card não é exclusivo de catálogo; uma consulta por identificador também pode renderizar card se trouxer dados suficientes.">
+                    <span className={cn(labelClassName, "inline-flex cursor-help")}>Apresentação</span>
+                  </RuntimeHoverHelp>
+                  <div className="mt-1">
+                    <AppSelect
+                      instanceId="runtime-presentation"
+                      options={runtimePresentationOptions}
+                      value={form.runtimePresentation}
+                      onChangeValue={(value) => updateForm("runtimePresentation", normalizeRuntimePresentation(value))}
+                      formatOptionLabel={formatRuntimeIntentOption}
+                    />
+                  </div>
+                </div>
+                <div className="block">
+                  <RuntimeHoverHelp content="Informa se a API retorna um item único, lista, tabela ou JSON/texto bruto. Em Auto, o runtime tenta detectar sem forçar card ruim.">
+                    <span className={cn(labelClassName, "inline-flex cursor-help")}>Formato da resposta</span>
+                  </RuntimeHoverHelp>
+                  <div className="mt-1">
+                    <AppSelect
+                      instanceId="runtime-response-shape"
+                      options={runtimeResponseShapeOptions}
+                      value={form.runtimeResponseShape}
+                      onChangeValue={(value) => updateForm("runtimeResponseShape", normalizeRuntimeResponseShape(value))}
+                      formatOptionLabel={formatRuntimeIntentOption}
+                    />
+                  </div>
+                </div>
+              </div>
+
               <label className="block">
                 <span className={labelClassName}>Descrição para decisão da IA</span>
                 <textarea
@@ -1482,6 +1610,91 @@ export function ApiSheetManager({
                   </span>
                 ) : null}
               </label>
+
+              <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <div>
+                  <RuntimeHoverHelp content="Mapeamento opcional para cards/listas/tabelas. Se ficar vazio, o runtime tenta usar aliases comuns como titulo, nome, valor, imagem e link.">
+                    <span className={cn(labelClassName, "inline-flex cursor-help")}>Mapeamento visual opcional</span>
+                  </RuntimeHoverHelp>
+                  <p className="mt-2 text-xs leading-5 text-slate-500">
+                    Use caminhos do JSON retornado pela API. Exemplo: `data.imovel.titulo` ou `items.0.valor`.
+                  </p>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-medium text-slate-400">Título</span>
+                    <input
+                      value={form.runtimeDisplayTitlePath}
+                      onChange={(event) => updateForm("runtimeDisplayTitlePath", event.target.value)}
+                      placeholder="titulo"
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-slate-400">Subtítulo</span>
+                    <input
+                      value={form.runtimeDisplaySubtitlePath}
+                      onChange={(event) => updateForm("runtimeDisplaySubtitlePath", event.target.value)}
+                      placeholder="cidade"
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="block md:col-span-2">
+                    <span className="text-xs font-medium text-slate-400">Descrição</span>
+                    <input
+                      value={form.runtimeDisplayDescriptionPath}
+                      onChange={(event) => updateForm("runtimeDisplayDescriptionPath", event.target.value)}
+                      placeholder="descricao"
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-slate-400">Preço / valor</span>
+                    <input
+                      value={form.runtimeDisplayPricePath}
+                      onChange={(event) => updateForm("runtimeDisplayPricePath", event.target.value)}
+                      placeholder="valor_publico"
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-slate-400">Status</span>
+                    <input
+                      value={form.runtimeDisplayStatusPath}
+                      onChange={(event) => updateForm("runtimeDisplayStatusPath", event.target.value)}
+                      placeholder="status"
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-slate-400">Imagem</span>
+                    <input
+                      value={form.runtimeDisplayImagePath}
+                      onChange={(event) => updateForm("runtimeDisplayImagePath", event.target.value)}
+                      placeholder="imagem"
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-slate-400">Galeria</span>
+                    <input
+                      value={form.runtimeDisplayImagesPath}
+                      onChange={(event) => updateForm("runtimeDisplayImagesPath", event.target.value)}
+                      placeholder="imagens"
+                      className={inputClassName}
+                    />
+                  </label>
+                  <label className="block md:col-span-2">
+                    <span className="text-xs font-medium text-slate-400">Link</span>
+                    <input
+                      value={form.runtimeDisplayLinkPath}
+                      onChange={(event) => updateForm("runtimeDisplayLinkPath", event.target.value)}
+                      placeholder="url"
+                      className={inputClassName}
+                    />
+                  </label>
+                </div>
+              </div>
 
               {urlPathParams.length ? (
                 <label className="block">

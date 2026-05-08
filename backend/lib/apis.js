@@ -13,6 +13,31 @@ const apiVersionFields =
 const runtimeApiCache = new Map()
 const runtimeIntentTypes = new Set(["create_record", "lookup_by_identifier", "knowledge_search", "catalog_search", "generic_fact"])
 const runtimeAvailabilityScopes = new Set(["always", "open_search", "context_item"])
+const runtimePresentations = new Set(["auto", "text", "card", "list", "table", "summary"])
+const runtimeResponseShapes = new Set(["auto", "single_item", "list", "table", "raw"])
+
+function normalizeRuntimePresentation(value) {
+  const normalized = String(value || "").trim().toLowerCase()
+  return runtimePresentations.has(normalized) ? normalized : "auto"
+}
+
+function normalizeRuntimeResponseShape(value) {
+  const normalized = String(value || "").trim().toLowerCase()
+  return runtimeResponseShapes.has(normalized) ? normalized : "auto"
+}
+
+function getRuntimePresentation(api) {
+  return normalizeRuntimePresentation(api?.config?.runtime?.presentation)
+}
+
+function getRuntimeResponseShape(api) {
+  return normalizeRuntimeResponseShape(api?.config?.runtime?.responseShape)
+}
+
+function getRuntimeDisplayConfig(api) {
+  const display = api?.config?.runtime?.display
+  return display && typeof display === "object" && !Array.isArray(display) ? display : {}
+}
 
 function normalizeRuntimeAvailabilityScope(value) {
   const normalized = String(value || "").trim().toLowerCase()
@@ -441,12 +466,17 @@ function resolveRuntimeApiUrl(api, context) {
   }
 }
 
-function extractConfiguredRuntimeFields(api, payload) {
+function getRuntimeResponseRoot(api, payload) {
   const runtimeConfig = api?.config?.runtime
-  const responseRoot = runtimeConfig?.responsePath ? readPathValue(payload, runtimeConfig.responsePath) : payload
+  return runtimeConfig?.responsePath ? readPathValue(payload, runtimeConfig.responsePath) : payload
+}
+
+function getRuntimeFieldDefinitions(api) {
+  const runtimeConfig = api?.config?.runtime
   const configuredFields = Array.isArray(runtimeConfig?.fields) ? runtimeConfig.fields : []
   const schemaFields = Array.isArray(api?.fieldSchema) ? api.fieldSchema : []
-  const fieldDefinitions = configuredFields.length
+
+  return configuredFields.length
     ? configuredFields
     : schemaFields.map((field) => ({
         nome: field.nome,
@@ -454,27 +484,161 @@ function extractConfiguredRuntimeFields(api, payload) {
         descricao: field.descricao,
         path: field.nome,
       }))
+}
 
-  const configuredResult = fieldDefinitions
+function buildRuntimeFieldEntry(name, value, extra = {}) {
+  if (value == null || value === "") {
+    return null
+  }
+
+  return {
+    nome: String(name || "campo").trim(),
+    tipo: String(extra.tipo || (typeof value === "number" ? "number" : typeof value === "boolean" ? "boolean" : "string")).trim() || "string",
+    descricao: String(extra.descricao || "").trim(),
+    valor: normalizeFieldValue(value),
+  }
+}
+
+function extractRuntimeScalarFieldsFromObject(item, limit = 40) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return []
+  }
+
+  return Object.entries(item)
+    .filter(([, value]) => value == null || ["string", "number", "boolean"].includes(typeof value))
+    .slice(0, limit)
+    .map(([key, value]) => buildRuntimeFieldEntry(key, value))
+    .filter(Boolean)
+}
+
+function extractConfiguredRuntimeFieldsFromRoot(api, responseRoot, fieldDefinitions = getRuntimeFieldDefinitions(api)) {
+  return fieldDefinitions
     .map((field) => {
       const path = field?.path || field?.nome
       const value = readPathValue(responseRoot, path)
-
-      if (value == null || value === "") {
-        return null
-      }
-
-      return {
-        nome: String(field.nome || path || "campo").trim(),
-        tipo: String(field.tipo || "string").trim() || "string",
-        descricao: String(field.descricao || "").trim(),
-        valor: normalizeFieldValue(value),
-      }
+      return buildRuntimeFieldEntry(field.nome || path || "campo", value, {
+        tipo: field.tipo || "string",
+        descricao: field.descricao || "",
+      })
     })
     .filter(Boolean)
+}
 
+function resolveRuntimeItemsRoot(api, responseRoot) {
+  const responseShape = getRuntimeResponseShape(api)
+  if (responseShape === "raw") {
+    return []
+  }
+
+  if (Array.isArray(responseRoot)) {
+    return responseRoot
+  }
+
+  if (responseRoot && typeof responseRoot === "object") {
+    if (responseShape === "single_item") {
+      return [responseRoot]
+    }
+
+    const candidates = [
+      readPathValue(responseRoot, "items"),
+      readPathValue(responseRoot, "results"),
+      readPathValue(responseRoot, "data.items"),
+      readPathValue(responseRoot, "data.results"),
+      readPathValue(responseRoot, "data"),
+      readPathValue(responseRoot, "imoveis"),
+      readPathValue(responseRoot, "data.imoveis"),
+    ]
+
+    const listCandidate = candidates.find((item) => Array.isArray(item) && item.some((entry) => entry && typeof entry === "object"))
+    if (listCandidate) {
+      return listCandidate
+    }
+
+    const objectCandidates = [
+      readPathValue(responseRoot, "data"),
+      readPathValue(responseRoot, "result"),
+      readPathValue(responseRoot, "item"),
+      readPathValue(responseRoot, "resource"),
+      readPathValue(responseRoot, "imovel"),
+      readPathValue(responseRoot, "property"),
+    ]
+    const objectCandidate = objectCandidates.find((item) => item && typeof item === "object" && !Array.isArray(item))
+    if (objectCandidate) {
+      return [objectCandidate]
+    }
+
+    if (responseShape === "auto") {
+      return [responseRoot]
+    }
+  }
+
+  return []
+}
+
+function normalizeRuntimeItemFields(api, item) {
+  if (!item || typeof item !== "object" || Array.isArray(item)) {
+    return []
+  }
+
+  const display = getRuntimeDisplayConfig(api)
+  const displayEntries = [
+    ["id", display.idPath],
+    ["titulo", display.titlePath],
+    ["subtitulo", display.subtitlePath],
+    ["descricao", display.descriptionPath],
+    ["valor_publico", display.pricePath],
+    ["imagem", display.imagePath],
+    ["imagens", display.imagesPath],
+    ["link", display.linkPath],
+    ["status", display.statusPath],
+  ]
+    .filter(([, path]) => String(path || "").trim())
+    .map(([name, path]) => buildRuntimeFieldEntry(name, readPathValue(item, path)))
+    .filter(Boolean)
+  const fieldDefinitions = getRuntimeFieldDefinitions(api)
+  const configuredEntries = fieldDefinitions.length ? extractConfiguredRuntimeFieldsFromRoot(api, item, fieldDefinitions) : []
+  const automaticEntries = Object.entries(item)
+    .filter(([key, value]) => value == null || ["string", "number", "boolean"].includes(typeof value) || isCatalogMediaFieldName(key))
+    .slice(0, 40)
+    .map(([key, value]) => buildRuntimeFieldEntry(key, value))
+    .filter(Boolean)
+
+  if (!configuredEntries.length) {
+    const displayNames = new Set(displayEntries.map((entry) => normalizeCatalogFieldKey(entry.nome)))
+    return [
+      ...displayEntries,
+      ...automaticEntries.filter((entry) => !displayNames.has(normalizeCatalogFieldKey(entry.nome))),
+    ]
+  }
+
+  const configuredNames = new Set([...displayEntries, ...configuredEntries].map((entry) => normalizeCatalogFieldKey(entry.nome)))
+  return [
+    ...displayEntries,
+    ...configuredEntries,
+    ...automaticEntries.filter((entry) => !configuredNames.has(normalizeCatalogFieldKey(entry.nome))),
+  ]
+}
+
+function extractRuntimeResponseItems(api, payload) {
+  const responseRoot = getRuntimeResponseRoot(api, payload)
+  return resolveRuntimeItemsRoot(api, responseRoot)
+    .filter((item) => item && typeof item === "object" && !Array.isArray(item))
+    .slice(0, 8)
+    .map((item) => normalizeRuntimeItemFields(api, item))
+    .filter((fields) => fields.length)
+}
+
+function extractConfiguredRuntimeFields(api, payload) {
+  const responseRoot = getRuntimeResponseRoot(api, payload)
+  const fieldDefinitions = getRuntimeFieldDefinitions(api)
+  const configuredResult = extractConfiguredRuntimeFieldsFromRoot(api, responseRoot, fieldDefinitions)
   if (configuredResult.length || getRuntimeIntentType(api) !== "catalog_search") {
-    return configuredResult
+    if (configuredResult.length || fieldDefinitions.length) {
+      return configuredResult
+    }
+
+    const runtimeItems = extractRuntimeResponseItems(api, payload)
+    return runtimeItems[0] ?? extractRuntimeScalarFieldsFromObject(responseRoot)
   }
 
   const catalogRootCandidates = [
@@ -511,9 +675,8 @@ function extractCatalogRuntimeItems(api, payload) {
     return []
   }
 
-  const runtimeConfig = api?.config?.runtime
-  const responseRoot = runtimeConfig?.responsePath ? readPathValue(payload, runtimeConfig.responsePath) : payload
-  const configuredFields = Array.isArray(runtimeConfig?.fields) ? runtimeConfig.fields : []
+  const responseRoot = getRuntimeResponseRoot(api, payload)
+  const configuredFields = getRuntimeFieldDefinitions(api)
   const catalogRootCandidates = [
     responseRoot,
     readPathValue(responseRoot, "imoveis"),
@@ -546,14 +709,10 @@ function extractCatalogRuntimeItems(api, payload) {
             .map((field) => {
               const path = field?.path || field?.nome
               const value = readPathValue(item, path)
-              return value == null || value === ""
-                ? null
-                : {
-                    nome: String(field.nome || path || "campo").trim(),
-                    tipo: String(field.tipo || typeof value || "string").trim() || "string",
-                    descricao: String(field.descricao || "").trim(),
-                    valor: normalizeFieldValue(value),
-                  }
+              return buildRuntimeFieldEntry(field.nome || path || "campo", value, {
+                tipo: field.tipo || typeof value || "string",
+                descricao: field.descricao || "",
+              })
             })
             .filter(Boolean)
         : []
@@ -1378,6 +1537,7 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
     const text = await response.text()
     const payload = tryParseApiPayload(contentType, text)
     const campos = extractConfiguredRuntimeFields(api, payload)
+    const runtimeItems = extractRuntimeResponseItems(api, payload)
     const catalogItems = extractCatalogRuntimeItems(api, payload)
 
     const result = {
@@ -1392,7 +1552,11 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
       contentType,
       preview: buildApiPreviewContent(api, payload, text),
       campos,
+      runtimeItems,
       catalogItems,
+      presentation: getRuntimePresentation(api),
+      responseShape: getRuntimeResponseShape(api),
+      display: getRuntimeDisplayConfig(api),
       config: api.config,
       cache: {
         hit: false,

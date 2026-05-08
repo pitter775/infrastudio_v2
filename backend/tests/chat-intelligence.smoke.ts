@@ -29,6 +29,7 @@ import {
   buildFeedbackRecord,
   buildFinalChatResult,
   buildFallbackChatTitle,
+  buildApiCatalogAssets,
   buildFocusedProductFactualReply,
   enforceMercadoLivreSearchReplyCoherence,
   buildInitialChatContext,
@@ -3550,6 +3551,87 @@ const tests: TestCase[] = [
       assert.match(reply ?? "", /EDIFICIO VILLA/i);
       assert.match(reply ?? "", /128\.000|128000/i);
       assert.doesNotMatch(reply ?? "", /preciso de: titulo/i);
+    },
+  },
+  {
+    name: "api runtime gera card fora de catalogo quando presentation e card",
+    run: () => {
+      const assets = buildApiCatalogAssets([
+        {
+          apiId: "api-imovel-por-id",
+          nome: "Consultar imovel",
+          presentation: "card",
+          config: {
+            runtime: {
+              intentType: "lookup_by_identifier",
+              presentation: "card",
+            },
+          },
+          runtimeItems: [
+            [
+              { nome: "id", valor: "imovel-villa" },
+              { nome: "titulo", valor: "EDIFICIO VILLA" },
+              { nome: "valor_publico", valor: 128000 },
+              { nome: "cidade", valor: "Sao Paulo" },
+              { nome: "imagem", valor: "https://cdn.nexo.test/villa.jpg" },
+            ],
+          ],
+          campos: [],
+        },
+      ]);
+
+      assert.equal(assets.length, 1);
+      assert.equal(assets[0]?.provider, "api_runtime");
+      assert.equal(assets[0]?.id, "imovel-villa");
+      assert.equal(assets[0]?.nome, "EDIFICIO VILLA");
+      assert.equal(assets[0]?.publicUrl, "https://cdn.nexo.test/villa.jpg");
+      assert.equal(assets[0]?.priceLabel?.replace(/\s/u, " "), "R$ 128.000,00");
+    },
+  },
+  {
+    name: "api runtime responde lista textual quando presentation e table",
+    run: () => {
+      const reply = buildApiFallbackReply(
+        "consulta os imoveis disponiveis",
+        [
+          {
+            apiId: "api-imoveis-tabela",
+            nome: "Tabela de imoveis",
+            presentation: "table",
+            config: {
+              runtime: {
+                intentType: "generic_fact",
+                presentation: "table",
+              },
+            },
+            runtimeItems: [
+              [
+                { nome: "titulo", valor: "EDIFICIO VILLA" },
+                { nome: "valor_publico", valor: 128000 },
+              ],
+              [
+                { nome: "titulo", valor: "CONDOMINIO TIRADENTES" },
+                { nome: "valor_publico", valor: 240000 },
+              ],
+            ],
+            campos: [],
+          },
+        ],
+        {
+          normalizeText: normalizeFixtureText,
+          buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+          singularizeToken: (value: string) => value,
+          intentType: "generic_fact",
+          apiId: "api-imoveis-tabela",
+          parameterValues: {
+            consulta: "imoveis",
+          },
+        }
+      );
+
+      assert.match(reply ?? "", /2 registros/i);
+      assert.match(reply ?? "", /EDIFICIO VILLA/i);
+      assert.match(reply ?? "", /CONDOMINIO TIRADENTES/i);
     },
   },
   {

@@ -27,6 +27,13 @@ function getApiRuntimeIntentType(api) {
   return normalizeApiRuntimeIntentType(api?.config?.runtime?.intentType || api?.configuracoes?.runtime?.intentType)
 }
 
+function getApiRuntimePresentation(api) {
+  const presentation = String(api?.presentation || api?.config?.runtime?.presentation || api?.configuracoes?.runtime?.presentation || "")
+    .trim()
+    .toLowerCase()
+  return ["auto", "text", "card", "list", "table", "summary"].includes(presentation) ? presentation : "auto"
+}
+
 function shouldUseApiForFactLookup(api, customDeps = {}) {
   const intentType = getApiRuntimeIntentType(api)
   if (intentType === "create_record") {
@@ -38,6 +45,11 @@ function shouldUseApiForFactLookup(api, customDeps = {}) {
 function shouldUseApiAsCatalog(api) {
   const intentType = getApiRuntimeIntentType(api)
   return intentType === "catalog_search" || (!hasExplicitApiRuntimeIntentType(api) && intentType === "generic_fact")
+}
+
+function shouldUseApiAsDisplayItem(api) {
+  const presentation = getApiRuntimePresentation(api)
+  return shouldUseApiAsCatalog(api) || presentation === "card" || presentation === "list"
 }
 
 function getApiRuntimeRequiredFields(api) {
@@ -182,6 +194,28 @@ function buildGenericApiResultReply(apis = [], deps, customDeps = {}) {
     return null
   }
 
+  const presentation = getApiRuntimePresentation(api)
+  const runtimeItems = Array.isArray(api.runtimeItems) ? api.runtimeItems.filter((item) => Array.isArray(item) && item.length) : []
+  if ((presentation === "list" || presentation === "table") && runtimeItems.length > 1) {
+    const rows = runtimeItems.slice(0, 5).map((item, index) => {
+      const fields = item
+        .filter((field) => field?.valor != null && String(field.valor).trim())
+        .slice(0, 4)
+        .map((field) => `${formatApiFieldLabel(field.nome)}: ${formatApiFieldValue(field.nome, field.valor, deps)}`)
+      return fields.length ? `${index + 1}. ${fields.join(" | ")}` : ""
+    }).filter(Boolean)
+
+    if (rows.length) {
+      const apiName = sanitizeString(api.nome) || "consultada"
+      return [`A API ${apiName} retornou ${runtimeItems.length} registros:`, ...rows].join("\n")
+    }
+  }
+
+  const preview = sanitizeString(api.preview)
+  if (presentation === "summary" && preview && !/^parametros ausentes|^preencha os parametros/i.test(preview)) {
+    return `Resumo da API ${sanitizeString(api.nome) || "consultada"}:\n${preview.slice(0, 700)}`
+  }
+
   const fields = Array.isArray(api.campos) ? api.campos.filter((field) => field?.valor != null && String(field.valor).trim()).slice(0, 6) : []
   if (fields.length) {
     const lines = fields
@@ -193,7 +227,6 @@ function buildGenericApiResultReply(apis = [], deps, customDeps = {}) {
     }
   }
 
-  const preview = sanitizeString(api.preview)
   if (!preview || /^parametros ausentes|^preencha os parametros/i.test(preview)) {
     return null
   }
@@ -504,7 +537,7 @@ function normalizeApiFieldName(name, deps) {
 }
 
 function groupApiFieldsAsCatalogItem(api, deps) {
-  if (!shouldUseApiAsCatalog(api)) {
+  if (!shouldUseApiAsDisplayItem(api)) {
     return null
   }
 
@@ -624,6 +657,13 @@ export function extractApiCatalogProducts(apis = [], customDeps = {}) {
   const deps = getDeps(customDeps)
   return (apis ?? [])
     .flatMap((api) => {
+      const runtimeItems = Array.isArray(api?.runtimeItems) ? api.runtimeItems : []
+      if (runtimeItems.length && shouldUseApiAsDisplayItem(api)) {
+        return runtimeItems
+          .map((fields, index) => groupApiFieldListAsCatalogItem(api, Array.isArray(fields) ? fields : [], deps, index))
+          .filter(Boolean)
+      }
+
       const catalogItems = Array.isArray(api?.catalogItems) ? api.catalogItems : []
       if (catalogItems.length) {
         return catalogItems

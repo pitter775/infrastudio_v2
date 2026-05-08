@@ -377,6 +377,16 @@ export function AiTraceBlock({ trace, compact = false }) {
           {trace.apiRuntimeDiagnostics?.selectedApiId || trace.apiRuntimeDiagnostics?.semanticKind ? (
             <div className="mt-2 border-t border-white/10 pt-2 text-slate-400">
               API runtime: {trace.apiRuntimeDiagnostics.semanticKind || "n/a"} em {trace.apiRuntimeDiagnostics.selectedApiId || "sem API selecionada"}
+              {trace.apiRuntimeDiagnostics.selectedPresentation || trace.apiRuntimeDiagnostics.selectedResponseShape ? (
+                <div>
+                  Renderização: {trace.apiRuntimeDiagnostics.selectedPresentation || "auto"} / {trace.apiRuntimeDiagnostics.selectedResponseShape || "auto"}
+                </div>
+              ) : null}
+              {trace.apiRuntimeDiagnostics.selectedFieldCount != null || trace.apiRuntimeDiagnostics.selectedRuntimeItemCount != null ? (
+                <div>
+                  Dados: {trace.apiRuntimeDiagnostics.selectedFieldCount ?? 0} campos / {trace.apiRuntimeDiagnostics.selectedRuntimeItemCount ?? 0} itens
+                </div>
+              ) : null}
               {trace.apiRuntimeDiagnostics.selectedMissingRequiredFields?.length ? (
                 <div>Faltando: {trace.apiRuntimeDiagnostics.selectedMissingRequiredFields.join(", ")}</div>
               ) : null}

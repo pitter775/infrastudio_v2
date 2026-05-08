@@ -495,6 +495,16 @@ function normalizeRuntimeApiIntentType(api) {
     : "generic_fact"
 }
 
+function normalizeRuntimeApiPresentation(api) {
+  const value = String(api?.presentation || api?.config?.runtime?.presentation || "").trim().toLowerCase()
+  return ["auto", "text", "card", "list", "table", "summary"].includes(value) ? value : "auto"
+}
+
+function normalizeRuntimeApiResponseShape(api) {
+  const value = String(api?.responseShape || api?.config?.runtime?.responseShape || "").trim().toLowerCase()
+  return ["auto", "single_item", "list", "table", "raw"].includes(value) ? value : "auto"
+}
+
 function formatRuntimeFieldLabel(value) {
   return String(value || "")
     .split(".")
@@ -554,10 +564,13 @@ function buildRuntimeApiDiagnosticItem(api) {
     nome: api?.nome ?? api?.name ?? null,
     method: method || null,
     intentType,
+    presentation: normalizeRuntimeApiPresentation(api),
+    responseShape: normalizeRuntimeApiResponseShape(api),
     ok: api?.ok !== false,
     status: api?.status ?? null,
     cacheHit: api?.cache?.hit === true,
     fields: Array.isArray(api?.campos) ? api.campos.length : 0,
+    runtimeItems: Array.isArray(api?.runtimeItems) ? api.runtimeItems.length : 0,
     requiredFields: requiredFields.map((field) => field.label),
     missingRequiredFields: missingRequiredFields.map((field) => field.label),
     blockedReasons,
@@ -586,6 +599,11 @@ function buildApiRuntimeDiagnosticsPayload({ runtimeApis = [], semanticApiDecisi
     routeDomain: routingDecision?.domain || null,
     routeReason: routingDecision?.reason || null,
     focusedFieldCount: Array.isArray(focusedApiContext?.fields) ? focusedApiContext.fields.length : 0,
+    selectedPresentation: selectedApi?.presentation ?? null,
+    selectedResponseShape: selectedApi?.responseShape ?? null,
+    selectedFieldCount: selectedApi?.fields ?? 0,
+    selectedRuntimeItemCount: selectedApi?.runtimeItems ?? 0,
+    selectedStatus: selectedApi?.status ?? null,
     selectedMissingRequiredFields: selectedApi?.missingRequiredFields ?? [],
     selectedBlockedReasons: selectedApi?.blockedReasons ?? [],
     conflictingApiIds: conflictingApiIds.length > 1 ? conflictingApiIds : [],

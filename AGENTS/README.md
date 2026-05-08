@@ -16,6 +16,7 @@ Ordem recomendada de leitura:
 6. `melhorias.md` para ideias, backlog e operacao
 7. `../ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md` se a tarefa envolver widget, WhatsApp, Mercado Livre, billing, catalogo ou arquitetura global do chat
 8. `../EGRESS-BANCO-PLANO-CONTINUIDADE.md` se a tarefa envolver performance, egress, payload, consultas Supabase ou reducao de custo de banco
+9. `../API-RUNTIME-PRESENTATION-PLANO.md` se a tarefa envolver API runtime, cards fora de catalogo, presentation, responseShape ou estabilizacao da renderizacao de respostas de API
 
 ## Regra critica para o cerebro do chat
 
@@ -35,6 +36,7 @@ Arquivos:
 - [melhorias.md](C:\Projetos\infrastudio_v2\AGENTS\melhorias.md): melhorias pendentes e oportunidades de produto/operacao
 - [ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md](C:\Projetos\infrastudio_v2\ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md): visao arquitetural alvo do universo chat, widget, WhatsApp, Mercado Livre, billing e catalogo
 - [EGRESS-BANCO-PLANO-CONTINUIDADE.md](C:\Projetos\infrastudio_v2\EGRESS-BANCO-PLANO-CONTINUIDADE.md): plano de continuidade para reduzir egress, payload e consultas desnecessarias
+- [API-RUNTIME-PRESENTATION-PLANO.md](C:\Projetos\infrastudio_v2\API-RUNTIME-PRESENTATION-PLANO.md): plano de continuidade para separar `intentType`, `presentation`, `responseShape`, extracao de dados e renderizacao de respostas de API
 
 ## Loja real para teste
 

@@ -737,3 +737,11 @@ Ainda errado / fragil:
 - API runtime fora de `catalog_search` tambem passa a usar os dados retornados
   - se a API foi escolhida pelo stage semantico, recebeu parametro e voltou com `campos` ou `preview`, o fallback responde sobre esses dados em texto simples
   - `catalog_search` continua sendo o caminho com card/listagem, mas nao e mais requisito para o chat aproveitar resultado real da API
+- API runtime iniciou separacao entre intencao e apresentacao
+  - novo plano raiz `API-RUNTIME-PRESENTATION-PLANO.md` documenta `presentation`, `responseShape` e `display`
+  - `fetchApiPreview` agora publica `runtimeItems` generico alem de `catalogItems`
+  - `presentation: card` ou `presentation: list` ja permite montar asset/card de API runtime fora de `catalog_search`
+  - diagnostico de API runtime agora carrega `presentation`, `responseShape` e contagem de `runtimeItems`
+  - editor de API agora salva `presentation`, `responseShape` e `display` basico para orientar card/lista/tabela fora de catalogo
+  - fallback textual de API runtime agora respeita `presentation: table`, `list` e `summary` antes de cair na lista simples de campos
+  - badge/trace de API runtime passou a expor apresentacao, formato, status, campos e itens retornados
