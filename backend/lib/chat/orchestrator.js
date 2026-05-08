@@ -778,6 +778,51 @@ function buildSingleCatalogSearchFallbackDecision(latestUserMessage, runtimeApis
   }
 }
 
+function enrichCatalogSearchDecisionWithFallbackParameter(latestUserMessage, runtimeApis = [], semanticApiDecision = null) {
+  if (semanticApiDecision?.kind !== "api_catalog_search") {
+    return semanticApiDecision
+  }
+
+  const hasParameterValues =
+    semanticApiDecision.parameterValues &&
+    typeof semanticApiDecision.parameterValues === "object" &&
+    !Array.isArray(semanticApiDecision.parameterValues) &&
+    Object.values(semanticApiDecision.parameterValues).some((value) => String(value ?? "").trim())
+  if (hasParameterValues) {
+    return semanticApiDecision
+  }
+
+  const selectedApiId = getRuntimeApiId(semanticApiDecision)
+  const candidates = runtimeApis.filter((api) => {
+    if (normalizeRuntimeApiIntentType(api) !== "catalog_search") {
+      return false
+    }
+
+    return !selectedApiId || getRuntimeApiId(api) === selectedApiId
+  })
+  if (candidates.length !== 1) {
+    return semanticApiDecision
+  }
+
+  const missingParams = getRuntimeApiMissingParams(candidates[0])
+  if (missingParams.length !== 1) {
+    return semanticApiDecision
+  }
+
+  const term = extractSingleCatalogSearchTerm(latestUserMessage)
+  if (!term || (!hasCatalogSearchSignal(latestUserMessage) && !isLikelyStandaloneCatalogSearchTerm(latestUserMessage, term))) {
+    return semanticApiDecision
+  }
+
+  return {
+    ...semanticApiDecision,
+    parameterValues: {
+      [missingParams[0]]: term,
+    },
+    reason: semanticApiDecision.reason || "single_catalog_search_parameter_fallback",
+  }
+}
+
 function getApiSearchTermFromDecision(decision = null) {
   const values =
     decision?.parameterValues && typeof decision.parameterValues === "object" && !Array.isArray(decision.parameterValues)
@@ -997,9 +1042,12 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           model,
         })
       : null
-  const semanticApiDecision =
+  const semanticApiDecision = enrichCatalogSearchDecisionWithFallbackParameter(
+    latestUserMessage,
+    runtimeApis,
     buildApiDecisionFromSemanticIntent({ semanticIntent: semanticApiIntent }) ??
-    buildSingleCatalogSearchFallbackDecision(latestUserMessage, runtimeApis, null)
+      buildSingleCatalogSearchFallbackDecision(latestUserMessage, runtimeApis, null)
+  )
   runtimeApis = await reloadRuntimeApisWithSemanticParameters({
     semanticApiDecision,
     context: effectiveContext,
@@ -1283,6 +1331,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         supportFieldHints: semanticApiDecision?.supportFieldHints,
         apiId: semanticApiDecision?.apiId,
         intentType: semanticApiDecision?.intentType,
+        parameterValues: semanticApiDecision?.parameterValues,
       })
     const apiReplyText = typeof apiReply === "string" ? apiReply : apiReply?.reply
     if (apiReplyText) {

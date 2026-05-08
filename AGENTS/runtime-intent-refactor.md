@@ -731,3 +731,9 @@ Ainda errado / fragil:
   - risco/pontos de atencao do item em foco passam pelo intent semantico `current_product_commercial_advice` com `risk_assessment`, sem regex textual no API runtime
   - `productFocus` passou a preservar `source`, permitindo separar foco de API runtime e Mercado Livre
   - o widget nao mostra parcelamento em 12x para cards de API runtime, pois API generica nao implica regra comercial do Mercado Livre
+- API runtime agora considera `parameterValues` semanticos como fonte valida para `requiredFields`
+  - isso evita pedir novamente `titulo` quando o cliente ja informou o termo e o orquestrador ja recarregou a API de catalogo com esse parametro
+  - o caso `vc tem o imovel EDIFICIO VILLA?` deixa de cair na resposta falsa `preciso de: titulo`
+- API runtime fora de `catalog_search` tambem passa a usar os dados retornados
+  - se a API foi escolhida pelo stage semantico, recebeu parametro e voltou com `campos` ou `preview`, o fallback responde sobre esses dados em texto simples
+  - `catalog_search` continua sendo o caminho com card/listagem, mas nao e mais requisito para o chat aproveitar resultado real da API

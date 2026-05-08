@@ -3481,6 +3481,78 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "api runtime nao pede campo obrigatorio que ja veio como parametro semantico",
+    run: () => {
+      const reply = buildApiFallbackReply(
+        "vc tem o imovel EDIFICIO VILLA?",
+        [
+          {
+            apiId: "api-busca-imoveis",
+            nome: "Buscar imoveis",
+            config: {
+              runtime: {
+                intentType: "catalog_search",
+                requiredFields: [{ name: "titulo", label: "titulo" }],
+              },
+            },
+            campos: [],
+          },
+        ],
+        {
+          normalizeText: normalizeFixtureText,
+          buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+          singularizeToken: (value: string) => value,
+          intentType: "catalog_search",
+          apiId: "api-busca-imoveis",
+          parameterValues: {
+            titulo: "EDIFICIO VILLA",
+          },
+        }
+      );
+
+      assert.doesNotMatch(reply ?? "", /preciso de: titulo/i);
+    },
+  },
+  {
+    name: "api runtime conversa sobre dados retornados mesmo fora de catalogo",
+    run: () => {
+      const reply = buildApiFallbackReply(
+        "vc tem o imovel EDIFICIO VILLA?",
+        [
+          {
+            apiId: "api-busca-imoveis",
+            nome: "Buscar imoveis",
+            config: {
+              runtime: {
+                intentType: "generic_fact",
+                requiredFields: [{ name: "titulo", label: "titulo" }],
+              },
+            },
+            campos: [
+              { nome: "titulo", valor: "EDIFICIO VILLA" },
+              { nome: "valor_publico", valor: 128000 },
+              { nome: "cidade", valor: "Sao Paulo" },
+            ],
+          },
+        ],
+        {
+          normalizeText: normalizeFixtureText,
+          buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+          singularizeToken: (value: string) => value,
+          intentType: "generic_fact",
+          apiId: "api-busca-imoveis",
+          parameterValues: {
+            titulo: "EDIFICIO VILLA",
+          },
+        }
+      );
+
+      assert.match(reply ?? "", /EDIFICIO VILLA/i);
+      assert.match(reply ?? "", /128\.000|128000/i);
+      assert.doesNotMatch(reply ?? "", /preciso de: titulo/i);
+    },
+  },
+  {
     name: "api runtime cadastro coleta dados antes de registrar",
     run: () => {
       const reply = buildApiFallbackReply(
@@ -6311,6 +6383,89 @@ const tests: TestCase[] = [
       assert.equal(result.metadata?.apiRuntimeDiagnostics?.parameterValues?.titulo, "EDIFICIO VILLA");
       assert.equal(result.metadata?.catalogoBusca?.ultimaBusca, "EDIFICIO VILLA");
       assert.equal(result.assets?.[0]?.provider, "api_runtime");
+      assert.match(result.reply, /EDIFICIO VILLA/i);
+    },
+  },
+  {
+    name: "orquestrador completa parametro quando stage semantico escolhe catalogo mas nao extrai termo",
+    run: async () => {
+      let receivedTitulo = "";
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "vc tem o imovel edificio villa" }] as never,
+        {
+          agente: {
+            id: "agent-api-open-search-semantic-without-param",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111116",
+            nome: "Nexo Imoveis",
+          },
+          runtimeApis: [
+            {
+              apiId: "api-busca-imoveis",
+              id: "api-busca-imoveis",
+              nome: "Buscar imoveis",
+              method: "GET",
+              url: "https://nexo-imoveis.vercel.app/api/imoveis/busca?titulo={titulo}",
+              missingParams: ["titulo"],
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  requiredFields: [{ name: "titulo", label: "titulo" }],
+                  availabilityScope: "open_search",
+                  autoExecute: true,
+                },
+              },
+              campos: [],
+            },
+          ],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => ({
+            intent: "api_catalog_search",
+            confidence: 0.9,
+            reason: "Cliente quer buscar um imovel por termo.",
+            apiId: "api-busca-imoveis",
+            intentType: "catalog_search",
+            targetFieldHints: [],
+            supportFieldHints: [],
+            parameterValues: [],
+            comparisonMode: "",
+            referencedProductIndexes: [],
+          }),
+          loadAgentRuntimeApis: async ({ context }: any) => {
+            receivedTitulo = String(context?.titulo || "");
+            return [
+              {
+                apiId: "api-busca-imoveis",
+                id: "api-busca-imoveis",
+                nome: "Buscar imoveis",
+                method: "GET",
+                ok: true,
+                status: 200,
+                missingParams: [],
+                config: {
+                  runtime: {
+                    intentType: "catalog_search",
+                    requiredFields: [{ name: "titulo", label: "titulo" }],
+                    availabilityScope: "open_search",
+                    autoExecute: true,
+                  },
+                },
+                campos: [
+                  { nome: "titulo", valor: "EDIFICIO VILLA" },
+                  { nome: "valor_publico", valor: 128000 },
+                ],
+              },
+            ];
+          },
+        }
+      );
+
+      assert.equal(receivedTitulo, "edificio villa");
+      assert.doesNotMatch(result.reply, /preciso de: titulo/i);
       assert.match(result.reply, /EDIFICIO VILLA/i);
     },
   },

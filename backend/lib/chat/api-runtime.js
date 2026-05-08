@@ -59,7 +59,39 @@ function getApiRuntimeRequiredFields(api) {
     .filter(Boolean)
 }
 
-function hasApiRuntimeFieldValue(api, fieldName, deps) {
+function getCustomRuntimeFieldValue(fieldName, deps, customDeps = {}) {
+  const normalizedName = normalizeApiFieldName(fieldName, deps)
+  const parameterValues =
+    customDeps?.parameterValues && typeof customDeps.parameterValues === "object" && !Array.isArray(customDeps.parameterValues)
+      ? customDeps.parameterValues
+      : {}
+  const contextValues =
+    customDeps?.context && typeof customDeps.context === "object" && !Array.isArray(customDeps.context)
+      ? customDeps.context
+      : {}
+
+  for (const source of [parameterValues, contextValues]) {
+    for (const [key, value] of Object.entries(source)) {
+      const normalizedKey = normalizeApiFieldName(key, deps)
+      if (
+        normalizedKey &&
+        (normalizedKey === normalizedName || normalizedKey.endsWith(`_${normalizedName}`) || normalizedName.endsWith(`_${normalizedKey}`)) &&
+        value != null &&
+        String(value).trim()
+      ) {
+        return String(value).trim()
+      }
+    }
+  }
+
+  return ""
+}
+
+function hasApiRuntimeFieldValue(api, fieldName, deps, customDeps = {}) {
+  if (getCustomRuntimeFieldValue(fieldName, deps, customDeps)) {
+    return true
+  }
+
   const normalizedName = normalizeApiFieldName(fieldName, deps)
   return (Array.isArray(api?.campos) ? api.campos : []).some((field) => {
     const normalizedField = normalizeApiFieldName(field?.nome, deps)
@@ -93,7 +125,7 @@ function buildMissingRequiredFieldsReply(message, apis = [], deps, customDeps = 
   const targetApis = resolveTargetRuntimeApis(apis, customDeps)
   const candidates = targetApis
     .map((api) => {
-      const missingFields = getApiRuntimeRequiredFields(api).filter((field) => !hasApiRuntimeFieldValue(api, field.name, deps))
+      const missingFields = getApiRuntimeRequiredFields(api).filter((field) => !hasApiRuntimeFieldValue(api, field.name, deps, customDeps))
       return {
         api,
         intentType: getApiRuntimeIntentType(api),
@@ -127,6 +159,46 @@ function buildMissingRequiredFieldsReply(message, apis = [], deps, customDeps = 
   }
 
   return `Para usar ${apiName} com segurança, preciso de: ${fieldList}.`
+}
+
+function buildGenericApiResultReply(apis = [], deps, customDeps = {}) {
+  const hasStructuredApiIntent = Boolean(customDeps?.apiId || customDeps?.intentType)
+  const parameterValues =
+    customDeps?.parameterValues && typeof customDeps.parameterValues === "object" && !Array.isArray(customDeps.parameterValues)
+      ? customDeps.parameterValues
+      : {}
+  const hasRuntimeInput = Object.keys(parameterValues).some((key) => key && String(parameterValues[key] ?? "").trim())
+
+  if (!hasStructuredApiIntent || !hasRuntimeInput || customDeps?.intentType === "create_record") {
+    return null
+  }
+
+  const targetApis = resolveTargetRuntimeApis(apis, customDeps).filter((api) => {
+    const missingParams = Array.isArray(api?.missingParams) ? api.missingParams.filter(Boolean) : []
+    return api?.ok !== false && missingParams.length === 0
+  })
+  const api = targetApis.find((item) => Array.isArray(item?.campos) && item.campos.length > 0) ?? targetApis[0] ?? null
+  if (!api) {
+    return null
+  }
+
+  const fields = Array.isArray(api.campos) ? api.campos.filter((field) => field?.valor != null && String(field.valor).trim()).slice(0, 6) : []
+  if (fields.length) {
+    const lines = fields
+      .map((field) => `- ${formatApiFieldLabel(field.nome)}: ${formatApiFieldValue(field.nome, field.valor, deps)}`)
+      .filter(Boolean)
+
+    if (lines.length) {
+      return [`Encontrei dados na API ${sanitizeString(api.nome) || "consultada"}:`, ...lines].join("\n")
+    }
+  }
+
+  const preview = sanitizeString(api.preview)
+  if (!preview || /^parametros ausentes|^preencha os parametros/i.test(preview)) {
+    return null
+  }
+
+  return `A API ${sanitizeString(api.nome) || "consultada"} retornou dados para essa busca:\n${preview.slice(0, 700)}`
 }
 
 const ANALYTICAL_QUERY_SIGNALS = [
@@ -1652,6 +1724,11 @@ export function buildApiFallbackReply(message, apis = [], customDeps = {}) {
 
   if (missingRequiredFieldsReply && !analytical) {
     return missingRequiredFieldsReply
+  }
+
+  const genericResultReply = buildGenericApiResultReply(apis, deps, customDeps)
+  if (genericResultReply && !analytical) {
+    return genericResultReply
   }
 
   if (!analytical && !(Array.isArray(customDeps?.targetFieldHints) && customDeps.targetFieldHints.length) && !hasApiExplicitLookupSignal(message, deps)) {
