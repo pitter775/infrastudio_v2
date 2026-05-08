@@ -841,6 +841,30 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
     }
   }
 
+  const focusedProductId = sanitizeString(context?.catalogo?.productFocus?.productId || context?.catalogo?.produtoAtual?.id)
+  const earlyFocusedProduct =
+    (focusedProductId
+      ? products.find((product) => sanitizeString(product?.id || product?.productId) === focusedProductId)
+      : null) ??
+    (context?.catalogo?.produtoAtual && typeof context.catalogo.produtoAtual === "object" ? context.catalogo.produtoAtual : null) ??
+    (products.length === 1 ? products[0] : null)
+  if (earlyFocusedProduct?.nome) {
+    const advisoryReply = buildApiFocusedCatalogAdvisoryReply(message, earlyFocusedProduct, context, semanticCatalogDecision)
+    if (advisoryReply) {
+      return {
+        reply: advisoryReply,
+        currentCatalogProduct: earlyFocusedProduct,
+        factContext: {
+          productId: sanitizeString(earlyFocusedProduct.id),
+          fields: ["api_advisory"],
+          scope: "commercial",
+          source: "api_runtime_advisory",
+        },
+        attachAssets: false,
+      }
+    }
+  }
+
   if (semanticApiDecision?.kind === "api_catalog_search") {
     return {
       reply: buildApiCatalogSearchReply(products, getApiSearchTermFromSemanticDecision(semanticApiDecision)),

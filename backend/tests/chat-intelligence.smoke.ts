@@ -6694,6 +6694,95 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "api runtime nao deixa api_catalog_search repetir card em pergunta de risco do foco",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "quais os riscos dele?" }] as never,
+        {
+          agente: {
+            id: "agent-api-product-risk-no-repeat",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111118",
+            nome: "Nexo Imoveis",
+          },
+          conversation: { mode: "product_detail" },
+          catalogo: {
+            listingSession: {
+              id: "api-listing-risk-no-repeat",
+              source: "api_runtime",
+              matchedProductIds: ["predio-comercial"],
+              total: 1,
+            },
+            productFocus: {
+              productId: "predio-comercial",
+              source: "api_runtime",
+              sourceListingSessionId: "api-listing-risk-no-repeat",
+              detailLevel: "focused",
+            },
+            produtoAtual: {
+              id: "predio-comercial",
+              nome: "Prédio Comercial",
+              descricao: "Prédio comercial com 5 pavimentos.",
+              preco: 713000,
+              cidade: "São Bernardo do Campo",
+              estado: "SP",
+              source: "api_runtime",
+              apiId: "api-busca",
+              fields: [
+                { name: "valor_publico", label: "valor publico", value: "713000" },
+                { name: "cidade", label: "cidade", value: "São Bernardo do Campo" },
+              ],
+            },
+            ultimosProdutos: [
+              {
+                id: "predio-comercial",
+                nome: "Prédio Comercial",
+                source: "api_runtime",
+                apiId: "api-busca",
+              },
+            ],
+          },
+          runtimeApis: [
+            {
+              apiId: "api-busca",
+              id: "api-busca",
+              nome: "Buscar imoveis",
+              ok: true,
+              status: 200,
+              config: { runtime: { intentType: "catalog_search" } },
+              campos: [
+                { nome: "id", valor: "predio-comercial" },
+                { nome: "titulo", valor: "Prédio Comercial" },
+                { nome: "valor_publico", valor: 713000 },
+              ],
+            },
+          ],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () =>
+            ({
+              intent: "api_catalog_search",
+              confidence: 0.9,
+              reason: "classificacao ruim simulada",
+              intentType: "catalog_search",
+              parameterValues: {},
+              usedLlm: true,
+            }) as never,
+          classifySemanticIntentStage: async () => null,
+        }
+      );
+
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.match(result.reply, /an.lise inicial/i);
+      assert.doesNotMatch(result.reply, /separei o card/i);
+      assert.equal(result.assets?.length ?? 0, 0);
+      assert.equal(result.metadata?.catalogoProdutoAtual?.id, "predio-comercial");
+    },
+  },
+  {
     name: "api runtime sai do foco quando usuario pede alternativa",
     run: async () => {
       const result = await executeSalesOrchestrator(
