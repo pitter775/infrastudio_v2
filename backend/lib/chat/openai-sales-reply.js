@@ -69,8 +69,21 @@ function buildSelectedProductInstructions(product) {
     Array.isArray(product.variacoesResumo) && product.variacoesResumo.length
       ? `Variações mapeadas: ${product.variacoesResumo.slice(0, 4).join("; ")}.`
       : "",
+    Array.isArray(product.fields) && product.fields.length
+      ? `Campos estruturados da API: ${product.fields
+          .slice(0, 18)
+          .map((item) => `${item.label || item.name}: ${item.value}`)
+          .join("; ")}.`
+      : "",
+    product.rawContext ? `Contexto bruto enxuto da API:\n${String(product.rawContext).slice(0, 2500)}` : "",
     product.descricaoLonga ? `Resumo longo do anuncio: ${String(product.descricaoLonga).slice(0, 500)}.` : "",
     product.link ? `Link conhecido: ${product.link}` : "",
+    product.source === "api_runtime"
+      ? "Este item veio de API genérica. Responda sobre ele usando somente os campos/contexto recebidos; se um dado não constar, diga claramente que a API não trouxe esse dado."
+      : "",
+    product.source === "api_runtime"
+      ? "Para pedidos consultivos como risco, viabilidade, validação, custo-benefício ou próximos passos, faça análise prática, mas separe fato disponível de ponto a verificar."
+      : "",
     "Não peça para o cliente repetir ou identificar este produto se ele já estiver em foco no contexto.",
     "Se este produto for do Mercado Livre e o cliente já demonstrou preferência, responda vendendo: destaque aderência, reduza fricção e proponha o próximo passo.",
   ]

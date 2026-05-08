@@ -279,6 +279,7 @@ function buildCatalogProductFocusState(input = {}) {
   return {
     productId,
     sourceListingSessionId: sanitizeCatalogString(input.sourceListingSessionId),
+    source: sanitizeCatalogString(input.source),
     detailLevel: sanitizeCatalogString(input.detailLevel) || "focused",
     factualContext: buildCatalogProductFactualContextState(input.factualContext),
   }
@@ -1067,6 +1068,7 @@ export function updateContextFromAiResult(input) {
       productFocus: buildCatalogProductFocusState({
         productId: metadataCatalogProduct.id,
         sourceListingSessionId,
+        source: metadataCatalogProduct.source,
         detailLevel: "focused",
         factualContext:
           sanitizeCatalogString(metadataCatalogFactContext?.productId) === sanitizeCatalogString(metadataCatalogProduct?.id)
@@ -1162,6 +1164,7 @@ export function updateContextFromAiResult(input) {
       nextContext.catalogo.productFocus = buildCatalogProductFocusState({
         productId: metadataCatalogSearch.produtoAtual.id,
         sourceListingSessionId: nextListingSession?.id,
+        source: metadataCatalogSearch.produtoAtual.source,
         detailLevel: "focused",
         factualContext:
           sanitizeCatalogString(metadataCatalogFactContext?.productId) === sanitizeCatalogString(metadataCatalogSearch.produtoAtual?.id)
@@ -1198,6 +1201,7 @@ export function updateContextFromAiResult(input) {
       sourceListingSessionId:
         sanitizeCatalogString(nextContext.catalogo?.productFocus?.sourceListingSessionId) ||
         sanitizeCatalogString(nextContext.catalogo?.listingSession?.id),
+      source: nextContext.catalogo?.produtoAtual?.source || nextContext.catalogo?.productFocus?.source,
       detailLevel: "focused",
       factualContext:
         sanitizeCatalogString(nextContext.catalogo?.productFocus?.factualContext?.productId) ===

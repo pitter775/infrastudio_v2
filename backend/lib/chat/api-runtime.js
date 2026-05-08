@@ -320,6 +320,54 @@ function sanitizeNumber(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
+function isScalarApiValue(value) {
+  return value == null || ["string", "number", "boolean"].includes(typeof value)
+}
+
+function normalizeApiFieldValueForContext(value) {
+  if (value == null) {
+    return ""
+  }
+
+  if (isScalarApiValue(value)) {
+    return String(value).trim()
+  }
+
+  try {
+    return JSON.stringify(value).slice(0, 600)
+  } catch {
+    return String(value).slice(0, 600)
+  }
+}
+
+function buildApiItemFields(fields = []) {
+  return (Array.isArray(fields) ? fields : [])
+    .map((field) => {
+      const name = sanitizeString(field?.nome || field?.name || field?.key)
+      const value = normalizeApiFieldValueForContext(field?.valor ?? field?.value)
+      if (!name || !value) {
+        return null
+      }
+
+      return {
+        name,
+        label: formatApiFieldLabel(name),
+        value,
+      }
+    })
+    .filter(Boolean)
+    .slice(0, 40)
+}
+
+function buildApiItemRawContext(fields = []) {
+  const entries = buildApiItemFields(fields).slice(0, 28)
+  if (!entries.length) {
+    return ""
+  }
+
+  return entries.map((field) => `${field.label}: ${field.value}`).join("\n").slice(0, 6000)
+}
+
 function pushCatalogImageUrl(target, value) {
   const raw = sanitizeString(value)
   if (!raw) {
@@ -397,6 +445,8 @@ function groupApiFieldListAsCatalogItem(api, fields, deps, itemIndex = 0) {
     return null
   }
 
+  const itemFields = buildApiItemFields(fields)
+  const rawContext = buildApiItemRawContext(fields)
   const fieldMap = new Map(fields.map((field) => [normalizeApiFieldName(field.nome, deps), field.valor]))
   const readField = (...keys) => {
     for (const key of keys) {
@@ -488,6 +538,8 @@ function groupApiFieldListAsCatalogItem(api, fields, deps, itemIndex = 0) {
     apiNome: sanitizeString(api?.nome),
     sourceListingSessionId: sanitizeString(api?.listingSessionId),
     cardIndex: itemIndex,
+    fields: itemFields,
+    rawContext,
   }
 
   return {
@@ -651,6 +703,116 @@ function buildApiCatalogFactualResolution(message, product, context = {}, semant
   })
 }
 
+function findApiProductField(product, candidates = [], deps = getDeps()) {
+  const fields = Array.isArray(product?.fields) ? product.fields : []
+  const normalizedCandidates = candidates.map((item) => normalizeApiFieldName(item, deps)).filter(Boolean)
+  if (!fields.length || !normalizedCandidates.length) {
+    return null
+  }
+
+  return fields.find((field) => {
+    const normalizedName = normalizeApiFieldName(field.name || field.label, deps)
+    return normalizedCandidates.some(
+      (candidate) =>
+        normalizedName === candidate ||
+        normalizedName.endsWith(`_${candidate}`) ||
+        normalizedName.endsWith(candidate) ||
+        normalizedName.includes(candidate)
+    )
+  }) ?? null
+}
+
+function hasMeaningfulApiField(product, candidates = [], deps = getDeps()) {
+  const field = findApiProductField(product, candidates, deps)
+  return field && sanitizeString(field.value) ? field : null
+}
+
+function buildApiFocusedCatalogAdvisoryReply(message, product, context = {}, semanticCatalogDecision = null) {
+  if (!product?.nome) {
+    return null
+  }
+
+  const deps = getDeps()
+  const normalized = deps.normalizeText(message)
+  const adviceType = sanitizeString(semanticCatalogDecision?.adviceType)
+  const asksRisk =
+    /\b(risco|riscos|problema|problemas|pendencia|pendencias|restricao|restricoes|atencao|validar|conferir)\b/.test(normalized)
+  const asksValue =
+    adviceType === "value_assessment" ||
+    /\b(vale a pena|compensa|faz sentido|preco|valor|custo|retorno|roi)\b/.test(normalized)
+  const asksFit =
+    adviceType === "fit_advice" ||
+    /\b(recomenda|indicaria|serve|adequado|bom para|melhor opcao)\b/.test(normalized)
+
+  if (!asksRisk && !asksValue && !asksFit && semanticCatalogDecision?.kind !== "current_product_commercial_advice") {
+    return null
+  }
+
+  const status = hasMeaningfulApiField(product, ["status", "situacao", "disponibilidade"], deps)
+  const occupation = hasMeaningfulApiField(product, ["ocupacao", "ocupado", "desocupado"], deps)
+  const risk = hasMeaningfulApiField(product, ["risco", "riscos", "pendencias", "restricoes", "observacoes", "alertas"], deps)
+  const document = hasMeaningfulApiField(product, ["matricula", "cartorio", "documento", "edital", "processo"], deps)
+  const date = hasMeaningfulApiField(product, ["data", "data_leilao", "prazo", "encerramento"], deps)
+  const marketValue = hasMeaningfulApiField(product, ["valor_mercado", "valor_avaliacao", "avaliacao"], deps)
+  const currentValue = hasMeaningfulApiField(product, ["valor_minimo", "valor_publico", "preco", "valor", "lance"], deps)
+  const location = [product.endereco, product.cidade, product.estado].filter(Boolean).join(" - ")
+
+  const lines = []
+  if (risk) lines.push(`- ${risk.label}: ${risk.value}`)
+  if (status) lines.push(`- ${status.label}: ${status.value}`)
+  if (occupation) lines.push(`- ${occupation.label}: ${occupation.value}`)
+  if (document) lines.push(`- ${document.label}: ${document.value}`)
+  if (date) lines.push(`- ${date.label}: ${date.value}`)
+  if (currentValue) lines.push(`- ${currentValue.label}: ${currentValue.value}`)
+  if (marketValue && marketValue.value !== currentValue?.value) lines.push(`- ${marketValue.label}: ${marketValue.value}`)
+  if (location) lines.push(`- Localização: ${location}`)
+
+  const missingChecks = [
+    risk ? "" : "riscos ou pendências explícitas",
+    document ? "" : "documentação, matrícula ou edital",
+    occupation ? "" : "ocupação",
+    status ? "" : "status operacional ou jurídico",
+  ].filter(Boolean)
+
+  const intro = asksRisk
+    ? `Sobre ${product.nome}, eu trataria como análise inicial, não como validação final.`
+    : asksValue
+      ? `Sobre ${product.nome}, dá para fazer uma leitura inicial com os dados da API.`
+      : `Sobre ${product.nome}, eu avaliaria pelos dados disponíveis antes de avançar.`
+
+  return [
+    intro,
+    lines.length ? "\nO que a API trouxe de concreto:" : "",
+    ...lines.slice(0, 8),
+    missingChecks.length ? "\nO que ainda precisa ser conferido antes de decidir:" : "",
+    ...missingChecks.slice(0, 4).map((item) => `- ${item}`),
+    "\nPróximo passo: validar os pontos ausentes na fonte oficial ou com o responsável antes de assumir compromisso.",
+  ]
+    .filter(Boolean)
+    .join("\n")
+}
+
+function buildApiCatalogExitFocusReply(catalogDecision = null) {
+  const kind = sanitizeString(catalogDecision?.kind)
+  if (!kind) {
+    return null
+  }
+
+  if (kind === "catalog_load_more") {
+    return "Entendi. Para continuar essa lista pela API, preciso executar uma nova consulta ou receber mais resultados da própria API."
+  }
+
+  if (["same_type_search", "similar_items_search", "catalog_alternative_search"].includes(kind)) {
+    return "Entendi. Vou sair do item atual. Para buscar alternativas pela API, me diga o termo ou filtro principal que devo usar."
+  }
+
+  if (["catalog_search_refinement", "new_catalog_search", "catalog_browse"].includes(kind)) {
+    return "Entendi. Vou sair do item atual e tratar isso como uma nova busca na API."
+  }
+
+  return null
+}
+
 export function resolveApiCatalogReplyResolution(message, context = {}, apis = [], customDeps = {}) {
   const deps = getDeps(customDeps)
   const contextProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos.filter(Boolean) : []
@@ -660,6 +822,8 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
   }
 
   const semanticApiDecision = customDeps?.semanticApiDecision
+  const semanticCatalogDecision = customDeps?.semanticCatalogDecision
+  const catalogDecision = customDeps?.catalogDecision ?? semanticCatalogDecision
   const explicitCatalogAction = sanitizeString(context?.ui?.catalogAction || context?.catalogAction).toLowerCase()
   const explicitProductId = sanitizeString(context?.ui?.catalogProductId || context?.catalogProductId)
   if (explicitCatalogAction === "product_detail" && explicitProductId) {
@@ -672,6 +836,7 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
         reply: buildApiSelectedCatalogReply(selectedProduct),
         currentCatalogProduct: selectedProduct,
         factContext: null,
+        attachAssets: true,
       }
     }
   }
@@ -681,6 +846,7 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
       reply: buildApiCatalogSearchReply(products, getApiSearchTermFromSemanticDecision(semanticApiDecision)),
       currentCatalogProduct: products.length === 1 ? products[0] : null,
       factContext: null,
+      attachAssets: true,
     }
   }
 
@@ -701,6 +867,7 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
       },
     },
     products,
+    catalogDecision,
     detectProductSearch: () => false,
     buildProductSearchCandidates: () => [],
     isCatalogListingIntent: () => false,
@@ -721,8 +888,43 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
           reply: comparisonState.comparisonReply,
           currentCatalogProduct: executionState.currentCatalogProduct ?? null,
           factContext: null,
+          attachAssets: false,
         }
       : null
+  }
+
+  if (executionState.intentState.forceNewSearch || executionState.intentState.loadMoreCatalogRequested) {
+    const exitReply = buildApiCatalogExitFocusReply(catalogDecision)
+    if (exitReply) {
+      return {
+        reply: exitReply,
+        currentCatalogProduct: null,
+        factContext: null,
+        attachAssets: false,
+      }
+    }
+  }
+
+  if (!executionState.intentState.forceNewSearch && executionState.currentCatalogProduct?.nome) {
+    const advisoryReply = buildApiFocusedCatalogAdvisoryReply(
+      message,
+      executionState.currentCatalogProduct,
+      context,
+      semanticCatalogDecision
+    )
+    if (advisoryReply) {
+      return {
+        reply: advisoryReply,
+        currentCatalogProduct: executionState.currentCatalogProduct,
+        factContext: {
+          productId: sanitizeString(executionState.currentCatalogProduct.id),
+          fields: ["api_advisory"],
+          scope: "commercial",
+          source: "api_runtime_advisory",
+        },
+        attachAssets: false,
+      }
+    }
   }
 
   if (!executionState.intentState.forceNewSearch && executionState.currentCatalogProduct?.nome) {
@@ -732,6 +934,7 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
         reply: factualResolution.reply,
         currentCatalogProduct: executionState.currentCatalogProduct,
         factContext: factualResolution.factContext ?? null,
+        attachAssets: false,
       }
     }
   }
@@ -745,6 +948,7 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
       reply: buildApiSelectedCatalogReply(executionState.currentCatalogProduct),
       currentCatalogProduct: executionState.currentCatalogProduct,
       factContext: null,
+      attachAssets: false,
     }
   }
 

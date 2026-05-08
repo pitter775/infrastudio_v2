@@ -723,3 +723,9 @@ Ainda errado / fragil:
   - quando houver pergunta de billing, o runtime pode montar catalogo efetivo em memoria a partir da secao de planos do prompt, sem persistir esse dado no banco
   - isso evita que uma configuracao ruim no banco bloqueie Free/Basic/Plus/Pro e responda apenas R$ 300,00
   - a correcao e de sanidade de configuracao, nao de linguagem do usuario
+- API runtime de catalogo passou a tratar item em foco de forma mais parecida com provider de catalogo generico
+  - itens normalizados de API agora carregam `fields` e `rawContext` enxutos para contexto consultivo sem depender de campos fixos de Mercado Livre
+  - o stage semantico de catalogo tambem pode rotear continuidade de API runtime quando a conversa tem `listingSession`/produto recente de `source = api_runtime`
+  - perguntas consultivas sobre item em foco, como risco, viabilidade e pontos de validacao, agora respondem sobre o item atual e nao repetem card por padrao
+  - `productFocus` passou a preservar `source`, permitindo separar foco de API runtime e Mercado Livre
+  - o widget nao mostra parcelamento em 12x para cards de API runtime, pois API generica nao implica regra comercial do Mercado Livre

@@ -2461,6 +2461,9 @@
     }
 
     function buildTwelveInstallmentLabel(asset) {
+      if (asset && asset.provider === "api_runtime") {
+        return "";
+      }
       var price = resolveProductPriceValue(asset);
       if (!price) {
         return "";

@@ -284,6 +284,10 @@ function buildCatalogDiagnosticsPayload(input = {}) {
 }
 
 function resolveApiCatalogAssetsForReply(baseAssets = [], apiReply = null) {
+  if (apiReply?.attachAssets === false) {
+    return []
+  }
+
   const currentProduct = apiReply?.currentCatalogProduct
   if (!currentProduct || typeof currentProduct !== "object") {
     return baseAssets
@@ -379,7 +383,28 @@ function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCa
     return baseDecision
   }
 
-  if (["handoff", "agenda", "api_runtime", "billing"].includes(baseDecision?.domain)) {
+  if (["handoff", "agenda", "billing"].includes(baseDecision?.domain)) {
+    return baseDecision
+  }
+
+  if (hasApiRuntimeCatalogSemanticContext(context)) {
+    return {
+      ...(baseDecision ?? {}),
+      domain: "api_runtime",
+      source: "api",
+      confidence: semanticCatalogDecision.confidence ?? 0.9,
+      reason: semanticCatalogDecision.reason || "api_catalog_semantic_intent",
+      shouldUseTool: true,
+      focus: {
+        domain: "api_runtime",
+        source: "api",
+        subject: context?.catalogo?.produtoAtual?.nome || latestUserMessage,
+        confidence: semanticCatalogDecision.confidence ?? 0.9,
+      },
+    }
+  }
+
+  if (baseDecision?.domain === "api_runtime") {
     return baseDecision
   }
 
@@ -859,6 +884,20 @@ function hasCatalogStorefrontSemanticContext(context = {}) {
   )
 }
 
+function hasApiRuntimeCatalogSemanticContext(context = {}) {
+  const listingSource = String(context?.catalogo?.listingSession?.source || "").trim().toLowerCase()
+  const currentSource = String(context?.catalogo?.produtoAtual?.source || "").trim().toLowerCase()
+  const productFocusSource = String(context?.catalogo?.productFocus?.source || "").trim().toLowerCase()
+  const recentProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
+
+  return Boolean(
+    listingSource === "api_runtime" ||
+      currentSource === "api_runtime" ||
+      productFocusSource === "api_runtime" ||
+      recentProducts.some((product) => product?.source === "api_runtime" || product?.apiId)
+  )
+}
+
 export function buildConversationHistory(conversation, texto) {
   const messages = conversation?.mensagens ?? []
   const history = messages.map((message) => ({
@@ -977,8 +1016,11 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   const shouldUseBaseApiRuntime = baseRoutingDecision.domain === "api_runtime" && baseRoutingDecision.shouldUseTool === true
   const shouldUseBaseMercadoLivre =
     baseRoutingDecision.domain === "catalog" && baseRoutingDecision.source === "mercado_livre" && baseRoutingDecision.shouldUseTool === true
+  const hasApiRuntimeCatalogContext = hasApiRuntimeCatalogSemanticContext(context)
   const shouldEvaluateSemanticCatalog =
-    (shouldUseBaseMercadoLivre || Number(baseRoutingDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0) &&
+    (shouldUseBaseMercadoLivre ||
+      hasApiRuntimeCatalogContext ||
+      Number(baseRoutingDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0) &&
     (context?.catalogo?.produtoAtual || hasRecentCatalogSnapshot(context) || hasCatalogStorefrontSemanticContext(context))
   const semanticCatalogIntent =
     shouldEvaluateSemanticCatalog
@@ -1028,7 +1070,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     latestUserMessage,
     context,
     semanticDecision: semanticCatalogDecision,
-    shouldUseCatalog: shouldUseMercadoLivre,
+    shouldUseCatalog: shouldUseMercadoLivre || shouldUseApiRuntime,
     buildProductSearchCandidates,
     shouldSearchProducts,
   })
@@ -1094,6 +1136,8 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     shouldUseApiRuntime
       ? resolveApiCatalogReplyResolution(latestUserMessage, context, runtimeApis, {
           semanticApiDecision,
+          semanticCatalogDecision,
+          catalogDecision: catalogFollowUpDecision,
         })
       : null
   const apiCatalogReplyAssets = resolveApiCatalogAssetsForReply(apiCatalogAssets, apiCatalogReply)
@@ -1258,13 +1302,16 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   }
 
   if (apiCatalogReply?.reply) {
+    const hasApiReplyCurrentProduct = Object.prototype.hasOwnProperty.call(apiCatalogReply, "currentCatalogProduct")
     return {
       ...buildHeuristicReplyResult(apiCatalogReply.reply, {
         ...heuristicMetadata,
         heuristicStage: "api_catalog_runtime",
         domainStage: "api_runtime",
         provider: "api_runtime",
-        catalogoProdutoAtual: apiCatalogReply.currentCatalogProduct ?? apiCatalogProduct ?? currentCatalogProduct ?? null,
+        catalogoProdutoAtual: hasApiReplyCurrentProduct
+          ? apiCatalogReply.currentCatalogProduct ?? null
+          : apiCatalogProduct ?? currentCatalogProduct ?? null,
         catalogoBusca: apiCatalogSearchState,
         catalogFactContext: apiCatalogReply.factContext ?? null,
       }),
@@ -1459,7 +1506,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     context: effectiveContext,
     structuredResponse,
     focusedApiContext,
-    currentCatalogProduct: shouldUseMercadoLivre ? currentCatalogProduct : null,
+    currentCatalogProduct: shouldUseMercadoLivre || shouldUseApiRuntime ? currentCatalogProduct : null,
     salesAssets: selectedMercadoLivreProductReply ? mercadoLivreAssets : [],
     history,
     simpleCommercialQuestion,

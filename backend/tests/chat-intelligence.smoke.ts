@@ -6619,6 +6619,149 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "api runtime responde risco do item em foco sem repetir card",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "quais os riscos desse imovel?" }] as never,
+        {
+          agente: {
+            id: "agent-api-product-risk",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111116",
+            nome: "Nexo Imoveis",
+          },
+          conversation: { mode: "product_detail" },
+          catalogo: {
+            listingSession: {
+              id: "api-listing-risk",
+              source: "api_runtime",
+              matchedProductIds: ["imovel-risk"],
+              total: 1,
+            },
+            productFocus: {
+              productId: "imovel-risk",
+              source: "api_runtime",
+              sourceListingSessionId: "api-listing-risk",
+              detailLevel: "focused",
+            },
+            produtoAtual: {
+              id: "imovel-risk",
+              nome: "CONDOMINIO ESTADOS UNIDOS",
+              descricao: "Apartamento no andar terreo.",
+              preco: 170280,
+              cidade: "Sao Bernardo do Campo",
+              estado: "SP",
+              source: "api_runtime",
+              apiId: "api-busca",
+              fields: [
+                { name: "status", label: "status", value: "Ativo" },
+                { name: "ocupacao", label: "ocupacao", value: "Nao informado" },
+                { name: "valor_publico", label: "valor publico", value: "170280" },
+              ],
+            },
+            ultimosProdutos: [
+              {
+                id: "imovel-risk",
+                nome: "CONDOMINIO ESTADOS UNIDOS",
+                source: "api_runtime",
+                apiId: "api-busca",
+              },
+            ],
+          },
+          runtimeApis: [],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => null,
+          classifySemanticIntentStage: async () =>
+            ({
+              intent: "current_product_commercial_advice",
+              confidence: 0.92,
+              reason: "Pergunta consultiva sobre riscos do item atual.",
+              adviceType: "other",
+              usedLlm: true,
+            }) as never,
+        }
+      );
+
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.match(result.reply, /an[aá]lise inicial/i);
+      assert.match(result.reply, /ocup/i);
+      assert.equal(result.assets?.length ?? 0, 0);
+      assert.equal(result.metadata?.catalogoProdutoAtual?.id, "imovel-risk");
+    },
+  },
+  {
+    name: "api runtime sai do foco quando usuario pede alternativa",
+    run: async () => {
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem outro parecido?" }] as never,
+        {
+          agente: {
+            id: "agent-api-product-exit-focus",
+            nome: "Nexo Imoveis",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "11111111-1111-4111-8111-111111111117",
+            nome: "Nexo Imoveis",
+          },
+          conversation: { mode: "product_detail" },
+          catalogo: {
+            listingSession: {
+              id: "api-listing-exit",
+              source: "api_runtime",
+              matchedProductIds: ["imovel-exit"],
+              total: 1,
+            },
+            productFocus: {
+              productId: "imovel-exit",
+              source: "api_runtime",
+              sourceListingSessionId: "api-listing-exit",
+              detailLevel: "focused",
+            },
+            produtoAtual: {
+              id: "imovel-exit",
+              nome: "EDIFICIO VILLA",
+              descricao: "Apartamento no primeiro andar.",
+              preco: 128000,
+              source: "api_runtime",
+              apiId: "api-busca",
+            },
+            ultimosProdutos: [
+              {
+                id: "imovel-exit",
+                nome: "EDIFICIO VILLA",
+                source: "api_runtime",
+                apiId: "api-busca",
+              },
+            ],
+          },
+          runtimeApis: [],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => null,
+          classifySemanticIntentStage: async () =>
+            ({
+              intent: "similar_items_search",
+              confidence: 0.91,
+              reason: "Usuario pediu alternativa ao item atual.",
+              targetType: "",
+              excludeCurrentProduct: true,
+              usedLlm: true,
+            }) as never,
+        }
+      );
+
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.match(result.reply, /sair do item atual/i);
+      assert.equal(result.assets?.length ?? 0, 0);
+      assert.equal(result.metadata?.catalogoProdutoAtual, null);
+    },
+  },
+  {
     name: "orquestrador respeita produto recente em foco",
     run: async () => {
       const result = await executeSalesOrchestrator(
