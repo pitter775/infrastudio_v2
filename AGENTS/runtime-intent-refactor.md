@@ -745,3 +745,10 @@ Ainda errado / fragil:
   - editor de API agora salva `presentation`, `responseShape` e `display` basico para orientar card/lista/tabela fora de catalogo
   - fallback textual de API runtime agora respeita `presentation: table`, `list` e `summary` antes de cair na lista simples de campos
   - badge/trace de API runtime passou a expor apresentacao, formato, status, campos e itens retornados
+- API runtime de catalogo ganhou primeiro suporte a paginacao propria de APIs externas
+  - respostas `{ properties: [], pagination: {...} }` agora podem usar `properties` como lista de itens
+  - `fetchApiPreview` extrai `pagination.page`, `limit`, `offset`, `total`, `total_pages`, `has_more`, `next_page` e `next_offset`
+  - `buildApiCatalogSearchState` salva a paginacao em `catalogo.listingSession` quando a origem e `api_runtime`
+  - `catalog_load_more` com `listingSession.source = api_runtime` recarrega a mesma API usando a proxima pagina, separado do fluxo do Mercado Livre
+  - URLs configuradas com query `page`, `offset` e `limit` recebem override controlado apenas na API selecionada
+  - cards de API runtime agora reconhecem `property_url`, `link_imovel` e `image_url` como aliases de link/imagem

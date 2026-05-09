@@ -586,11 +586,11 @@ function groupApiFieldListAsCatalogItem(api, fields, deps, itemIndex = 0) {
     sanitizeString(api?.categoriaLabel)
   const material = sanitizeString(readField("material"))
   const cor = sanitizeString(readField("cor", "color"))
-  const link = sanitizeString(readField("link", "url", "permalink"))
+  const link = sanitizeString(readField("link", "url", "permalink", "property_url", "link_imovel", "href"))
   const imagens = collectCatalogImageUrls(
     readField("imagens", "images", "fotos", "photos", "pictures", "galeria", "gallery")
   )
-  collectCatalogImageUrls(readField("imagem", "image", "thumbnail", "thumb", "foto", "picture"), imagens)
+  collectCatalogImageUrls(readField("imagem", "image", "image_url", "thumbnail", "thumb", "foto", "picture"), imagens)
   const imagem = imagens[0] || ""
   const cidade = sanitizeString(readField("cidade", "city"))
   const estado = sanitizeString(readField("estado", "uf", "state"))
@@ -681,14 +681,23 @@ export function buildApiCatalogSearchState(apis = [], customDeps = {}) {
   if (!products.length) {
     return null
   }
+  const sourceApi = (apis ?? []).find((api) => Array.isArray(api?.runtimeItems) && api.runtimeItems.length) ?? (apis ?? [])[0] ?? null
+  const pagination = sourceApi?.pagination && typeof sourceApi.pagination === "object" && !Array.isArray(sourceApi.pagination)
+    ? sourceApi.pagination
+    : null
+  const pageOffset = sanitizeNumber(pagination?.page, sanitizeNumber(pagination?.offset, 0))
+  const nextOffset = sanitizeNumber(pagination?.nextPage, sanitizeNumber(pagination?.nextOffset, 0))
+  const poolLimit = sanitizeNumber(pagination?.limit, products.length)
+  const total = sanitizeNumber(pagination?.total, products.length)
+  const hasMore = pagination ? pagination.hasMore === true : false
 
   return {
     ultimaBusca: sanitizeString(customDeps?.searchTerm),
-    paginationOffset: 0,
-    paginationNextOffset: 0,
-    paginationPoolLimit: products.length,
-    paginationHasMore: false,
-    paginationTotal: products.length,
+    paginationOffset: pageOffset,
+    paginationNextOffset: nextOffset,
+    paginationPoolLimit: poolLimit,
+    paginationHasMore: hasMore,
+    paginationTotal: total,
     produtoAtual: products.length === 1 ? products[0] : null,
     ultimosProdutos: products,
     listingSession: {
@@ -696,11 +705,11 @@ export function buildApiCatalogSearchState(apis = [], customDeps = {}) {
       snapshotId: "",
       searchTerm: sanitizeString(customDeps?.searchTerm),
       matchedProductIds: products.map((item) => sanitizeString(item?.id)).filter(Boolean),
-      offset: 0,
-      nextOffset: 0,
-      poolLimit: products.length,
-      hasMore: false,
-      total: products.length,
+      offset: pageOffset,
+      nextOffset,
+      poolLimit,
+      hasMore,
+      total,
       source: "api_runtime",
     },
   }
@@ -734,7 +743,7 @@ function buildApiCatalogSearchReply(products = [], searchTerm = "") {
 }
 
 export function buildApiCatalogAssetsFromProducts(products = []) {
-  return products.slice(0, 6).map((product, index) => {
+  return products.slice(0, 10).map((product, index) => {
     const priceLabel = product.preco != null ? formatCurrencyValue(product.preco) : ""
     const locationLabel = [product.cidade, product.estado].filter(Boolean).join(" - ")
     const description = [priceLabel, locationLabel, product.descricao].filter(Boolean).join(" - ")

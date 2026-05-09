@@ -461,8 +461,45 @@ function resolveRuntimeApiUrl(api, context) {
   })
 
   return {
-    url: resolvedUrl,
+    url: applyRuntimePaginationQuery(api, context, resolvedUrl),
     missingParams,
+  }
+}
+
+function applyRuntimePaginationQuery(api, context, resolvedUrl) {
+  const pagination =
+    context?.apiRuntime?.pagination && typeof context.apiRuntime.pagination === "object" && !Array.isArray(context.apiRuntime.pagination)
+      ? context.apiRuntime.pagination
+      : null
+  if (!pagination) {
+    return resolvedUrl
+  }
+
+  const selectedApiId = String(context?.apiRuntime?.selectedApiId || pagination.apiId || "").trim()
+  const apiId = String(api?.id || api?.apiId || "").trim()
+  if (selectedApiId && apiId && selectedApiId !== apiId) {
+    return resolvedUrl
+  }
+
+  try {
+    const url = new URL(resolvedUrl)
+    const page = Number(pagination.page ?? pagination.nextPage)
+    const offset = Number(pagination.offset ?? pagination.nextOffset)
+    const limit = Number(pagination.limit)
+
+    if (Number.isFinite(page) && page > 0 && url.searchParams.has("page")) {
+      url.searchParams.set("page", String(page))
+    }
+    if (Number.isFinite(offset) && offset >= 0 && url.searchParams.has("offset")) {
+      url.searchParams.set("offset", String(offset))
+    }
+    if (Number.isFinite(limit) && limit > 0 && url.searchParams.has("limit")) {
+      url.searchParams.set("limit", String(limit))
+    }
+
+    return url.toString()
+  } catch {
+    return resolvedUrl
   }
 }
 
@@ -546,7 +583,9 @@ function resolveRuntimeItemsRoot(api, responseRoot) {
       readPathValue(responseRoot, "data.results"),
       readPathValue(responseRoot, "data"),
       readPathValue(responseRoot, "imoveis"),
+      readPathValue(responseRoot, "properties"),
       readPathValue(responseRoot, "data.imoveis"),
+      readPathValue(responseRoot, "data.properties"),
     ]
 
     const listCandidate = candidates.find((item) => Array.isArray(item) && item.some((entry) => entry && typeof entry === "object"))
@@ -623,9 +662,53 @@ function extractRuntimeResponseItems(api, payload) {
   const responseRoot = getRuntimeResponseRoot(api, payload)
   return resolveRuntimeItemsRoot(api, responseRoot)
     .filter((item) => item && typeof item === "object" && !Array.isArray(item))
-    .slice(0, 8)
+    .slice(0, 10)
     .map((item) => normalizeRuntimeItemFields(api, item))
     .filter((fields) => fields.length)
+}
+
+function extractRuntimePagination(payload) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return null
+  }
+
+  const source = [
+    readPathValue(payload, "pagination"),
+    readPathValue(payload, "paging"),
+    readPathValue(payload, "meta.pagination"),
+    readPathValue(payload, "data.pagination"),
+  ].find((item) => item && typeof item === "object" && !Array.isArray(item))
+  if (!source) {
+    return null
+  }
+
+  const page = Number(source.page ?? source.current_page)
+  const limit = Number(source.limit ?? source.per_page ?? source.page_size)
+  const offset = Number(source.offset)
+  const total = Number(source.total ?? source.total_count)
+  const totalPages = Number(source.total_pages ?? source.totalPages ?? source.pages)
+  const hasMore =
+    source.has_more === true ||
+    source.hasMore === true ||
+    (Number.isFinite(page) && Number.isFinite(totalPages) ? page < totalPages : false) ||
+    (Number.isFinite(offset) && Number.isFinite(limit) && Number.isFinite(total) ? offset + limit < total : false)
+  const nextPage = Number(source.next_page ?? source.nextPage)
+  const nextOffset = Number(source.next_offset ?? source.nextOffset)
+
+  return {
+    page: Number.isFinite(page) ? page : null,
+    limit: Number.isFinite(limit) ? limit : null,
+    offset: Number.isFinite(offset) ? offset : null,
+    total: Number.isFinite(total) ? total : null,
+    totalPages: Number.isFinite(totalPages) ? totalPages : null,
+    hasMore,
+    nextPage: Number.isFinite(nextPage) ? nextPage : Number.isFinite(page) && hasMore ? page + 1 : null,
+    nextOffset: Number.isFinite(nextOffset)
+      ? nextOffset
+      : Number.isFinite(offset) && Number.isFinite(limit) && hasMore
+        ? offset + limit
+        : null,
+  }
 }
 
 function extractConfiguredRuntimeFields(api, payload) {
@@ -643,11 +726,13 @@ function extractConfiguredRuntimeFields(api, payload) {
 
   const catalogRootCandidates = [
     readPathValue(responseRoot, "imoveis"),
+    readPathValue(responseRoot, "properties"),
     readPathValue(responseRoot, "items"),
     readPathValue(responseRoot, "results"),
     readPathValue(responseRoot, "data.items"),
     readPathValue(responseRoot, "data.results"),
     readPathValue(responseRoot, "data.imoveis"),
+    readPathValue(responseRoot, "data.properties"),
     responseRoot,
   ]
   const catalogItem =
@@ -680,11 +765,13 @@ function extractCatalogRuntimeItems(api, payload) {
   const catalogRootCandidates = [
     responseRoot,
     readPathValue(responseRoot, "imoveis"),
+    readPathValue(responseRoot, "properties"),
     readPathValue(responseRoot, "items"),
     readPathValue(responseRoot, "results"),
     readPathValue(responseRoot, "data.items"),
     readPathValue(responseRoot, "data.results"),
     readPathValue(responseRoot, "data.imoveis"),
+    readPathValue(responseRoot, "data.properties"),
   ]
   const catalogItems =
     catalogRootCandidates.find((item) => Array.isArray(item) && item.some((entry) => entry && typeof entry === "object" && !Array.isArray(entry))) ??
@@ -692,7 +779,7 @@ function extractCatalogRuntimeItems(api, payload) {
 
   return catalogItems
     .filter((item) => item && typeof item === "object" && !Array.isArray(item))
-    .slice(0, 8)
+    .slice(0, 10)
     .map((item) => {
       const automaticEntries = Object.entries(item)
         .filter(([key, value]) => value == null || ["string", "number", "boolean"].includes(typeof value) || isCatalogMediaFieldName(key))
@@ -1539,6 +1626,7 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
     const campos = extractConfiguredRuntimeFields(api, payload)
     const runtimeItems = extractRuntimeResponseItems(api, payload)
     const catalogItems = extractCatalogRuntimeItems(api, payload)
+    const pagination = extractRuntimePagination(payload)
 
     const result = {
       id: api.id,
@@ -1554,6 +1642,7 @@ async function fetchApiPreview(api, timeoutMs = 5000, runtimeContext = null) {
       campos,
       runtimeItems,
       catalogItems,
+      pagination,
       presentation: getRuntimePresentation(api),
       responseShape: getRuntimeResponseShape(api),
       display: getRuntimeDisplayConfig(api),

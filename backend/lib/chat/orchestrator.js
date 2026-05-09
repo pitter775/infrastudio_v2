@@ -920,6 +920,49 @@ async function reloadRuntimeApisWithSemanticParameters({ semanticApiDecision, co
   return Array.isArray(reloadedApis) && reloadedApis.length ? reloadedApis : runtimeApis
 }
 
+async function reloadRuntimeApisForCatalogPagination({ catalogDecision, context, runtimeApis, options = {} }) {
+  if (catalogDecision?.kind !== "catalog_load_more" || !context?.agente?.id || !context?.projeto?.id) {
+    return runtimeApis
+  }
+
+  const listingSession = context?.catalogo?.listingSession
+  if (!listingSession || listingSession.source !== "api_runtime" || listingSession.hasMore !== true) {
+    return runtimeApis
+  }
+
+  const recentProducts = Array.isArray(context?.catalogo?.ultimosProdutos) ? context.catalogo.ultimosProdutos : []
+  const selectedApiId = String(recentProducts.find((product) => product?.apiId)?.apiId || context?.apiRuntime?.lastApiId || "").trim()
+  const nextPage = Number(listingSession.nextOffset || context?.catalogo?.paginationNextOffset || 0)
+  const limit = Number(listingSession.poolLimit || context?.catalogo?.paginationPoolLimit || 0)
+  if (!selectedApiId || !Number.isFinite(nextPage) || nextPage <= 0) {
+    return runtimeApis
+  }
+
+  const loadApis = options.loadAgentRuntimeApis ?? loadAgentRuntimeApis
+  const enrichedContext = {
+    ...context,
+    page: nextPage,
+    limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+    apiRuntime: {
+      ...(context?.apiRuntime && typeof context.apiRuntime === "object" && !Array.isArray(context.apiRuntime) ? context.apiRuntime : {}),
+      selectedApiId,
+      pagination: {
+        apiId: selectedApiId,
+        page: nextPage,
+        limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+      },
+    },
+  }
+
+  const reloadedApis = await loadApis({
+    agenteId: context.agente.id,
+    projetoId: context.projeto.id,
+    context: enrichedContext,
+  })
+
+  return Array.isArray(reloadedApis) && reloadedApis.length ? reloadedApis : runtimeApis
+}
+
 function hasLockedCatalogProductPricingPriority(routingDecision, context = {}) {
   if (routingDecision?.domain !== "catalog") {
     return false
@@ -1140,6 +1183,14 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     buildProductSearchCandidates,
     shouldSearchProducts,
   })
+  if (shouldUseApiRuntime) {
+    runtimeApis = await reloadRuntimeApisForCatalogPagination({
+      catalogDecision: catalogFollowUpDecision,
+      context: effectiveContext,
+      runtimeApis,
+      options,
+    })
+  }
   const mercadoLivreFlowState = resolveMercadoLivreFlowState({
     latestUserMessage,
     context,
