@@ -1,11 +1,12 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { CheckCircle2, ClipboardCopy, Clock3, LoaderCircle, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
+import { ArrowLeft, BookOpen, CheckCircle2, ClipboardCopy, Clock3, LoaderCircle, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
 
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
 import { JsonCodeBlock } from "@/components/ui/json-code-block"
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { ToggleSwitchButton } from "@/components/ui/toggle-switch-button"
 import { cn } from "@/lib/utils"
@@ -65,7 +66,6 @@ const editorTabs = [
   { id: "authorization", label: "Authorization" },
   { id: "headers", label: "Headers" },
   { id: "description", label: "Descrição" },
-  { id: "guidance", label: "Guia" },
 ]
 
 const bodySubtabs = [
@@ -158,6 +158,70 @@ function RuntimeHoverHelp({ children, content }) {
         {content}
       </TooltipContent>
     </Tooltip>
+  )
+}
+
+function ApiGuidanceContent({ className }) {
+  return (
+    <div className={cn("grid gap-3 text-sm leading-6 text-slate-300", className)}>
+      <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 p-4">
+        <p className="font-semibold text-sky-100">Como refinar o acerto do agente</p>
+        <p className="mt-2 text-slate-300">
+          Use a descrição para decisão da IA para separar quando esta API deve ser usada e quando outra API parecida deve assumir.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-emerald-500/15 bg-emerald-500/10 p-4">
+        <p className="font-semibold text-emerald-100">Cards clicáveis por API</p>
+        <p className="mt-2 text-slate-300">
+          Para o card da lista abrir o produto, imóvel ou registro correto, configure o retorno da API como contrato salvo: Response Path para a lista, Formato da resposta como Lista, Apresentação como Lista ou Auto e Mapeamento visual com o campo de link.
+        </p>
+        <p className="mt-2 text-slate-400">
+          Exemplos comuns de link: <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">property_url</code>, <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">link_imovel</code>, <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">url</code>, <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">permalink</code> ou <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">href</code>.
+        </p>
+      </div>
+
+      <div className="rounded-2xl border border-amber-500/15 bg-amber-500/10 p-4">
+        <p className="font-semibold text-amber-100">Uso correto da LLM</p>
+        <p className="mt-2 text-slate-300">
+          Use a LLM para sugerir os paths durante a configuração, depois salve os campos no painel. O runtime do chat deve usar o contrato salvo, sem depender da LLM para descobrir campo, preço, imagem ou link a cada conversa.
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="font-semibold text-white">Busca de catálogo</p>
+          <p className="mt-2 text-slate-400">
+            Para procurar por termo: nome, título, condomínio, bairro, cidade, produto ou categoria. Exemplo: use quando o cliente perguntar se tem Edifício Villa.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="font-semibold text-white">Consulta por identificador</p>
+          <p className="mt-2 text-slate-400">
+            Para buscar um registro exato por id, propertyId, código, protocolo ou documento. Não use para nomes ou títulos.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="font-semibold text-white">Busca informativa</p>
+          <p className="mt-2 text-slate-400">
+            Para FAQ, documentação, regras ou informações gerais que não retornam um item específico de catálogo.
+          </p>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="font-semibold text-white">Cadastro / envio</p>
+          <p className="mt-2 text-slate-400">
+            Para criar lead, pedido, solicitação ou cadastro. Normalmente deve exigir confirmação antes de executar.
+          </p>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4 text-slate-400">
+        <p className="font-semibold text-slate-200">Modelo bom</p>
+        <p className="mt-2">
+          Use esta API somente quando o cliente quiser buscar imóveis por nome, título, condomínio, bairro, cidade ou termo de busca. Não use quando o cliente informar id ou propertyId.
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -304,7 +368,7 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
     "- Authorization: configura autenticação. Use Bearer token para Authorization: Bearer <token>. Use API Key quando a API exigir um header/chave específica.",
     "- Headers: headers extras da requisição, além da autorização.",
     "- Descrição: descrição interna para o usuário identificar a API no painel.",
-    "- Guia: ajuda operacional; não altera a API.",
+    "- Guia: botão lateral de ajuda operacional; abre como sheet para consultar sem sair da edição e não altera a API.",
     "",
     "Campos principais:",
     "- Nome da API: nome curto e claro para o usuário reconhecer a integração.",
@@ -347,6 +411,11 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
     "- Campos de resposta dizem quais dados o agente pode consumir com segurança. Exemplo: id, titulo, descricao, valor_minimo, cidade, estado.",
     "- Para busca de catálogo, se a API retorna lista em imoveis/items/results/data.items, configure o Response Path para essa lista quando possível.",
     "- Se não souber os paths, primeiro clique em Send, copie o JSON de resposta e derive os paths a partir dele.",
+    "- Para cards clicáveis, não deixe o runtime depender de inferência em tempo real. Use a resposta do Send para sugerir paths, salve o contrato no painel e execute o chat sempre com o contrato salvo.",
+    "- Se a API retorna uma lista, configure Response Path para o array, Formato da resposta como Lista e Apresentação como Lista ou Auto.",
+    "- No Mapeamento visual, preencha Link com o campo que abre o item/produto/imóvel. Exemplos comuns: property_url, link_imovel, url, permalink, href.",
+    "- Se houver dois campos de link, prefira o link público/canônico do item. Exemplo: em imóveis, prefira property_url ou link_imovel quando apontarem para a página pública do imóvel.",
+    "- A LLM deve ajudar a descobrir os paths durante a configuração, mas a resposta final precisa listar exatamente quais valores preencher em Response Path, Apresentação, Formato da resposta e Mapeamento visual.",
     "",
     "Política de conflito entre APIs:",
     "- Se houver API de busca por título e API por id, separe por Tipo de intenção e Escopo de uso.",
@@ -825,6 +894,7 @@ export function ApiSheetManager({
   onFooterStateChange,
   onStatsChange,
   resetSignal = 0,
+  guideOpenSignal = 0,
   compact = false,
 }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
@@ -837,6 +907,7 @@ export function ApiSheetManager({
   const [editorTab, setEditorTab] = useState("body")
   const [bodySubtab, setBodySubtab] = useState("fields")
   const [mode, setMode] = useState(initialApiId ? "editor" : "list")
+  const [guideSheetOpen, setGuideSheetOpen] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [responseResult, setResponseResult] = useState(null)
   const [agendaDate, setAgendaDate] = useState("")
@@ -904,6 +975,7 @@ export function ApiSheetManager({
       setForm(emptyForm)
       setEditorTab("body")
       setBodySubtab("fields")
+      setGuideSheetOpen(false)
       setResponseResult(null)
       setAgendaDate("")
       setTestContextText("")
@@ -925,6 +997,12 @@ export function ApiSheetManager({
   useEffect(() => {
     onStatsChange?.({ apis: apis.length })
   }, [apis.length, onStatsChange])
+
+  useEffect(() => {
+    if (guideOpenSignal && inEditor) {
+      setGuideSheetOpen(true)
+    }
+  }, [guideOpenSignal, inEditor])
 
   const responseValue = useMemo(() => {
     if (!responseResult) {
@@ -1015,6 +1093,7 @@ export function ApiSheetManager({
     setMode("editor")
     setEditorTab("body")
     setBodySubtab("fields")
+    setGuideSheetOpen(false)
     setResponseResult(null)
     setAgendaDate("")
     setTestContextText("")
@@ -1042,6 +1121,7 @@ export function ApiSheetManager({
     setMode("editor")
     setEditorTab("body")
     setBodySubtab("fields")
+    setGuideSheetOpen(false)
     setResponseResult(null)
     setAgendaDate("")
     setTestContextText("")
@@ -1994,60 +2074,6 @@ export function ApiSheetManager({
             </div>
           ) : null}
 
-          {editorTab === "guidance" ? (
-            <div className="grid gap-3 text-sm leading-6 text-slate-300">
-              <div className="rounded-2xl border border-sky-500/15 bg-sky-500/10 p-4">
-                <div className="mb-3 flex justify-end">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={copyGuidePromptForLlm}
-                    className="h-10 rounded-xl border border-sky-400/25 bg-sky-500/15 px-3 text-xs font-semibold text-sky-50 hover:bg-sky-500/20"
-                  >
-                    <ClipboardCopy className="h-4 w-4" />
-                    Copiar para LLM (GPT)
-                  </Button>
-                </div>
-                <p className="font-semibold text-sky-100">Como refinar o acerto do agente</p>
-                <p className="mt-2 text-slate-300">
-                  Use a descrição para decisão da IA para separar quando esta API deve ser usada e quando outra API parecida deve assumir.
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="font-semibold text-white">Busca de catálogo</p>
-                  <p className="mt-2 text-slate-400">
-                    Para procurar por termo: nome, título, condomínio, bairro, cidade, produto ou categoria. Exemplo: use quando o cliente perguntar se tem Edifício Villa.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="font-semibold text-white">Consulta por identificador</p>
-                  <p className="mt-2 text-slate-400">
-                    Para buscar um registro exato por id, propertyId, código, protocolo ou documento. Não use para nomes ou títulos.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="font-semibold text-white">Busca informativa</p>
-                  <p className="mt-2 text-slate-400">
-                    Para FAQ, documentação, regras ou informações gerais que não retornam um item específico de catálogo.
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                  <p className="font-semibold text-white">Cadastro / envio</p>
-                  <p className="mt-2 text-slate-400">
-                    Para criar lead, pedido, solicitação ou cadastro. Normalmente deve exigir confirmação antes de executar.
-                  </p>
-                </div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4 text-slate-400">
-                <p className="font-semibold text-slate-200">Modelo bom</p>
-                <p className="mt-2">
-                  Use esta API somente quando o cliente quiser buscar imóveis por nome, título, condomínio, bairro, cidade ou termo de busca. Não use quando o cliente informar id ou propertyId.
-                </p>
-              </div>
-            </div>
-          ) : null}
-
           <div ref={responseBoxRef} className="mt-5 scroll-mt-24 border-t border-white/10 pt-5">
             <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -2087,6 +2113,52 @@ export function ApiSheetManager({
           </div>
         </form>
       )}
+      <Sheet open={guideSheetOpen} onOpenChange={setGuideSheetOpen} modal={false}>
+        <SheetContent
+          side="right"
+          showOverlay={false}
+          showCloseButton={false}
+          closeOnInteractOutside={false}
+          className="z-[95] flex w-[92vw] max-w-[520px] flex-col border-l border-white/10 bg-[#080e1d]"
+        >
+          <div className="border-b border-white/10 px-5 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <SheetTitle className="flex items-center gap-2 text-sm font-semibold text-sky-100">
+                  <BookOpen className="h-4 w-4" />
+                  Guia de API
+                </SheetTitle>
+                <SheetDescription className="mt-1 text-left text-xs leading-5 text-slate-400">
+                  Consulte o guia sem sair da edição. Voltar fecha este painel e mantém a API em edição.
+                </SheetDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={copyGuidePromptForLlm}
+                  className="h-9 gap-2 rounded-lg border border-sky-400/25 bg-sky-500/15 px-3 text-xs font-semibold text-sky-50 hover:bg-sky-500/20"
+                >
+                  <ClipboardCopy className="h-4 w-4" />
+                  Copiar para LLM
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setGuideSheetOpen(false)}
+                  className="h-9 gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 text-xs font-semibold text-slate-200 hover:bg-white/[0.06]"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar
+                </Button>
+              </div>
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+            <ApiGuidanceContent />
+          </div>
+        </SheetContent>
+      </Sheet>
     </section>
     </TooltipProvider>
   )

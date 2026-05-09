@@ -107,6 +107,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
   const [apiDetailOpen, setApiDetailOpen] = useState(Boolean(deepLink?.api))
   const [apiFooter, setApiFooter] = useState({})
   const [apiResetSignal, setApiResetSignal] = useState(0)
+  const [apiGuideSignal, setApiGuideSignal] = useState(0)
   const [whatsappFooter, setWhatsappFooter] = useState({})
   const [widgetFooter, setWidgetFooter] = useState({})
   const [mercadoFooter, setMercadoFooter] = useState({})
@@ -168,6 +169,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
           onFooterStateChange={setApiFooter}
           onStatsChange={handleStatsChange}
           resetSignal={apiResetSignal}
+          guideOpenSignal={apiGuideSignal}
           compact
         />
       </ManagerFrame>
@@ -214,7 +216,17 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
           ) : null
         }
         rightAction={
-          panel.id === 'mercado-livre' && activeTab === 'store' && mercadoFooter.publicUrl ? (
+          panel.id === 'apis' && apiDetailOpen ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-9 gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 hover:bg-sky-500/15"
+              onClick={() => setApiGuideSignal((value) => value + 1)}
+            >
+              <BookOpen className="h-3.5 w-3.5" />
+              Guia
+            </Button>
+          ) : panel.id === 'mercado-livre' && activeTab === 'store' && mercadoFooter.publicUrl ? (
             <a
               href={mercadoFooter.publicUrl}
               target="_blank"
