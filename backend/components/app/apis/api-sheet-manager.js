@@ -188,6 +188,16 @@ function ApiGuidanceContent({ className }) {
         </p>
       </div>
 
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <p className="font-semibold text-white">Paginação</p>
+        <p className="mt-2 text-slate-400">
+          Quando a API aceitar paginação, configure a URL com parâmetros como <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">?page=1&amp;limit=9</code>. A lista continua em <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">properties</code> e os metadados podem vir em <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">pagination</code>.
+        </p>
+        <p className="mt-2 text-slate-400">
+          Para renderizar cards, use <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">properties</code> como Response Path. Campos como <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">pagination.total</code>, <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">pagination.total_pages</code> e <code className="rounded bg-white/10 px-1 py-0.5 text-sky-100">pagination.has_more</code> servem para contexto de quantidade e próxima página.
+        </p>
+      </div>
+
       <div className="grid gap-3 md:grid-cols-2">
         <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <p className="font-semibold text-white">Busca de catálogo</p>
@@ -416,6 +426,9 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
     "- No Mapeamento visual, preencha Link com o campo que abre o item/produto/imóvel. Exemplos comuns: property_url, link_imovel, url, permalink, href.",
     "- Se houver dois campos de link, prefira o link público/canônico do item. Exemplo: em imóveis, prefira property_url ou link_imovel quando apontarem para a página pública do imóvel.",
     "- A LLM deve ajudar a descobrir os paths durante a configuração, mas a resposta final precisa listar exatamente quais valores preencher em Response Path, Apresentação, Formato da resposta e Mapeamento visual.",
+    "- Se a API aceitar paginação, preserve os parâmetros na URL, como /api/imoveis?page=1&limit=9. Use limit pequeno e explícito para evitar payload grande.",
+    "- Quando a resposta vier como { properties: [], pagination: {...} }, use properties como Response Path da lista. Os dados de pagination são metadados, não itens de card.",
+    "- Para paginação, reconheça campos como pagination.page, pagination.limit, pagination.total, pagination.total_pages e pagination.has_more. Eles ajudam a explicar quantidade e continuidade, mas não substituem o Response Path.",
     "",
     "Política de conflito entre APIs:",
     "- Se houver API de busca por título e API por id, separe por Tipo de intenção e Escopo de uso.",
@@ -554,6 +567,7 @@ function buildApiListLlmGuidePrompt(project, apis = []) {
     "- Se a API funciona no Send mas não no chat, revise vínculo com agente, API ativa, descrição para decisão da IA, escopo e contexto do Chat widget.",
     "- Se a API usa {id}, recomende Consulta por identificador + Item atual.",
     "- Se a API usa busca?titulo={titulo}, recomende Busca de catálogo + Busca aberta.",
+    "- Se a API retorna lista paginada, recomende manter page/limit na URL, usar Response Path da lista e tratar pagination como metadados.",
   ].join("\n")
 }
 
