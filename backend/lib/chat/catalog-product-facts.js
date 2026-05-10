@@ -521,6 +521,9 @@ export function buildFocusedCatalogProductFactualResolution(product, message = "
     }
 
     if (hint === "details") {
+      if (factScope !== "product") {
+        return
+      }
       pieces.push(facts.details.length ? `Os principais detalhes que encontrei foram: ${facts.details.slice(0, 4).join(", ")}.` : "Não encontrei detalhes adicionais relevantes neste anúncio.")
       return
     }

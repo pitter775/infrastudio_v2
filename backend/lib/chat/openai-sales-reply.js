@@ -76,8 +76,16 @@ function buildSelectedProductInstructions(product) {
           .join("; ")}.`
       : "",
     product.rawContext ? `Contexto bruto enxuto da API:\n${String(product.rawContext).slice(0, 2500)}` : "",
-    product.descricaoLonga ? `Resumo longo do anuncio: ${String(product.descricaoLonga).slice(0, 500)}.` : "",
+    product.descricaoLonga
+      ? `Descrição do anúncio para responder perguntas específicas do produto:\n${String(product.descricaoLonga).slice(0, product.contextoCompleto ? 3000 : 1800)}`
+      : "",
     product.link ? `Link conhecido: ${product.link}` : "",
+    product.descricaoLonga
+      ? "Quando o cliente perguntar algo específico do produto em foco, responda primeiro com a informação encontrada na descrição do anúncio. Reescreva de forma natural, curta e comercial, sem despejar ficha técnica nem repetir um resumo geral do produto."
+      : "",
+    product.descricaoLonga
+      ? "Se a descrição do anúncio não trouxer o dado pedido, diga claramente que essa informação não aparece no anúncio e ofereça verificar com a loja."
+      : "",
     product.source === "api_runtime"
       ? "Este item veio de API genérica. Responda sobre ele usando somente os campos/contexto recebidos; se um dado não constar, diga claramente que a API não trouxe esse dado."
       : "",

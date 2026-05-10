@@ -2434,6 +2434,32 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "mercado livre deixa pergunta aberta de embalagem para redacao contextual",
+    run: () => {
+      const reply = buildFocusedProductFactualReply(
+        {
+          id: "MLB-79B",
+          nome: "Jogo de Xicaras",
+          atributos: [
+            { nome: "Material", valor: "Porcelana" },
+            { nome: "Cor", valor: "Verde-limao" },
+          ],
+          descricaoLonga:
+            "Duvidas sobre a embalagem das pecas? O conjunto e embalado com protecao reforcada em papel, plastico-bolha e estrutura de papelao duplo.",
+        },
+        "como e feita a embalagem?",
+        {
+          semanticIntent: {
+            targetFactHints: ["detalhes"],
+            factScope: "package",
+          },
+        }
+      );
+
+      assert.equal(reply, null);
+    },
+  },
+  {
     name: "mercado livre reutiliza escopo de embalagem em follow-up factual curto",
     run: () => {
       const reply = buildFocusedProductFactualReply(

@@ -1226,6 +1226,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     currentCatalogProduct: mercadoLivreFlowState.currentCatalogProduct,
     recentCatalogProducts: mercadoLivreFlowState.recentCatalogProducts,
     referencedCatalogProducts: mercadoLivreFlowState.referencedCatalogProducts,
+    semanticCatalogDecision,
     resolveMercadoLivreSearch: options.resolveMercadoLivreSearch,
     resolveMercadoLivreProductById: options.resolveMercadoLivreProductById,
   })

@@ -1108,6 +1108,10 @@ export function resolveApiCatalogReplyResolution(message, context = {}, apis = [
   }
 
   if (!executionState.intentState.forceNewSearch && executionState.currentCatalogProduct?.nome) {
+    if (semanticCatalogDecision?.kind === "non_catalog_message") {
+      return null
+    }
+
     return {
       reply: buildApiSelectedCatalogReply(executionState.currentCatalogProduct),
       currentCatalogProduct: executionState.currentCatalogProduct,
