@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store } from 'lucide-react'
+import { BookOpen, Check, ChevronDown, Copy, Download, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -872,9 +872,6 @@ export function MercadoLivrePanel({
                   className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-amber-300/40"
                 />
               </label>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-slate-400">
-                A resolução tenta primeiro o item público da API e, se necessário, refaz a leitura do HTML por alguns segundos para achar o <code className="rounded bg-white/5 px-1 py-0.5 text-sky-200">seller_id</code>.
-              </div>
               {!compact ? (
                 <div className="flex justify-end">
                   <Button type="submit" className="rounded-xl" disabled={resolvingStore}>
@@ -907,6 +904,14 @@ export function MercadoLivrePanel({
                     className="inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
                   >
                     Abrir painel do Mercado Livre
+                  </a>
+                  <a
+                    href="/logoexportar.png"
+                    download="logo-infrastudio-mercado-livre.png"
+                    className="inline-flex h-9 items-center rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100 transition hover:bg-white/[0.08]"
+                  >
+                    <Download className="mr-2 h-4 w-4" />
+                    Baixar logo
                   </a>
                   <Button
                     type="button"
