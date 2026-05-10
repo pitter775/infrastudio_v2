@@ -280,6 +280,7 @@ function buildCatalogDiagnosticsPayload(input = {}) {
     paginationNextOffset: listingSession?.nextOffset ?? input.paginationNextOffset ?? 0,
     matchedCount: input.matchedCount ?? 0,
     replyAssetsCount: input.replyAssetsCount ?? 0,
+    productQuestionReplyPath: input.productQuestionReplyPath ?? null,
   }
 }
 
@@ -1228,6 +1229,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     referencedCatalogProducts: mercadoLivreFlowState.referencedCatalogProducts,
     semanticCatalogDecision,
     resolveMercadoLivreSearch: options.resolveMercadoLivreSearch,
+    resolveMercadoLivreStoreSettings: options.resolveMercadoLivreStoreSettings,
     resolveMercadoLivreProductById: options.resolveMercadoLivreProductById,
   })
   const selectedMercadoLivreProductReply = mercadoLivreState?.selectedProductSalesReply ?? null
@@ -1301,6 +1303,21 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           adviceType: semanticCatalogDecision.adviceType,
         })
       : null
+  const semanticProductQuestionNeedsModel =
+    shouldUseMercadoLivre &&
+    Boolean(currentCatalogProduct?.descricaoLonga) &&
+    ["current_product_question", "non_catalog_message"].includes(String(semanticCatalogDecision?.kind || "")) &&
+    !deterministicMercadoLivreFactualReply &&
+    !deterministicMercadoLivreCommercialReply &&
+    !selectedMercadoLivreProductReply
+  const productQuestionReplyPath = semanticProductQuestionNeedsModel
+    ? {
+        stage: "semantic_product_question",
+        factualResolution: "miss",
+        replyStrategy: "llm_with_descricaoLonga",
+        productId: currentCatalogProduct?.id ?? null,
+      }
+    : null
   const shouldPreferMercadoLivreListing =
     shouldUseMercadoLivre &&
     mercadoLivreAssets.length > 0 &&
@@ -1371,6 +1388,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
         context?.catalogo?.paginationTotal ??
         0,
       replyAssetsCount: mercadoLivreAssets.length,
+      productQuestionReplyPath,
       }),
     billingDiagnostics: buildBillingDiagnosticsPayload({
       context: effectiveContext,
@@ -1613,8 +1631,33 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     })
   }
 
+  const salesGenerationMetadata = {
+    agenteId: context?.agente?.id ?? null,
+    agenteNome: context?.agente?.nome ?? null,
+    routeStage: "sales",
+    heuristicStage: productQuestionReplyPath ? "mercado_livre_product_question_llm" : pipelineState.heuristicIntentStage ?? null,
+    domainStage: pipelineState.conversationDomainStage ?? "general",
+    catalogoProdutoAtual: (shouldUseMercadoLivre || shouldUseApiRuntime) ? currentCatalogProduct ?? null : null,
+    catalogDiagnostics: heuristicMetadata.catalogDiagnostics ?? null,
+    billingDiagnostics: heuristicMetadata.billingDiagnostics ?? null,
+    billingContextUpdate: heuristicMetadata.billingContextUpdate ?? null,
+    apiRuntimeDiagnostics: heuristicMetadata.apiRuntimeDiagnostics ?? null,
+    apiRuntimeContextUpdate: heuristicMetadata.apiRuntimeContextUpdate ?? null,
+    routingDecision,
+    focus: routingDecision.focus ?? null,
+  }
+
   if (typeof options.generateSalesReply === "function") {
-    return options.generateSalesReply(history, effectiveContext)
+    const generated = await options.generateSalesReply(history, effectiveContext, {
+      metadata: salesGenerationMetadata,
+    })
+    return {
+      ...generated,
+      metadata: {
+        ...salesGenerationMetadata,
+        ...(generated?.metadata ?? {}),
+      },
+    }
   }
 
   return generateOpenAiSalesReply({
@@ -1629,21 +1672,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     salesAssets: selectedMercadoLivreProductReply ? mercadoLivreAssets : [],
     history,
     simpleCommercialQuestion,
-    metadata: {
-      agenteId: context?.agente?.id ?? null,
-      agenteNome: context?.agente?.nome ?? null,
-      routeStage: "sales",
-      heuristicStage: pipelineState.heuristicIntentStage ?? null,
-      domainStage: pipelineState.conversationDomainStage ?? "general",
-      catalogoProdutoAtual: (shouldUseMercadoLivre || shouldUseApiRuntime) ? currentCatalogProduct ?? null : null,
-      catalogDiagnostics: heuristicMetadata.catalogDiagnostics ?? null,
-      billingDiagnostics: heuristicMetadata.billingDiagnostics ?? null,
-      billingContextUpdate: heuristicMetadata.billingContextUpdate ?? null,
-      apiRuntimeDiagnostics: heuristicMetadata.apiRuntimeDiagnostics ?? null,
-      apiRuntimeContextUpdate: heuristicMetadata.apiRuntimeContextUpdate ?? null,
-      routingDecision,
-      focus: routingDecision.focus ?? null,
-    },
+    metadata: salesGenerationMetadata,
   })
 }
 

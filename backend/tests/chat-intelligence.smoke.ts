@@ -5543,6 +5543,90 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "orquestrador usa llm quando pergunta semantica de produto nao tem fato deterministico",
+    run: async () => {
+      let generatorCalls = 0
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "como e embalado?" }] as never,
+        {
+          agente: {
+            id: "agent-mercado-livre-package-question",
+            nome: "Loja Reliquias",
+            promptBase: "Responda como vendedor consultivo usando os dados do produto.",
+          },
+          projeto: {
+            id: "proj-mercado-livre-package-question",
+            nome: "Projeto teste",
+            slug: "projeto-teste",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          storefront: {
+            kind: "mercado_livre",
+            pageKind: "product_detail",
+          },
+          conversation: {
+            mode: "product_detail",
+          },
+          ui: {
+            productDetailPreferred: true,
+            catalogAction: "product_detail",
+          },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-PACK-1",
+              nome: "Jogo Xicaras Cafe Porcelana Oriental Verde 21 Pecas",
+              descricaoLonga:
+                "Duvidas sobre a embalagem das pecas? O conjunto e embalado com protecao reforcada em papel, plastico-bolha e estrutura de papelao duplo.",
+              material: "Porcelana",
+              cor: "Verde-limao",
+              link: "https://example.com/xicaras",
+            },
+            ultimosProdutos: [
+              {
+                id: "MLB-PACK-1",
+                nome: "Jogo Xicaras Cafe Porcelana Oriental Verde 21 Pecas",
+                descricaoLonga:
+                  "Duvidas sobre a embalagem das pecas? O conjunto e embalado com protecao reforcada em papel, plastico-bolha e estrutura de papelao duplo.",
+              },
+            ],
+          },
+        } as never,
+        {
+          classifySemanticIntentStage: async () => ({
+            intent: "current_product_question",
+            confidence: 0.94,
+            reason: "Cliente perguntou sobre a embalagem do produto em foco.",
+            targetFactHints: ["detalhes"],
+            factScope: "package",
+            usedLlm: true,
+          }),
+          resolveMercadoLivreStoreSettings: async () => ({ chatContextFull: true }),
+          resolveMercadoLivreProductById: async () => null,
+          generateSalesReply: async (_history, runtimeContext, generation) => {
+            generatorCalls += 1
+            assert.match(runtimeContext?.catalogo?.produtoAtual?.descricaoLonga ?? "", /plastico-bolha/i)
+            assert.equal(generation?.metadata?.catalogDiagnostics?.productQuestionReplyPath?.replyStrategy, "llm_with_descricaoLonga")
+            return {
+              reply: "Esse conjunto é embalado com proteção reforçada em papel, plástico-bolha e papelão duplo.",
+              assets: [],
+              usage: { inputTokens: 0, outputTokens: 0 },
+              metadata: { provider: "test_openai", model: "fake" },
+            }
+          },
+        } as never
+      )
+
+      assert.equal(generatorCalls, 1)
+      assert.equal(result.metadata.provider, "test_openai")
+      assert.equal(result.metadata.heuristicStage, "mercado_livre_product_question_llm")
+      assert.equal(result.metadata.catalogDiagnostics?.productQuestionReplyPath?.stage, "semantic_product_question")
+      assert.match(result.reply, /prote[cç][aã]o refor[cç]ada/i)
+      assert.doesNotMatch(result.reply, /Pre[cç]o atual|Resumo:|Link direto/i)
+    },
+  },
+  {
     name: "mercado livre responde valor do produto em foco de forma deterministica sem repetir card",
     run: async () => {
       const result = await executeSalesOrchestrator(
