@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Check, ChevronDown, Copy, Download, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store } from 'lucide-react'
+import { BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -394,6 +394,7 @@ export function MercadoLivrePanel({
       step,
       activeTab: currentTab,
       saving: step === 1 ? resolvingStore : savingConnector,
+      onBackToProductUrl: () => setStep(1),
     })
   }, [currentTab, onFooterStateChange, resolvingStore, savingConnector, step])
 
@@ -896,59 +897,51 @@ export function MercadoLivrePanel({
                     {snapshotStatus.lastSyncAt ? ` | ultima atualizacao: ${new Date(snapshotStatus.lastSyncAt).toLocaleString('pt-BR')}` : ''}
                   </div>
                 ) : null}
-                <div className="mt-3 flex flex-wrap gap-3">
-                  <a
-                    href="https://developers.mercadolivre.com.br/devcenter"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-9 items-center rounded-xl border border-amber-300/30 bg-amber-400/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-amber-100 transition hover:bg-amber-400/20"
-                  >
-                    Abrir painel do Mercado Livre
-                  </a>
-                  <a
-                    href="/logoexportar.png"
-                    download="logo-infrastudio-mercado-livre.png"
-                    className="inline-flex h-9 items-center rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-100 transition hover:bg-white/[0.08]"
-                  >
-                    <Download className="mr-2 h-4 w-4" />
-                    Baixar logo
-                  </a>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    disabled={savingConnector || startingOAuth || !connectorMeta.id || connectorMeta.oauthConnected}
-                    onClick={handleStartOAuth}
-                    className={`h-9 rounded-xl px-3 text-xs font-semibold uppercase tracking-[0.16em] disabled:opacity-50 ${
-                      connectorMeta.oauthConnected
-                        ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
-                        : 'border border-sky-500/20 bg-sky-500/10 text-sky-100'
-                    }`}
-                  >
-                    {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Conta conectada' : 'Conectar conta'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={handleSyncStoreSnapshot}
-                    disabled={syncingStoreSnapshot || !connectorMeta.oauthConnected}
-                    className="h-9 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-100 disabled:opacity-50"
-                  >
-                    <RefreshCcw className={`mr-2 h-4 w-4 ${syncingStoreSnapshot ? 'animate-spin' : ''}`} />
-                    {syncingStoreSnapshot ? 'Atualizando...' : 'Atualizar loja'}
-                  </Button>
-                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href="https://developers.mercadolivre.com.br/devcenter"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-8 items-center rounded-lg border border-amber-300/30 bg-amber-400/10 px-2.5 text-xs font-semibold text-amber-100 transition hover:bg-amber-400/20"
+                >
+                  <Store className="mr-1.5 h-3.5 w-3.5" />
+                  Abrir painel
+                </a>
+                <a
+                  href="/logoexportar.png"
+                  download="logo-infrastudio-mercado-livre.png"
+                  className="inline-flex h-8 items-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-semibold text-slate-100 transition hover:bg-white/[0.08]"
+                >
+                  <img src="/logoexportar.png" alt="" className="mr-1.5 h-4 w-4 rounded object-cover" />
+                  Baixar logo
+                </a>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={savingConnector || startingOAuth || !connectorMeta.id || connectorMeta.oauthConnected}
+                  onClick={handleStartOAuth}
+                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold disabled:opacity-50 ${
+                    connectorMeta.oauthConnected
+                      ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
+                      : 'border border-sky-500/20 bg-sky-500/10 text-sky-100'
+                  }`}
+                >
+                  {connectorMeta.oauthConnected ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <MessageCircle className="mr-1.5 h-3.5 w-3.5" />}
+                  {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Conectada' : 'Conectar'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleSyncStoreSnapshot}
+                  disabled={syncingStoreSnapshot || !connectorMeta.oauthConnected}
+                  className="h-8 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 text-xs font-semibold text-emerald-100 disabled:opacity-50"
+                >
+                  <RefreshCcw className={`mr-1.5 h-3.5 w-3.5 ${syncingStoreSnapshot ? 'animate-spin' : ''}`} />
+                  {syncingStoreSnapshot ? 'Atualizando...' : 'Atualizar'}
+                </Button>
               </div>
               <form id="mercado-livre-save-form" className="grid gap-4" onSubmit={handleSaveConnection}>
-                <div className="flex justify-start">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => setStep(1)}
-                    className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200"
-                  >
-                    Voltar e trocar link do produto
-                  </Button>
-                </div>
                 <div className="grid gap-3">
                   <div className="grid gap-3">
                     <label className="block">
@@ -969,6 +962,44 @@ export function MercadoLivrePanel({
                   </div>
                 </div>
               </form>
+              <div className="grid gap-3">
+                {[
+                  {
+                    id: 'connection-redirect',
+                    label: 'Link de retorno',
+                    value: redirectUri,
+                    helper: 'Use este link no campo de redirect URI do aplicativo.',
+                  },
+                  {
+                    id: 'connection-webhook',
+                    label: 'Link de notificações',
+                    value: webhookUrl,
+                    helper: 'Use este link no campo de webhook. Ele já vai com a identificação deste projeto.',
+                  },
+                ].map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{item.label}</p>
+                        <p className="mt-2 text-sm leading-6 text-slate-400">{item.helper}</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => copyTutorialValue(item.id, item.value)}
+                        className="h-9 shrink-0 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs text-sky-100"
+                      >
+                        {copiedField === item.id ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <Copy className="mr-1.5 h-3.5 w-3.5" />}
+                        {copiedField === item.id ? 'Copiado' : 'Copiar'}
+                      </Button>
+                    </div>
+                    <div className="mt-3 break-all whitespace-pre-wrap rounded-xl border border-white/10 bg-[#08101f] px-3 py-3 font-mono text-xs leading-6 text-sky-200">
+                      {item.value}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </>
           ) : null}
         </div>

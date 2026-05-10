@@ -396,46 +396,62 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       ) : null}
       {panel.id === 'mercado-livre' && (activeTab === 'connection' || activeTab === 'store') ? (
         <div className="border-t border-white/5 px-6 py-4">
-          <div className="flex justify-end">
-            {activeTab === 'connection' && mercadoFooter.step === 1 ? (
-              <Button
-                type="submit"
-                form="mercado-livre-resolve-form"
-                disabled={mercadoFooter.saving}
-                variant="ghost"
-                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {!mercadoFooter.saving ? <ArrowRight className="mr-2 h-4 w-4" /> : null}
-                {mercadoFooter.saving ? 'Localizando...' : 'Avancar'}
-              </Button>
-            ) : null}
-            {activeTab === 'connection' && mercadoFooter.step === 2 ? (
-              <Button
-                type="submit"
-                form="mercado-livre-save-form"
-                disabled={mercadoFooter.saving}
-                variant="ghost"
-                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {!mercadoFooter.saving ? <Check className="mr-2 h-4 w-4" /> : null}
-                {mercadoFooter.saving ? 'Salvando...' : 'Salvar conexão'}
-              </Button>
-            ) : null}
-            {activeTab === 'store' ? (
-              <Button
-                type="submit"
-                form="mercado-livre-store-form"
-                disabled={mercadoFooter.saving}
-                variant="ghost"
-                className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
-                {!mercadoFooter.saving ? <Store className="mr-2 h-4 w-4" /> : null}
-                {mercadoFooter.saving ? 'Salvando...' : 'Salvar loja'}
-              </Button>
-            ) : null}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              {activeTab === 'connection' && mercadoFooter.step === 2 ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => mercadoFooter.onBackToProductUrl?.()}
+                  disabled={mercadoFooter.saving}
+                  className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  Voltar e trocar link do produto
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex justify-end">
+              {activeTab === 'connection' && mercadoFooter.step === 1 ? (
+                <Button
+                  type="submit"
+                  form="mercado-livre-resolve-form"
+                  disabled={mercadoFooter.saving}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {!mercadoFooter.saving ? <ArrowRight className="mr-2 h-4 w-4" /> : null}
+                  {mercadoFooter.saving ? 'Localizando...' : 'Avancar'}
+                </Button>
+              ) : null}
+              {activeTab === 'connection' && mercadoFooter.step === 2 ? (
+                <Button
+                  type="submit"
+                  form="mercado-livre-save-form"
+                  disabled={mercadoFooter.saving}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {!mercadoFooter.saving ? <Check className="mr-2 h-4 w-4" /> : null}
+                  {mercadoFooter.saving ? 'Salvando...' : 'Salvar conexão'}
+                </Button>
+              ) : null}
+              {activeTab === 'store' ? (
+                <Button
+                  type="submit"
+                  form="mercado-livre-store-form"
+                  disabled={mercadoFooter.saving}
+                  variant="ghost"
+                  className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {mercadoFooter.saving ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {!mercadoFooter.saving ? <Store className="mr-2 h-4 w-4" /> : null}
+                  {mercadoFooter.saving ? 'Salvando...' : 'Salvar loja'}
+                </Button>
+              ) : null}
+            </div>
           </div>
         </div>
       ) : null}
