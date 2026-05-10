@@ -762,8 +762,18 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
     input.forceNewSearch
 
   if (!shouldSearch) {
+    const productDetailPageContext =
+      input.context?.storefront?.pageKind === "product_detail" ||
+      input.context?.conversation?.mode === "product_detail"
+    const shouldDeferFocusedProductToModel =
+      currentProduct?.descricaoLonga && productDetailPageContext
+
     return {
-      selectedProductSalesReply: currentProduct ? buildSelectedProductReply(currentProduct, input.latestUserMessage) : null,
+      selectedProductSalesReply: shouldDeferFocusedProductToModel
+        ? null
+        : currentProduct
+          ? buildSelectedProductReply(currentProduct, input.latestUserMessage)
+          : null,
       mercadoLivreHeuristicReply: null,
       mercadoLivreProducts: input.mercadoLivreProducts ?? [],
       mercadoLivreAssets: [],

@@ -754,6 +754,7 @@ Ainda errado / fragil:
   - cards de API runtime agora reconhecem `property_url`, `link_imovel` e `image_url` como aliases de link/imagem
 - perguntas especificas sobre produto em foco agora podem cair no modelo de redacao quando o handler factual estruturado nao tiver slot direto
   - o stage semantico continua sendo a fonte da decisao (`current_product_question`/`non_catalog_message`), sem adicionar regex nova para linguagem do usuario
+  - em pagina de detalhe Mercado Livre com `descricaoLonga`, o fallback local tambem deixa de montar resumo generico quando nao ha acao estruturada de busca/detalhe
   - perguntas abertas de embalagem/envio em produto Mercado Livre deixam de virar resumo generico do card quando nao houver dimensao/peso estruturado
   - a redacao recebe a descricao longa do anuncio com limite controlado e deve responder primeiro com o trecho relevante, em linguagem natural para comprador leigo
   - o mesmo desvio para redacao tambem vale para produto em foco vindo de API runtime quando a pergunta factual estruturada nao encontrar resposta deterministica
