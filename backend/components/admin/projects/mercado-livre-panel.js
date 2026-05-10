@@ -217,6 +217,8 @@ export function MercadoLivrePanel({
   ]
   const redirectUri = useMemo(() => buildMercadoLivreRedirectUri(), [])
   const webhookUrl = useMemo(() => buildMercadoLivreWebhookUrl(project.id), [project.id])
+  const hasConnectionCredentials = Boolean(storeName.trim() && appId.trim() && clientSecret.trim())
+  const shouldHighlightOAuthButton = hasConnectionCredentials && Boolean(connectorMeta.id) && !connectorMeta.oauthConnected && !savingConnector
 
   const loadSnapshotStatus = useCallback(async () => {
     if (!connectorMeta.id) {
@@ -814,6 +816,7 @@ export function MercadoLivrePanel({
         {tabs.map((tab) => {
           const Icon = tab.icon
           const active = currentTab === tab.id
+          const storeTab = tab.id === 'store'
 
           return (
             <button
@@ -823,8 +826,12 @@ export function MercadoLivrePanel({
               className={cn(
                 'infra-tab-motion inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium',
                 active
-                  ? 'border-sky-400/40 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]'
-                  : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
+                  ? storeTab
+                    ? 'border-amber-300/50 bg-amber-400/15 text-amber-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]'
+                    : 'border-sky-400/40 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]'
+                  : storeTab
+                    ? 'border-amber-300/25 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15 hover:text-amber-50'
+                    : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
               )}
             >
               <Icon className="h-4 w-4" />
@@ -921,11 +928,15 @@ export function MercadoLivrePanel({
                   variant="ghost"
                   disabled={savingConnector || startingOAuth || !connectorMeta.id || connectorMeta.oauthConnected}
                   onClick={handleStartOAuth}
-                  className={`h-8 rounded-lg px-2.5 text-xs font-semibold disabled:opacity-50 ${
+                  className={cn(
+                    'h-8 rounded-lg px-2.5 text-xs font-semibold disabled:opacity-50',
                     connectorMeta.oauthConnected
                       ? 'border border-emerald-500/20 bg-emerald-500/10 text-emerald-100'
-                      : 'border border-sky-500/20 bg-sky-500/10 text-sky-100'
-                  }`}
+                      : 'border border-sky-500/20 bg-sky-500/10 text-sky-100',
+                    shouldHighlightOAuthButton
+                      ? 'animate-pulse border-emerald-300/70 bg-emerald-400/20 text-emerald-50 shadow-[0_0_0_3px_rgba(52,211,153,0.14),0_0_24px_rgba(52,211,153,0.28)]'
+                      : null,
+                  )}
                 >
                   {connectorMeta.oauthConnected ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <MessageCircle className="mr-1.5 h-3.5 w-3.5" />}
                   {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Conectada' : 'Conectar'}
