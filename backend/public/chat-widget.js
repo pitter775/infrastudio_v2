@@ -733,7 +733,7 @@
       ".chat-mercado-link { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: auto; height: auto; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; outline: 0; background: transparent; box-shadow: none; color: inherit; text-decoration: none; line-height: 0; }",
       ".chat-mercado-link:hover { background: transparent; box-shadow: none; transform: none; }",
       ".chat-mercado-link img { display: block; width: 35px; height: 24px; object-fit: contain; background: transparent; }",
-      ".chat-asset-action.ask { flex: 1 1 auto; border-color: " + (theme === "light" ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.18)") + "; background: " + (theme === "light" ? "rgba(241,245,249,0.92)" : "rgba(255,255,255,0.06)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.92)") + "; }",
+      ".chat-asset-action.ask { flex: 0 0 auto; width: auto; border-color: " + (theme === "light" ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.18)") + "; background: " + (theme === "light" ? "rgba(241,245,249,0.92)" : "rgba(255,255,255,0.06)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.92)") + "; }",
       ".chat-asset-action.ask:hover { background: " + (theme === "light" ? "rgba(226,232,240,0.96)" : "rgba(255,255,255,0.1)") + "; }",
       ".chat-asset-action .chat-icon { width: 13px; height: 13px; }",
       ".chat-asset-list-footer { margin-top: 10px; display: flex; justify-content: center; }",
@@ -2395,15 +2395,7 @@
         return null;
       }
       if (isApiRuntimeAsset) {
-        var apiAction = document.createElement("a");
-        apiAction.className = "chat-asset-action primary";
-        apiAction.href = actionUrl;
-        apiAction.target = "_blank";
-        apiAction.rel = "noreferrer noopener";
-        apiAction.textContent = "Abrir detalhes";
-        apiAction.setAttribute("aria-label", "Abrir detalhes");
-        apiAction.setAttribute("title", "Abrir detalhes");
-        return apiAction;
+        return null;
       }
       var action = document.createElement("a");
       action.className = "chat-mercado-link";
