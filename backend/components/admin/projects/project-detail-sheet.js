@@ -114,6 +114,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
         {tabs.map((tab) => {
           const Icon = tab.icon
           const active = tab.id === activeTab
+          const amber = tab.tone === 'amber'
 
           return (
             <button
@@ -124,8 +125,12 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
               className={cn(
                 'infra-tab-motion inline-flex h-9 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-xs font-semibold transition-[background-color,border-color,box-shadow,color]',
                 active
-                  ? 'border-sky-400/40 bg-sky-500/16 text-sky-100 shadow-[0_8px_0_rgba(2,6,23,0.58),0_0_22px_rgba(56,189,248,0.16)]'
-                  : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-slate-100',
+                  ? amber
+                    ? 'border-amber-300/50 bg-amber-400/16 text-amber-100 shadow-[0_8px_0_rgba(2,6,23,0.58),0_0_22px_rgba(251,191,36,0.16)]'
+                    : 'border-sky-400/40 bg-sky-500/16 text-sky-100 shadow-[0_8px_0_rgba(2,6,23,0.58),0_0_22px_rgba(56,189,248,0.16)]'
+                  : amber
+                    ? 'border-amber-300/35 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15 hover:text-amber-50'
+                    : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-slate-100',
               )}
             >
               {Icon ? <Icon className="h-3.5 w-3.5" /> : null}

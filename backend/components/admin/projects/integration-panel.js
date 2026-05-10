@@ -146,7 +146,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         return [
           { id: 'connection', label: 'Conexão', icon: Store },
           { id: 'tutorial', label: 'Tutorial', icon: BookOpen },
-          { id: 'store', label: 'Loja', icon: Wand2 },
+          { id: 'store', label: 'Loja', icon: Wand2, tone: 'amber' },
           { id: 'test', label: 'Teste', icon: PackageSearch },
           { id: 'orders', label: 'Pedidos', icon: Files },
           { id: 'questions', label: 'Perguntas', icon: MessageSquare },
