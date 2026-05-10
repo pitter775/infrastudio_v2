@@ -681,6 +681,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
   if (
     currentProduct &&
     (structuredCatalogAction === "product_detail" ||
+      input.semanticCatalogDecision?.kind === "non_catalog_message" ||
       isMercadoLivreDetailIntent(input.latestUserMessage) ||
       isMercadoLivrePurchaseIntent(input.latestUserMessage))
   ) {

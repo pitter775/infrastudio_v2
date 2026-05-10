@@ -2460,6 +2460,39 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "mercado livre nao substitui pergunta aberta de embalagem por resumo do produto",
+    run: async () => {
+      const state = await resolveMercadoLivreHeuristicState({
+        context: {
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-79C",
+              nome: "Jogo de Xicaras",
+              descricaoLonga:
+                "Duvidas sobre a embalagem das pecas? O conjunto e embalado com protecao reforcada em papel, plastico-bolha e estrutura de papelao duplo.",
+            },
+          },
+        },
+        project: { id: "proj-ml-contextual", directConnections: { mercadoLivre: 1 } },
+        latestUserMessage: "como e a embalagem?",
+        currentCatalogProduct: {
+          id: "MLB-79C",
+          nome: "Jogo de Xicaras",
+          descricaoLonga:
+            "Duvidas sobre a embalagem das pecas? O conjunto e embalado com protecao reforcada em papel, plastico-bolha e estrutura de papelao duplo.",
+        },
+        semanticCatalogDecision: {
+          kind: "non_catalog_message",
+          targetFactHints: ["detalhes"],
+          factScope: "package",
+        },
+      });
+
+      assert.equal(state.selectedProductSalesReply, null);
+      assert.equal(state.selectedCatalogProduct?.id, "MLB-79C");
+    },
+  },
+  {
     name: "mercado livre reutiliza escopo de embalagem em follow-up factual curto",
     run: () => {
       const reply = buildFocusedProductFactualReply(
