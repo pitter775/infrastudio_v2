@@ -32,7 +32,7 @@ function buildMercadoLivreLlmGuidePrompt({
     '- Permitir que o agente gere sugestões de resposta para perguntas usando o contexto do item e do projeto.',
     '',
     'Abas disponíveis:',
-    '- Conexão: resolve a loja por URL de produto, salva Nome da loja, Seed ID, App ID e Client Secret, inicia OAuth e atualiza snapshot da loja.',
+    '- Conexão: resolve a loja por URL de produto, salva Nome da loja, App ID e Client Secret, inicia OAuth e atualiza snapshot da loja.',
     '- Tutorial: mostra passo a passo, links oficiais, Redirect URI, Webhook e este botão de cópia para LLM.',
     '- Loja: configura dados comerciais e apresentação da loja pública do projeto.',
     '- Teste: carrega uma amostra dos itens ativos elegíveis da loja após OAuth.',
@@ -58,15 +58,14 @@ function buildMercadoLivreLlmGuidePrompt({
     '- Depois de salvar no InfraStudio, clicar em Conectar conta e permitir o acesso no OAuth do Mercado Livre.',
     '',
     'Campos da aba Conexão:',
-    '- Produto cadastrado na loja: URL pública de qualquer produto da loja. O InfraStudio tenta descobrir seller_id, nome da loja e Seed ID automaticamente.',
+    '- Produto cadastrado na loja: URL pública de qualquer produto da loja. O InfraStudio tenta descobrir nome da loja e identificador do vendedor automaticamente.',
     '- Nome da loja: nome interno exibido no painel. Pode ser preenchido automaticamente ou ajustado manualmente.',
-    '- Seed ID: identificador do vendedor/loja usado para vincular dados da loja. Pode vir do seller_id encontrado pela URL do produto.',
     '- App ID: identificador público do aplicativo criado no DevCenter do Mercado Livre.',
     '- Client secret: segredo do aplicativo. Deve ser salvo no InfraStudio e tratado como senha.',
     '',
     'Fluxo correto de configuração:',
     '- Primeiro: colar uma URL de produto da loja e avançar para tentar resolver a loja automaticamente.',
-    '- Segundo: revisar Nome da loja e Seed ID.',
+    '- Segundo: revisar Nome da loja.',
     '- Terceiro: criar ou abrir aplicativo no DevCenter do Mercado Livre.',
     '- Quarto: configurar Redirect URI e Webhook no aplicativo do Mercado Livre com os links do InfraStudio.',
     '- Quinto: colar App ID e Client Secret no InfraStudio.',
@@ -567,10 +566,7 @@ export function MercadoLivrePanel({
         setStep(2)
 
         if (!response.ok) {
-          setFeedback({
-            tone: 'error',
-            text: data.error || 'Não foi possível localizar o seller_id automaticamente. Preencha manualmente.',
-          })
+          setFeedback(null)
           return
         }
 
@@ -589,10 +585,7 @@ export function MercadoLivrePanel({
         setSeedId('')
         setStoreName((current) => current || 'Loja Mercado Livre')
         setStep(2)
-        setFeedback({
-          tone: 'error',
-          text: 'Não foi possível localizar o seller_id automaticamente. Preencha manualmente.',
-        })
+        setFeedback(null)
       } finally {
         setResolvingStore(false)
       }
@@ -952,15 +945,12 @@ export function MercadoLivrePanel({
                   </Button>
                 </div>
                 <div className="grid gap-3">
-                  <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+                  <div className="grid gap-3">
                     <label className="block">
                       <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da loja</span>
                       <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
                     </label>
-                    <label className="block">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Seed ID</span>
-                      <input value={seedId} onChange={(event) => setSeedId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                    </label>
+                    <input type="hidden" value={seedId} readOnly />
                   </div>
                   <div className="grid gap-3 md:grid-cols-2">
                     <label className="block">
