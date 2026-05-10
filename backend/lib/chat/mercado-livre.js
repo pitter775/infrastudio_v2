@@ -493,8 +493,22 @@ export function isMercadoLivreDetailIntent(message) {
   )
 }
 
-function shouldDeferCurrentProductQuestionToModel(input = {}, factualReply = null) {
-  return !factualReply && input?.semanticCatalogDecision?.kind === "non_catalog_message"
+function shouldDeferCurrentProductQuestionToModel(input = {}, factualReply = null, product = null) {
+  if (factualReply) {
+    return false
+  }
+
+  const structuredCatalogAction = String(input.context?.ui?.catalogAction || input.context?.catalogAction || "").trim().toLowerCase()
+  if (structuredCatalogAction === "product_detail") {
+    return false
+  }
+
+  return Boolean(
+    product?.descricaoLonga &&
+      (input?.semanticCatalogDecision?.kind === "non_catalog_message" ||
+        input?.semanticCatalogDecision?.kind === "current_product_question" ||
+        hasLockedProductDetailContext(input.context))
+  )
 }
 
 function hasStrongProductDetailContext(context) {
@@ -686,7 +700,7 @@ export async function resolveMercadoLivreHeuristicState(input = {}) {
       isMercadoLivrePurchaseIntent(input.latestUserMessage))
   ) {
     const factualReply = buildFocusedProductFactualReply(currentProduct, input.latestUserMessage)
-    const deferToModel = shouldDeferCurrentProductQuestionToModel(input, factualReply)
+    const deferToModel = shouldDeferCurrentProductQuestionToModel(input, factualReply, currentProduct)
     const shouldAttachAsset =
       structuredCatalogAction === "product_detail" ||
       isMercadoLivreLinkIntent(input.latestUserMessage) ||

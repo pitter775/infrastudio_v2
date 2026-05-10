@@ -759,3 +759,4 @@ Ainda errado / fragil:
   - a redacao recebe a descricao longa do anuncio com limite controlado e deve responder primeiro com o trecho relevante, em linguagem natural para comprador leigo
   - o mesmo desvio para redacao tambem vale para produto em foco vindo de API runtime quando a pergunta factual estruturada nao encontrar resposta deterministica
   - medidas/peso/preco/estoque/material/cor/garantia continuam deterministos quando houver slot estruturado
+  - o desvio para redacao agora tambem cobre `current_product_question` sem resposta factual em produto Mercado Livre com `descricaoLonga`, evitando que pergunta como embalagem caia no resumo generico do item
