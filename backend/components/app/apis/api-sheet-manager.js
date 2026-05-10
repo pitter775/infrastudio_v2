@@ -2133,7 +2133,7 @@ export function ApiSheetManager({
           showOverlay={false}
           showCloseButton={false}
           closeOnInteractOutside={false}
-          className="z-[95] flex w-[92vw] max-w-[520px] flex-col border-l border-white/10 bg-[#080e1d]"
+          className="z-[280] flex w-[92vw] max-w-[520px] flex-col border-l border-white/10 bg-[#080e1d]"
         >
           <div className="border-b border-white/10 px-5 py-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
