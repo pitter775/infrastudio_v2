@@ -129,7 +129,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
                     ? 'border-amber-300/50 bg-amber-400/16 text-amber-100 shadow-[0_8px_0_rgba(2,6,23,0.58),0_0_22px_rgba(251,191,36,0.16)]'
                     : 'border-sky-400/40 bg-sky-500/16 text-sky-100 shadow-[0_8px_0_rgba(2,6,23,0.58),0_0_22px_rgba(56,189,248,0.16)]'
                   : amber
-                    ? 'border-amber-300/35 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15 hover:text-amber-50'
+                    ? 'border-transparent bg-transparent text-amber-100 hover:text-amber-50'
                     : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-slate-100',
               )}
             >

@@ -309,6 +309,10 @@ async function getMercadoLivreStoreSettingsForProject(project, options = {}) {
   }
 
   const row = await getMercadoLivreStoreByProjectId(project.id, options)
+  if (!row) {
+    return null
+  }
+
   return normalizeStore(row, project)
 }
 
