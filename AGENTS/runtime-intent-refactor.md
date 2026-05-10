@@ -760,3 +760,4 @@ Ainda errado / fragil:
   - o mesmo desvio para redacao tambem vale para produto em foco vindo de API runtime quando a pergunta factual estruturada nao encontrar resposta deterministica
   - medidas/peso/preco/estoque/material/cor/garantia continuam deterministos quando houver slot estruturado
   - o desvio para redacao agora tambem cobre `current_product_question` sem resposta factual em produto Mercado Livre com `descricaoLonga`, evitando que pergunta como embalagem caia no resumo generico do item
+  - o desvio para redacao depende da decisao semantica estruturada (`current_product_question` ou `non_catalog_message`), nao de texto livre, regex ou acao residual do widget

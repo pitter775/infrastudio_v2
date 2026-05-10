@@ -2562,6 +2562,47 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "mercado livre ignora acao product_detail residual quando usuario digita pergunta aberta",
+    run: async () => {
+      const state = await resolveMercadoLivreHeuristicState({
+        context: {
+          conversation: { mode: "product_detail" },
+          storefront: { pageKind: "product_detail" },
+          ui: {
+            catalogAction: "product_detail",
+            productDetailPreferred: true,
+          },
+          catalogo: {
+            produtoAtual: {
+              id: "MLB-79F",
+              nome: "Jogo de Xicaras",
+              descricaoLonga:
+                "Duvidas sobre a embalagem das pecas? O conjunto e embalado com protecao reforcada em papel, plastico-bolha e estrutura de papelao duplo.",
+            },
+          },
+        },
+        project: { id: "proj-ml-contextual", directConnections: { mercadoLivre: 1 } },
+        latestUserMessage: "como e embalado?",
+        currentCatalogProduct: {
+          id: "MLB-79F",
+          nome: "Jogo de Xicaras",
+          descricaoLonga:
+            "Duvidas sobre a embalagem das pecas? O conjunto e embalado com protecao reforcada em papel, plastico-bolha e estrutura de papelao duplo.",
+        },
+        semanticCatalogDecision: {
+          kind: "non_catalog_message",
+          targetFactHints: ["detalhes"],
+          factScope: "package",
+        },
+        resolveMercadoLivreStoreSettings: async () => ({ chatContextFull: true }),
+        resolveMercadoLivreProductById: async () => null,
+      } as never);
+
+      assert.equal(state.selectedProductSalesReply, null);
+      assert.equal(state.selectedCatalogProduct?.id, "MLB-79F");
+    },
+  },
+  {
     name: "mercado livre reutiliza escopo de embalagem em follow-up factual curto",
     run: () => {
       const reply = buildFocusedProductFactualReply(

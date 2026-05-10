@@ -498,17 +498,8 @@ function shouldDeferCurrentProductQuestionToModel(input = {}, factualReply = nul
     return false
   }
 
-  const structuredCatalogAction = String(input.context?.ui?.catalogAction || input.context?.catalogAction || "").trim().toLowerCase()
-  if (structuredCatalogAction === "product_detail") {
-    return false
-  }
-
-  return Boolean(
-    product?.descricaoLonga &&
-      (input?.semanticCatalogDecision?.kind === "non_catalog_message" ||
-        input?.semanticCatalogDecision?.kind === "current_product_question" ||
-        hasLockedProductDetailContext(input.context))
-  )
+  const semanticKind = String(input?.semanticCatalogDecision?.kind || "").trim()
+  return Boolean(product?.descricaoLonga && ["non_catalog_message", "current_product_question"].includes(semanticKind))
 }
 
 function hasStrongProductDetailContext(context) {
