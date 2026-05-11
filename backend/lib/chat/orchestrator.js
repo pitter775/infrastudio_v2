@@ -379,13 +379,35 @@ function buildApiRoutingOverride(baseDecision, latestUserMessage, semanticApiDec
   }
 }
 
-function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCatalogDecision, context = {}) {
+function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCatalogDecision, context = {}, semanticApiDecision = null) {
   if (!semanticCatalogDecision) {
     return baseDecision
   }
 
   if (["handoff", "agenda", "billing"].includes(baseDecision?.domain)) {
     return baseDecision
+  }
+
+  const hasMercadoLivreCapability =
+    Number(baseDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0
+  const shouldPreferMercadoLivreStorefront =
+    hasMercadoLivreCapability && shouldPreferMercadoLivreStorefrontCatalog(context, semanticCatalogDecision, semanticApiDecision)
+
+  if (shouldPreferMercadoLivreStorefront) {
+    return {
+      ...(baseDecision ?? {}),
+      domain: "catalog",
+      source: "mercado_livre",
+      confidence: semanticCatalogDecision.confidence ?? 0.92,
+      reason: semanticCatalogDecision.reason || "mercado_livre_storefront_catalog_priority",
+      shouldUseTool: true,
+      focus: {
+        domain: "catalog",
+        source: "mercado_livre",
+        subject: latestUserMessage,
+        confidence: semanticCatalogDecision.confidence ?? 0.92,
+      },
+    }
   }
 
   if (hasApiRuntimeCatalogSemanticContext(context)) {
@@ -409,8 +431,6 @@ function buildCatalogRoutingOverride(baseDecision, latestUserMessage, semanticCa
     return baseDecision
   }
 
-  const hasMercadoLivreCapability =
-    Number(baseDecision?.capabilities?.mercadoLivre ?? context?.projeto?.directConnections?.mercadoLivre ?? 0) > 0
   if (!hasMercadoLivreCapability) {
     return baseDecision
   }
@@ -991,6 +1011,49 @@ function hasCatalogStorefrontSemanticContext(context = {}) {
   )
 }
 
+function isMercadoLivreStorefrontContext(context = {}) {
+  const pageKind = String(context?.storefront?.pageKind || "").trim().toLowerCase()
+  const kind = String(context?.storefront?.kind || "").trim().toLowerCase()
+  return kind === "mercado_livre" || pageKind === "storefront" || pageKind === "product_detail" || context?.ui?.catalogPreferred === true
+}
+
+function shouldPreferMercadoLivreStorefrontCatalog(context = {}, semanticCatalogDecision = null, semanticApiDecision = null) {
+  if (!isMercadoLivreStorefrontContext(context)) {
+    return false
+  }
+
+  const apiKind = String(semanticApiDecision?.kind || "").trim()
+  if (apiKind && apiKind !== "api_catalog_search") {
+    return false
+  }
+
+  const kind = String(semanticCatalogDecision?.kind || "").trim()
+  const catalogIntentShouldUseStore = [
+    "new_catalog_search",
+    "catalog_search_refinement",
+    "catalog_browse",
+    "catalog_load_more",
+    "same_type_search",
+    "similar_items_search",
+    "catalog_alternative_search",
+    "recent_product_reference",
+    "recent_product_reference_ambiguous",
+    "recent_product_reference_unresolved",
+  ].includes(kind)
+
+  if (!catalogIntentShouldUseStore) {
+    return false
+  }
+
+  const apiConfidence = Number(semanticApiDecision?.confidence ?? 0) || 0
+  const catalogConfidence = Number(semanticCatalogDecision?.confidence ?? 0) || 0
+  if (apiKind === "api_catalog_search" && apiConfidence >= catalogConfidence + 0.12) {
+    return false
+  }
+
+  return true
+}
+
 function hasApiRuntimeCatalogSemanticContext(context = {}) {
   const listingSource = String(context?.catalogo?.listingSession?.source || "").trim().toLowerCase()
   const currentSource = String(context?.catalogo?.produtoAtual?.source || "").trim().toLowerCase()
@@ -1110,13 +1173,17 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     buildApiDecisionFromSemanticIntent({ semanticIntent: semanticApiIntent }) ??
       buildSingleCatalogSearchFallbackDecision(latestUserMessage, runtimeApis, null)
   )
-  runtimeApis = await reloadRuntimeApisWithSemanticParameters({
-    semanticApiDecision,
-    context: effectiveContext,
-    runtimeApis,
-    options,
-  })
-  const focusedApiContext =
+  const shouldDeferApiCatalogReloadForMercadoLivreStorefront =
+    isMercadoLivreStorefrontContext(effectiveContext) && semanticApiDecision?.kind === "api_catalog_search"
+  if (!shouldDeferApiCatalogReloadForMercadoLivreStorefront) {
+    runtimeApis = await reloadRuntimeApisWithSemanticParameters({
+      semanticApiDecision,
+      context: effectiveContext,
+      runtimeApis,
+      options,
+    })
+  }
+  let focusedApiContext =
     semanticApiDecision?.targetFieldHints?.length || semanticApiDecision?.supportFieldHints?.length
       ? buildFocusedApiContext(latestUserMessage, runtimeApis, {
           targetFieldHints: semanticApiDecision?.targetFieldHints,
@@ -1171,10 +1238,26 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     explicitCatalogActionRoutingDecision,
     latestUserMessage,
     semanticCatalogDecision,
-    context
+    context,
+    semanticApiDecision
   )
   const shouldUseApiRuntime = routingDecision.domain === "api_runtime" && routingDecision.shouldUseTool === true
   const shouldUseMercadoLivre = routingDecision.domain === "catalog" && routingDecision.source === "mercado_livre" && routingDecision.shouldUseTool === true
+  if (shouldUseApiRuntime && shouldDeferApiCatalogReloadForMercadoLivreStorefront) {
+    runtimeApis = await reloadRuntimeApisWithSemanticParameters({
+      semanticApiDecision,
+      context: effectiveContext,
+      runtimeApis,
+      options,
+    })
+    focusedApiContext =
+      semanticApiDecision?.targetFieldHints?.length || semanticApiDecision?.supportFieldHints?.length
+        ? buildFocusedApiContext(latestUserMessage, runtimeApis, {
+            targetFieldHints: semanticApiDecision?.targetFieldHints,
+            supportFieldHints: semanticApiDecision?.supportFieldHints,
+          })
+        : initialFocusedApiContext
+  }
   const hasFocusedApiContext = shouldUseApiRuntime && focusedApiContext.fields.length > 0
   const { catalogDecision: catalogFollowUpDecision, catalogReferenceReply } = resolveCatalogDecisionState({
     latestUserMessage,
@@ -1282,11 +1365,20 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           availableQuantity: mercadoLivreState.mercadoLivreProducts[0].availableQuantity,
         }
       : null)
+  const shouldClearPreviousCatalogFocusForMercadoLivreListing =
+    shouldUseMercadoLivre &&
+    (mercadoLivreFlowState.productSearchRequested ||
+      mercadoLivreFlowState.genericMercadoLivreListingRequested ||
+      mercadoLivreFlowState.forceNewSearch ||
+      mercadoLivreFlowState.loadMoreCatalogRequested)
   const leadNameReplyDetected = isLikelyLeadNameReply(latestUserMessage, history, { extractName })
   const extractedLeadName = leadNameReplyDetected ? extractName(latestUserMessage) : null
   const leadNameAcknowledgementReply =
     leadNameReplyDetected && extractedLeadName ? buildLeadNameAcknowledgementReply(extractedLeadName, true) : null
-  const currentCatalogProduct = mercadoLivreSelectedProduct ?? apiCatalogProduct ?? context?.catalogo?.produtoAtual ?? null
+  const currentCatalogProduct =
+    mercadoLivreSelectedProduct ??
+    apiCatalogProduct ??
+    (shouldClearPreviousCatalogFocusForMercadoLivreListing ? null : context?.catalogo?.produtoAtual ?? null)
   const deterministicMercadoLivreFactualResolution =
     shouldUseMercadoLivre && currentCatalogProduct
       ? buildFocusedProductFactualResolution(currentCatalogProduct, latestUserMessage, {

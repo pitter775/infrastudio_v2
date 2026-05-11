@@ -762,3 +762,11 @@ Ainda errado / fragil:
   - o desvio para redacao agora tambem cobre `current_product_question` sem resposta factual em produto Mercado Livre com `descricaoLonga`, evitando que pergunta como embalagem caia no resumo generico do item
   - o desvio para redacao depende da decisao semantica estruturada (`current_product_question` ou `non_catalog_message`), nao de texto livre, regex ou acao residual do widget
   - o orquestrador agora marca `catalogDiagnostics.productQuestionReplyPath` quando o fluxo segue para LLM por falta de resposta factual deterministica, com `replyStrategy=llm_with_descricaoLonga`
+- arbitragem entre API runtime e loja Mercado Livre ficou mais explicita:
+  - em contexto de vitrine/pagina Mercado Livre, intents catalogais estruturadas (`new_catalog_search`, refinamento, browse, load more, referencias recentes e alternativas) priorizam a loja Mercado Livre mesmo que exista foco anterior vindo de API runtime
+  - API runtime nao e ignorada dentro da loja: intencoes nao catalogais (`api_fact_query`, `api_status_query`, `api_create_record`) continuam podendo vencer, e `api_catalog_search` tambem vence quando a decisao semantica da API for claramente mais forte que a decisao catalogal da loja
+  - busca aberta de API runtime com `api_catalog_search` e parametro semantico agora e adiada nesse contexto ate a arbitragem final, evitando chamada externa desnecessaria quando a loja vence
+  - fora da vitrine Mercado Livre, a API runtime continua podendo assumir buscas/consultas normalmente
+  - quando uma nova listagem com varios itens chega sem foco explicito, o contexto limpa `produtoAtual/productFocus` antigo para nao prender o chat na primeira entrega
+  - smoke adicionado cobre `imovel via API -> tem aparelho de jantar?` dentro da loja, garantindo resposta por Mercado Livre e sem recarregar a API
+  - smoke adicional cobre pedido explicito de consulta na API dentro da loja, garantindo que a API ainda possa vencer quando a classificacao estruturada apontar isso

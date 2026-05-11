@@ -1835,6 +1835,249 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "loja Mercado Livre prioriza catalogo da loja mesmo com foco anterior de API",
+    run: async () => {
+      let receivedSearchTerm = "";
+      let apiReloadCount = 0;
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "tem aparelho de jantar?" }] as never,
+        {
+          agente: {
+            id: "agent-ml-api-arbitration",
+            nome: "Projeto Nexo Leiloes",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "proj-ml-api-arbitration",
+            nome: "Projeto Nexo Leiloes",
+            slug: "projeto-nexo-leiloes",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          conversation: { mode: "listing" },
+          storefront: { kind: "mercado_livre", pageKind: "storefront" },
+          catalogo: {
+            produtoAtual: {
+              id: "imovel-villa",
+              nome: "EDIFICIO VILLA DI SAN LUCAS",
+              source: "api_runtime",
+              descricao: "Apartamento localizado no 1 andar.",
+            },
+            productFocus: {
+              productId: "imovel-villa",
+              source: "api_runtime",
+              detailLevel: "focused",
+            },
+            listingSession: {
+              id: "api-imoveis-villa",
+              source: "api_runtime",
+              searchTerm: "EDIFICIO VILLA",
+              matchedProductIds: ["imovel-villa"],
+              offset: 0,
+              nextOffset: 0,
+              poolLimit: 24,
+              hasMore: false,
+              total: 1,
+            },
+            ultimosProdutos: [
+              {
+                id: "imovel-villa",
+                nome: "EDIFICIO VILLA DI SAN LUCAS",
+                source: "api_runtime",
+              },
+            ],
+          },
+          runtimeApis: [
+            {
+              apiId: "api-busca-imoveis",
+              id: "api-busca-imoveis",
+              nome: "Buscar imoveis",
+              method: "GET",
+              missingParams: ["titulo"],
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  availabilityScope: "open_search",
+                  autoExecute: true,
+                },
+              },
+              campos: [],
+            },
+          ],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => ({
+            intent: "api_catalog_search",
+            confidence: 0.88,
+            reason: "API tambem poderia buscar por termo.",
+            apiId: "api-busca-imoveis",
+            intentType: "catalog_search",
+            targetFieldHints: [],
+            supportFieldHints: [],
+            parameterValues: [{ name: "titulo", value: "aparelho de jantar" }],
+            comparisonMode: "",
+            referencedProductIndexes: [],
+          }),
+          classifySemanticIntentStage: async () => ({
+            intent: "new_catalog_search",
+            confidence: 0.94,
+            reason: "Cliente busca produto da vitrine da loja.",
+            targetType: "aparelho de jantar",
+            referencedProductIds: [],
+            excludeCurrentProduct: false,
+          }),
+          loadAgentRuntimeApis: async () => {
+            apiReloadCount += 1;
+            return [];
+          },
+          resolveMercadoLivreSearch: async (_project, options = {}) => {
+            receivedSearchTerm = String(options.searchTerm || "");
+            return {
+              items: [
+                {
+                  id: "MLB-JANTAR-1",
+                  title: "Aparelho De Jantar Oxford Ceramica",
+                  price: 358,
+                  currencyId: "BRL",
+                  availableQuantity: 1,
+                  permalink: "https://example.com/aparelho-jantar",
+                  thumbnail: "https://example.com/aparelho-jantar.jpg",
+                  sellerId: "seller-ml",
+                  sellerName: "Projeto Nexo Leiloes",
+                  attributes: [],
+                  freeShipping: true,
+                },
+              ],
+              connector: {
+                config: {
+                  oauthNickname: "Projeto Nexo Leiloes",
+                },
+              },
+              paging: {
+                total: 1,
+                offset: 0,
+                nextOffset: 10,
+                poolLimit: 24,
+                hasMore: false,
+              },
+              error: null,
+            };
+          },
+        }
+      );
+
+      assert.equal(apiReloadCount, 0);
+      assert.equal(result.metadata?.provider, "mercado_livre_runtime");
+      assert.equal(result.metadata?.domainStage, "catalog");
+      assert.equal(result.metadata?.routingDecision?.source, "mercado_livre");
+      assert.equal(result.assets?.[0]?.provider, "mercado_livre");
+      assert.match(String(result.assets?.[0]?.nome || result.assets?.[0]?.title || ""), /Aparelho De Jantar/i);
+      assert.match(receivedSearchTerm, /aparelho/i);
+      assert.equal(result.metadata?.catalogoProdutoAtual?.id, "MLB-JANTAR-1");
+    },
+  },
+  {
+    name: "loja Mercado Livre ainda permite API quando a intencao da API vence semanticamente",
+    run: async () => {
+      let apiReloadCount = 0;
+      const result = await executeSalesOrchestrator(
+        [{ role: "user", content: "consulta o imovel EDIFICIO VILLA na api" }] as never,
+        {
+          agente: {
+            id: "agent-ml-api-explicit",
+            nome: "Projeto Nexo Leiloes",
+            promptBase: "Atenda com precisao.",
+          },
+          projeto: {
+            id: "proj-ml-api-explicit",
+            nome: "Projeto Nexo Leiloes",
+            slug: "projeto-nexo-leiloes",
+            directConnections: {
+              mercadoLivre: 1,
+            },
+          },
+          conversation: { mode: "listing" },
+          storefront: { kind: "mercado_livre", pageKind: "storefront" },
+          runtimeApis: [
+            {
+              apiId: "api-busca-imoveis",
+              id: "api-busca-imoveis",
+              nome: "Buscar imoveis",
+              method: "GET",
+              missingParams: ["titulo"],
+              config: {
+                runtime: {
+                  intentType: "catalog_search",
+                  availabilityScope: "open_search",
+                  autoExecute: true,
+                },
+              },
+              campos: [],
+            },
+          ],
+        } as never,
+        {
+          classifySemanticApiIntentStage: async () => ({
+            intent: "api_catalog_search",
+            confidence: 0.96,
+            reason: "Cliente pediu consulta na API.",
+            apiId: "api-busca-imoveis",
+            intentType: "catalog_search",
+            targetFieldHints: [],
+            supportFieldHints: [],
+            parameterValues: [{ name: "titulo", value: "EDIFICIO VILLA" }],
+            comparisonMode: "",
+            referencedProductIndexes: [],
+          }),
+          classifySemanticIntentStage: async () => ({
+            intent: "new_catalog_search",
+            confidence: 0.76,
+            reason: "Tambem parece uma busca catalogal.",
+            targetType: "EDIFICIO VILLA",
+            referencedProductIds: [],
+            excludeCurrentProduct: false,
+          }),
+          loadAgentRuntimeApis: async () => {
+            apiReloadCount += 1;
+            return [
+              {
+                apiId: "api-busca-imoveis",
+                id: "api-busca-imoveis",
+                nome: "Buscar imoveis",
+                method: "GET",
+                ok: true,
+                status: 200,
+                missingParams: [],
+                config: {
+                  runtime: {
+                    intentType: "catalog_search",
+                    availabilityScope: "open_search",
+                    autoExecute: true,
+                  },
+                },
+                campos: [
+                  { nome: "id", valor: "imovel-villa" },
+                  { nome: "titulo", valor: "EDIFICIO VILLA" },
+                  { nome: "valor_publico", valor: 128000 },
+                ],
+              },
+            ];
+          },
+          resolveMercadoLivreSearch: async () => {
+            throw new Error("nao deveria buscar Mercado Livre quando a API venceu semanticamente");
+          },
+        }
+      );
+
+      assert.equal(apiReloadCount, 1);
+      assert.equal(result.metadata?.provider, "api_runtime");
+      assert.equal(result.metadata?.domainStage, "api_runtime");
+      assert.equal(result.metadata?.routingDecision?.source, "api");
+      assert.match(result.reply, /EDIFICIO VILLA/i);
+    },
+  },
+  {
     name: "catalogo responde produto mais caro com base nos itens recentes ja mostrados",
     run: async () => {
       const result = await executeSalesOrchestrator(

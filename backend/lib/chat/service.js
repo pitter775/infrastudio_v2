@@ -1146,15 +1146,15 @@ export function updateContextFromAiResult(input) {
         (product) => isPlainObject(product) && typeof product.nome === "string" && product.nome.trim()
       )
 
-      if (nextContext.catalogo.ultimosProdutos.length > 1 && !shouldKeepLockedProduct) {
-        if (!isPlainObject(nextContext.catalogo.productFocus)) {
-          nextContext.catalogo.produtoAtual = null
-          nextContext.catalogo.focusMode = "listing"
-          nextContext.conversation = {
-            ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
-            mode: "listing",
-            updatedAt: new Date().toISOString(),
-          }
+      const hasExplicitCatalogProductFocus = isPlainObject(metadataCatalogProduct) || isPlainObject(metadataCatalogSearch.produtoAtual)
+      if (nextContext.catalogo.ultimosProdutos.length > 1 && !shouldKeepLockedProduct && !hasExplicitCatalogProductFocus) {
+        nextContext.catalogo.produtoAtual = null
+        nextContext.catalogo.productFocus = null
+        nextContext.catalogo.focusMode = "listing"
+        nextContext.conversation = {
+          ...(isPlainObject(nextContext.conversation) ? nextContext.conversation : {}),
+          mode: "listing",
+          updatedAt: new Date().toISOString(),
         }
       }
     }
