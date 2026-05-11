@@ -41,7 +41,7 @@ const conversationFilters = [
   { id: "whatsapp", icon: MessageSquareText, label: "WhatsApp" },
 ]
 
-const INITIAL_CONVERSATION_LIMIT = 10
+const INITIAL_CONVERSATION_LIMIT = 15
 const LOAD_MORE_CONVERSATION_LIMIT = 15
 const INITIAL_MESSAGE_LIMIT = 15
 const LOAD_MORE_MESSAGE_LIMIT = 15

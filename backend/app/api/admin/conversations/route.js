@@ -21,7 +21,7 @@ export async function GET(request) {
   }
 
   const url = new URL(request.url)
-  const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? 10) || 10, 1), 30)
+  const limit = Math.min(Math.max(Number(url.searchParams.get("limit") ?? 15) || 15, 1), 30)
   const offset = Math.max(Number(url.searchParams.get("offset") ?? 0) || 0, 0)
   const result = await listAdminConversations(user, { limit, offset })
   const payload = {

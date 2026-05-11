@@ -234,8 +234,9 @@ function buildConversationGroupKey(row) {
 
 export async function listAdminConversations(user, options = {}) {
   try {
-    const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 30)
+    const limit = Math.min(Math.max(Number(options.limit ?? 15) || 15, 1), 30)
     const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
+    const rawWindowLimit = Math.min(limit * 4, 80)
     const scopedProjectIds = getScopedProjectIds(user)
     if (Array.isArray(scopedProjectIds) && scopedProjectIds.length === 0) {
       return { conversations: [], hasMore: false, nextOffset: offset }
@@ -249,7 +250,7 @@ export async function listAdminConversations(user, options = {}) {
       )
       .neq("canal", "admin_agent_test")
       .order("updated_at", { ascending: false, nullsFirst: false })
-      .range(offset, offset + limit)
+      .range(offset, offset + rawWindowLimit)
 
     if (Array.isArray(scopedProjectIds)) {
       query = query.in("projeto_id", scopedProjectIds)
@@ -262,7 +263,21 @@ export async function listAdminConversations(user, options = {}) {
       return { conversations: [], hasMore: false, nextOffset: offset }
     }
 
-    const pageRows = data.slice(0, limit)
+    const pageRows = []
+    const seenGroupKeys = new Set()
+    let consumedRows = 0
+
+    for (const row of data.slice(0, rawWindowLimit)) {
+      const groupKey = buildConversationGroupKey(row)
+      if (!seenGroupKeys.has(groupKey) && seenGroupKeys.size >= limit) {
+        break
+      }
+
+      pageRows.push(row)
+      seenGroupKeys.add(groupKey)
+      consumedRows += 1
+    }
+
     const pageChatIds = pageRows.map((row) => row.id)
     const [handoffsByChatId, latestMessagesByChatId, messageCountsByChatId] = await Promise.all([
       listChatHandoffsByChatIds(pageChatIds),
@@ -374,8 +389,8 @@ export async function listAdminConversations(user, options = {}) {
 
     return {
       conversations,
-      hasMore: data.length > limit,
-      nextOffset: offset + pageRows.length,
+      hasMore: data.length > consumedRows,
+      nextOffset: offset + consumedRows,
     }
   } catch (error) {
     console.error("[admin-conversations] failed to list conversations", error)
