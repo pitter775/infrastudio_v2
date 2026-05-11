@@ -53,7 +53,7 @@ export async function GET(request, { params }) {
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean)
-  const limit = Number(url.searchParams.get("limit") || 30)
+  const limit = Number(url.searchParams.get("limit") || 15)
   const before = String(url.searchParams.get("before") || "").trim()
 
   const conversation = await getAdminConversationDetail({ chatId: id, chatIds, limit, before }, user)

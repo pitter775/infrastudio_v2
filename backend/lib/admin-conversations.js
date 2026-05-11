@@ -389,7 +389,7 @@ export async function getAdminConversationDetail(input, user) {
     return null
   }
 
-  const limit = Math.min(Math.max(Number(input?.limit ?? 30) || 30, 1), 80)
+  const limit = Math.min(Math.max(Number(input?.limit ?? 15) || 15, 1), 80)
   const before = String(input?.before || "").trim() || null
   const requestedChatIds = Array.isArray(input?.chatIds)
     ? input.chatIds.map((item) => String(item || "").trim()).filter(Boolean)

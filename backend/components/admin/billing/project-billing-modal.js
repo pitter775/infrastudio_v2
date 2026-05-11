@@ -329,7 +329,7 @@ export function ProjectBillingModal({ open, onOpenChange, summary }) {
       <SheetContent
         side="right"
         overlayClassName="z-[250]"
-        className="z-[251] w-full max-w-[740px] overflow-y-auto border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-[-10px_0_22px_rgba(2,6,23,0.34)]"
+        className="z-[251] w-full max-w-[860px] overflow-y-auto border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-[-10px_0_22px_rgba(2,6,23,0.34)]"
       >
         <SheetTitle className="sr-only">Meu Plano</SheetTitle>
         <SheetDescription className="sr-only">Plano atual, upgrade e recarga de créditos do projeto.</SheetDescription>

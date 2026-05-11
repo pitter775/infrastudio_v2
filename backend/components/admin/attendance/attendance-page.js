@@ -43,6 +43,8 @@ const conversationFilters = [
 
 const INITIAL_CONVERSATION_LIMIT = 10
 const LOAD_MORE_CONVERSATION_LIMIT = 15
+const INITIAL_MESSAGE_LIMIT = 15
+const LOAD_MORE_MESSAGE_LIMIT = 15
 
 function getInitials(name) {
   return name
@@ -1587,7 +1589,7 @@ export default function AttendancePage() {
     }
 
     const params = new URLSearchParams()
-    params.set("limit", String(options.limit ?? 30))
+    params.set("limit", String(options.limit ?? INITIAL_MESSAGE_LIMIT))
     if (Array.isArray(conversation.chatIds) && conversation.chatIds.length) {
       params.set("chatIds", conversation.chatIds.join(","))
     }
@@ -1932,7 +1934,7 @@ export default function AttendancePage() {
     setLoadingOlderId(conversation.id)
 
     try {
-      const detail = await fetchConversationDetail(conversation, { limit: 30, before: firstMessage.createdAt })
+      const detail = await fetchConversationDetail(conversation, { limit: LOAD_MORE_MESSAGE_LIMIT, before: firstMessage.createdAt })
       const olderMessages = detail?.mensagens || []
 
       setConversationDetails((current) => {
