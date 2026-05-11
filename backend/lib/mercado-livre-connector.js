@@ -12,6 +12,7 @@ import {
 import { getSnapshotProductBySlug, listSnapshotProductsByProjectId } from "@/lib/mercado-livre-store-core/snapshot"
 import { resolveMercadoLivreProductInternal } from "@/lib/mercado-livre/resolve-product"
 import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl, resolvePublicAppUrl } from "@/lib/mercado-livre-webhook"
+import { getMercadoLivreProductLimitForProject } from "@/lib/mercado-livre-product-limits"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { createLogEntry } from "@/lib/logs"
 
@@ -1388,8 +1389,30 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
   try {
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const requestedLimit = Math.min(Math.max(Number(options.limit ?? 3) || 3, 1), 10)
-    const poolLimit = Math.min(Math.max(Number(options.poolLimit ?? 24) || 24, requestedLimit), 50)
     const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
+    const productLimit = await getMercadoLivreProductLimitForProject(project, { supabase })
+    const maxProducts = productLimit.limit == null ? Number.POSITIVE_INFINITY : Math.max(0, Number(productLimit.limit) || 0)
+    if (offset >= maxProducts) {
+      return {
+        items: [],
+        connector: null,
+        paging: {
+          total: Number.isFinite(maxProducts) ? maxProducts : 0,
+          rawTotal: Number.isFinite(maxProducts) ? maxProducts : 0,
+          filteredTotal: null,
+          offset,
+          poolLimit: 0,
+          requestedLimit,
+          nextOffset: offset,
+          hasMore: false,
+          productLimit,
+        },
+        error: null,
+      }
+    }
+
+    const poolLimitBase = Math.min(Math.max(Number(options.poolLimit ?? 24) || 24, requestedLimit), 50)
+    const poolLimit = Number.isFinite(maxProducts) ? Math.min(poolLimitBase, Math.max(1, maxProducts - offset)) : poolLimitBase
     const searchTerm = sanitizeString(options.searchTerm)
     const priceMaxExclusive = sanitizePositiveNumber(options.priceMaxExclusive)
     const excludedItemIds = Array.isArray(options.excludeItemIds)
@@ -1408,6 +1431,7 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
         allowEmptySearch: options.allowEmptySearch === true,
         selectMode: "chat_list",
         countMode: "none",
+        maxItems: maxProducts,
       },
       { ...deps, supabase }
     )
@@ -1487,7 +1511,10 @@ export async function searchMercadoLivreProductsForProject(project, options = {}
           poolLimit,
           requestedLimit,
           nextOffset: offset + poolLimit,
-          hasMore: Number(paging?.total ?? 0) > offset + poolLimit,
+          hasMore: Number.isFinite(maxProducts)
+            ? maxProducts > offset + poolLimit && Number(paging?.total ?? 0) > offset + poolLimit
+            : Number(paging?.total ?? 0) > offset + poolLimit,
+          productLimit,
         },
         error: null,
       }

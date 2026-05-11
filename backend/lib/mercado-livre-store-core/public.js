@@ -1,6 +1,7 @@
 import { getAgenteAtivo } from "@/lib/agentes"
 import { getChatWidgetByProjetoAgente } from "@/lib/chat-widgets"
 import { getMercadoLivreLiveProductByProjectId, searchMercadoLivreProductsForProject } from "@/lib/mercado-livre-connector"
+import { getMercadoLivreProductLimitForProject } from "@/lib/mercado-livre-product-limits"
 import { getSupabaseAdminClient, getSupabaseAdminEnv } from "@/lib/supabase-admin"
 
 import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } from "./constants"
@@ -374,7 +375,10 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
 
   const searchTerm = sanitizeText(options.searchTerm, 120)
   const page = Math.max(Number(options.page ?? 1) || 1, 1)
-  const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 120)
+  const productLimit = await getMercadoLivreProductLimitForProject(projectRow, { supabase })
+  const maxProducts = productLimit.limit == null ? Number.POSITIVE_INFINITY : Math.max(0, Number(productLimit.limit) || 0)
+  const requestedLimit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 120)
+  const limit = Number.isFinite(maxProducts) ? Math.min(requestedLimit, maxProducts) : requestedLimit
   const categoryId = sanitizeText(options.categoryId, 80)
   const sort = sanitizeText(options.sort, 32) || "recent"
   const listing = await listSnapshotProductsByProjectId(projectRow.id, {
@@ -382,6 +386,7 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
     searchTerm,
     page,
     limit,
+    maxItems: maxProducts,
     categoryId,
     sort,
   })
@@ -400,6 +405,7 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
     store: {
       ...normalizedStore,
       projectName: sanitizeText(projectRow.nome, 120),
+      productLimit,
       widget: widget
         ? {
             id: widget.id,

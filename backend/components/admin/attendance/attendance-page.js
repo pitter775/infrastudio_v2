@@ -20,6 +20,7 @@ import {
   Trash2,
 } from "lucide-react"
 
+import { AccessRequestSheet } from "@/components/admin/access-request-sheet"
 import { AdminPageHeader } from "@/components/admin/page-header"
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
@@ -40,6 +41,9 @@ const conversationFilters = [
   { id: "whatsapp", icon: MessageSquareText, label: "WhatsApp" },
 ]
 
+const INITIAL_CONVERSATION_LIMIT = 10
+const LOAD_MORE_CONVERSATION_LIMIT = 15
+
 function getInitials(name) {
   return name
     .split(" ")
@@ -52,6 +56,36 @@ function getInitials(name) {
 
 function getLastMessage(conversation) {
   return conversation?.mensagens?.[conversation.mensagens.length - 1] ?? null
+}
+
+function getConversationTime(conversation) {
+  return getLastMessage(conversation)?.horario || ""
+}
+
+function getConversationMessageCount(conversation) {
+  return Number(conversation?.totalMensagens ?? conversation?.mensagens?.length ?? 0)
+}
+
+function mergeConversationPages(currentConversations, nextConversations) {
+  const mergedById = new Map()
+
+  currentConversations.forEach((conversation) => {
+    mergedById.set(conversation.id, conversation)
+  })
+
+  nextConversations.forEach((conversation) => {
+    const current = mergedById.get(conversation.id)
+    mergedById.set(conversation.id, {
+      ...current,
+      ...conversation,
+      mensagens: conversation.mensagens?.length ? conversation.mensagens : current?.mensagens ?? [],
+      totalMensagens: getConversationMessageCount(conversation) || getConversationMessageCount(current),
+    })
+  })
+
+  return Array.from(mergedById.values()).sort(
+    (left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime(),
+  )
 }
 
 function getConversationPhone(conversation) {
@@ -95,7 +129,7 @@ function buildAccessRequestMessage(label, projectName) {
     lines.push("", `Projeto de referencia: ${projectName}.`)
   }
 
-  lines.push("", "Vou acompanhar a devolutiva na central de Feedback.")
+  lines.push("", "Vou acompanhar a devolutiva na central de Solicitações.")
 
   return lines.join("\n")
 }
@@ -287,6 +321,7 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
   const initials = getInitials(conversation.cliente.nome)
   const loopPaused = conversation.status === "pausado_loop"
   const subtitle = getConversationSubtitle(conversation)
+  const messageCount = getConversationMessageCount(conversation)
 
   return (
     <button
@@ -314,7 +349,10 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
           </div>
         </div>
         <div className="shrink-0 text-right">
-          <div className="text-[10px] text-slate-500">{lastMessage?.horario}</div>
+          <div className="text-[10px] text-slate-500">{getConversationTime(conversation)}</div>
+          <div className="mt-0.5 text-[9px] font-medium text-slate-600">
+            {messageCount} {messageCount === 1 ? "msg" : "msgs"}
+          </div>
           <div className="mt-1 flex flex-col items-end gap-1">
             {loopPaused ? (
               <span className="rounded-full border border-amber-400/20 bg-amber-500/10 px-1.5 py-0.5 text-[8px] font-bold uppercase tracking-[0.14em] text-amber-200">
@@ -1500,6 +1538,13 @@ export default function AttendancePage() {
   const [currentUser, setCurrentUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
+  const [conversationPagination, setConversationPagination] = useState({
+    limit: INITIAL_CONVERSATION_LIMIT,
+    offset: 0,
+    nextOffset: 0,
+    hasMore: false,
+  })
+  const [loadingMoreConversations, setLoadingMoreConversations] = useState(false)
   const [loadingDetailId, setLoadingDetailId] = useState(null)
   const [loadingOlderId, setLoadingOlderId] = useState(null)
   const [accessSheetOpen, setAccessSheetOpen] = useState(false)
@@ -1513,15 +1558,27 @@ export default function AttendancePage() {
   const [accessSaving, setAccessSaving] = useState(false)
   const [accessError, setAccessError] = useState(null)
 
-  async function fetchConversationList() {
-    const response = await fetch("/api/admin/conversations", { cache: "no-store" })
+  async function fetchConversationList(options = {}) {
+    const params = new URLSearchParams()
+    params.set("limit", String(options.limit ?? INITIAL_CONVERSATION_LIMIT))
+    params.set("offset", String(options.offset ?? 0))
+
+    const response = await fetch(`/api/admin/conversations?${params.toString()}`, { cache: "no-store" })
     const data = await response.json()
 
     if (!response.ok) {
       throw new Error(data.error || "Não foi possível carregar as conversas.")
     }
 
-    return data.conversations ?? []
+    return {
+      conversations: data.conversations ?? [],
+      pagination: data.pagination ?? {
+        limit: Number(params.get("limit")),
+        offset: Number(params.get("offset")),
+        nextOffset: Number(params.get("offset")) + (data.conversations?.length ?? 0),
+        hasMore: false,
+      },
+    }
   }
 
   async function fetchConversationDetail(conversation, options = {}) {
@@ -1551,6 +1608,27 @@ export default function AttendancePage() {
     return data.conversation ?? null
   }
 
+  async function handleLoadMoreConversations() {
+    if (loadingMoreConversations || !conversationPagination.hasMore) {
+      return
+    }
+
+    try {
+      setLoadingMoreConversations(true)
+      const result = await fetchConversationList({
+        limit: LOAD_MORE_CONVERSATION_LIMIT,
+        offset: conversationPagination.nextOffset,
+      })
+      setConversations((current) => mergeConversationPages(current, result.conversations))
+      setConversationPagination(result.pagination)
+      setLoadError(null)
+    } catch (error) {
+      setLoadError(error.message || "Não foi possível carregar mais conversas.")
+    } finally {
+      setLoadingMoreConversations(false)
+    }
+  }
+
   useEffect(() => {
     async function loadUser() {
       try {
@@ -1570,8 +1648,9 @@ export default function AttendancePage() {
     async function loadConversations() {
       try {
         setLoadError(null)
-        const nextConversations = await fetchConversationList()
-        setConversations(nextConversations)
+        const result = await fetchConversationList({ limit: INITIAL_CONVERSATION_LIMIT, offset: 0 })
+        setConversations(result.conversations)
+        setConversationPagination(result.pagination)
       } catch (error) {
         setLoadError(error.message || "Não foi possível carregar as conversas.")
       } finally {
@@ -1589,9 +1668,12 @@ export default function AttendancePage() {
       }
 
       try {
-        const nextConversations = await fetchConversationList()
+        const result = await fetchConversationList({ limit: INITIAL_CONVERSATION_LIMIT, offset: 0 })
         setLoadError(null)
-        setConversations(nextConversations)
+        setConversations((current) => mergeConversationPages(current, result.conversations))
+        setConversationPagination((current) =>
+          current.nextOffset > result.pagination.nextOffset ? current : result.pagination,
+        )
       } catch (error) {
         setLoadError(error.message || "Não foi possível atualizar as conversas.")
       }
@@ -1636,7 +1718,7 @@ export default function AttendancePage() {
             ...selectedPreview,
             ...detail,
             projeto: detail.projeto ?? selectedPreview.projeto ?? null,
-            totalMensagens: detail.mensagens?.length ?? selectedPreview.totalMensagens ?? 0,
+            totalMensagens: detail.totalMensagens ?? selectedPreview.totalMensagens ?? detail.mensagens?.length ?? 0,
           },
         }))
         setConversations((current) =>
@@ -1645,7 +1727,7 @@ export default function AttendancePage() {
               ? {
                   ...conversation,
                   mensagens: detail.mensagens?.length ? [detail.mensagens[detail.mensagens.length - 1]] : conversation.mensagens,
-                  totalMensagens: detail.mensagens?.length ?? conversation.totalMensagens ?? 0,
+                  totalMensagens: detail.totalMensagens ?? conversation.totalMensagens ?? detail.mensagens?.length ?? 0,
                   updatedAt: detail.updatedAt ?? conversation.updatedAt,
                 }
               : conversation,
@@ -1911,35 +1993,6 @@ export default function AttendancePage() {
     setAccessSheetOpen(true)
   }
 
-  async function handleAccessRequestSubmit(event) {
-    event.preventDefault()
-    setAccessSaving(true)
-    setAccessError(null)
-
-    const response = await fetch("/api/admin/feedbacks", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        projetoId: accessRequest.projetoId,
-        categoria: "duvida",
-        assunto: accessRequest.assunto,
-        mensagemInicial: accessRequest.mensagemInicial,
-      }),
-    })
-    const data = await response.json().catch(() => null)
-
-    if (!response.ok || !data?.feedback?.id) {
-      setAccessError(data?.error ?? "Não foi possível abrir a solicitação.")
-      setAccessSaving(false)
-      return
-    }
-
-    setAccessSheetOpen(false)
-    window.location.href = `/admin/feedback/${data.feedback.id}`
-  }
-
   function updateConversationStatus(conversationId, status, handoff = undefined) {
     setConversations((currentConversations) =>
       currentConversations.map((conversation) =>
@@ -2143,6 +2196,16 @@ export default function AttendancePage() {
                     onClick={() => handleConversationSelect(conversation)}
                   />
                 ))}
+                {conversationPagination.hasMore ? (
+                  <Button
+                    type="button"
+                    onClick={handleLoadMoreConversations}
+                    disabled={loadingMoreConversations}
+                    className="h-9 w-full rounded-[10px] border border-white/10 bg-white/[0.03] px-3 text-[11px] font-semibold text-slate-200 hover:bg-white/[0.06]"
+                  >
+                    {loadingMoreConversations ? "Carregando..." : "Carregar mais"}
+                  </Button>
+                ) : null}
               </div>
             </div>
           </section>
@@ -2226,68 +2289,17 @@ export default function AttendancePage() {
         </div>
       </div>
 
-      <Sheet open={accessSheetOpen} onOpenChange={setAccessSheetOpen}>
-        <SheetContent side="right" className="w-[92vw] max-w-[460px] border-l border-white/5">
-          <form onSubmit={handleAccessRequestSubmit} className="flex h-full flex-col">
-            <div className="border-b border-white/5 px-5 py-5">
-              <SheetTitle className="text-left text-lg font-semibold text-white">Solicitar acesso</SheetTitle>
-              <SheetDescription className="mt-1 text-left text-sm text-slate-400">
-                Esse acesso deve ser solicitado diretamente para a InfraStudio.
-              </SheetDescription>
-            </div>
-
-            <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
-              <div className="rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
-                Apos o envio, acompanhe a resposta na central de Feedback.
-              </div>
-
-              <label className="block space-y-2">
-                <span className="text-sm font-semibold text-slate-300">Projeto</span>
-                <AppSelect
-                  value={accessRequest.projetoId}
-                  onChangeValue={(value) => setAccessRequest((current) => ({ ...current, projetoId: value }))}
-                  options={projectOptions}
-                />
-              </label>
-
-              <label className="block space-y-2">
-                <span className="text-sm font-semibold text-slate-300">Assunto</span>
-                <input
-                  value={accessRequest.assunto}
-                  onChange={(event) => setAccessRequest((current) => ({ ...current, assunto: event.target.value }))}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
-                />
-              </label>
-
-              <label className="block space-y-2">
-                <span className="text-sm font-semibold text-slate-300">Mensagem</span>
-                <textarea
-                  value={accessRequest.mensagemInicial}
-                  onChange={(event) => setAccessRequest((current) => ({ ...current, mensagemInicial: event.target.value }))}
-                  rows={8}
-                  className="w-full rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500"
-                />
-              </label>
-
-              {accessError ? (
-                <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                  {accessError}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="border-t border-white/5 px-5 py-4">
-              <Button
-                type="submit"
-                disabled={accessSaving || !accessRequest.assunto.trim() || !accessRequest.mensagemInicial.trim()}
-                className="h-10 w-full rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100 hover:bg-sky-500/15"
-              >
-                {accessSaving ? "Enviando..." : "Enviar para feedback"}
-              </Button>
-            </div>
-          </form>
-        </SheetContent>
-      </Sheet>
+      <AccessRequestSheet
+        open={accessSheetOpen}
+        onOpenChange={setAccessSheetOpen}
+        request={accessRequest}
+        setRequest={setAccessRequest}
+        projectOptions={projectOptions}
+        saving={accessSaving}
+        setSaving={setAccessSaving}
+        error={accessError}
+        setError={setAccessError}
+      />
     </div>
   )
 }

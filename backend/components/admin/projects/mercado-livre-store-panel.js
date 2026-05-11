@@ -1,8 +1,9 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Check, ExternalLink, Globe, ImageIcon, LayoutTemplate, Save, Share2, Store } from 'lucide-react'
+import { Check, CreditCard, ExternalLink, Globe, ImageIcon, LayoutTemplate, Save, Share2, Store, Truck } from 'lucide-react'
 
+import { AccessRequestSheet, buildAccessRequestMessage } from '@/components/admin/access-request-sheet'
 import {
   StoreAppearanceSection,
   StoreFeaturedSection,
@@ -21,6 +22,8 @@ const STORE_TABS = [
   { id: 'featured', label: 'Destaques', icon: LayoutTemplate },
   { id: 'social', label: 'Redes', icon: Share2 },
   { id: 'menu', label: 'Menu', icon: Globe },
+  { id: 'payment', label: 'Pagamento', icon: CreditCard, accessRequest: true },
+  { id: 'freight', label: 'Frete', icon: Truck, accessRequest: true },
   { id: 'domain', label: 'Dominio', icon: ExternalLink },
 ]
 
@@ -243,8 +246,27 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   const [restoringDefaults, setRestoringDefaults] = useState(false)
   const [assetUploading, setAssetUploading] = useState(null)
   const [slugAvailability, setSlugAvailability] = useState({ status: 'idle', slug: '', available: false, error: '' })
+  const [accessSheetOpen, setAccessSheetOpen] = useState(false)
+  const [accessSaving, setAccessSaving] = useState(false)
+  const [accessError, setAccessError] = useState(null)
+  const [accessRequest, setAccessRequest] = useState({
+    featureKey: '',
+    label: '',
+    projetoId: project.id || '',
+    assunto: '',
+    mensagemInicial: '',
+  })
 
   const publicUrl = useMemo(() => buildPublicStoreUrl(project, draft.slug), [draft.slug, project])
+  const projectOptions = useMemo(
+    () => [
+      {
+        value: project.id || '',
+        label: project.name || project.nome || project.slug || 'Projeto',
+      },
+    ],
+    [project],
+  )
 
   useEffect(() => {
     onFooterStateChange?.({
@@ -738,6 +760,20 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     }
   }
 
+  function handleAccessTabClick(tab) {
+    const label = `${tab.label} da loja Mercado Livre`
+    const projectName = project.name || project.nome || project.slug || ''
+    setAccessError(null)
+    setAccessRequest({
+      featureKey: `mercado_livre_${tab.id}`,
+      label,
+      projetoId: project.id || '',
+      assunto: `Solicitação de acesso: ${label}`,
+      mensagemInicial: buildAccessRequestMessage(label, projectName),
+    })
+    setAccessSheetOpen(true)
+  }
+
   if (loading) {
     return <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">Carregando loja...</div>
   }
@@ -753,7 +789,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
             <button
               key={tab.id}
               type="button"
-              onClick={() => setActiveSubTab(tab.id)}
+              onClick={() => (tab.accessRequest ? handleAccessTabClick(tab) : setActiveSubTab(tab.id))}
               className={cn(
                 'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium',
                 activeTab
@@ -844,6 +880,18 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           </Button>
         </div>
       ) : null}
+
+      <AccessRequestSheet
+        open={accessSheetOpen}
+        onOpenChange={setAccessSheetOpen}
+        request={accessRequest}
+        setRequest={setAccessRequest}
+        projectOptions={projectOptions}
+        saving={accessSaving}
+        setSaving={setAccessSaving}
+        error={accessError}
+        setError={setAccessError}
+      />
     </form>
   )
 }

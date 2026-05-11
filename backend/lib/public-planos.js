@@ -26,6 +26,14 @@ export const TOP_UP_OFFERS = [
 
 export const TOP_UP_OFFER = TOP_UP_OFFERS[0]
 
+export const MERCADO_LIVRE_PRODUCT_LIMITS_BY_PLAN = {
+  free: 10,
+  basic: 50,
+  plus: 200,
+  pro: null,
+  scale: null,
+}
+
 export function normalizePlanKey(value) {
   const normalized = String(value || "")
     .trim()
@@ -78,4 +86,19 @@ export function formatCredits(value) {
   }
 
   return `${new Intl.NumberFormat("pt-BR").format(Number(value || 0))} créditos`
+}
+
+export function getMercadoLivreProductLimitForPlan(planKeyOrName) {
+  const planKey = normalizePlanKey(planKeyOrName)
+  if (!planKey) {
+    return MERCADO_LIVRE_PRODUCT_LIMITS_BY_PLAN.free
+  }
+
+  return Object.prototype.hasOwnProperty.call(MERCADO_LIVRE_PRODUCT_LIMITS_BY_PLAN, planKey)
+    ? MERCADO_LIVRE_PRODUCT_LIMITS_BY_PLAN[planKey]
+    : MERCADO_LIVRE_PRODUCT_LIMITS_BY_PLAN.free
+}
+
+export function formatMercadoLivreProductLimit(value) {
+  return value == null ? "Ilimitado" : `${new Intl.NumberFormat("pt-BR").format(Number(value || 0))} produtos`
 }

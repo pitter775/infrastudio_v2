@@ -16,7 +16,7 @@ export async function GET(_request, context) {
     return NextResponse.json({ error: "Projeto não encontrado." }, { status: 404 })
   }
 
-  const snapshot = await getMercadoLivreSnapshotStatus(project.id)
+  const snapshot = await getMercadoLivreSnapshotStatus(project.id, { project })
   return NextResponse.json({ snapshot }, { status: 200 })
 }
 
@@ -46,7 +46,7 @@ export async function POST(request, context) {
       )
     }
 
-    const snapshot = await getMercadoLivreSnapshotStatus(project.id)
+    const snapshot = await getMercadoLivreSnapshotStatus(project.id, { project })
     return NextResponse.json({ synced: result.synced, paging: result.paging, snapshot }, { status: 200 })
   } catch (error) {
     console.error("[mercado-livre-snapshot-route] unexpected post failure", error)

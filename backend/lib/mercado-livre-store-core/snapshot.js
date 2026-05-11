@@ -173,6 +173,13 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
   const page = Math.max(Number(options.page ?? 1) || 1, 1)
   const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 120)
   const offset = (page - 1) * limit
+  const maxItems = Number(options.maxItems)
+  const hasMaxItems = Number.isFinite(maxItems) && maxItems >= 0
+  if (hasMaxItems && offset >= maxItems) {
+    return { items: [], hasMore: false, total: maxItems }
+  }
+
+  const effectiveLimit = hasMaxItems ? Math.min(limit, Math.max(0, maxItems - offset)) : limit
   const searchTerm = sanitizeText(options.searchTerm, 120).toLowerCase()
   const excludeSlug = sanitizeText(options.excludeSlug, 180)
   const categoryId = sanitizeText(options.categoryId, 80)
@@ -183,8 +190,8 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
   const selectFields = options.selectMode === "chat_list" ? SNAPSHOT_SELECT_CHAT_LIST : SNAPSHOT_SELECT_WITH_IMAGES
   const skipExactCount = options.countMode === "none"
   const fetchLimit = requiresClientSearch
-    ? Math.min(Math.max(offset + limit + (skipExactCount ? 1 : 0), limit * 10, 60), 180)
-    : limit + (skipExactCount ? 1 : 0)
+    ? Math.min(Math.max(offset + effectiveLimit + (skipExactCount ? 1 : 0), effectiveLimit * 10, 60), hasMaxItems ? maxItems : 180)
+    : effectiveLimit + (skipExactCount ? 1 : 0)
   const fetchOffset = requiresClientSearch ? 0 : offset
 
   let query = applySnapshotSort(
@@ -260,13 +267,15 @@ async function listSnapshotProductsByProjectId(projectId, options = {}) {
 
   const normalizedItems = Array.isArray(data) ? data.map(normalizeSnapshotProduct).filter(isStoreProductAvailable) : []
   const filteredItems = requiresClientSearch ? normalizedItems.filter((item) => matchesSnapshotSearch(item, searchTerm)) : normalizedItems
-  const paginatedItems = (requiresClientSearch ? filteredItems.slice(offset, offset + limit) : filteredItems.slice(0, limit))
-  const inferredHasMore = requiresClientSearch ? filteredItems.length > offset + paginatedItems.length : filteredItems.length > paginatedItems.length
-  const totalCount = skipExactCount
+  const cappedItems = hasMaxItems ? filteredItems.slice(0, maxItems) : filteredItems
+  const paginatedItems = (requiresClientSearch ? cappedItems.slice(offset, offset + effectiveLimit) : cappedItems.slice(0, effectiveLimit))
+  const inferredHasMore = requiresClientSearch ? cappedItems.length > offset + paginatedItems.length : cappedItems.length > paginatedItems.length
+  const rawTotalCount = skipExactCount
     ? offset + paginatedItems.length + (inferredHasMore ? 1 : 0)
     : requiresClientSearch
       ? filteredItems.length
       : Number(count || 0)
+  const totalCount = hasMaxItems ? Math.min(rawTotalCount, maxItems) : rawTotalCount
 
   return {
     items: paginatedItems,

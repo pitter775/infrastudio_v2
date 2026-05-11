@@ -1,11 +1,12 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store } from 'lucide-react'
+import { BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store, TrendingUp } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl } from '@/lib/mercado-livre-webhook'
+import { formatMercadoLivreProductLimit, getMercadoLivreProductLimitForPlan, normalizePlanKey } from '@/lib/public-planos'
 import { MercadoLivreStorePanel } from './mercado-livre-store-panel'
 
 function buildMercadoLivreLlmGuidePrompt({
@@ -193,6 +194,7 @@ export function MercadoLivrePanel({
   const [snapshotStatus, setSnapshotStatus] = useState({
     total: 0,
     lastSyncAt: null,
+    productLimit: null,
   })
   const [connectorMeta, setConnectorMeta] = useState({
     id: null,
@@ -219,10 +221,18 @@ export function MercadoLivrePanel({
   const webhookUrl = useMemo(() => buildMercadoLivreWebhookUrl(project.id), [project.id])
   const hasConnectionCredentials = Boolean(storeName.trim() && appId.trim() && clientSecret.trim())
   const shouldHighlightOAuthButton = hasConnectionCredentials && Boolean(connectorMeta.id) && !connectorMeta.oauthConnected && !savingConnector
+  const planKey = normalizePlanKey(project.billing?.projectPlan?.planName || project.billing?.subscription?.plan?.name || 'free') || 'free'
+  const fallbackProductLimit = getMercadoLivreProductLimitForPlan(planKey)
+  const productLimit = snapshotStatus.productLimit?.limit ?? fallbackProductLimit
+  const productLimitLabel = snapshotStatus.productLimit?.label || formatMercadoLivreProductLimit(productLimit)
+
+  function openBillingUpgradeSheet() {
+    window.dispatchEvent(new CustomEvent('admin-billing-modal-toggle', { detail: { open: true } }))
+  }
 
   const loadSnapshotStatus = useCallback(async () => {
     if (!connectorMeta.id) {
-      setSnapshotStatus({ total: 0, lastSyncAt: null })
+      setSnapshotStatus({ total: 0, lastSyncAt: null, productLimit: null })
       return
     }
 
@@ -239,10 +249,11 @@ export function MercadoLivrePanel({
       }
 
       const snapshot = data?.snapshot && typeof data.snapshot === 'object' ? data.snapshot : {}
-      setSnapshotStatus({
-        total: Number(snapshot.total || 0) || 0,
-        lastSyncAt: snapshot.lastSyncAt || null,
-      })
+        setSnapshotStatus({
+          total: Number(snapshot.total || 0) || 0,
+          lastSyncAt: snapshot.lastSyncAt || null,
+          productLimit: snapshot.productLimit || null,
+        })
     } catch {
     } finally {
       setLoadingSnapshotStatus(false)
@@ -795,6 +806,7 @@ export function MercadoLivrePanel({
       setSnapshotStatus({
         total: Number(snapshot.total || 0) || 0,
         lastSyncAt: snapshot.lastSyncAt || null,
+        productLimit: snapshot.productLimit || null,
       })
       setFeedback({
         tone: 'success',
@@ -898,11 +910,25 @@ export function MercadoLivrePanel({
                   Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
                 </p>
                 {connectorMeta.oauthConnected ? (
-                  <div className="mt-2 text-sm text-amber-50/80">
-                    Produtos no banco:{' '}
-                    {loadingSnapshotStatus && !syncingStoreSnapshot ? 'carregando...' : Number(snapshotStatus.total || 0)}
-                    {snapshotStatus.lastSyncAt ? ` | ultima atualizacao: ${new Date(snapshotStatus.lastSyncAt).toLocaleString('pt-BR')}` : ''}
-                  </div>
+                  <>
+                    <div className="mt-2 text-sm text-amber-50/80">
+                      Produtos no banco:{' '}
+                      {loadingSnapshotStatus && !syncingStoreSnapshot ? 'carregando...' : Number(snapshotStatus.total || 0)}
+                      {snapshotStatus.lastSyncAt ? ` | ultima atualizacao: ${new Date(snapshotStatus.lastSyncAt).toLocaleString('pt-BR')}` : ''}
+                    </div>
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-amber-50/80">
+                      <span>Limite do plano: {productLimitLabel}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={openBillingUpgradeSheet}
+                        className="h-7 rounded-lg border border-amber-300/25 bg-amber-300/10 px-2 text-xs font-semibold text-amber-50 hover:bg-amber-300/20"
+                      >
+                        <TrendingUp className="mr-1.5 h-3.5 w-3.5" />
+                        Upgrade
+                      </Button>
+                    </div>
+                  </>
                 ) : null}
               </div>
               <div className="flex flex-wrap gap-2">

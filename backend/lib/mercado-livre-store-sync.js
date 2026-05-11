@@ -1,6 +1,7 @@
 import "server-only"
 
 import { getMercadoLivreProductByIdForProject, listMercadoLivreItemsForProject } from "@/lib/mercado-livre-connector"
+import { getMercadoLivreProductLimitForProject } from "@/lib/mercado-livre-product-limits"
 import { slugifyProduct } from "@/lib/mercado-livre-store"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
@@ -335,26 +336,41 @@ export async function getMercadoLivreSnapshotStatus(projectId, deps = {}) {
 
   const latestProducts = Array.isArray(latestResult.data) ? latestResult.data : []
   const syncStateResult = await getMercadoLivreSyncState(projectId, { supabase })
+  const productLimit = deps.project
+    ? await getMercadoLivreProductLimitForProject(deps.project, { supabase })
+    : null
+
   return {
     total: Number(countResult.count || 0) || 0,
     lastSyncAt: latestProducts[0]?.updated_at || null,
     latestProducts,
     syncState: syncStateResult.state,
+    productLimit,
   }
 }
 
 async function syncMercadoLivreSnapshotIncrementalForProject(project, options = {}, deps = {}) {
   const supabase = deps.supabase ?? getSupabaseAdminClient()
   const limit = Math.min(Math.max(Number(options.limit ?? 20) || 20, 1), 20)
+  const productLimit = await getMercadoLivreProductLimitForProject(project, { supabase })
+  const maxProducts = productLimit.limit == null ? Number.POSITIVE_INFINITY : Number(productLimit.limit)
   const startOffset = Math.max(Number(options.offset ?? 0) || 0, 0)
   const collectedItems = []
   let currentOffset = startOffset
   let lastPaging = null
 
   while (true) {
+    const scannedItems = currentOffset - startOffset
+    if (Number.isFinite(maxProducts) && scannedItems >= maxProducts) {
+      break
+    }
+
+    const requestLimit = Number.isFinite(maxProducts)
+      ? Math.max(1, Math.min(limit, maxProducts - scannedItems))
+      : limit
     const result = await listMercadoLivreItemsForProject(
       project,
-      { limit, offset: currentOffset, includeDetails: false },
+      { limit: requestLimit, offset: currentOffset, includeDetails: false },
       { supabase }
     )
 
@@ -370,7 +386,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
       break
     }
 
-    currentOffset += Number(result.paging?.limit || limit) || limit
+    currentOffset += Number(result.paging?.limit || requestLimit) || requestLimit
   }
 
   let supportsSnapshotDateColumns = true
@@ -398,7 +414,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
 
   const existingRows = Array.isArray(existingResult.data) ? existingResult.data : []
   const existingMap = new Map(existingRows.map((row) => [sanitizeText(row?.ml_item_id, 60), row]))
-  const eligibleItems = collectedItems.filter(isSnapshotEligibleItem)
+  const eligibleItems = collectedItems.filter(isSnapshotEligibleItem).slice(0, maxProducts)
   const eligibleIdSet = new Set(eligibleItems.map((item) => sanitizeText(item?.id, 60)).filter(Boolean))
   const rowsToPatch = []
   const rowsToInsert = []
@@ -549,6 +565,8 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
 
     const supabase = deps.supabase ?? getSupabaseAdminClient()
     const limit = Math.min(Math.max(Number(options.limit ?? 20) || 20, 1), 20)
+    const productLimit = await getMercadoLivreProductLimitForProject(project, { supabase })
+    const maxProducts = productLimit.limit == null ? Number.POSITIVE_INFINITY : Number(productLimit.limit)
     const fullSync = options.fullSync !== false
     const syncMode = fullSync ? "manual_full" : "auto_incremental"
     const startOffset = Math.max(Number(options.offset ?? 0) || 0, 0)
@@ -594,9 +612,17 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
     let lastPaging = null
 
     while (true) {
+      const scannedItems = currentOffset - startOffset
+      if (Number.isFinite(maxProducts) && scannedItems >= maxProducts) {
+        break
+      }
+
+      const requestLimit = Number.isFinite(maxProducts)
+        ? Math.max(1, Math.min(limit, maxProducts - scannedItems))
+        : limit
       const result = await listMercadoLivreItemsForProject(
         project,
-        { limit, offset: currentOffset, includeDetails: true },
+        { limit: requestLimit, offset: currentOffset, includeDetails: true },
         { supabase }
       )
 
@@ -613,10 +639,10 @@ export async function syncMercadoLivreSnapshotForProject(project, options = {}, 
         break
       }
 
-      currentOffset += Number(result.paging?.limit || limit) || limit
+      currentOffset += Number(result.paging?.limit || requestLimit) || requestLimit
     }
 
-    const eligibleItems = collectedItems.filter(isSnapshotEligibleItem)
+    const eligibleItems = collectedItems.filter(isSnapshotEligibleItem).slice(0, maxProducts)
     const rows = eligibleItems.map((item) => buildSnapshotRow(project.id, item)).filter((row) => row.ml_item_id && row.titulo && row.slug)
     const eligibleIds = [...new Set(rows.map((row) => row.ml_item_id).filter(Boolean))]
 

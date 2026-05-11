@@ -169,6 +169,32 @@ async function listChatsByIds(chatIds) {
     }))
 }
 
+async function countMessagesByChatIds(chatIds) {
+  const normalizedChatIds = Array.from(new Set((Array.isArray(chatIds) ? chatIds : []).filter(Boolean))).slice(0, 30)
+  if (!normalizedChatIds.length) {
+    return new Map()
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const entries = await Promise.all(
+    normalizedChatIds.map(async (chatId) => {
+      const { count, error } = await supabase
+        .from("mensagens")
+        .select("id", { count: "exact", head: true })
+        .eq("chat_id", chatId)
+
+      if (error) {
+        console.error("[admin-conversations] failed to count chat messages", error)
+        return [chatId, 0]
+      }
+
+      return [chatId, Number(count || 0)]
+    }),
+  )
+
+  return new Map(entries)
+}
+
 function getScopedProjectIds(user) {
   if (user?.role === "admin") {
     return null
@@ -206,11 +232,13 @@ function buildConversationGroupKey(row) {
   return nameKey ? `name:${nameKey}` : `chat:${row.id}`
 }
 
-export async function listAdminConversations(user) {
+export async function listAdminConversations(user, options = {}) {
   try {
+    const limit = Math.min(Math.max(Number(options.limit ?? 10) || 10, 1), 30)
+    const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
     const scopedProjectIds = getScopedProjectIds(user)
     if (Array.isArray(scopedProjectIds) && scopedProjectIds.length === 0) {
-      return []
+      return { conversations: [], hasMore: false, nextOffset: offset }
     }
 
     const supabase = getSupabaseAdminClient()
@@ -221,7 +249,7 @@ export async function listAdminConversations(user) {
       )
       .neq("canal", "admin_agent_test")
       .order("updated_at", { ascending: false, nullsFirst: false })
-      .limit(50)
+      .range(offset, offset + limit)
 
     if (Array.isArray(scopedProjectIds)) {
       query = query.in("projeto_id", scopedProjectIds)
@@ -231,16 +259,18 @@ export async function listAdminConversations(user) {
 
     if (error) {
       console.error("[admin-conversations] failed to list chats", error)
-      return []
+      return { conversations: [], hasMore: false, nextOffset: offset }
     }
 
-    const chatIds = data.map((row) => row.id)
-    const [handoffsByChatId, latestMessagesByChatId] = await Promise.all([
-      listChatHandoffsByChatIds(chatIds),
-      listLatestChatMessagePreviews(chatIds, { batchSize: 120, maxRounds: 5 }),
+    const pageRows = data.slice(0, limit)
+    const pageChatIds = pageRows.map((row) => row.id)
+    const [handoffsByChatId, latestMessagesByChatId, messageCountsByChatId] = await Promise.all([
+      listChatHandoffsByChatIds(pageChatIds),
+      listLatestChatMessagePreviews(pageChatIds, { batchSize: 90, maxRounds: 4 }),
+      countMessagesByChatIds(pageChatIds),
     ])
     const hydratedRows = await Promise.all(
-      data.map(async (row) => {
+      pageRows.map(async (row) => {
         const chat = {
           id: row.id,
           titulo: row.titulo || "Nova conversa",
@@ -253,7 +283,7 @@ export async function listAdminConversations(user) {
         const mensagens = (latestMessagesByChatId.get(chat.id) ?? []).map(mapAdminConversationMessagePreview)
         const handoff = loadHandoffFromMap(chat.id, handoffsByChatId)
 
-        return { row, chat, mensagens, handoff }
+        return { row, chat, mensagens, handoff, totalMensagens: messageCountsByChatId.get(chat.id) ?? mensagens.length }
       }),
     )
 
@@ -279,6 +309,7 @@ export async function listAdminConversations(user) {
           origem: item.chat.canal === "whatsapp" ? "whatsapp" : "site",
           status: item.handoff.status,
           mensagens: [...item.mensagens],
+          totalMensagens: item.totalMensagens,
           updatedAt: item.chat.updatedAt,
           chatIds: [item.chat.id],
         })
@@ -286,6 +317,7 @@ export async function listAdminConversations(user) {
       }
 
       currentGroup.chatIds.push(item.chat.id)
+      currentGroup.totalMensagens += item.totalMensagens
       if (item.mensagens[0]) {
         currentGroup.mensagens = [item.mensagens[0]]
       }
@@ -324,7 +356,7 @@ export async function listAdminConversations(user) {
       }
     }
 
-    return Array.from(grouped.values())
+    const conversations = Array.from(grouped.values())
       .map((conversation) => ({
         id: conversation.primaryChatId,
         chatIds: conversation.chatIds,
@@ -335,12 +367,19 @@ export async function listAdminConversations(user) {
         mensagens: conversation.mensagens.sort(
           (left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
         ),
+        totalMensagens: conversation.totalMensagens,
         updatedAt: conversation.updatedAt,
       }))
       .sort((left, right) => new Date(right.updatedAt).getTime() - new Date(left.updatedAt).getTime())
+
+    return {
+      conversations,
+      hasMore: data.length > limit,
+      nextOffset: offset + pageRows.length,
+    }
   } catch (error) {
     console.error("[admin-conversations] failed to list conversations", error)
-    return []
+    return { conversations: [], hasMore: false, nextOffset: Number(options.offset ?? 0) || 0 }
   }
 }
 
@@ -356,7 +395,10 @@ export async function getAdminConversationDetail(input, user) {
     ? input.chatIds.map((item) => String(item || "").trim()).filter(Boolean)
     : []
   const chatIds = Array.from(new Set([primaryChatId, ...requestedChatIds])).slice(0, 8)
-  const handoffsByChatId = await listChatHandoffsByChatIds(chatIds)
+  const [handoffsByChatId, messageCountsByChatId] = await Promise.all([
+    listChatHandoffsByChatIds(chatIds),
+    countMessagesByChatIds(chatIds),
+  ])
 
   const chats = (
     await Promise.all(
@@ -368,7 +410,7 @@ export async function getAdminConversationDetail(input, user) {
         const mensagens = await loadMessagesForChat(chat.id, { limit, before, ascending: false })
         const handoff = loadHandoffFromMap(chat.id, handoffsByChatId)
 
-        return { chat, mensagens, handoff }
+        return { chat, mensagens, handoff, totalMensagens: messageCountsByChatId.get(chat.id) ?? mensagens.length }
       }),
     )
   ).filter(Boolean)
@@ -395,7 +437,7 @@ export async function getAdminConversationDetail(input, user) {
     origem: primaryChat.chat.canal === "whatsapp" ? "whatsapp" : "site",
     status: primaryChat.handoff.status,
     handoff: primaryChat.handoff.handoff,
-    totalMensagens: pagedMessages.length,
+    totalMensagens: chats.reduce((sum, item) => sum + Number(item.totalMensagens || 0), 0),
     mensagens: pagedMessages,
     hasMore: chats.some((item) => item.mensagens.length >= limit),
     nextCursor: pagedMessages[0]?.createdAt ?? null,

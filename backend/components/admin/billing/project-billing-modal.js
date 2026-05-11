@@ -6,7 +6,7 @@ import { ArrowUpRight, CheckCircle2, Clock3, CreditCard, LoaderCircle } from 'lu
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import { buildBillingIntentPayload, startBillingCheckout } from '@/lib/public-billing-client'
-import { formatCredits, formatPlanPrice } from '@/lib/public-planos'
+import { formatCredits, formatMercadoLivreProductLimit, formatPlanPrice, getMercadoLivreProductLimitForPlan } from '@/lib/public-planos'
 import { cn } from '@/lib/utils'
 
 function resolveStatusMeta(summary) {
@@ -43,6 +43,7 @@ function resolveStatusMeta(summary) {
 
 function PlanCard({ plan, currentPlanId, onCheckout, loadingKey }) {
   const isCurrentPlan = currentPlanId && currentPlanId === plan.id
+  const mercadoLivreProductLimit = getMercadoLivreProductLimitForPlan(plan.key || plan.name)
 
   return (
     <div
@@ -83,10 +84,14 @@ function PlanCard({ plan, currentPlanId, onCheckout, loadingKey }) {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-3">
           <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Créditos</div>
           <div className="mt-1 text-sm font-semibold text-white">{formatCredits(plan.totalTokens)}</div>
+        </div>
+        <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-3">
+          <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Produtos ML</div>
+          <div className="mt-1 text-sm font-semibold text-white">{formatMercadoLivreProductLimit(mercadoLivreProductLimit)}</div>
         </div>
         <div className="rounded-2xl border border-white/10 bg-slate-950/30 p-3">
           <div className="text-[11px] uppercase tracking-[0.16em] text-slate-500">Status</div>

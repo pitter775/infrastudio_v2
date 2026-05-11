@@ -1,7 +1,13 @@
 import "server-only"
 
 import { listBillingPlans } from "@/lib/billing"
-import { TEST_TOP_UP_OFFER, TOP_UP_OFFERS, normalizePlanKey } from "@/lib/public-planos"
+import {
+  TEST_TOP_UP_OFFER,
+  TOP_UP_OFFERS,
+  formatMercadoLivreProductLimit,
+  getMercadoLivreProductLimitForPlan,
+  normalizePlanKey,
+} from "@/lib/public-planos"
 
 const PLAN_CHECKOUT_URLS_BY_KEY = {
   basic:
@@ -34,6 +40,8 @@ export async function listPublicPlans() {
         description: plan.description,
         monthlyPrice: plan.monthlyPrice,
         totalTokens: plan.limits?.totalTokens ?? null,
+        mercadoLivreProductLimit: getMercadoLivreProductLimitForPlan(planKey),
+        mercadoLivreProductLimitLabel: formatMercadoLivreProductLimit(getMercadoLivreProductLimitForPlan(planKey)),
         isFree: plan.isFree,
         featured: planKey === "plus",
       }

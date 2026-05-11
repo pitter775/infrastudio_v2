@@ -73,12 +73,13 @@ export async function GET(request) {
   }
 
   const summaryOnly = new URL(request.url).searchParams.get("summary") === "1"
-  const [conversations, feedbackResult, billingProjects] = await Promise.all([
-    listAdminConversations(user),
+  const [conversationResult, feedbackResult, billingProjects] = await Promise.all([
+    listAdminConversations(user, { limit: 30, offset: 0 }),
     listFeedbacks({ user, ordenacao: "pendentes" }),
     user.role === "admin" ? listAdminBillingProjects() : Promise.resolve([]),
   ])
 
+  const conversations = conversationResult.conversations ?? []
   const attendanceItems = getAttendanceItems(conversations)
   const feedbackItems = getFeedbackItems(feedbackResult.feedbacks ?? [], user)
   const billingItems = getBillingItems(billingProjects)
