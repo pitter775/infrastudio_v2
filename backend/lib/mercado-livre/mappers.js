@@ -93,15 +93,35 @@ export function mapMercadoLivreOrder(payload) {
   const orderItems = Array.isArray(payload?.order_items) ? payload.order_items : []
   const firstItem = orderItems[0]?.item && typeof orderItems[0].item === "object" ? orderItems[0].item : {}
   const totalItems = orderItems.reduce((sum, item) => sum + (Number(item?.quantity ?? 0) || 0), 0)
+  const items = orderItems
+    .map((entry, index) => {
+      const item = entry?.item && typeof entry.item === "object" ? entry.item : {}
+      return {
+        position: index,
+        itemId: sanitizeString(item?.id),
+        title: sanitizeString(item?.title),
+        quantity: Number(entry?.quantity ?? 0) || 0,
+        unitPrice: Number(entry?.unit_price ?? 0) || 0,
+        fullUnitPrice: Number(entry?.full_unit_price ?? 0) || 0,
+        saleFee: Number(entry?.sale_fee ?? 0) || 0,
+        currencyId: sanitizeString(payload?.currency_id || entry?.currency_id || "BRL"),
+        categoryId: sanitizeString(item?.category_id),
+        variationId: String(item?.variation_id ?? "").trim(),
+        variationAttributes: Array.isArray(item?.variation_attributes) ? item.variation_attributes : [],
+      }
+    })
+    .filter((item) => item.itemId || item.title)
 
   return {
     id: String(payload?.id ?? "").trim(),
     status: sanitizeString(payload?.status),
     statusDetail: sanitizeString(payload?.status_detail),
     totalAmount: Number(payload?.total_amount ?? 0),
+    paidAmount: Number(payload?.paid_amount ?? payload?.payments?.[0]?.total_paid_amount ?? 0) || null,
     currencyId: sanitizeString(payload?.currency_id || "BRL"),
     dateCreated: sanitizeString(payload?.date_created),
     dateClosed: sanitizeString(payload?.date_closed),
+    dateLastUpdated: sanitizeString(payload?.last_updated || payload?.date_last_updated || payload?.date_updated),
     buyerNickname: sanitizeString(buyer?.nickname),
     buyerFirstName: sanitizeString(buyer?.first_name),
     buyerLastName: sanitizeString(buyer?.last_name),
@@ -111,6 +131,7 @@ export function mapMercadoLivreOrder(payload) {
     firstItemTitle: sanitizeString(firstItem?.title),
     firstItemId: sanitizeString(firstItem?.id),
     tags: Array.isArray(payload?.tags) ? payload.tags.map((tag) => sanitizeString(tag)).filter(Boolean) : [],
+    items,
   }
 }
 

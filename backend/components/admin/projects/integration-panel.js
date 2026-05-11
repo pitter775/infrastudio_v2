@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, BookOpen, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BarChart3, BookOpen, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
 
 import { ApiSheetManager } from '@/components/app/apis/api-sheet-manager'
 import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
@@ -144,8 +144,9 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
 
       if (panel.id === 'mercado-livre') {
         return [
+          { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
           { id: 'connection', label: 'Conexão', icon: Store },
-          { id: 'tutorial', label: 'Tutorial', icon: BookOpen },
+          { id: 'tutorial', label: 'Ajuda', icon: BookOpen },
           { id: 'store', label: 'Loja', icon: Wand2, tone: 'amber' },
           { id: 'test', label: 'Teste', icon: PackageSearch },
           { id: 'orders', label: 'Pedidos', icon: Files },

@@ -16,5 +16,10 @@
     "build": "npm run build --workspace backend && npm run build --workspace frontend",
     "build:backend": "npm run build --workspace backend",
     "build:frontend": "npm run build --workspace frontend"
+  },
+  "overrides": {
+    "eslint-plugin-react-hooks": "7.0.1",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
   }
 }

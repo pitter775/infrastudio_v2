@@ -1,12 +1,13 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store, TrendingUp } from 'lucide-react'
+import { BarChart3, BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store, TrendingUp } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl } from '@/lib/mercado-livre-webhook'
 import { formatMercadoLivreProductLimit, getMercadoLivreProductLimitForPlan, normalizePlanKey } from '@/lib/public-planos'
+import { MercadoLivreSalesDashboardPanel } from './mercado-livre-sales-dashboard-panel'
 import { MercadoLivreStorePanel } from './mercado-livre-store-panel'
 
 function buildMercadoLivreLlmGuidePrompt({
@@ -164,7 +165,7 @@ export function MercadoLivrePanel({
 }) {
   const activeCount = project.directConnections?.mercadoLivre ?? 0
   const projectIdentifier = project.routeKey || project.slug || project.id
-  const [activeTab, setActiveTab] = useState('connection')
+  const [activeTab, setActiveTab] = useState('dashboard')
   const currentTab = controlledActiveTab || activeTab
   const [step, setStep] = useState(activeCount ? 2 : 1)
   const [productUrl, setProductUrl] = useState('')
@@ -210,12 +211,13 @@ export function MercadoLivrePanel({
         : null,
   )
   const tabs = [
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'connection', label: 'Conexão', icon: Store },
-    { id: 'tutorial', label: 'Tutorial', icon: BookOpen },
-    { id: 'store', label: 'Loja', icon: Store },
     { id: 'test', label: 'Teste', icon: PackageSearch },
+    { id: 'store', label: 'Loja', icon: Store },
     { id: 'orders', label: 'Pedidos', icon: Files },
     { id: 'questions', label: 'Perguntas', icon: MessageSquare },
+    { id: 'tutorial', label: 'Ajuda', icon: BookOpen },
   ]
   const redirectUri = useMemo(() => buildMercadoLivreRedirectUri(), [])
   const webhookUrl = useMemo(() => buildMercadoLivreWebhookUrl(project.id), [project.id])
@@ -868,6 +870,15 @@ export function MercadoLivrePanel({
 
       {currentTab === 'store' ? (
         <MercadoLivreStorePanel project={project} onFooterStateChange={onFooterStateChange} />
+      ) : null}
+
+      {currentTab === 'dashboard' ? (
+        <MercadoLivreSalesDashboardPanel
+          projectIdentifier={projectIdentifier}
+          connectorMeta={connectorMeta}
+          storeName={storeName}
+          onStartOAuth={handleStartOAuth}
+        />
       ) : null}
 
       {currentTab === 'connection' ? (
