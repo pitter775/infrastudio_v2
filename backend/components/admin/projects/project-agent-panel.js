@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2, X } from 'lucide-react'
+import { CalendarDays, Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -331,6 +331,20 @@ export function ProjectPanel({
             icon: Store,
             colorClassName: 'amber',
             panel: 'mercado-livre',
+            params: {},
+          },
+        ]
+      : []),
+    ...(project.directConnections?.googleCalendar
+      ? [
+          {
+            id: 'google-calendar',
+            type: 'connector',
+            title: 'Google Agenda',
+            description: 'Agenda conectada ao agente',
+            icon: CalendarDays,
+            colorClassName: 'sky',
+            panel: 'google-calendar',
             params: {},
           },
         ]

@@ -1,4 +1,4 @@
-import { MessageCircle, PackageSearch, PlugZap, Store } from 'lucide-react'
+import { CalendarDays, MessageCircle, PackageSearch, PlugZap, Store } from 'lucide-react'
 
 export const MOBILE_BREAKPOINT = 768
 export const DESKTOP_BREAKPOINT = 1280
@@ -102,6 +102,25 @@ export function buildIntegrationPanels(project) {
       isAvailable:
         (project.chatWidgets?.length || 0) > 0 || Number(project.integrations?.chatWidget || 0) > 0,
       items: ['Fluxo inicial', 'Qualificação de lead', 'Fallback humano', 'Eventos de conversão'],
+    },
+    {
+      id: 'google-calendar',
+      label: 'Google Agenda',
+      shortLabel: 'Agenda',
+      icon: CalendarDays,
+      colorClassName: 'sky',
+      serviceIconType: 'googleCalendar',
+      directToAgent: true,
+      mobilePosition: { x: 94, y: 626 },
+      desktopPosition: { x: 96, y: 716 },
+      cardAnchor: { x: 220, y: CARD_ESTIMATED_HEIGHT },
+      routeY: 542,
+      buttonAnchor: { x: SATELLITE_BUTTON_WIDTH / 2, y: 0 },
+      title: 'Google Agenda',
+      description: 'Conecte o calendário usado pelo agente para confirmar horários.',
+      statusLabel: Number(project.directConnections?.googleCalendar || 0) > 0 ? 'Agenda conectada' : 'Agenda desconectada',
+      isAvailable: Number(project.directConnections?.googleCalendar || 0) > 0,
+      items: ['OAuth Google', 'Calendário padrão', 'Criação de eventos', 'Convites para clientes'],
     },
   ]
 }

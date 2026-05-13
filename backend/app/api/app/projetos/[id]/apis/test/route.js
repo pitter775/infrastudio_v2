@@ -30,11 +30,6 @@ function buildLockedRuntimeContext(project) {
     memoria: {
       resumo: "Teste manual disparado pelo novo sheet de API.",
     },
-    agenda: {
-      horarioId: "",
-      horarioReservado: "",
-      dataConsulta: "",
-    },
   }
 }
 
@@ -86,10 +81,6 @@ export async function POST(request, context) {
       ? payload.testContext
       : null,
   )
-  if (payload?.agendaDate) {
-    runtimeContext.agenda.dataConsulta = String(payload.agendaDate).slice(0, 10)
-  }
-
   const { result, error } = await testApiDraftForUser(project.id, payload?.api || {}, user, {
     runtimeContext,
     testOverrides:

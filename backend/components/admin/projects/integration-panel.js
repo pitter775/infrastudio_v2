@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowLeft, ArrowRight, BarChart3, BookOpen, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BarChart3, BookOpen, CalendarDays, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
 
 import { ApiSheetManager } from '@/components/app/apis/api-sheet-manager'
+import { GoogleCalendarManager } from '@/components/app/google-calendar/google-calendar-manager'
 import { WhatsAppManager } from '@/components/app/whatsapp/whatsapp-manager'
 import { WidgetManager } from '@/components/app/widgets/widget-manager'
 import { Button } from '@/components/ui/button'
@@ -60,6 +61,14 @@ function buildIntegrationTabs(panelId) {
       { id: 'install', label: 'Instalação', icon: PlugZap },
       { id: 'behavior', label: 'Comportamento', icon: Wand2 },
       { id: 'events', label: 'Eventos', icon: History },
+      { id: 'json', label: 'Config JSON', icon: Files },
+    ]
+  }
+
+  if (panelId === 'google-calendar') {
+    return [
+      { id: 'connection', label: 'Conexão', icon: CalendarDays },
+      { id: 'settings', label: 'Configuração', icon: Wand2 },
       { id: 'json', label: 'Config JSON', icon: Files },
     ]
   }
@@ -191,6 +200,15 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         compact
         initialNotice={deepLink?.notice || ''}
       />
+    ) : panel.id === 'google-calendar' ? (
+      <ManagerFrame>
+        <GoogleCalendarManager
+          project={project}
+          activeTab={activeTab}
+          onStatsChange={handleStatsChange}
+          compact
+        />
+      </ManagerFrame>
     ) : null
   const contentKey = realPanel ? `${panel.id}:manager` : `${panel.id}:${activeTab}`
 

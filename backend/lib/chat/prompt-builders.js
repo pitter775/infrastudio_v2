@@ -287,25 +287,6 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
         "Use estes dados quando forem relevantes e diga que não encontrou informação se eles não responderem a pergunta.",
       ].join("\n\n")
     : ""
-  const agendaContext = Array.isArray(context?.agenda?.horariosDisponiveis) && context.agenda.horariosDisponiveis.length
-    ? [
-        "Agenda disponivel:",
-        ...context.agenda.horariosDisponiveis.slice(0, 12).map((slot) =>
-          [
-            `Horario: ${slot.titulo || slot.id}`,
-            `Data: ${slot.data || slot.dia}`,
-            `Janela: ${slot.horaInicio} ate ${slot.horaFim}`,
-            `Timezone: ${slot.timezone || "America/Sao_Paulo"}`,
-            `ID: ${slot.id}`,
-          ].join(" | ")
-        ),
-        "Antes de confirmar uma reserva, colete email ou celular do cliente.",
-        "Se o cliente aceitar agendar, conduza a coleta do melhor horario e do contato.",
-        "Antes de concluir, mostre os dados formatados para aprovacao explicita do cliente.",
-        "Depois da aprovacao, confirme o agendamento e continue o atendimento normalmente.",
-      ].join("\n")
-    : ""
-
   return [
     `Você é ${name}.`,
     projetoNome ? `Projeto: ${projetoNome}.` : "",
@@ -315,7 +296,6 @@ export function buildSystemPrompt(agent = {}, context = {}, structured = false) 
     buildRuntimeConfigInstructions(runtimeContext),
     buildHomeCtaInstructions(runtimeContext),
     apiContext,
-    agendaContext,
     structured ? "Responda em formato estruturado quando fizer sentido." : "",
   ]
     .filter(Boolean)

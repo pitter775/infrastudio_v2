@@ -281,6 +281,35 @@ async function countMercadoLivreConnectors(supabase, projectId, agenteId = null)
   return total > 0 ? 1 : 0
 }
 
+async function countGoogleCalendarConnections(supabase, projectId, agenteId = null) {
+  if (!projectId) {
+    return 0
+  }
+
+  let query = supabase
+    .from("google_calendar_connections")
+    .select("id", { count: "exact", head: true })
+    .eq("projeto_id", projectId)
+    .eq("status", "connected")
+
+  if (agenteId) {
+    query = query.or(`agente_id.eq.${agenteId},agente_id.is.null`)
+  }
+
+  const { count, error } = await query
+
+  if (error) {
+    const message = String(error.message || "")
+    if (error.code === "42P01" || /does not exist|schema cache|not found|could not find/i.test(message)) {
+      return 0
+    }
+    console.error("[projetos] failed to count google calendar connections", error)
+    return 0
+  }
+
+  return (count ?? 0) > 0 ? 1 : 0
+}
+
 async function buildAgentDirectConnections({ supabase, projectId, agent, apiCount, whatsappCount, widgetCount }) {
   if (!agent?.id) {
     return {
@@ -288,13 +317,15 @@ async function buildAgentDirectConnections({ supabase, projectId, agent, apiCoun
       whatsapp: whatsappCount ?? 0,
       chatWidget: widgetCount ?? 0,
       mercadoLivre: 0,
+      googleCalendar: 0,
     }
   }
 
-  const [linkedApiIds, scopedWidgetCount, mercadoLivreCount] = await Promise.all([
+  const [linkedApiIds, scopedWidgetCount, mercadoLivreCount, googleCalendarCount] = await Promise.all([
     listAgentApiIdsForUser(agent.id, projectId, { role: "admin" }),
     countAgentScopedRows(supabase, "chat_widgets", projectId, agent.id),
     countMercadoLivreConnectors(supabase, projectId, agent.id),
+    countGoogleCalendarConnections(supabase, projectId, agent.id),
   ])
 
   return {
@@ -302,6 +333,7 @@ async function buildAgentDirectConnections({ supabase, projectId, agent, apiCoun
     whatsapp: whatsappCount ?? 0,
     chatWidget: scopedWidgetCount,
     mercadoLivre: mercadoLivreCount,
+    googleCalendar: googleCalendarCount,
   }
 }
 
@@ -1054,6 +1086,8 @@ export async function deleteProject(projectId, confirmationName) {
   const projectTables = [
     "agenda_reservas",
     "agenda_horarios",
+    "google_calendar_events",
+    "google_calendar_connections",
     "agente_versoes",
     "api_versoes",
     "chat_handoff_eventos",

@@ -100,6 +100,7 @@ export function AdminProjectDetailPage({ project }) {
     whatsapp: Number(project.directConnections?.whatsapp || project.integrations?.whatsapp || project.whatsappChannels?.length || 0),
     chatWidget: Number(project.directConnections?.chatWidget || project.integrations?.chatWidget || project.chatWidgets?.length || 0),
     mercadoLivre: Number(project.directConnections?.mercadoLivre || 0),
+    googleCalendar: Number(project.directConnections?.googleCalendar || 0),
   }))
   const mobileHistoryGuardRef = useRef(false)
   const integrationPanels = useMemo(() => {
@@ -110,6 +111,7 @@ export function AdminProjectDetailPage({ project }) {
         apis: integrationStats.apis,
         whatsapp: integrationStats.whatsapp,
         chatWidget: integrationStats.chatWidget,
+        googleCalendar: integrationStats.googleCalendar,
       },
       directConnections: {
         ...(project.directConnections || {}),
@@ -145,6 +147,7 @@ export function AdminProjectDetailPage({ project }) {
       whatsapp: Number(project.directConnections?.whatsapp || project.integrations?.whatsapp || project.whatsappChannels?.length || 0),
       chatWidget: Number(project.directConnections?.chatWidget || project.integrations?.chatWidget || project.chatWidgets?.length || 0),
       mercadoLivre: Number(project.directConnections?.mercadoLivre || 0),
+      googleCalendar: Number(project.directConnections?.googleCalendar || 0),
     })
   }, [project])
 

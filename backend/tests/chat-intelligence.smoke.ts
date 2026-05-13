@@ -10158,17 +10158,6 @@ const tests: TestCase[] = [
             ctaEnabled: true,
           },
         },
-        agendaSlots: [
-          {
-            id: "slot-1",
-            dataInicio: "2026-04-25T14:00:00.000Z",
-            data: "2026-04-25",
-            dia: "2026-04-25",
-            horaInicio: "14:00",
-            horaFim: "15:00",
-            timezone: "America/Sao_Paulo",
-          },
-        ],
         normalizedExternalIdentifier: "lead-2",
         userMessage: "Quero entender valores e prazo do projeto",
       })
@@ -10177,14 +10166,12 @@ const tests: TestCase[] = [
       assert.equal(payload.whatsappCta?.summary, "Leva um resumo rapido desta conversa.")
       assert.match(String(payload.whatsappCta?.url || ""), /^https:\/\/wa\.me\/5511999999999\?text=/i)
       assert.equal(Array.isArray(payload.actions), true)
-      assert.equal(payload.actions.length, 2)
+      assert.equal(payload.actions.length, 1)
       assert.equal(payload.actions[0]?.type, "whatsapp_link")
-      assert.equal(payload.actions[1]?.type, "agenda_schedule")
       assert.match(
         decodeURIComponent(String(payload.whatsappCta?.url || "").split("?text=")[1] || ""),
         /Resumo rapido:\n- Meu interesse: Quero entender valores e prazo do projeto/i
       )
-      assert.match(payload.followUpReply, /marcar um horario/i)
       assert.doesNotMatch(payload.followUpReply, /continuar no WhatsApp/i)
     },
   },

@@ -292,16 +292,55 @@ npm run build
 
 ## Ordem recomendada de implementacao
 
-1. Criar seeder das tabelas.
-2. Criar `backend/lib/google-calendar.js`.
-3. Criar rotas OAuth/CRUD da conexao.
-4. Criar sheet `Google Agenda`.
-5. Integrar a conexao ao detalhe do projeto/agente.
+1. Criar seeder das tabelas. Concluido em `database/seeder/2026-05-13-google-calendar-connections.sql`.
+2. Criar `backend/lib/google-calendar.js`. Concluido com OAuth, refresh, listagem de calendarios e criacao de evento.
+3. Criar rotas OAuth/CRUD da conexao. Concluido para conexao, start OAuth e callback.
+4. Criar sheet `Google Agenda`. Concluido como primeiro painel funcional.
+5. Integrar a conexao ao detalhe do projeto/agente. Concluido no menu/sheet do projeto.
 6. Criar `google-calendar-handler`.
 7. Trocar runtime da agenda local para Google Agenda.
-8. Remover a agenda local do menu e do fluxo ativo.
+8. Remover a agenda local do menu e do fluxo ativo. Primeiro corte concluido: menu removido e runtime deixou de carregar slots/reservas locais.
 9. Ajustar testes.
 10. Atualizar `AGENTS/melhorias.md`, removendo a pendencia antiga de agenda local quando concluido.
+
+## Status da implementacao
+
+Iniciado em 2026-05-13.
+
+Ja feito:
+
+- seeder das tabelas `google_calendar_connections` e `google_calendar_events`
+- lib server-side de Google Agenda com tokens criptografados via `APP_AUTH_SECRET`
+- OAuth separado em `/api/google-calendar/oauth/callback`
+- rotas do projeto em `/api/app/projetos/[id]/google-calendar`
+- rota de start OAuth em `/api/app/projetos/[id]/google-calendar/oauth/start`
+- sheet `Google Agenda` no detalhe do projeto
+- contagem de conexao no card/conexoes diretas do agente
+- remocao do item `Agenda` do menu admin
+- runtime do chat parou de carregar a agenda local e de expor CTA local `agenda_schedule`
+- remocao das rotas/pagina/lib antigas da agenda local:
+  - `/admin/agenda`
+  - `/api/admin/agenda`
+  - `/api/agenda`
+  - `/api/cron/agenda-cleanup`
+  - `backend/lib/agenda.js`
+  - `backend/lib/chat/agenda-skill.js`
+- remocao do cron antigo de limpeza da agenda local no Vercel
+- remocao do suporte especial a API interna `/api/agenda` no teste de APIs
+- handler inicial `backend/lib/chat/google-calendar-handler.js`
+- classificacao semantica inicial de agenda em `classifySemanticGoogleCalendarIntentStage`
+- criacao de evento real no Google Agenda pelo runtime quando houver data/hora e contato
+- consulta de disponibilidade via `freeBusy` antes de criar evento
+- persistencia de `googleCalendar.pending` e `googleCalendar.lastEvent` no contexto do chat
+- cancelamento de evento pelo chat usando `googleCalendar.lastEvent`
+- remarcacao de evento pelo chat com validacao de disponibilidade e `PATCH` no Google Calendar
+
+Pendente imediato:
+
+- validar OAuth em ambiente real com Google Cloud configurado
+- validar evento real criado pelo chat em conta conectada
+- validar cancelamento/remarcacao real pelo chat em conta conectada
+- revisar testes antigos que ainda mencionam `agendaSlots` apenas como payload legado
 
 ## Pontos de atencao
 

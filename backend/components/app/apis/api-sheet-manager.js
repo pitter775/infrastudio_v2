@@ -255,17 +255,6 @@ function isInternalApi(apiOrForm) {
   return isInternalUrl(url) || tags.includes("internal")
 }
 
-function isAgendaInternalApi(apiOrForm) {
-  const url = String(apiOrForm?.url || "").toLowerCase()
-  const tags = Array.isArray(apiOrForm?.config?.tags)
-    ? apiOrForm.config.tags.map((item) => String(item || "").toLowerCase())
-    : Array.isArray(apiOrForm?.baseConfig?.tags)
-      ? apiOrForm.baseConfig.tags.map((item) => String(item || "").toLowerCase())
-      : []
-
-  return isInternalApi(apiOrForm) && (url.includes("/api/agenda") || tags.includes("agenda"))
-}
-
 function truncateMiddleValue(value) {
   const text = String(value || "").trim()
   if (!text) {
@@ -924,14 +913,12 @@ export function ApiSheetManager({
   const [guideSheetOpen, setGuideSheetOpen] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [responseResult, setResponseResult] = useState(null)
-  const [agendaDate, setAgendaDate] = useState("")
   const [testContextText, setTestContextText] = useState("")
   const responseBoxRef = useRef(null)
 
   const inEditor = mode === "editor"
   const editing = Boolean(form.id)
   const internalApi = useMemo(() => isInternalApi(form), [form])
-  const agendaInternalApi = useMemo(() => isAgendaInternalApi(form), [form])
   const methodHasBody = useMemo(() => !["GET", "DELETE", "HEAD"].includes(String(form.method || "GET").toUpperCase()), [form.method])
   const urlPathParams = useMemo(
     () =>
@@ -1312,7 +1299,6 @@ export function ApiSheetManager({
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          agendaDate,
           api: {
             nome: form.name || "API sem nome",
             descricao: form.description,
@@ -1339,50 +1325,7 @@ export function ApiSheetManager({
         throw new Error("A API não retornou resultado de teste.")
       }
 
-      const nextResult = data.result
-
-      if (agendaInternalApi) {
-        let slots = []
-        const parsedResponse =
-          nextResult?.responseJson && typeof nextResult.responseJson === "object"
-            ? nextResult.responseJson
-            : (() => {
-                try {
-                  return JSON.parse(String(nextResult.responseBodyText || nextResult.preview || "{}"))
-                } catch {
-                  return {}
-                }
-              })()
-
-        slots = Array.isArray(parsedResponse?.slots) ? parsedResponse.slots : []
-
-        const filteredSlots = agendaDate
-          ? slots.filter((slot) => String(slot?.dataInicio || "").slice(0, 10) === agendaDate)
-          : slots
-
-        setResponseResult({
-          ...nextResult,
-          preview: JSON.stringify(
-            agendaDate
-              ? {
-                  data: agendaDate,
-                  horarios: filteredSlots.map((slot) => String(slot?.horaInicio || "")).filter(Boolean),
-                }
-              : {
-                  slots: filteredSlots.map((slot) => ({
-                    data: String(slot?.dataInicio || "").slice(0, 10),
-                    inicio: String(slot?.horaInicio || ""),
-                    fim: String(slot?.horaFim || ""),
-                  })),
-                },
-            null,
-            2,
-          ),
-        })
-        return
-      }
-
-      setResponseResult(nextResult)
+      setResponseResult(data.result)
     } catch (error) {
       setResponseResult({
         ok: false,
@@ -1918,25 +1861,9 @@ export function ApiSheetManager({
                 </div>
               )}
 
-              {internalApi && !agendaInternalApi ? (
+              {internalApi ? (
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-slate-400">
                   API interna sem body manual. Clique em Send para listar os dados disponíveis.
-                </div>
-              ) : null}
-
-              {agendaInternalApi ? (
-                <div className="grid gap-4">
-                  <p className="text-sm text-slate-400">Selecione uma data para listar os horários disponíveis.</p>
-                  <label className="block max-w-xs">
-                    <span className={labelClassName}>Data</span>
-                    <input
-                      type="date"
-                      value={agendaDate}
-                      onChange={(event) => setAgendaDate(event.target.value)}
-                      className={inputClassName}
-                    />
-                  </label>
-                  <p className="text-xs text-slate-500">Ao clicar em Send, a consulta busca os horários disponíveis somente dessa data.</p>
                 </div>
               ) : null}
 

@@ -1253,6 +1253,124 @@ export async function classifySemanticApiIntentStage(input = {}) {
   }
 }
 
+export async function classifySemanticGoogleCalendarIntentStage(input = {}) {
+  const latestUserMessage = sanitizeString(input?.latestUserMessage)
+  const openAiKey = sanitizeString(input?.openAiKey)
+  const model = sanitizeString(input?.model) || "gpt-4o-mini"
+
+  if (!latestUserMessage || !openAiKey) {
+    return null
+  }
+
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${openAiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      input: [
+        {
+          role: "system",
+          content: [
+            "Classifique a mensagem do cliente para uma ferramenta de Google Agenda.",
+            "Retorne somente JSON valido.",
+            'Schema: {"intent":"create_event|reschedule_event|cancel_event|check_availability|provide_missing_info|other","confidence":0..1,"reason":"string","startAt":"ISO string ou vazio","endAt":"ISO string ou vazio","durationMinutes":number,"contactName":"string","contactEmail":"string","contactPhone":"string","missingFields":["date_time","contact"],"needsConfirmation":true|false}',
+            "Use datas absolutas em ISO 8601 com timezone quando o cliente informar data/hora relativa.",
+            "Se houver googleCalendar.pending no contexto, aproveite os dados pendentes e classifique complementos como provide_missing_info.",
+            "Nao invente data/hora. Se faltar data ou horario, liste date_time em missingFields.",
+            "Nao invente email ou telefone. Se faltar contato, liste contact em missingFields.",
+          ].join("\n"),
+        },
+        {
+          role: "user",
+          content: JSON.stringify({
+            message: latestUserMessage,
+            now: input.now || new Date().toISOString(),
+            timezone: input.timezone || "America/Sao_Paulo",
+            defaultDurationMinutes: Number(input.defaultDurationMinutes || 60),
+            context: {
+              pending: input.context?.googleCalendar?.pending ?? null,
+              lastEvent: input.context?.googleCalendar?.lastEvent ?? null,
+              lead: input.context?.lead ?? null,
+            },
+          }),
+        },
+      ],
+      text: {
+        format: {
+          type: "json_schema",
+          name: "semantic_google_calendar_intent",
+          schema: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              intent: {
+                type: "string",
+                enum: ["create_event", "reschedule_event", "cancel_event", "check_availability", "provide_missing_info", "other"],
+              },
+              confidence: { type: "number", minimum: 0, maximum: 1 },
+              reason: { type: "string" },
+              startAt: { type: "string" },
+              endAt: { type: "string" },
+              durationMinutes: { type: "number" },
+              contactName: { type: "string" },
+              contactEmail: { type: "string" },
+              contactPhone: { type: "string" },
+              missingFields: {
+                type: "array",
+                items: {
+                  type: "string",
+                  enum: ["date_time", "contact"],
+                },
+              },
+              needsConfirmation: { type: "boolean" },
+            },
+            required: [
+              "intent",
+              "confidence",
+              "reason",
+              "startAt",
+              "endAt",
+              "durationMinutes",
+              "contactName",
+              "contactEmail",
+              "contactPhone",
+              "missingFields",
+              "needsConfirmation",
+            ],
+          },
+        },
+      },
+      max_output_tokens: 220,
+    }),
+  })
+
+  if (!response.ok) {
+    return null
+  }
+
+  const payload = await response.json().catch(() => null)
+  const parsed = parseResponseJson(payload)
+  if (!parsed) return null
+
+  return {
+    intent: sanitizeString(parsed.intent),
+    confidence: Number(parsed.confidence ?? 0) || 0,
+    reason: sanitizeString(parsed.reason),
+    startAt: sanitizeString(parsed.startAt),
+    endAt: sanitizeString(parsed.endAt),
+    durationMinutes: Number(parsed.durationMinutes || 0) || 0,
+    contactName: sanitizeString(parsed.contactName),
+    contactEmail: sanitizeString(parsed.contactEmail).toLowerCase(),
+    contactPhone: sanitizeString(parsed.contactPhone),
+    missingFields: Array.isArray(parsed.missingFields) ? parsed.missingFields.map((item) => sanitizeString(item)).filter(Boolean) : [],
+    needsConfirmation: parsed.needsConfirmation === true,
+    usedLlm: true,
+  }
+}
+
 export async function classifySemanticApiConfirmationStage(input = {}) {
   const latestUserMessage = sanitizeString(input?.latestUserMessage)
   const openAiKey = sanitizeString(input?.openAiKey)

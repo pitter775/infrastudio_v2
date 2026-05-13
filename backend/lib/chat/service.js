@@ -1,11 +1,7 @@
 import { getAgenteAtivo, getAgenteById, getAgenteByIdentifier } from "@/lib/agentes"
-import { listPublicAgendaAvailability } from "@/lib/agenda"
 import { loadAgentRuntimeApis } from "@/lib/apis"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
-import {
-  formatAgendaSlotForContext,
-  resolveAgendaReservationSkill,
-} from "@/lib/chat/agenda-skill"
+import { resolveGoogleCalendarHandler } from "@/lib/chat/google-calendar-handler"
 import {
   appendOptionalHumanOffer,
   buildHumanHandoffReply,
@@ -1282,6 +1278,41 @@ export function updateContextFromAiResult(input) {
     }
   }
 
+  const googleCalendarEvent = isPlainObject(input.ai?.metadata?.googleCalendarEvent)
+    ? input.ai.metadata.googleCalendarEvent
+    : null
+  if (googleCalendarEvent) {
+    nextContext.googleCalendar = {
+      ...(isPlainObject(nextContext.googleCalendar) ? nextContext.googleCalendar : {}),
+      lastEvent: {
+        eventId: googleCalendarEvent.eventId ?? null,
+        calendarId: googleCalendarEvent.calendarId ?? null,
+        startAt: googleCalendarEvent.startAt ?? null,
+        endAt: googleCalendarEvent.endAt ?? null,
+        status: googleCalendarEvent.status ?? null,
+        htmlLink: googleCalendarEvent.htmlLink ?? "",
+        updatedAt: new Date().toISOString(),
+      },
+    }
+  }
+
+  const googleCalendarFlow = isPlainObject(input.ai?.metadata?.googleCalendarFlow)
+    ? input.ai.metadata.googleCalendarFlow
+    : null
+  if (googleCalendarFlow?.action === "clear_pending") {
+    if (isPlainObject(nextContext.googleCalendar)) {
+      delete nextContext.googleCalendar.pending
+    }
+  } else if (googleCalendarFlow?.action === "set_pending" && isPlainObject(googleCalendarFlow.pending)) {
+    nextContext.googleCalendar = {
+      ...(isPlainObject(nextContext.googleCalendar) ? nextContext.googleCalendar : {}),
+      pending: {
+        ...googleCalendarFlow.pending,
+        updatedAt: new Date().toISOString(),
+      },
+    }
+  }
+
   return nextContext
 }
 
@@ -1409,7 +1440,6 @@ export function prepareAiReplyPayload(input) {
     reply: primaryReply,
     followUpReply,
     userMessage: input.userMessage,
-    agendaSlots: input.agendaSlots,
     assets: catalogAwareAssets,
   })
   let actions = suppressWhatsAppCta ? rawActions.filter((action) => action?.type !== "whatsapp_link") : rawActions
@@ -2135,7 +2165,6 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
     nextContext: updatedContext,
     normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
     userMessage: runtimeState.prelude.message,
-    agendaSlots: runtimeState.agendaSlots ?? [],
   })
   const usagePayload = buildUsagePersistencePayload({
     projetoId: runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null,
@@ -2723,29 +2752,10 @@ export async function processChatRequest(body, options = {}) {
           })
         : []
     const importedHistorySummary = buildImportedHistorySummary(importedHistory)
-    let agendaSlots = []
-    try {
-      agendaSlots =
-        runtimeState.resolved?.projeto?.id
-          ? await (options.listPublicAgendaAvailability ?? listPublicAgendaAvailability)({
-              projetoId: runtimeState.resolved.projeto.id,
-              agenteId: runtimeState.resolved?.agente?.id ?? null,
-            })
-          : []
-    } catch {}
     const aiContext = mergeContext(
       apiRuntimeBaseContext,
       isPlainObject(runtimeState.prelude.effectiveBody.context) ? runtimeState.prelude.effectiveBody.context : null,
       runtimeApis.length ? { runtimeApis } : null,
-      agendaSlots.length
-        ? {
-            agenda: {
-              horariosDisponiveis: agendaSlots.slice(0, 12).map(formatAgendaSlotForContext),
-              reservaApi: "POST /api/agenda",
-              exigeContato: true,
-            },
-          }
-        : null,
       importedHistorySummary
         ? {
             memoria: {
@@ -2760,18 +2770,17 @@ export async function processChatRequest(body, options = {}) {
           }
         : null,
     )
-    runtimeState.agendaSlots = agendaSlots
 
-    const agendaSkillResult = await resolveAgendaReservationSkill({
+    const googleCalendarResult = await resolveGoogleCalendarHandler({
       message: runtimeState.prelude.message,
-      aiContext,
-      agendaSlots,
       runtimeState,
-      options,
+      openAiKey: options.openAiKey ?? process.env.OPENAI_API_KEY?.trim(),
+      model: options.model ?? process.env.OPENAI_CHAT_MODEL?.trim() ?? "gpt-4o-mini",
+      ...options,
     })
 
     const aiResult =
-      agendaSkillResult ??
+      googleCalendarResult ??
       (await executeSalesOrchestrator(
         runtimeState.history.map((item) => ({
           role: item.role,

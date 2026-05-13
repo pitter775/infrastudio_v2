@@ -1,7 +1,3 @@
-import {
-  buildAgendaActionPayload,
-  hasConfirmedAgendaReservation,
-} from "@/lib/chat/agenda-skill"
 import { getConfiguredWhatsAppDestination } from "@/lib/chat/whatsapp-availability"
 
 function sanitizePhone(phone) {
@@ -239,10 +235,6 @@ export function buildChatWidgetActions(input = {}) {
   const catalogLoadMoreAction = buildCatalogLoadMoreAction(input)
   const apiRuntimeConfirmAction = buildApiRuntimeConfirmAction(input)
   const whatsappAction = buildWhatsAppActionPayload(input)
-  const agendaAction =
-    hasConfirmedAgendaReservation(input.nextContext) || isCatalogConversationContext(input.nextContext)
-      ? null
-      : buildAgendaActionPayload(input.agendaSlots)
 
   if (catalogLoadMoreAction) {
     actions.push(catalogLoadMoreAction)
@@ -256,10 +248,6 @@ export function buildChatWidgetActions(input = {}) {
     actions.push(whatsappAction)
   }
 
-  if (agendaAction) {
-    actions.push(agendaAction)
-  }
-
   return actions
 }
 
@@ -269,16 +257,11 @@ export function buildActionSuggestionReply(actions, baseText = "", options = {})
   }
 
   const hasWhatsApp = actions.some((action) => action?.type === "whatsapp_link")
-  const hasAgenda = actions.some((action) => action?.type === "agenda_schedule")
   const forceWhatsAppSuggestion = options.forceWhatsAppSuggestion === true
   let suggestion = ""
 
-  if (hasWhatsApp && hasAgenda) {
-    suggestion = "Se preferir, voce pode marcar um horario para contato."
-  } else if (hasWhatsApp && forceWhatsAppSuggestion) {
+  if (hasWhatsApp && forceWhatsAppSuggestion) {
     suggestion = ""
-  } else if (hasAgenda) {
-    suggestion = "Se preferir, voce pode marcar um horario para contato."
   }
 
   if (!suggestion) {
