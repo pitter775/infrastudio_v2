@@ -4,8 +4,6 @@ module.exports = {
   content: [
     './app/**/*.{js,jsx}',
     './components/**/*.{js,jsx}',
-    './node_modules/@tremor/react/dist/**/*.{js,jsx}',
-    '../node_modules/@tremor/react/dist/**/*.{js,jsx}',
   ],
   theme: {
     extend: {
