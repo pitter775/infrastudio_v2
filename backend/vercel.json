@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/agenda-cleanup",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/mercado-livre-store-sync",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
