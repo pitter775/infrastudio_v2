@@ -396,8 +396,58 @@ export default async function LojaProdutoPage({ params }) {
   const { slug, produtoSlug } = await params
   const result = await getPublicMercadoLivreProductPage(slug, produtoSlug)
 
-  if (!result.store || !result.product) {
+  if (!result.store) {
     notFound()
+  }
+
+  if (!result.product) {
+    const palette = buildStoreAccentPalette(result.store.accentColor)
+    const unavailableProduct = result.unavailableProduct || null
+
+    return (
+      <>
+        <StoreSnapshotRefresh storeSlug={result.store.slug} />
+        <div className="min-h-screen bg-[#f7f7f5] text-slate-950">
+          <StoreHeader store={result.store} activeSection="produtos" />
+          <main className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+            <Link href={`/loja/${result.store.slug}`} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para a loja
+            </Link>
+
+            <section className="mt-8 rounded-[8px] border border-slate-200 bg-white px-5 py-8 shadow-[0_12px_34px_-30px_rgba(15,23,42,0.34)] sm:px-8">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
+                <div className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] text-white" style={{ backgroundColor: palette.accentDark }}>
+                  <Package className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-2xl font-semibold tracking-tight text-slate-950">Produto indisponível</h1>
+                  <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">
+                    {unavailableProduct?.title
+                      ? `${unavailableProduct.title} não está disponível para compra agora.`
+                      : "Este produto não está disponível para compra agora."}
+                  </p>
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    Veja abaixo outras opções da loja que ainda estão ativas.
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="mt-10">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-[20px] font-normal leading-tight text-slate-700">Outros produtos</h2>
+                <Link href={`/loja/${result.store.slug}`} className="text-sm font-medium text-slate-600 transition hover:text-slate-950">
+                  Ver todos
+                </Link>
+              </div>
+              <StoreRelatedProducts products={result.relatedProducts} storeSlug={result.store.slug} accentColor={result.store.accentColor} />
+            </section>
+          </main>
+          <StoreFooter store={result.store} />
+        </div>
+      </>
+    )
   }
 
   const canonicalProductRef = buildStoreProductRef(result.product.itemId || result.product.id, result.product.slug || result.product.title)

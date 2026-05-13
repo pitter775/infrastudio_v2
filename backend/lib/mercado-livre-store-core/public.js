@@ -104,6 +104,26 @@ function buildFeaturedFallbackProduct(featuredProduct = null) {
   }
 }
 
+function getHiddenProductIds(store) {
+  return new Set(
+    (Array.isArray(store?.visualConfig?.catalog?.hiddenProductIds) ? store.visualConfig.catalog.hiddenProductIds : [])
+      .map((item) => sanitizeText(item, 80))
+      .filter(Boolean)
+  )
+}
+
+function getProductItemId(product) {
+  return sanitizeText(product?.itemId || product?.id || product?.mlItemId, 80)
+}
+
+function isHiddenStoreProduct(product, hiddenProductIds) {
+  return hiddenProductIds instanceof Set && hiddenProductIds.has(getProductItemId(product))
+}
+
+function filterHiddenStoreProducts(products, hiddenProductIds) {
+  return (Array.isArray(products) ? products : []).filter((product) => !isHiddenStoreProduct(product, hiddenProductIds))
+}
+
 function normalizeProductSlugSearchTerm(productSlug = "") {
   const parsedRef = parseStoreProductRef(productSlug)
   return sanitizeText(parsedRef.slug || parsedRef.raw, 180)
@@ -400,6 +420,8 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
     { supabase }
   )
   const categories = await listSnapshotCategoryFacetsByProjectId(projectRow.id, { supabase })
+  const hiddenProductIds = getHiddenProductIds(normalizedStore)
+  const visibleProducts = filterHiddenStoreProducts(listing?.items, hiddenProductIds)
 
   return {
     store: {
@@ -419,8 +441,8 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
           }
         : null,
     },
-    products: Array.isArray(listing?.items) ? listing.items : [],
-    featuredProducts,
+    products: visibleProducts,
+    featuredProducts: filterHiddenStoreProducts(featuredProducts, hiddenProductIds),
     paging: {
       page,
       hasMore: listing?.hasMore === true,
@@ -447,14 +469,18 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
   }
 
   const supabase = options.supabase ?? getSupabaseAdminClient()
+  const hiddenProductIds = getHiddenProductIds(storeResult.store)
   const snapshotProduct = await getSnapshotProductBySlug(storeResult.store.projectId, productSlug, { supabase })
+  const hiddenSnapshotProduct = snapshotProduct && isHiddenStoreProduct(snapshotProduct, hiddenProductIds) ? snapshotProduct : null
   let product =
-    snapshotProduct && productNeedsLiveDetails(snapshotProduct)
+    snapshotProduct && !hiddenSnapshotProduct && productNeedsLiveDetails(snapshotProduct)
       ? mergeMercadoLivreProductDetails(
           snapshotProduct,
           await getMercadoLivreLiveProductByProjectId(storeResult.store.projectId, snapshotProduct.itemId || snapshotProduct.id, { supabase })
         )
-      : snapshotProduct
+      : hiddenSnapshotProduct
+        ? null
+        : snapshotProduct
 
   if (!product) {
     const featuredMatch = (Array.isArray(storeResult.featuredProducts) ? storeResult.featuredProducts : []).find(
@@ -463,11 +489,13 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
 
     if (featuredMatch?.id) {
       const liveProduct = await getMercadoLivreLiveProductByProjectId(storeResult.store.projectId, featuredMatch.id, { supabase })
-      product = mergeMercadoLivreProductDetails(buildFeaturedFallbackProduct(featuredMatch), liveProduct)
+      product = isHiddenStoreProduct(featuredMatch, hiddenProductIds)
+        ? null
+        : mergeMercadoLivreProductDetails(buildFeaturedFallbackProduct(featuredMatch), liveProduct)
     }
   }
 
-  if (!product) {
+  if (!product && !hiddenSnapshotProduct) {
     const liveProduct = await resolveLiveProductBySlug(storeResult.store.projectId, productSlug, { supabase })
     if (liveProduct) {
       product = mergeMercadoLivreProductDetails(
@@ -500,10 +528,18 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
   }
 
   if (!product) {
+    const related = await listSnapshotProductsByProjectId(storeResult.store.projectId, {
+      supabase,
+      page: 1,
+      limit: PRODUCT_RELATED_LIMIT,
+      categoryId: hiddenSnapshotProduct?.categoryId || "",
+    })
+
     return {
       store: storeResult.store,
       product: null,
-      relatedProducts: [],
+      unavailableProduct: hiddenSnapshotProduct,
+      relatedProducts: filterHiddenStoreProducts(related.items, hiddenProductIds),
     }
   }
 
@@ -511,6 +547,7 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
     return {
       store: storeResult.store,
       product: null,
+      unavailableProduct: product,
       relatedProducts: [],
     }
   }
@@ -523,7 +560,7 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
     categoryId: product.categoryId || "",
   })
 
-  let fallbackRelated = Array.isArray(related.items) ? related.items : []
+  let fallbackRelated = filterHiddenStoreProducts(related.items, hiddenProductIds)
   if (fallbackRelated.length < PRODUCT_RELATED_LIMIT) {
     const latestRelated = await listSnapshotProductsByProjectId(storeResult.store.projectId, {
       supabase,
@@ -532,7 +569,7 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
       excludeSlug: product.slug,
     })
     const seenIds = new Set(fallbackRelated.map((item) => sanitizeText(item?.itemId || item?.id || item?.slug, 180)).filter(Boolean))
-    const extraItems = (Array.isArray(latestRelated.items) ? latestRelated.items : []).filter((item) => {
+    const extraItems = filterHiddenStoreProducts(latestRelated.items, hiddenProductIds).filter((item) => {
       const itemKey = sanitizeText(item?.itemId || item?.id || item?.slug, 180)
       if (!itemKey || seenIds.has(itemKey)) {
         return false

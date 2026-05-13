@@ -122,6 +122,9 @@ function sanitizeVisualConfig(value) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {}
   const inputHero = source.hero && typeof source.hero === "object" && !Array.isArray(source.hero) ? source.hero : source
   const inputCatalog = source.catalog && typeof source.catalog === "object" && !Array.isArray(source.catalog) ? source.catalog : {}
+  const hiddenProductIds = Array.isArray(inputCatalog.hiddenProductIds)
+    ? inputCatalog.hiddenProductIds.map((item) => sanitizeText(item, 80)).filter(Boolean).slice(0, 200)
+    : []
 
   return {
     logoStoragePath: sanitizeText(source.logoStoragePath, 500),
@@ -139,6 +142,7 @@ function sanitizeVisualConfig(value) {
     },
     catalog: {
       useLatestProducts: inputCatalog.useLatestProducts !== false,
+      hiddenProductIds,
     },
   }
 }

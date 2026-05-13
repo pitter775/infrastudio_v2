@@ -10,7 +10,11 @@
     },
     {
       "path": "/api/cron/mercado-livre-store-sync",
-      "schedule": "*/30 * * * *"
+      "schedule": "*/30 11-23 * * *"
+    },
+    {
+      "path": "/api/cron/mercado-livre-store-sync",
+      "schedule": "0 1-9/2 * * *"
     }
   ]
 }
