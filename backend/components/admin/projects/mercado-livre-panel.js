@@ -226,6 +226,7 @@ export function MercadoLivrePanel({
   const redirectUri = useMemo(() => buildMercadoLivreRedirectUri(), [])
   const webhookUrl = useMemo(() => buildMercadoLivreWebhookUrl(project.id), [project.id])
   const hasConnectionCredentials = Boolean(storeName.trim() && appId.trim() && clientSecret.trim())
+  const hasSavedConnector = Boolean(connectorMeta.id)
   const shouldHighlightOAuthButton = hasConnectionCredentials && Boolean(connectorMeta.id) && !connectorMeta.oauthConnected && !savingConnector
   const savedStoreName = String(storeName || connectorMeta.oauthNickname || 'Loja Mercado Livre').trim()
   const planKey = normalizePlanKey(project.billing?.projectPlan?.planName || project.billing?.subscription?.plan?.name || 'free') || 'free'
@@ -436,10 +437,10 @@ export function MercadoLivrePanel({
       step,
       activeTab: currentTab,
       saving: step === 1 ? resolvingStore : savingConnector || deletingContract,
-      canSaveConnection: !(step === 2 && connectorMeta.oauthConnected),
+      canSaveConnection: !(step === 2 && hasSavedConnector),
       onBackToProductUrl: () => setStep(1),
     })
-  }, [connectorMeta.oauthConnected, currentTab, deletingContract, onFooterStateChange, resolvingStore, savingConnector, step])
+  }, [currentTab, deletingContract, hasSavedConnector, onFooterStateChange, resolvingStore, savingConnector, step])
 
   const handleLoadTestItems = useCallback(async () => {
     setLoadingTestItems(true)
@@ -982,7 +983,7 @@ export function MercadoLivrePanel({
                 <p className="mt-1 text-amber-50/80">
                   Abra o painel de apps para copiar o App ID e o Client Secret antes de salvar a loja.
                 </p>
-                {connectorMeta.oauthConnected ? (
+                {hasSavedConnector ? (
                   <>
                     <div className="mt-2 text-sm text-amber-50/80">
                       Produtos no banco:{' '}
@@ -1040,7 +1041,7 @@ export function MercadoLivrePanel({
                   {connectorMeta.oauthConnected ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <MessageCircle className="mr-1.5 h-3.5 w-3.5" />}
                   {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Conectada' : 'Conectar'}
                 </Button>
-                {connectorMeta.oauthConnected ? (
+                {hasSavedConnector ? (
                   <Button
                     type="button"
                     variant="ghost"
@@ -1063,12 +1064,16 @@ export function MercadoLivrePanel({
                   {syncingStoreSnapshot ? 'Atualizando...' : 'Atualizar'}
                 </Button>
               </div>
-              {connectorMeta.oauthConnected ? (
+              {hasSavedConnector ? (
                 <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4">
-                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/80">Contrato ativo</div>
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/80">
+                    {connectorMeta.oauthConnected ? 'Contrato ativo' : 'Contrato salvo'}
+                  </div>
                   <div className="mt-2 text-base font-semibold text-white">{savedStoreName}</div>
                   <div className="mt-1 text-sm text-emerald-50/80">
-                    Usuário Mercado Livre: {connectorMeta.oauthUserId || 'n/a'}
+                    {connectorMeta.oauthConnected
+                      ? `Usuário Mercado Livre: ${connectorMeta.oauthUserId || 'n/a'}`
+                      : 'Conta Mercado Livre ainda não autorizada no OAuth.'}
                   </div>
                 </div>
               ) : (
