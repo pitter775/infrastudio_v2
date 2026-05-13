@@ -72,7 +72,10 @@ function sanitizePositiveNumber(value) {
 export function isMercadoLivreSellableItem(item) {
   const status = sanitizeString(item?.status).toLowerCase()
   const availableQuantity = sanitizeNumber(item?.availableQuantity, 0)
-  return status === "active" && availableQuantity > 0
+  const channels = Array.isArray(item?.channels) ? item.channels.map((channel) => sanitizeString(channel).toLowerCase()) : []
+  const permalink = sanitizeString(item?.permalink).toLowerCase()
+  const isMarketplaceListing = channels.length ? channels.includes("marketplace") : !permalink.includes("internal-shop.")
+  return status === "active" && availableQuantity > 0 && isMarketplaceListing
 }
 
 function mapSnapshotAttributesToMercadoLivre(attributes = []) {
@@ -135,6 +138,7 @@ function mapSnapshotProductToMercadoLivreItem(product) {
     acceptsMercadoPago: false,
     freeShipping: false,
     logisticType: "",
+    channels: [],
     attributes: mapSnapshotAttributesToMercadoLivre(product?.attributes),
     pictures,
     variations: [],

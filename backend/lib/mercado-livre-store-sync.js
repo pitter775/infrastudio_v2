@@ -217,7 +217,10 @@ async function acquireMercadoLivreSyncLock(projectId, mode, deps = {}) {
 function isSnapshotEligibleItem(item) {
   const status = sanitizeText(item?.status, 40).toLowerCase()
   const availableQuantity = Number(item?.availableQuantity ?? 0) || 0
-  return status === "active" && availableQuantity > 0
+  const channels = Array.isArray(item?.channels) ? item.channels.map((channel) => sanitizeText(channel, 40).toLowerCase()) : []
+  const permalink = sanitizeText(item?.permalink, 500).toLowerCase()
+  const isMarketplaceListing = channels.length ? channels.includes("marketplace") : !permalink.includes("internal-shop.")
+  return status === "active" && availableQuantity > 0 && isMarketplaceListing
 }
 
 function buildSnapshotRow(projectId, item) {

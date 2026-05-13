@@ -80,6 +80,7 @@ export function mapMercadoLivreItem(payload) {
     acceptsMercadoPago: payload?.accepts_mercadopago === true,
     freeShipping: payload?.shipping?.free_shipping === true,
     logisticType: sanitizeString(payload?.shipping?.logistic_type),
+    channels: Array.isArray(payload?.channels) ? payload.channels.map((channel) => sanitizeString(channel)).filter(Boolean) : [],
     attributes,
     pictures,
     variations,

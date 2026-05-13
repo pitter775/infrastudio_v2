@@ -230,7 +230,7 @@ function buildStorePayload(project, input, current = null) {
     footer_texto: sanitizeText(input?.footerText, 240),
     menu_links: sanitizeMenuLinks(input?.menuLinks),
     social_links: sanitizeSocialLinks(input?.socialLinks),
-    visual_config: sanitizeVisualConfig(input?.visualConfig),
+    visual_config: sanitizeVisualConfig(input?.visualConfig || current?.visual_config),
     destaques: sanitizeFeaturedProducts(input?.featuredProducts),
     updated_at: new Date().toISOString(),
     slug: slugify(input?.slug) || current?.slug || `${slugify(project?.slug || project?.name || "loja")}-ml`,
