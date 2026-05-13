@@ -314,12 +314,12 @@ export function AdminFeedbackPage({
             <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-slate-300">Projeto</span>
-                <AppSelect value={form.projetoId} onChangeValue={(value) => setForm((current) => ({ ...current, projetoId: value }))} options={[{ value: "", label: "Não vinculado" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]} />
+                <AppSelect value={form.projetoId} onChangeValue={(value) => setForm((current) => ({ ...current, projetoId: value }))} options={[{ value: "", label: "Não vinculado" }, ...projects.map((project) => ({ value: project.id, label: project.name }))]} disablePortal />
               </label>
 
               <label className="block space-y-2">
                 <span className="text-sm font-semibold text-slate-300">Categoria</span>
-                <AppSelect value={form.categoria} onChangeValue={(value) => setForm((current) => ({ ...current, categoria: value }))} options={toOptions(categorias)} />
+                <AppSelect value={form.categoria} onChangeValue={(value) => setForm((current) => ({ ...current, categoria: value }))} options={toOptions(categorias)} disablePortal />
               </label>
 
               <input
