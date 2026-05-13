@@ -302,7 +302,11 @@ export function AdminFeedbackPage({
       </div>
 
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-        <SheetContent side="right" className="w-[92vw] max-w-[460px] border-l border-white/5">
+        <SheetContent
+          side="right"
+          className="z-[281] w-[92vw] max-w-[460px] border-l border-white/5"
+          overlayClassName="z-[280]"
+        >
           <form onSubmit={handleCreate} className="flex h-full flex-col">
             <div className="border-b border-white/5 px-5 py-5">
               <SheetTitle className="text-left text-lg font-semibold text-white">Nova solicitação</SheetTitle>
