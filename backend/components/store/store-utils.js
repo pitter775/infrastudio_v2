@@ -220,3 +220,18 @@ export function buildStoreProductExternalUrl(product) {
   const slug = slugifyMercadoLivreTitle(product?.title || product?.slug || '')
   return `https://produto.mercadolivre.com.br/${itemId}${slug ? `-${slug}` : ''}-_JM`
 }
+
+export function buildStoreWhatsAppUrl(phone, message = '') {
+  let digits = String(phone || '').replace(/\D/g, '')
+  if (!digits) {
+    return ''
+  }
+
+  if ((digits.length === 10 || digits.length === 11) && !digits.startsWith('55')) {
+    digits = `55${digits}`
+  }
+
+  const text = String(message || '').trim()
+  const params = text ? `?text=${encodeURIComponent(text)}` : ''
+  return `https://wa.me/${digits}${params}`
+}

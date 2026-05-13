@@ -321,21 +321,31 @@
       window.addEventListener("popstate", emitUrlChange);
       window.addEventListener("hashchange", emitUrlChange);
     }
+    function shouldPersistChatSession() {
+      return !isAdminAgentTestMode() && resolveChatSessionScope(widgetContext) !== "navigation";
+    }
+
     if (!isAdminAgentTestMode()) {
       storageKey = "infrastudio-chat:" + instanceKey + ":" + (externalIdentifier || "anon");
-      try {
-        var savedState = JSON.parse(window.localStorage.getItem(storageKey) || "null");
-        if (savedState && typeof savedState === "object") {
-          chatId = typeof savedState.chatId === "string" ? savedState.chatId : null;
-          messages = Array.isArray(savedState.messages) ? savedState.messages : [];
-          leadContact = savedState.leadContact && typeof savedState.leadContact === "object" ? savedState.leadContact : null;
-          leadCaptureDismissed = savedState.leadCaptureDismissed === true;
-          if (hasLeadIdentity(leadContact)) {
-            externalIdentifier = getLeadIdentifier(leadContact);
+      if (shouldPersistChatSession()) {
+        try {
+          var savedState = JSON.parse(window.localStorage.getItem(storageKey) || "null");
+          if (savedState && typeof savedState === "object") {
+            chatId = typeof savedState.chatId === "string" ? savedState.chatId : null;
+            messages = Array.isArray(savedState.messages) ? savedState.messages : [];
+            leadContact = savedState.leadContact && typeof savedState.leadContact === "object" ? savedState.leadContact : null;
+            leadCaptureDismissed = savedState.leadCaptureDismissed === true;
+            if (hasLeadIdentity(leadContact)) {
+              externalIdentifier = getLeadIdentifier(leadContact);
+            }
+            lastSyncedMessageAt = typeof savedState.lastSyncedMessageAt === "string" ? savedState.lastSyncedMessageAt : null;
           }
-          lastSyncedMessageAt = typeof savedState.lastSyncedMessageAt === "string" ? savedState.lastSyncedMessageAt : null;
-        }
-      } catch (error) {}
+        } catch (error) {}
+      } else {
+        try {
+          window.localStorage.removeItem(storageKey);
+        } catch (error) {}
+      }
     }
 
     function assignMessageOrder(message, preferredOrder) {
@@ -2563,6 +2573,11 @@
       }
 
       try {
+        if (!shouldPersistChatSession()) {
+          window.localStorage.removeItem(storageKey);
+          return;
+        }
+
         var persistedMessages = Array.isArray(messages) ? messages.slice(-30) : [];
         window.localStorage.setItem(
           storageKey,

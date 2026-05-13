@@ -660,6 +660,39 @@ export function normalizeInboundMessage(body) {
     .trim()
 }
 
+function normalizeMemoryGuardText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+function isLowIntentGreetingMessage(message) {
+  const normalized = normalizeMemoryGuardText(message)
+  if (!normalized || normalized.length > 40) {
+    return false
+  }
+
+  return /^(oi|ola|e ai|bom dia|boa tarde|boa noite|tudo bem|opa|salve)( tudo bem)?$/.test(normalized)
+}
+
+function shouldImportIdentifiedContactHistory(input = {}) {
+  if (!input.identifiedContactKey) {
+    return false
+  }
+
+  const historyLength = Array.isArray(input.history) ? input.history.length : 0
+  const isNewConversation = input.session?.created === true || historyLength <= 1
+  if (isNewConversation && isLowIntentGreetingMessage(input.message)) {
+    return false
+  }
+
+  return true
+}
+
 export function hasSupabaseServerEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim()
   const key =
@@ -2673,8 +2706,14 @@ export async function processChatRequest(body, options = {}) {
       currentContext,
       runtimeState.prelude.normalizedExternalIdentifier,
     )
+    const shouldImportHistory = shouldImportIdentifiedContactHistory({
+      identifiedContactKey,
+      history: runtimeState.history,
+      message: runtimeState.prelude.message,
+      session: runtimeState.session,
+    })
     const importedHistory =
-      identifiedContactKey
+      shouldImportHistory
         ? await (options.listRecentMessagesByExternalIdentifier ?? listRecentMessagesByExternalIdentifier)({
             identificadorExterno: identifiedContactKey,
             projetoId: runtimeState.resolved?.projeto?.id ?? null,

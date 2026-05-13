@@ -11,7 +11,7 @@ import { StoreProductCard } from '@/components/store/store-product-card'
 import { StoreSnapshotRefresh } from '@/components/store/store-snapshot-refresh'
 import { AppSelect } from '@/components/ui/app-select'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import { buildStoreAccentPalette, buildStoreUrl } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, buildStoreUrl, buildStoreWhatsAppUrl } from '@/components/store/store-utils'
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
@@ -240,6 +240,14 @@ export function MercadoLivreStorefront({
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false)
   const palette = useMemo(() => buildStoreAccentPalette(store.accentColor), [store.accentColor])
+  const contactWhatsAppUrl = useMemo(
+    () =>
+      buildStoreWhatsAppUrl(
+        store.contactWhatsApp,
+        `Olá, vim pela loja ${store.name || 'Mercado Livre'} e gostaria de atendimento.`,
+      ),
+    [store.contactWhatsApp, store.name],
+  )
   const useLatestProducts = store.visualConfig?.catalog?.useLatestProducts !== false
   const recommendedProducts = useMemo(() => {
     return (useLatestProducts ? products : featuredProducts.length ? featuredProducts : products).slice(0, 10)
@@ -591,7 +599,19 @@ export function MercadoLivreStorefront({
               <div className="mt-3 grid gap-3 text-sm text-slate-700">
                 {store.contactEmail ? <div className="inline-flex items-center gap-3"><AtSign className="h-4 w-4 text-slate-500" />{store.contactEmail}</div> : null}
                 {store.contactPhone ? <div className="inline-flex items-center gap-3"><Phone className="h-4 w-4 text-slate-500" />{store.contactPhone}</div> : null}
-                {store.contactWhatsApp ? <div className="inline-flex items-center gap-3"><MessageCircle className="h-4 w-4 text-slate-500" />{store.contactWhatsApp}</div> : null}
+                {store.contactWhatsApp ? (
+                  <a
+                    href={contactWhatsAppUrl || undefined}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-3 transition hover:text-slate-950"
+                    aria-label="Abrir atendimento no WhatsApp"
+                  >
+                    <MessageCircle className="h-4 w-4 text-slate-500" />
+                    <span>{store.contactWhatsApp}</span>
+                    <ExternalLink className="h-3.5 w-3.5 text-slate-400" />
+                  </a>
+                ) : null}
                 {store.contactAddress ? <div className="inline-flex items-center gap-3"><MapPin className="h-4 w-4 text-slate-500" />{store.contactAddress}</div> : null}
               </div>
             </div>
