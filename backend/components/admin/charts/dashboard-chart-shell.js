@@ -78,7 +78,7 @@ export function DashboardKpiCard({ icon: Icon, label, value, detail, tone = 'sky
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-          <p className="mt-2 truncate text-2xl font-semibold text-white md:text-3xl">{value}</p>
+          <p className="mt-2 truncate text-xl font-semibold text-white md:text-2xl">{value}</p>
         </div>
         <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border shadow-[0_18px_40px_-26px_currentColor]', selectedTone.icon)}>
           <Icon className="h-5 w-5" />

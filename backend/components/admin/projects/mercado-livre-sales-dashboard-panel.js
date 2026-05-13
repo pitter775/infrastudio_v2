@@ -132,10 +132,15 @@ function StatusDonutChart({ data }) {
 }
 
 function CategoryBarChart({ data, currency }) {
+  const chartData = (data || []).map((item) => ({
+    ...item,
+    displayName: formatCategoryAxisLabel(item.name),
+  }))
+
   return (
     <DashboardChartFrame>
       <ResponsiveContainer width="100%" height="100%">
-        <RechartsBarChart data={data || []} layout="vertical" margin={{ top: 12, right: 14, left: 0, bottom: 4 }}>
+        <RechartsBarChart data={chartData} layout="vertical" margin={{ top: 12, right: 14, left: 0, bottom: 4 }}>
           <defs>
             <linearGradient id="mlCategoryViolet" x1="0" y1="0" x2="1" y2="0">
               <stop offset="0%" stopColor={DASHBOARD_CHART_COLORS.category} stopOpacity={0.78} />
@@ -144,13 +149,22 @@ function CategoryBarChart({ data, currency }) {
           </defs>
           <CartesianGrid stroke={DASHBOARD_GRID_STROKE} horizontal={false} strokeDasharray="4 8" />
           <XAxis type="number" tick={DASHBOARD_AXIS_TICK} axisLine={false} tickLine={false} tickFormatter={(value) => formatCurrency(value, currency)} />
-          <YAxis type="category" dataKey="name" tick={DASHBOARD_AXIS_TICK} axisLine={false} tickLine={false} width={116} />
+          <YAxis type="category" dataKey="displayName" tick={DASHBOARD_AXIS_TICK} axisLine={false} tickLine={false} width={132} />
           <Tooltip content={<DashboardChartTooltip formatter={(value) => formatCurrency(value, currency)} />} />
           <Bar dataKey="Receita" fill="url(#mlCategoryViolet)" radius={[0, 10, 10, 0]} maxBarSize={24} />
         </RechartsBarChart>
       </ResponsiveContainer>
     </DashboardChartFrame>
   )
+}
+
+function formatCategoryAxisLabel(value) {
+  const normalized = String(value || '').trim()
+  if (!normalized) {
+    return 'Sem categoria'
+  }
+
+  return normalized.length > 22 ? `${normalized.slice(0, 21)}...` : normalized
 }
 
 function formatCurrency(value, currency = 'BRL') {

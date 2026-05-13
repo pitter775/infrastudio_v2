@@ -165,6 +165,34 @@ function getRevenueValue(order) {
   return order.paidAmount != null && order.paidAmount > 0 ? order.paidAmount : order.totalAmount
 }
 
+function isMercadoLivreCategoryCode(value) {
+  return /^MLB\d+$/i.test(sanitizeString(value))
+}
+
+function normalizeCategoryName(value) {
+  const normalized = sanitizeString(value)
+  if (!normalized || isMercadoLivreCategoryCode(normalized)) {
+    return ""
+  }
+
+  return normalized
+}
+
+function resolveCategoryBucket(item, categoryNameMap) {
+  const categoryId = sanitizeString(item.category_id)
+  const mappedName = normalizeCategoryName(categoryNameMap.get(categoryId))
+
+  if (mappedName) {
+    return { key: categoryId || mappedName, name: mappedName, categoryId: categoryId || null }
+  }
+
+  if (categoryId && !isMercadoLivreCategoryCode(categoryId)) {
+    return { key: categoryId, name: categoryId, categoryId }
+  }
+
+  return { key: "unmapped", name: "Categoria não identificada", categoryId: categoryId || null }
+}
+
 function buildDashboardPayload({ orders, items, syncState, range, categoryNameMap = new Map() }) {
   const normalizedOrders = orders.map(normalizeOrderRow)
   const totalRevenue = normalizedOrders.reduce((sum, order) => sum + getRevenueValue(order), 0)
@@ -207,17 +235,16 @@ function buildDashboardPayload({ orders, items, syncState, range, categoryNameMa
     current.revenue += quantity * toNumber(item.unit_price)
     productBuckets.set(key, current)
 
-    const categoryKey = sanitizeString(item.category_id || "Sem categoria")
-    const categoryName = sanitizeString(categoryNameMap.get(categoryKey))
-    const category = categoryBuckets.get(categoryKey) || {
-      categoryId: categoryKey,
-      name: categoryName || (categoryKey === "Sem categoria" ? "Sem categoria" : categoryKey),
+    const categoryBucket = resolveCategoryBucket(item, categoryNameMap)
+    const category = categoryBuckets.get(categoryBucket.key) || {
+      categoryId: categoryBucket.categoryId,
+      name: categoryBucket.name,
       revenue: 0,
       quantity: 0,
     }
     category.quantity += quantity
     category.revenue += quantity * toNumber(item.unit_price)
-    categoryBuckets.set(categoryKey, category)
+    categoryBuckets.set(categoryBucket.key, category)
   }
 
   return {
@@ -241,13 +268,13 @@ function buildDashboardPayload({ orders, items, syncState, range, categoryNameMa
       .sort((left, right) => right.value - left.value),
     topProducts: [...productBuckets.values()]
       .sort((left, right) => right.quantity - left.quantity || right.revenue - left.revenue)
-      .slice(0, 8)
+      .slice(0, 5)
       .map((item) => ({ ...item, revenue: Number(item.revenue.toFixed(2)) })),
     salesByCategory: [...categoryBuckets.values()]
       .sort((left, right) => right.revenue - left.revenue || right.quantity - left.quantity)
       .slice(0, 6)
       .map((item) => ({ ...item, Receita: Number(item.revenue.toFixed(2)) })),
-    recentOrders: normalizedOrders.slice(0, 8),
+    recentOrders: normalizedOrders.slice(0, 4),
     sync: syncState
       ? {
           inProgress: syncState.sync_in_progress === true,
