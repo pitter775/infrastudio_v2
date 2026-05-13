@@ -409,7 +409,7 @@ export default async function LojaProdutoPage({ params }) {
         <StoreSnapshotRefresh storeSlug={result.store.slug} />
         <div className="min-h-screen bg-[#f7f7f5] text-slate-950">
           <StoreHeader store={result.store} activeSection="produtos" />
-          <main className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+          <main className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-28 sm:px-6 sm:pt-32 lg:px-8">
             <Link href={`/loja/${result.store.slug}`} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">
               <ArrowLeft className="h-4 w-4" />
               Voltar para a loja
