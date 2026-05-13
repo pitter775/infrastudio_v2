@@ -506,6 +506,69 @@ export async function upsertMercadoLivreConnectorForUser(project, input, user, d
   }
 }
 
+async function deleteMercadoLivreProjectRows(supabase, table, column, value) {
+  const { error } = await supabase.from(table).delete().eq(column, value)
+
+  if (error && error.code !== "42P01") {
+    throw error
+  }
+}
+
+export async function deleteMercadoLivreConnectorForUser(project, input, user, deps = {}) {
+  if (!project?.id || !userCanAccessProject(user, project.id)) {
+    return { ok: false, error: "Projeto não encontrado." }
+  }
+
+  const confirmationName = sanitizeString(input?.confirmationName || input?.storeName)
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(project.id, { supabase })
+
+    if (!connector?.id) {
+      return { ok: false, error: "Conexão do Mercado Livre não encontrada." }
+    }
+
+    const expectedName = sanitizeString(connector.name)
+    if (!expectedName || confirmationName !== expectedName) {
+      return { ok: false, error: "Digite exatamente o nome da loja para remover o contrato." }
+    }
+
+    await deleteMercadoLivreProjectRows(supabase, "mercadolivre_pedido_itens_snapshot", "projeto_id", project.id)
+    await deleteMercadoLivreProjectRows(supabase, "mercadolivre_pedidos_snapshot", "projeto_id", project.id)
+    await deleteMercadoLivreProjectRows(supabase, "mercadolivre_vendas_sync_state", "projeto_id", project.id)
+    await deleteMercadoLivreProjectRows(supabase, "mercadolivre_produtos_snapshot", "projeto_id", project.id)
+    await deleteMercadoLivreProjectRows(supabase, "mercadolivre_lojas_sync", "project_id", project.id)
+
+    const { error: storeError } = await supabase
+      .from("mercadolivre_lojas")
+      .update({
+        ativo: false,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("projeto_id", project.id)
+
+    if (storeError && storeError.code !== "42P01") {
+      throw storeError
+    }
+
+    const { error: connectorError } = await supabase
+      .from("conectores")
+      .delete()
+      .eq("id", connector.id)
+      .eq("projeto_id", project.id)
+
+    if (connectorError) {
+      throw connectorError
+    }
+
+    return { ok: true, error: null }
+  } catch (error) {
+    console.error("[mercado-livre] failed to delete connector", error)
+    return { ok: false, error: "Não foi possível remover o contrato do Mercado Livre." }
+  }
+}
+
 export async function buildMercadoLivreAuthorizationUrl(project, user, origin, deps = {}) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
     throw new Error("Projeto não encontrado.")

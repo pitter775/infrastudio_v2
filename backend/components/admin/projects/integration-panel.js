@@ -399,7 +399,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         <div className="border-t border-white/5 px-6 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              {activeTab === 'connection' && mercadoFooter.step === 2 ? (
+              {activeTab === 'connection' && mercadoFooter.step === 2 && mercadoFooter.canSaveConnection !== false ? (
                 <Button
                   type="button"
                   variant="ghost"

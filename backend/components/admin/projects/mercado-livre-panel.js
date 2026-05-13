@@ -1,9 +1,10 @@
 ﻿'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BarChart3, BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store, TrendingUp } from 'lucide-react'
+import { BarChart3, BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store, Trash2, TrendingUp } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { cn } from '@/lib/utils'
 import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl } from '@/lib/mercado-livre-webhook'
 import { formatMercadoLivreProductLimit, getMercadoLivreProductLimitForPlan, normalizePlanKey } from '@/lib/public-planos'
@@ -190,6 +191,9 @@ export function MercadoLivrePanel({
   const [suggestingQuestionId, setSuggestingQuestionId] = useState('')
   const [syncingStoreSnapshot, setSyncingStoreSnapshot] = useState(false)
   const [loadingSnapshotStatus, setLoadingSnapshotStatus] = useState(false)
+  const [deleteContractOpen, setDeleteContractOpen] = useState(false)
+  const [deleteContractConfirmation, setDeleteContractConfirmation] = useState('')
+  const [deletingContract, setDeletingContract] = useState(false)
   const [expandedQuestionId, setExpandedQuestionId] = useState('')
   const [copiedField, setCopiedField] = useState('')
   const [snapshotStatus, setSnapshotStatus] = useState({
@@ -223,6 +227,7 @@ export function MercadoLivrePanel({
   const webhookUrl = useMemo(() => buildMercadoLivreWebhookUrl(project.id), [project.id])
   const hasConnectionCredentials = Boolean(storeName.trim() && appId.trim() && clientSecret.trim())
   const shouldHighlightOAuthButton = hasConnectionCredentials && Boolean(connectorMeta.id) && !connectorMeta.oauthConnected && !savingConnector
+  const savedStoreName = String(storeName || connectorMeta.oauthNickname || 'Loja Mercado Livre').trim()
   const planKey = normalizePlanKey(project.billing?.projectPlan?.planName || project.billing?.subscription?.plan?.name || 'free') || 'free'
   const fallbackProductLimit = getMercadoLivreProductLimitForPlan(planKey)
   const productLimit = snapshotStatus.productLimit?.limit ?? fallbackProductLimit
@@ -279,6 +284,28 @@ export function MercadoLivrePanel({
       oauthUserId: String(config.oauthUserId || config.user_id || config.sellerUserId || ''),
     })
     setStep(2)
+  }
+
+  function resetMercadoLivreConnectionState() {
+    setProductUrl('')
+    setStoreName('')
+    setAppId('')
+    setClientSecret('')
+    setSeedId('')
+    setConnectorMeta({
+      id: null,
+      oauthConnected: false,
+      oauthNickname: '',
+      oauthUserId: '',
+    })
+    setSnapshotStatus({ total: 0, lastSyncAt: null, productLimit: null })
+    setTestItems([])
+    setOrders([])
+    setOrdersPaging({ total: 0, offset: 0, limit: 10 })
+    setQuestions([])
+    setQuestionsPaging({ total: 0, offset: 0, limit: 10 })
+    setQuestionDrafts({})
+    setStep(1)
   }
 
   function getOrderDisplayName(order) {
@@ -408,10 +435,11 @@ export function MercadoLivrePanel({
     onFooterStateChange?.({
       step,
       activeTab: currentTab,
-      saving: step === 1 ? resolvingStore : savingConnector,
+      saving: step === 1 ? resolvingStore : savingConnector || deletingContract,
+      canSaveConnection: !(step === 2 && connectorMeta.oauthConnected),
       onBackToProductUrl: () => setStep(1),
     })
-  }, [currentTab, onFooterStateChange, resolvingStore, savingConnector, step])
+  }, [connectorMeta.oauthConnected, currentTab, deletingContract, onFooterStateChange, resolvingStore, savingConnector, step])
 
   const handleLoadTestItems = useCallback(async () => {
     setLoadingTestItems(true)
@@ -646,6 +674,39 @@ export function MercadoLivrePanel({
     }
   }
 
+  async function handleDeleteContract() {
+    setDeletingContract(true)
+    setFeedback(null)
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          provider: 'mercado_livre',
+          confirmationName: deleteContractConfirmation.trim(),
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível remover o contrato do Mercado Livre.' })
+        return
+      }
+
+      setDeleteContractOpen(false)
+      setDeleteContractConfirmation('')
+      resetMercadoLivreConnectionState()
+      setFeedback({ tone: 'success', text: 'Contrato do Mercado Livre removido.' })
+    } catch {
+      setFeedback({ tone: 'error', text: 'Não foi possível remover o contrato do Mercado Livre.' })
+    } finally {
+      setDeletingContract(false)
+    }
+  }
+
   async function handleStartOAuth() {
     setStartingOAuth(true)
     setFeedback(null)
@@ -825,6 +886,7 @@ export function MercadoLivrePanel({
   }
 
   return (
+    <>
     <div className="grid gap-4">
       <div className={cn("flex flex-wrap gap-2", compact && "hidden")}>
         {tabs.map((tab) => {
@@ -978,6 +1040,18 @@ export function MercadoLivrePanel({
                   {connectorMeta.oauthConnected ? <Check className="mr-1.5 h-3.5 w-3.5" /> : <MessageCircle className="mr-1.5 h-3.5 w-3.5" />}
                   {startingOAuth ? 'Conectando...' : connectorMeta.oauthConnected ? 'Conectada' : 'Conectar'}
                 </Button>
+                {connectorMeta.oauthConnected ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    disabled={deletingContract}
+                    onClick={() => setDeleteContractOpen(true)}
+                    className="h-8 rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 text-xs font-semibold text-rose-100 hover:bg-rose-500/20 disabled:opacity-50"
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                    Remover contrato
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   variant="ghost"
@@ -989,27 +1063,37 @@ export function MercadoLivrePanel({
                   {syncingStoreSnapshot ? 'Atualizando...' : 'Atualizar'}
                 </Button>
               </div>
-              <form id="mercado-livre-save-form" className="grid gap-4" onSubmit={handleSaveConnection}>
-                <div className="grid gap-3">
-                  <div className="grid gap-3">
-                    <label className="block">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da loja</span>
-                      <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                    </label>
-                    <input type="hidden" value={seedId} readOnly />
-                  </div>
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <label className="block">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">App ID</span>
-                      <input value={appId} onChange={(event) => setAppId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                    </label>
-                    <label className="block">
-                      <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Client secret</span>
-                      <input value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
-                    </label>
+              {connectorMeta.oauthConnected ? (
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-500/10 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-200/80">Contrato ativo</div>
+                  <div className="mt-2 text-base font-semibold text-white">{savedStoreName}</div>
+                  <div className="mt-1 text-sm text-emerald-50/80">
+                    Usuário Mercado Livre: {connectorMeta.oauthUserId || 'n/a'}
                   </div>
                 </div>
-              </form>
+              ) : (
+                <form id="mercado-livre-save-form" className="grid gap-4" onSubmit={handleSaveConnection}>
+                  <div className="grid gap-3">
+                    <div className="grid gap-3">
+                      <label className="block">
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Nome da loja</span>
+                        <input value={storeName} onChange={(event) => setStoreName(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                      </label>
+                      <input type="hidden" value={seedId} readOnly />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2">
+                      <label className="block">
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">App ID</span>
+                        <input value={appId} onChange={(event) => setAppId(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                      </label>
+                      <label className="block">
+                        <span className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Client secret</span>
+                        <input value={clientSecret} onChange={(event) => setClientSecret(event.target.value)} className="mt-2 h-11 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none" />
+                      </label>
+                    </div>
+                  </div>
+                </form>
+              )}
               <div className="grid gap-3">
                 {[
                   {
@@ -1602,6 +1686,40 @@ export function MercadoLivrePanel({
         </div>
       ) : null}
     </div>
+
+    <ConfirmDialog
+      open={deleteContractOpen}
+      onOpenChange={(open) => {
+        setDeleteContractOpen(open)
+        if (!open) {
+          setDeleteContractConfirmation('')
+        }
+      }}
+      title="Remover contrato do Mercado Livre"
+      description={`Isso remove o contrato da loja ${savedStoreName}, apaga snapshots locais e desativa a loja pública do Mercado Livre.`}
+      confirmLabel={deletingContract ? 'Removendo...' : 'Remover contrato'}
+      cancelLabel="Cancelar"
+      danger
+      loading={deletingContract}
+      confirmDisabled={deleteContractConfirmation.trim() !== savedStoreName}
+      onConfirm={handleDeleteContract}
+    >
+      <div className="px-5 pb-5">
+        <label className="block space-y-2">
+          <span className="text-sm font-medium text-slate-300">
+            Digite exatamente: <span className="text-white">{savedStoreName}</span>
+          </span>
+          <input
+            value={deleteContractConfirmation}
+            onChange={(event) => setDeleteContractConfirmation(event.target.value)}
+            className="h-10 w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-rose-400/40"
+            placeholder={savedStoreName}
+            autoComplete="off"
+          />
+        </label>
+      </div>
+    </ConfirmDialog>
+    </>
   )
 }
 
