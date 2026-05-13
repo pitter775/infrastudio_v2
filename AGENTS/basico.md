@@ -43,6 +43,7 @@ Pastas geradas nao devem ser editadas manualmente:
 - schema de referencia: `database/geral-schema.sql`
 - nunca editar `database/geral-schema.sql` diretamente
 - novos ajustes de banco devem ser criados em `database/seeder/`
+- novas tabelas criadas em seeders devem habilitar RLS no proprio SQL e declarar policies explicitas; para tabelas internas usadas apenas pelo backend, usar policy `service_role` fail-closed
 
 ## Stack oficial
 

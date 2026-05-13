@@ -20,6 +20,17 @@ create unique index if not exists google_calendar_connections_project_agent_uidx
 create index if not exists google_calendar_connections_project_idx
   on public.google_calendar_connections (projeto_id, status);
 
+alter table public.google_calendar_connections enable row level security;
+
+drop policy if exists "google_calendar_connections_service_role_all" on public.google_calendar_connections;
+
+create policy "google_calendar_connections_service_role_all"
+  on public.google_calendar_connections
+  for all
+  to service_role
+  using (true)
+  with check (true);
+
 create table if not exists public.google_calendar_events (
   id uuid primary key default uuid_generate_v4(),
   connection_id uuid references public.google_calendar_connections(id) on delete set null,
@@ -44,3 +55,14 @@ create index if not exists google_calendar_events_project_idx
 create index if not exists google_calendar_events_chat_idx
   on public.google_calendar_events (chat_id)
   where chat_id is not null;
+
+alter table public.google_calendar_events enable row level security;
+
+drop policy if exists "google_calendar_events_service_role_all" on public.google_calendar_events;
+
+create policy "google_calendar_events_service_role_all"
+  on public.google_calendar_events
+  for all
+  to service_role
+  using (true)
+  with check (true);
