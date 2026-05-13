@@ -5,7 +5,8 @@ import { getMercadoLivreProductLimitForProject } from "@/lib/mercado-livre-produ
 import { slugifyProduct } from "@/lib/mercado-livre-store"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 
-const AUTO_SYNC_INTERVAL_MS = 30 * 60 * 1000
+const AUTO_SYNC_BUSINESS_INTERVAL_MS = 30 * 60 * 1000
+const AUTO_SYNC_OFF_HOURS_INTERVAL_MS = 2 * 60 * 60 * 1000
 const AUTO_SYNC_STALE_LOCK_MS = 15 * 60 * 1000
 const SYNC_STATE_TABLE = "mercadolivre_lojas_sync"
 
@@ -61,6 +62,18 @@ function parseTime(value) {
 
   const parsed = Date.parse(normalized)
   return Number.isFinite(parsed) ? parsed : 0
+}
+
+function getAutoSyncIntervalMs(date = new Date()) {
+  const hourInSaoPaulo = Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      hour: "numeric",
+      hour12: false,
+    }).format(date)
+  )
+
+  return hourInSaoPaulo >= 8 && hourInSaoPaulo < 21 ? AUTO_SYNC_BUSINESS_INTERVAL_MS : AUTO_SYNC_OFF_HOURS_INTERVAL_MS
 }
 
 function normalizeSyncState(row) {
@@ -796,7 +809,7 @@ export async function maybeAutoSyncMercadoLivreSnapshotForProject(project, deps 
     return { triggered: false, changed: false, reason: "sync_in_progress", state }
   }
 
-  if (lastSyncAt && lastSyncAt > now - AUTO_SYNC_INTERVAL_MS) {
+  if (lastSyncAt && lastSyncAt > now - getAutoSyncIntervalMs(new Date(now))) {
     return { triggered: false, changed: false, reason: "rate_limited", state }
   }
 
