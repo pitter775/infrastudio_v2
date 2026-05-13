@@ -935,8 +935,11 @@ async function listMercadoLivreUserItemIds(userId, accessToken, options = {}, de
   const limit = Math.min(Math.max(Number(options.limit ?? 24) || 24, 1), 50)
   const offset = Math.max(Number(options.offset ?? 0) || 0, 0)
   const fetchImpl = deps.fetchImpl ?? fetch
-  const buildSearchUrl = ({ includeLimit = true, includeOffset = true, includeOrder = false } = {}) => {
+  const buildSearchUrl = ({ includeLimit = true, includeOffset = true, includeOrder = false, includeStatus = true } = {}) => {
     const url = new URL(`${MERCADO_LIVRE_API_BASE}/users/${encodeURIComponent(userId)}/items/search`)
+    if (includeStatus) {
+      url.searchParams.set("status", "active")
+    }
     if (includeLimit) {
       url.searchParams.set("limit", String(limit))
     }
@@ -975,6 +978,17 @@ async function listMercadoLivreUserItemIds(userId, accessToken, options = {}, de
     if (normalizedMessage.includes("invalid limit and offset values")) {
       searchResponse = await fetchImpl(
         buildSearchUrl({ includeLimit: false, includeOffset: false, includeOrder: false }),
+        requestConfig
+      )
+      searchPayload = await searchResponse.json().catch(() => ({}))
+    }
+  }
+
+  if (!searchResponse.ok) {
+    const normalizedMessage = sanitizeString(searchPayload?.message).toLowerCase()
+    if (normalizedMessage.includes("status") || normalizedMessage.includes("invalid parameter")) {
+      searchResponse = await fetchImpl(
+        buildSearchUrl({ includeLimit: true, includeOffset: true, includeOrder: true, includeStatus: false }),
         requestConfig
       )
       searchPayload = await searchResponse.json().catch(() => ({}))

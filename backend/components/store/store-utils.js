@@ -206,6 +206,12 @@ function slugifyMercadoLivreTitle(value) {
     .slice(0, 140)
 }
 
+function formatMercadoLivreItemIdForUrl(value) {
+  const normalized = String(value || '').trim().toUpperCase()
+  const match = normalized.match(/^MLB-?(\d+)$/)
+  return match ? `MLB-${match[1]}` : normalized
+}
+
 export function buildStoreProductExternalUrl(product) {
   const permalink = String(product?.permalink || '').trim()
   if (permalink && !/internal-shop\.mercadoshops\.com\.br/i.test(permalink)) {
@@ -218,7 +224,8 @@ export function buildStoreProductExternalUrl(product) {
   }
 
   const slug = slugifyMercadoLivreTitle(product?.title || product?.slug || '')
-  return `https://produto.mercadolivre.com.br/${itemId}${slug ? `-${slug}` : ''}-_JM`
+  const formattedItemId = formatMercadoLivreItemIdForUrl(itemId)
+  return `https://produto.mercadolivre.com.br/${formattedItemId}${slug ? `-${slug}` : ''}-_JM`
 }
 
 export function buildStoreWhatsAppUrl(phone, message = '') {
