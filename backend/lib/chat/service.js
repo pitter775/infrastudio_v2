@@ -54,7 +54,7 @@ import {
 import { createChat, findActiveChatByChannel, findActiveChatByContactPhone, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier } from "@/lib/chats"
 import { getChatWidgetById, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
-import { getProjetoRuntimeById, getProjetoRuntimeByIdentifier } from "@/lib/projetos"
+import { getProjetoRuntimeById, getProjetoRuntimeByIdentifier, getProjetoRuntimeDirectConnections } from "@/lib/projetos"
 import {
   buildActionSuggestionReply,
   buildChatWidgetActions,
@@ -1553,6 +1553,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     !deps.getChatWidgetByProjetoAgente &&
     !deps.getProjetoById &&
     !deps.getAgenteById &&
+    !deps.getProjetoRuntimeDirectConnections &&
     !deps.getActiveWhatsAppChannelByProjectAgent
   const cacheKey = canUseResolutionCache
     ? buildChatChannelCacheKey({
@@ -1574,10 +1575,32 @@ export async function resolveChatChannel(body = {}, deps = {}) {
   const getWidgetByProjetoAgente = deps.getChatWidgetByProjetoAgente ?? getChatWidgetByProjetoAgente
   const getProjetoByIdResolver = deps.getProjetoById ?? getProjetoRuntimeById
   const getAgenteByIdResolver = deps.getAgenteById ?? getAgenteById
+  const getDirectConnections = deps.getProjetoRuntimeDirectConnections ?? getProjetoRuntimeDirectConnections
   const getActiveWhatsAppChannel = deps.getActiveWhatsAppChannelByProjectAgent ?? getActiveWhatsAppChannelByProjectAgent
 
+  async function enrichRuntimeProjectDirectConnections(projeto, agente) {
+    if (!projeto?.id || projeto.directConnections) {
+      return projeto
+    }
+
+    const directConnections = await getDirectConnections(projeto.id, agente?.id ?? null)
+    if (!directConnections || typeof directConnections !== "object") {
+      return projeto
+    }
+
+    return {
+      ...projeto,
+      directConnections: {
+        apis: 0,
+        whatsapp: 0,
+        chatWidget: 0,
+        ...directConnections,
+      },
+    }
+  }
+
   if (projetoIdentifier) {
-    const projeto = await getProjeto(projetoIdentifier)
+    let projeto = await getProjeto(projetoIdentifier)
     let agente = agenteIdentifier ? await getAgente(agenteIdentifier, projeto?.id ?? null) : null
 
     const agenteAtivo = agente ? agente.active !== false && agente.ativo !== false : false
@@ -1590,6 +1613,7 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     const widget = projeto?.id && agente?.id ? await getWidgetByProjetoAgente({ projetoId: projeto.id, agenteId: agente.id }) : null
     const whatsappChannel =
       projeto?.id && agente?.id ? await getActiveWhatsAppChannel({ projetoId: projeto.id, agenteId: agente.id }) : null
+    projeto = await enrichRuntimeProjectDirectConnections(projeto, agente)
 
     const resolved = {
       projeto,
@@ -1640,13 +1664,14 @@ export async function resolveChatChannel(body = {}, deps = {}) {
     }
   }
 
-  const projeto = await getProjetoByIdResolver(widget.projetoId)
+  let projeto = await getProjetoByIdResolver(widget.projetoId)
   const widgetAgent = projeto ? await getAgenteByIdResolver(widget.agenteId) : null
   const widgetAgentAtivo = widgetAgent ? widgetAgent.active !== false && widgetAgent.ativo !== false : false
   const widgetAgentProjetoId = widgetAgent?.projectId ?? widgetAgent?.projetoId ?? null
   const agente = widgetAgent && widgetAgentAtivo && widgetAgentProjetoId === projeto?.id ? widgetAgent : null
   const whatsappChannel =
     projeto?.id && agente?.id ? await getActiveWhatsAppChannel({ projetoId: projeto.id, agenteId: agente.id }) : null
+  projeto = await enrichRuntimeProjectDirectConnections(projeto, agente)
 
   const resolved = {
     projeto,

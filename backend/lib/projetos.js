@@ -1329,6 +1329,29 @@ function mapRuntimeProject(row) {
   }
 }
 
+export async function getProjetoRuntimeDirectConnections(projectId, agenteId = null) {
+  const normalizedProjectId = String(projectId || "").trim()
+  if (!normalizedProjectId) {
+    return null
+  }
+
+  try {
+    const supabase = getSupabaseAdminClient()
+    const [mercadoLivreCount, googleCalendarCount] = await Promise.all([
+      countMercadoLivreConnectors(supabase, normalizedProjectId, agenteId),
+      countGoogleCalendarConnections(supabase, normalizedProjectId, agenteId),
+    ])
+
+    return {
+      mercadoLivre: mercadoLivreCount,
+      googleCalendar: googleCalendarCount,
+    }
+  } catch (error) {
+    console.error("[projetos] failed to get runtime project direct connections", error)
+    return null
+  }
+}
+
 async function getProjetoRuntimeByField(field, value) {
   const normalized = String(value || "").trim()
   if (!normalized) {

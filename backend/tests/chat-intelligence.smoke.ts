@@ -10010,6 +10010,57 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "service preserva conexao Mercado Livre no contexto runtime do widget",
+    run: async () => {
+      const resolved = await resolveChatChannel(
+        {
+          widgetId: "widget-ml-1",
+          canal: "web",
+          identificadorExterno: "lead-ml-1",
+        },
+        {
+          getChatWidgetById: async (widgetId: string) => ({
+            id: widgetId,
+            slug: "reliquias-chat",
+            projetoId: "proj-ml-runtime",
+            agenteId: "agent-ml-runtime",
+            ativo: true,
+          }),
+          getProjetoById: async (projectId: string) => ({
+            id: projectId,
+            nome: "Relíquias de Família",
+            slug: "reliquias",
+            directConnections: null,
+          }),
+          getAgenteById: async (agentId: string) => ({
+            id: agentId,
+            projetoId: "proj-ml-runtime",
+            ativo: true,
+          }),
+          getProjetoRuntimeDirectConnections: async (projectId: string, agenteId: string) => ({
+            mercadoLivre: projectId === "proj-ml-runtime" && agenteId === "agent-ml-runtime" ? 1 : 0,
+            googleCalendar: 0,
+          }),
+          getActiveWhatsAppChannelByProjectAgent: async () => null,
+        }
+      )
+
+      const initialContext = buildInitialChatContext({
+        resolved,
+        channelKind: "external_widget",
+        normalizedExternalIdentifier: "lead-ml-1",
+        extraContext: {
+          conversation: { mode: "listing" },
+          storefront: { kind: "mercado_livre", pageKind: "storefront" },
+          ui: { catalogPreferred: true },
+        },
+      } as any)
+
+      assert.equal(resolved.projeto.directConnections.mercadoLivre, 1)
+      assert.equal(initialContext.projeto.directConnections.mercadoLivre, 1)
+    },
+  },
+  {
     name: "service atualiza contexto a partir do resultado da ia",
     run: () => {
       const nextContext = updateContextFromAiResult({
