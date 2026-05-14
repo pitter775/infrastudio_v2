@@ -228,6 +228,48 @@ async function getActiveAgent(supabase, projectId) {
     runtimeConfig:
       data.configuracoes?.runtimeConfig && typeof data.configuracoes.runtimeConfig === "object"
         ? data.configuracoes.runtimeConfig
+      : null,
+  }
+}
+
+async function getProjectAgent(supabase, projectId) {
+  const { data, error } = await supabase
+    .from("agentes")
+    .select("id, nome, descricao, prompt_base, ativo, slug, configuracoes")
+    .eq("projeto_id", projectId)
+    .order("ativo", { ascending: false, nullsFirst: false })
+    .order("updated_at", { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle()
+
+  if (error) {
+    console.error("[projetos] failed to get project agent", error)
+    return null
+  }
+
+  if (!data) {
+    return null
+  }
+
+  return {
+    id: data.id,
+    name: data.nome || "Agente sem nome",
+    description: data.descricao || "Sem descrição cadastrada.",
+    prompt: data.prompt_base || "",
+    active: data.ativo !== false,
+    slug: data.slug || data.id,
+    configuracoes: data.configuracoes && typeof data.configuracoes === "object" ? data.configuracoes : {},
+    logoUrl:
+      data.configuracoes?.brand && typeof data.configuracoes.brand.logoUrl === "string"
+        ? data.configuracoes.brand.logoUrl.trim()
+        : "",
+    siteUrl:
+      data.configuracoes?.brand && typeof data.configuracoes.brand.siteUrl === "string"
+        ? data.configuracoes.brand.siteUrl.trim()
+        : "",
+    runtimeConfig:
+      data.configuracoes?.runtimeConfig && typeof data.configuracoes.runtimeConfig === "object"
+        ? data.configuracoes.runtimeConfig
         : null,
   }
 }
@@ -339,7 +381,7 @@ async function buildAgentDirectConnections({ supabase, projectId, agent, apiCoun
 
 async function enrichProjectSummary(supabase, project, user) {
   const [agent, apiCount, rawWhatsappCount, rawWidgetCount, billing] = await Promise.all([
-    getActiveAgent(supabase, project.id),
+    getProjectAgent(supabase, project.id),
     safeCount(supabase, "apis", project.id),
     safeCount(supabase, "canais_whatsapp", project.id),
     safeCount(supabase, "chat_widgets", project.id),
@@ -1208,7 +1250,7 @@ export async function getProjectForUser(identifier, user) {
 
     const project = normalizeProject(data)
     const [agent, apis, whatsappChannels, initialChatWidgets, apiCount, whatsappCount, widgetCount, fileCount, billing] = await Promise.all([
-      getActiveAgent(supabase, project.id),
+      getProjectAgent(supabase, project.id),
       listProjectApis(supabase, project.id),
       listWhatsAppChannelsForUser(project, user),
       listChatWidgetsForUser(project, user),
