@@ -135,6 +135,7 @@
     var scrollAnimationFrame = null;
     var contextTeaserTimer = null;
     var contextIdleTimer = null;
+    var launcherSpinTimer = null;
     var activeProductGalleryCleanups = [];
     var productCarouselScrollPositions = {};
     var contextScrollShown = false;
@@ -516,6 +517,7 @@
     addCleanup(function () {
       clearLauncherTeaserTimer();
       clearIdlePromptTimer();
+      clearLauncherSpinTimer();
     });
 
     function destroy() {
@@ -592,12 +594,13 @@
       "@keyframes chatPanelExit { from { opacity: 1; transform: translate(0, 0) scale(1); border-radius: 16px; } to { opacity: 0; transform: translate(18px, 30px) scale(.18); border-radius: 999px; } }",
       "@keyframes chatDotsPulse { 0%, 80%, 100% { opacity: .28; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-1px); } }",
       "@keyframes chatLauncherSwap { 0% { opacity: 0; transform: scale(.72) rotate(-18deg); } 100% { opacity: 1; transform: scale(1) rotate(0deg); } }",
-      "@keyframes chatLauncherNudge { 0%, 92%, 100% { transform: translateY(0) scale(1) rotate(0deg); } 94% { transform: translateY(-2px) scale(1.04) rotate(-4deg); } 96% { transform: translateY(0) scale(1) rotate(4deg); } 98% { transform: translateY(-1px) scale(1.02) rotate(0deg); } }",
+      "@keyframes chatLauncherIconSpin { 0% { transform: rotate(0deg) scale(1); } 35% { transform: rotate(180deg) scale(1.08); } 70% { transform: rotate(360deg) scale(1); } 100% { transform: rotate(360deg) scale(1); } }",
       ".chat-wrap { position: fixed; right: 24px; bottom: 24px; width: 52px; height: 52px; z-index: 2147483000; pointer-events: none; font-family: Inter, Arial, sans-serif; transform: translate3d(var(--chat-wrap-offset-x, 0px), var(--chat-wrap-offset-y, 0px), 0); transition: transform .18s ease; will-change: transform; }",
-      ".chat-button { width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center; pointer-events: auto; border: 0; border-radius: 999px; background: " + (theme === "light" ? "#ffffff" : accent) + "; color: " + (theme === "light" ? accent : "white") + "; cursor: pointer; box-shadow: " + (theme === "light" ? "0 10px 24px rgba(15,23,42,0.12), 0 0 0 1px color-mix(in srgb, " + accent + " 16%, rgba(255,255,255,0.92))" : "none") + "; transition: transform .2s ease, background-color .2s ease, opacity .18s ease; animation: chatLauncherNudge 20s ease-in-out infinite; }",
+      ".chat-button { width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center; pointer-events: auto; border: 0; border-radius: 999px; background: " + (theme === "light" ? "#ffffff" : accent) + "; color: " + (theme === "light" ? accent : "white") + "; cursor: pointer; box-shadow: " + (theme === "light" ? "0 10px 24px rgba(15,23,42,0.12), 0 0 0 1px color-mix(in srgb, " + accent + " 16%, rgba(255,255,255,0.92))" : "none") + "; transition: transform .2s ease, background-color .2s ease, opacity .18s ease; }",
       ".chat-button { position: absolute; right: 0; bottom: 0; }",
-      ".chat-button:hover { animation-play-state: paused; transform: translateY(-1px) scale(1.02); }",
+      ".chat-button:hover { transform: translateY(-1px) scale(1.02); }",
       ".chat-button .chat-icon { width: 22px; height: 22px; animation: chatLauncherSwap .22s ease both; }",
+      ".chat-button .chat-icon.is-spinning { animation: chatLauncherIconSpin .82s cubic-bezier(.2,.8,.2,1) both; transform-origin: 50% 50%; }",
       ".chat-button.is-open { filter: brightness(.92); animation: none; }",
       ".chat-launcher-teaser { position: absolute; right: 0; bottom: 66px; min-width: 196px; max-width: min(280px, calc(100vw - 40px)); padding: 10px 12px; border-radius: 16px; background: " + (theme === "light" ? "rgba(255,255,255,0.98)" : "rgba(15,23,42,0.96)") + "; color: " + (theme === "light" ? "#0f172a" : "rgba(241,245,249,0.96)") + "; border: 1px solid " + (theme === "light" ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.16)") + "; box-shadow: 0 18px 40px -28px rgba(15,23,42,0.45); opacity: 0; visibility: hidden; transform: translateY(8px) scale(.96); transform-origin: calc(100% - 28px) 100%; transition: opacity .2s ease, transform .2s ease, visibility 0s linear .2s; pointer-events: none; }",
       ".chat-launcher-teaser.is-visible { opacity: 1; visibility: visible; transform: translateY(0) scale(1); transition-delay: 0s; }",
@@ -2902,8 +2905,49 @@
       triggerButton.setAttribute("aria-label", open ? "Fechar chat" : "Abrir chat");
       triggerButton.innerHTML = open ? createCloseIcon() : createChatBubbleIcon();
       if (open) {
+        clearLauncherSpinTimer();
         hideLauncherTeaser();
+      } else {
+        scheduleLauncherIconSpin();
       }
+    }
+
+    function clearLauncherSpinTimer() {
+      if (launcherSpinTimer) {
+        window.clearTimeout(launcherSpinTimer);
+        launcherSpinTimer = null;
+      }
+      var icon = triggerButton ? triggerButton.querySelector(".chat-icon") : null;
+      if (icon) {
+        icon.classList.remove("is-spinning");
+      }
+    }
+
+    function scheduleLauncherIconSpin() {
+      clearLauncherSpinTimer();
+      if (open || document.visibilityState === "hidden") {
+        return;
+      }
+
+      launcherSpinTimer = window.setTimeout(function () {
+        launcherSpinTimer = null;
+        if (open || document.visibilityState === "hidden") {
+          scheduleLauncherIconSpin();
+          return;
+        }
+
+        var icon = triggerButton.querySelector(".chat-icon");
+        if (icon) {
+          icon.classList.remove("is-spinning");
+          void icon.offsetWidth;
+          icon.classList.add("is-spinning");
+          window.setTimeout(function () {
+            icon.classList.remove("is-spinning");
+          }, 900);
+        }
+
+        scheduleLauncherIconSpin();
+      }, 10000 + Math.floor(Math.random() * 10001));
     }
 
     function clearLauncherTeaserTimer() {
@@ -4582,9 +4626,11 @@
       if (document.visibilityState === "hidden") {
         hideLauncherTeaser();
         clearIdlePromptTimer();
+        clearLauncherSpinTimer();
         return;
       }
       scheduleIdlePrompt();
+      scheduleLauncherIconSpin();
       if (open && document.visibilityState === "visible") {
         void syncServerMessages();
       }
