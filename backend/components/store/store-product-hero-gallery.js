@@ -1,7 +1,7 @@
 'use client'
 
 import { ChevronLeft, ChevronRight, ImageIcon, Play } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 
 import { getStoreProductMedia } from '@/components/store/store-utils'
 
@@ -9,6 +9,7 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
   const media = useMemo(() => getStoreProductMedia(product), [product])
   const largeMedia = useMemo(() => getStoreProductMedia(product, { variant: 'F' }), [product])
   const [activeIndex, setActiveIndex] = useState(0)
+  const swipeRef = useRef({ active: false, startX: 0, startY: 0 })
   const safeActiveIndex = activeIndex >= media.length ? 0 : activeIndex
   const activeMedia = largeMedia[safeActiveIndex] || media[safeActiveIndex] || null
 
@@ -20,6 +21,34 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
   function goToNextMedia() {
     if (!media.length) return
     setActiveIndex((current) => (current + 1) % media.length)
+  }
+
+  function handleTouchStart(event) {
+    if (media.length <= 1) return
+    const touch = event.touches?.[0]
+    if (!touch) return
+    swipeRef.current = {
+      active: true,
+      startX: touch.clientX,
+      startY: touch.clientY,
+    }
+  }
+
+  function handleTouchEnd(event) {
+    if (!swipeRef.current.active || media.length <= 1) return
+    const touch = event.changedTouches?.[0]
+    swipeRef.current.active = false
+    if (!touch) return
+
+    const deltaX = touch.clientX - swipeRef.current.startX
+    const deltaY = touch.clientY - swipeRef.current.startY
+    if (Math.abs(deltaX) < 44 || Math.abs(deltaX) < Math.abs(deltaY) * 1.25) return
+
+    if (deltaX < 0) {
+      goToNextMedia()
+    } else {
+      goToPreviousMedia()
+    }
   }
 
   return (
@@ -38,7 +67,11 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
         }
       `}</style>
       <div className="relative -mx-5 overflow-hidden bg-white sm:mx-0 sm:rounded-[8px]">
-        <div className="relative aspect-square overflow-hidden bg-white sm:aspect-[4/3] sm:rounded-[8px]">
+        <div
+          className="relative aspect-square touch-pan-y overflow-hidden bg-white sm:aspect-[4/3] sm:rounded-[8px]"
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
           {activeMedia?.type === 'video' && activeMedia.embedUrl ? (
             <iframe
               key={activeMedia.embedUrl}
