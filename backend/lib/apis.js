@@ -86,15 +86,17 @@ function userCanAccessProject(user, projectId) {
 }
 
 function mapApi(row) {
+  const config = row.configuracoes ?? {}
+  const description = String(config?.runtime?.descriptionForIntent || row.descricao || "").trim()
   return {
     id: row.id,
     projetoId: row.projeto_id,
     name: row.nome || "API sem nome",
     url: row.url || "",
     method: row.metodo || "GET",
-    description: row.descricao || "",
+    description,
     active: row.ativo !== false,
-    config: row.configuracoes ?? {},
+    config,
     fieldSchema: Array.isArray(row.api_campos)
       ? row.api_campos.map((field) => ({
           id: field.id,
@@ -110,15 +112,17 @@ function mapApi(row) {
 }
 
 function mapApiSummary(row) {
+  const config = row.configuracoes ?? null
+  const description = String(config?.runtime?.descriptionForIntent || row.descricao || "").trim()
   return {
     id: row.id,
     projetoId: row.projeto_id,
     name: row.nome || "API sem nome",
     url: row.url || "",
     method: row.metodo || "GET",
-    description: row.descricao || "",
+    description,
     active: row.ativo !== false,
-    config: row.configuracoes ?? null,
+    config,
     fieldSchema: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -127,6 +131,8 @@ function mapApiSummary(row) {
 }
 
 function mapApiVersion(row) {
+  const config = row.configuracoes ?? {}
+  const description = String(config?.runtime?.descriptionForIntent || row.descricao || "").trim()
   return {
     id: row.id,
     apiId: row.api_id,
@@ -135,8 +141,8 @@ function mapApiVersion(row) {
     name: row.nome || "API sem nome",
     url: row.url || "",
     method: row.metodo || "GET",
-    description: row.descricao || "",
-    config: row.configuracoes ?? {},
+    description,
+    config,
     active: row.ativo !== false,
     source: row.source || "manual_update",
     note: row.note || "",
@@ -882,7 +888,7 @@ function normalizeApiInput(input) {
       nome: name,
       url: rawUrl,
       metodo: method,
-      descricao: String(input.descricao || input.description || "").trim(),
+      descricao: String(configValidation.value?.runtime?.descriptionForIntent || input.descricao || input.description || "").trim(),
       ativo: active,
       configuracoes: configValidation.value ?? {},
       updated_at: new Date().toISOString(),

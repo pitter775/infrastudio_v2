@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useRef, useState } from "react"
-import { ArrowLeft, BookOpen, CheckCircle2, ClipboardCopy, Clock3, LoaderCircle, Pencil, Plus, Send, Trash2, XCircle } from "lucide-react"
+import { ArrowLeft, BookOpen, CheckCircle2, ClipboardCopy, Clock3, LoaderCircle, Pencil, Plus, Send, Sparkles, Trash2, XCircle } from "lucide-react"
 
 import { AppSelect } from "@/components/ui/app-select"
 import { Button } from "@/components/ui/button"
@@ -337,6 +337,122 @@ function tryParseJson(value) {
   }
 }
 
+function getApiAgentDescription(apiOrForm) {
+  return String(
+    apiOrForm?.config?.runtime?.descriptionForIntent ||
+      apiOrForm?.runtimeDescriptionForIntent ||
+      apiOrForm?.description ||
+      "",
+  ).trim()
+}
+
+function buildAiStudioApiCreationPrompt(project) {
+  return [
+    "Estou usando a InfraStudio. A InfraStudio não exporta dados para meu sistema; ela consome APIs do meu sistema para que o agente de IA consiga consultar, cadastrar ou atualizar informações.",
+    "",
+    "Sua tarefa é me ajudar a criar uma API no meu sistema compatível com a InfraStudio.",
+    "",
+    "Antes de criar código, conduza uma descoberta guiada. Não pergunte apenas 'o que você quer?'. Mostre opções claras e peça para eu escolher.",
+    "",
+    "1. Primeiro pergunte qual tipo de ação o agente da InfraStudio deve conseguir fazer:",
+    "- Consultar dados",
+    "- Buscar lista/catálogo",
+    "- Consultar item atual por ID",
+    "- Cadastrar/enviar dados",
+    "- Atualizar dados",
+    "- Cancelar/excluir algo",
+    "- Abrir solicitação/chamado/protocolo",
+    "",
+    "2. Depois pergunte qual recurso do meu sistema eu quero expor para o agente:",
+    "- Produtos",
+    "- Imóveis",
+    "- Pedidos",
+    "- Clientes",
+    "- Agendamentos",
+    "- Serviços",
+    "- Planos/preços",
+    "- Estoque",
+    "- Chamados/suporte",
+    "- Documentos/FAQ/base de conhecimento",
+    "- Outro recurso do sistema",
+    "",
+    "3. Depois pergunte qual campo identifica ou filtra esse recurso:",
+    "- ID",
+    "- Código",
+    "- Slug",
+    "- Nome/título",
+    "- Categoria",
+    "- Bairro/cidade",
+    "- Email",
+    "- Telefone",
+    "- CPF/CNPJ",
+    "- Data",
+    "- Outro campo",
+    "",
+    "4. Com base nas respostas, escolha o contrato correto para a InfraStudio:",
+    "- GET + Busca aberta: quando o visitante pergunta por termo, nome, título, categoria, bairro, cidade ou produto.",
+    "- GET + Item atual: quando o chat já recebe id/propertyId/contexto do item atual pelo Chat Widget.",
+    "- GET + Consulta por identificador: quando existe código, protocolo, documento, slug ou ID exato.",
+    "- GET + Busca informativa: quando a API retorna FAQ, regras, documentação ou informações gerais.",
+    "- POST/PUT/PATCH/DELETE: quando a API cria, altera, cancela ou remove dados. Exija confirmação explícita antes de executar.",
+    "",
+    "5. A API criada deve seguir estas regras da InfraStudio:",
+    "- Retornar JSON simples e legível.",
+    "- Usar HTTP 200 para sucesso e status 4xx/5xx para erro real.",
+    "- Em listas, retornar um array em um campo claro como items, results, data, imoveis, properties ou produtos.",
+    "- Para cards/listas, preferir campos como id, titulo, descricao, valor, imagem, imagens, link e status.",
+    "- Aceitar paginação com limit pequeno quando retornar lista.",
+    "- Não expor tokens no frontend.",
+    "- Se precisar de chave secreta, usar variável de ambiente e chamar pelo backend/server action/API route.",
+    "",
+    "6. No final, entregue pronto para eu cadastrar na InfraStudio:",
+    "- Nome da API",
+    "- Método HTTP",
+    "- URL final ou rota relativa do meu sistema",
+    "- Headers necessários, sem revelar segredo real",
+    "- Query params ou variáveis de URL, como {id}, {propertyId}, {titulo}, {query}",
+    "- Body esperado, se houver",
+    "- Campos obrigatórios",
+    "- Exemplo de resposta JSON",
+    "- Response Path recomendado",
+    "- Formato da resposta recomendado",
+    "- Apresentação recomendada",
+    "- Mapeamento visual recomendado: título, subtítulo, descrição, preço/valor, imagem, galeria, link e status",
+    "- Tipo de intenção da InfraStudio",
+    "- Escopo de uso da InfraStudio",
+    "- Se autoexecuta ou não",
+    "- Se exige confirmação ou não",
+    "- Descrição para o agente, pronta para colar no campo Descrição da InfraStudio",
+    "",
+    "Modelo da descrição para o agente:",
+    "- Diga quando usar esta API.",
+    "- Diga quando não usar esta API.",
+    "- Diga qual dado extrair da mensagem do cliente.",
+    "- Se for POST/PUT/PATCH/DELETE, diga que deve confirmar antes de executar.",
+    "",
+    "Contexto do projeto InfraStudio:",
+    JSON.stringify(
+      {
+        projeto: {
+          id: project?.id || null,
+          nome: project?.name || project?.nome || project?.title || null,
+          slug: project?.slug || null,
+          routeKey: project?.routeKey || null,
+        },
+        agente: {
+          id: project?.agent?.id || null,
+          nome: project?.agent?.name || project?.agent?.nome || null,
+          slug: project?.agent?.slug || null,
+        },
+      },
+      null,
+      2,
+    ),
+    "",
+    "Comece me fazendo as perguntas de descoberta com opções. Depois que eu responder, implemente a API no meu sistema e me entregue os dados prontos para cadastrar na InfraStudio.",
+  ].join("\n")
+}
+
 function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" } = {}) {
   const activeIntent = runtimeIntentTypeOptions.find((option) => option.value === form.runtimeIntentType)
   const activeScope = runtimeAvailabilityScopeOptions.find((option) => option.value === form.runtimeAvailabilityScope)
@@ -366,7 +482,7 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
     "- Runtime: define como o agente decide usar a API durante a conversa.",
     "- Authorization: configura autenticação. Use Bearer token para Authorization: Bearer <token>. Use API Key quando a API exigir um header/chave específica.",
     "- Headers: headers extras da requisição, além da autorização.",
-    "- Descrição: descrição interna para o usuário identificar a API no painel.",
+    "- Descrição: campo único usado pelo agente para decidir quando usar a API e também para identificar a API no painel.",
     "- Guia: botão lateral de ajuda operacional; abre como sheet para consultar sem sair da edição e não altera a API.",
     "",
     "Campos principais:",
@@ -374,8 +490,7 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
     "- API ativa: somente APIs ativas entram no runtime do agente. API inativa fica salva, mas não deve ser usada na conversa.",
     "- Método: GET para leitura/consulta. POST para criar/enviar dados. PUT/PATCH para atualizar. DELETE para remover, normalmente com confirmação forte.",
     "- URL: pode conter variáveis entre chaves, como {id}, {propertyId}, {titulo}, {query}. O nome dentro das chaves precisa bater com o campo/variável usado.",
-    "- Descrição interna: serve para organização do painel; não deve ser usada como única regra de decisão do agente.",
-    "- Descrição para decisão da IA: campo obrigatório quando a API está ativa. Deve dizer quando usar, quando não usar e qual parâmetro extrair da fala do cliente.",
+    "- Descrição: campo obrigatório quando a API está ativa. Deve dizer quando usar, quando não usar e qual parâmetro extrair da fala do cliente.",
     "",
     "Tipos de intenção do Runtime:",
     "- Fato genérico: consulta simples de informação já disponível na resposta da API. Use quando não há busca por item específico, catálogo ou cadastro.",
@@ -433,7 +548,7 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
     "- Para testar API de Item atual no Chat Widget real, o contexto do chat precisa receber id/propertyId.",
     "- Se Send retorna 200 mas o chat não usa a API, verifique se a API está ativa, vinculada ao agente, com escopo compatível e descrição para decisão preenchida.",
     "",
-    "Modelos de descrição para decisão da IA:",
+    "Modelos de descrição para o agente:",
     "- Busca de catálogo: Use esta API quando o cliente quiser buscar itens por nome, título, termo, categoria, bairro, cidade ou característica. Extraia da mensagem o valor para o parâmetro <parametro>. Não use quando o cliente informar id/propertyId.",
     "- Consulta por identificador: Use esta API somente quando a conversa já tiver id/propertyId/código exato do item atual. Não use para buscar por nome, título, bairro, cidade ou termo aberto.",
     "- Cadastro / envio: Use esta API somente depois de coletar todos os campos obrigatórios e confirmar com o cliente. Não execute sem confirmação explícita.",
@@ -444,7 +559,7 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
         nome: form.name,
         metodo: form.method,
         url: form.url,
-        descricaoInterna: form.description,
+        descricao: getApiAgentDescription(form),
         ativa: form.active,
         tipoIntencaoAtual: {
           value: form.runtimeIntentType,
@@ -456,7 +571,7 @@ function buildLlmApiGuidePrompt(form, { urlPathParams = [], responseValue = "" }
           label: activeScope?.label || "",
           description: activeScope?.description || "",
         },
-        descricaoParaDecisaoAtual: form.runtimeDescriptionForIntent,
+        descricaoParaAgenteAtual: form.runtimeDescriptionForIntent,
         apresentacaoAtual: {
           value: form.runtimePresentation,
           label: activePresentation?.label || "",
@@ -516,7 +631,7 @@ function buildApiListLlmGuidePrompt(project, apis = []) {
     ativa: api.active !== false,
     tipoIntencao: api.config?.runtime?.intentType || "generic_fact",
     escopoUso: api.config?.runtime?.availabilityScope || "always",
-    descricaoParaDecisao: api.config?.runtime?.descriptionForIntent || "",
+    descricaoParaAgente: getApiAgentDescription(api),
     autoexecuta: api.config?.runtime?.autoExecute === true,
     exigeConfirmacao: api.config?.runtime?.requiresConfirmation === true,
   }))
@@ -527,7 +642,7 @@ function buildApiListLlmGuidePrompt(project, apis = []) {
     "Contexto da lista de APIs deste projeto:",
     "- Este texto foi copiado pela lista inicial de APIs, antes de abrir uma API específica.",
     "- Use este contexto para orientar o usuário sobre qual API criar, editar, ativar, desativar ou separar por intenção.",
-    "- Ao avaliar conflito entre APIs, priorize Tipo de intenção, Escopo de uso e Descrição para decisão da IA.",
+    "- Ao avaliar conflito entre APIs, priorize Tipo de intenção, Escopo de uso e Descrição para o agente.",
     "- Se houver API de busca aberta e API de item atual, elas devem ter escopos diferentes para evitar escolha errada pelo agente.",
     "",
     "Projeto atual:",
@@ -551,7 +666,7 @@ function buildApiListLlmGuidePrompt(project, apis = []) {
     activeApis.length ? JSON.stringify(activeApis, null, 2) : "Nenhuma API cadastrada ainda.",
     "",
     "Checklist para orientar o usuário:",
-    "- Se a dúvida for cadastro de API nova, indique método, URL, campos, tipo de intenção, escopo, autoexecução, confirmação e descrição para decisão da IA.",
+    "- Se a dúvida for cadastro de API nova, indique método, URL, campos, tipo de intenção, escopo, autoexecução, confirmação e descrição para o agente.",
     "- Se a dúvida for erro de escolha do agente, revise se as APIs ativas têm escopos parecidos ou descrições vagas.",
     "- Se a API funciona no Send mas não no chat, revise vínculo com agente, API ativa, descrição para decisão da IA, escopo e contexto do Chat widget.",
     "- Se a API usa {id}, recomende Consulta por identificador + Item atual.",
@@ -682,14 +797,15 @@ function resolveRuntimeConfig(config) {
 }
 
 function normalizeInitialApi(api) {
+  const config = api.config ?? null
   return {
     id: api.id,
     name: api.name,
     url: api.url,
-    description: api.description || "",
+    description: getApiAgentDescription({ ...api, config }),
     active: api.active !== false,
     method: api.method || "GET",
-    config: api.config ?? null,
+    config,
   }
 }
 
@@ -712,7 +828,7 @@ function buildFormFromApi(api) {
   return {
     id: api?.id || null,
     name: api?.name || "",
-    description: api?.description || "",
+    description: runtime.runtimeDescriptionForIntent || api?.description || "",
     url: api?.url || "",
     method: api?.method || "GET",
     active: api?.active !== false,
@@ -723,6 +839,7 @@ function buildFormFromApi(api) {
     apiKeyName: authorization.apiKeyName,
     apiKeyValue: authorization.apiKeyValue,
     ...runtime,
+    runtimeDescriptionForIntent: runtime.runtimeDescriptionForIntent || api?.description || "",
     headerRows: buildHeaderRows(config?.http?.headers, authorization.reservedKeys),
     bodyFields: bodyFields.length ? bodyFields : emptyForm.bodyFields,
     bodyText: stringifyBody(config?.http?.body),
@@ -1171,8 +1288,8 @@ export function ApiSheetManager({
 
     try {
       if (form.active && !String(form.runtimeDescriptionForIntent || "").trim()) {
-        setEditorTab("runtime")
-        throw new Error("Informe a descrição para decisão da IA. Ela ajuda o agente a escolher esta API corretamente durante a conversa.")
+        setEditorTab("description")
+        throw new Error("Informe a descrição da API. Ela ajuda o agente a escolher esta API corretamente durante a conversa.")
       }
 
       setSaving(true)
@@ -1183,7 +1300,7 @@ export function ApiSheetManager({
         },
         body: JSON.stringify({
           nome: form.name,
-          descricao: form.description,
+          descricao: String(form.runtimeDescriptionForIntent || "").trim(),
           url: form.url,
           metodo: form.method,
           ativo: form.active,
@@ -1261,6 +1378,30 @@ export function ApiSheetManager({
     }
   }
 
+  async function copyAiStudioApiCreationPrompt() {
+    const prompt = buildAiStudioApiCreationPrompt(project)
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(prompt)
+      } else {
+        const textarea = document.createElement("textarea")
+        textarea.value = prompt
+        textarea.setAttribute("readonly", "")
+        textarea.style.position = "fixed"
+        textarea.style.opacity = "0"
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand("copy")
+        textarea.remove()
+      }
+
+      setStatus({ type: "success", message: "Instrução para AI Studio copiada." })
+    } catch {
+      setStatus({ type: "error", message: "Não foi possível copiar a instrução para AI Studio." })
+    }
+  }
+
   function handleSend() {
     sendDraftRequest()
   }
@@ -1301,7 +1442,7 @@ export function ApiSheetManager({
         body: JSON.stringify({
           api: {
             nome: form.name || "API sem nome",
-            descricao: form.description,
+            descricao: String(form.runtimeDescriptionForIntent || "").trim(),
             url: form.url,
             metodo: form.method,
             ativo: form.active,
@@ -1358,22 +1499,35 @@ export function ApiSheetManager({
       {!inEditor ? (
         <div className="-mr-6 min-h-0 flex-1 space-y-4 overflow-y-auto pr-6">
           {!loading ? (
-            <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-white">APIs do agente</p>
-                <p className="mt-1 text-xs leading-5 text-slate-500">
-                  Copie o contrato para tirar dúvidas sobre cadastro, conflito e uso das APIs.
-                </p>
+            <div className="grid gap-3 rounded-2xl border border-cyan-400/16 bg-[radial-gradient(circle_at_8%_0%,rgba(56,189,248,0.14),transparent_34%),linear-gradient(135deg,rgba(14,20,38,0.98),rgba(7,13,27,0.98))] px-4 py-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-white">APIs do agente</p>
+                  <p className="mt-1 text-xs leading-5 text-slate-400">
+                    A InfraStudio consome APIs do seu sistema. Se seu sistema foi criado com IA, copie a instrução abaixo e cole no AI Studio para ele guiar você pelas opções certas.
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={copyAiStudioApiCreationPrompt}
+                    className="h-9 shrink-0 gap-2 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-100 hover:bg-cyan-500/15"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Copiar para AI Studio
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={copyApiListGuideForLlm}
+                    className="h-9 shrink-0 gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 hover:bg-sky-500/15"
+                  >
+                    <ClipboardCopy className="h-3.5 w-3.5" />
+                    Copiar contrato
+                  </Button>
+                </div>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={copyApiListGuideForLlm}
-                className="h-9 shrink-0 gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 hover:bg-sky-500/15"
-              >
-                <ClipboardCopy className="h-3.5 w-3.5" />
-                Copiar para LLM (GPT)
-              </Button>
             </div>
           ) : null}
 
@@ -1631,22 +1785,6 @@ export function ApiSheetManager({
                   </div>
                 </div>
               </div>
-
-              <label className="block">
-                <span className={labelClassName}>Descrição para decisão da IA</span>
-                <textarea
-                  value={form.runtimeDescriptionForIntent}
-                  onChange={(event) => updateForm("runtimeDescriptionForIntent", event.target.value)}
-                  placeholder="Exemplo: Use esta API quando o cliente quiser buscar imóveis pelo nome, título, condomínio, bairro, cidade ou termo de busca. Extraia o termo principal e use no parâmetro titulo."
-                  className={cn(textareaClassName, "min-h-[120px]")}
-                  required={form.active}
-                />
-                {form.active ? (
-                  <span className="mt-2 block text-xs leading-5 text-slate-500">
-                    Obrigatório para API ativa. Ajuda o agente a decidir quando usar esta API.
-                  </span>
-                ) : null}
-              </label>
 
               <div className="grid gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <div>
@@ -2006,11 +2144,18 @@ export function ApiSheetManager({
               <label className="block">
                 <span className={labelClassName}>Descrição</span>
                 <textarea
-                  value={form.description}
-                  onChange={(event) => updateForm("description", event.target.value)}
-                  placeholder="Resumo interno para identificar a integração"
+                  value={form.runtimeDescriptionForIntent}
+                  onChange={(event) => {
+                    updateForm("runtimeDescriptionForIntent", event.target.value)
+                    updateForm("description", event.target.value)
+                  }}
+                  placeholder="Exemplo: Use esta API quando o cliente quiser buscar imóveis pelo nome, título, condomínio, bairro, cidade ou termo de busca. Extraia o termo principal e use no parâmetro titulo. Não use quando o cliente informar id ou propertyId."
                   className={cn(textareaClassName, "min-h-[220px]")}
+                  required={form.active}
                 />
+                <span className="mt-2 block text-xs leading-5 text-slate-500">
+                  Campo único usado pelo agente para escolher a API certa. Diga quando usar, quando não usar e qual dado extrair da mensagem.
+                </span>
               </label>
             </div>
           ) : null}
