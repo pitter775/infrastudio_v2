@@ -3,7 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { isStoreProductAvailable, normalizeSnapshotProduct, parseStoreProductRef, sanitizeText, slugifyProduct } from "./sanitize"
 
 const SNAPSHOT_SELECT_WITH_IMAGES =
-  "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, ml_date_created, ml_last_updated, updated_at"
+  "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, videos_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, ml_date_created, ml_last_updated, updated_at"
 const SNAPSHOT_SELECT_CHAT_LIST =
   "id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, ml_date_created, ml_last_updated, updated_at"
 const SNAPSHOT_SELECT_LEGACY =
@@ -12,7 +12,7 @@ const MERCADO_LIVRE_PUBLIC_API = "https://api.mercadolibre.com"
 
 function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
-  return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message) || /ml_date_created/i.test(message) || /ml_last_updated/i.test(message)
+  return /imagens_json/i.test(message) || /videos_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message) || /ml_date_created/i.test(message) || /ml_last_updated/i.test(message)
 }
 
 function applySnapshotSort(query, sort, options = {}) {

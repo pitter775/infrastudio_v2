@@ -73,6 +73,7 @@ function buildMercadoLivreAsset(item, index = 0) {
   const stockLabel = stockQuantity > 0 ? `${stockQuantity} em estoque` : ""
   const productSlug = sanitizeString(item?.slug) || slugifyProduct(item?.title)
   const images = [...new Set([sanitizeString(item?.thumbnail), ...(Array.isArray(item?.pictures) ? item.pictures : [])].filter(Boolean))].slice(0, 6)
+  const videos = Array.isArray(item?.videos) ? item.videos.filter(Boolean).slice(0, 4) : []
   const summary = sanitizeString(item?.descriptionPlain || item?.shortDescription || item?.descricaoLonga || item?.description)
 
   return {
@@ -90,6 +91,8 @@ function buildMercadoLivreAsset(item, index = 0) {
     targetUrl: sanitizeString(item?.permalink),
     publicUrl: images[0] ?? "",
     images,
+    videos,
+    videoId: sanitizeString(item?.videoId || item?.video_id || videos[0]?.id),
     whatsappText: [priceLabel, stockLabel].filter(Boolean).join("\n"),
     metadata: {
       sellerId: sanitizeString(item?.sellerId),
@@ -105,6 +108,8 @@ function buildMercadoLivreAsset(item, index = 0) {
       condition: sanitizeString(item?.condition),
       warranty: sanitizeString(item?.warranty),
       freeShipping: item?.freeShipping === true,
+      videoId: sanitizeString(item?.videoId || item?.video_id || videos[0]?.id),
+      videos,
       productSlug,
       attributes: Array.isArray(item?.attributes) ? item.attributes : [],
     },
@@ -189,6 +194,8 @@ function buildCatalogProductFromItem(item, options = {}) {
     cor: sanitizeString(cor),
     atributos: attributes,
     imagens: Array.isArray(item.pictures) ? item.pictures.filter(Boolean).slice(0, imageLimit) : [],
+    videos: Array.isArray(item.videos) ? item.videos.filter(Boolean).slice(0, isFull ? 4 : 2) : [],
+    videoId: sanitizeString(item.videoId || item.video_id || item.videos?.[0]?.id),
     descricaoLonga,
     variacoesResumo: variationHighlights,
     contextoDetalhado: isFocused,

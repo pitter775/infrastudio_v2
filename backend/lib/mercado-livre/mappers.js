@@ -12,6 +12,49 @@ function normalizeMercadoLivreImageUrl(value) {
   return normalized.replace(/-([A-Z])(\.(jpg|jpeg|png|webp)(\?.*)?)$/i, "-O$2")
 }
 
+function normalizeMercadoLivreVideo(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : { id: value }
+  const rawId = sanitizeString(source.id || source.video_id || source.videoId || source.youtubeId || source.youtube_id)
+  const url = sanitizeString(source.url || source.secure_url || source.permalink)
+  const youtubeMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{6,})/i)
+  const id = rawId || sanitizeString(youtubeMatch?.[1])
+
+  if (!id && !url) {
+    return null
+  }
+
+  const videos = normalizeMercadoLivreVideos(payload)
+
+  return {
+    id,
+    url,
+    provider: sanitizeString(source.provider) || (id ? "youtube" : "video"),
+    thumbnail: normalizeMercadoLivreImageUrl(source.thumbnail || source.thumbnail_url || source.picture_url),
+  }
+}
+
+function normalizeMercadoLivreVideos(payload) {
+  const candidates = [
+    ...(Array.isArray(payload?.videos) ? payload.videos : []),
+    ...(Array.isArray(payload?.video_ids) ? payload.video_ids : []),
+    payload?.video_id,
+  ]
+
+  const seen = new Set()
+  return candidates
+    .map(normalizeMercadoLivreVideo)
+    .filter(Boolean)
+    .filter((video) => {
+      const key = video.id || video.url
+      if (!key || seen.has(key)) {
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+    .slice(0, 4)
+}
+
 export function mapMercadoLivreItem(payload) {
   const attributes = Array.isArray(payload?.attributes)
     ? payload.attributes
@@ -83,6 +126,8 @@ export function mapMercadoLivreItem(payload) {
     channels: Array.isArray(payload?.channels) ? payload.channels.map((channel) => sanitizeString(channel)).filter(Boolean) : [],
     attributes,
     pictures,
+    videoId: videos[0]?.id || sanitizeString(payload?.video_id),
+    videos,
     variations,
     descriptionPlain: sanitizeString(payload?.descriptionPlain || payload?.description_plain),
     shortDescription: sanitizeString(payload?.shortDescription || payload?.short_description),

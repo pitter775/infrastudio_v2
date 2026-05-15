@@ -24,6 +24,35 @@ function sanitizeImageList(value) {
   return list.map((item) => sanitizeText(item, 500)).filter(Boolean).slice(0, 8)
 }
 
+function sanitizeVideoList(item) {
+  const candidates = [
+    ...(Array.isArray(item?.videos) ? item.videos : []),
+    item?.videoId,
+    item?.video_id,
+  ]
+  const seen = new Set()
+
+  return candidates
+    .map((candidate) => {
+      const source = candidate && typeof candidate === "object" && !Array.isArray(candidate) ? candidate : { id: candidate }
+      const id = sanitizeText(source.id || source.video_id || source.videoId || source.youtubeId || source.youtube_id, 120)
+      const url = sanitizeText(source.url || source.secure_url || source.permalink, 500)
+      const thumbnail = sanitizeText(source.thumbnail || source.thumbnail_url || source.picture_url, 500)
+      const provider = sanitizeText(source.provider, 40) || (id ? "youtube" : "video")
+      return id || url ? { id, url, thumbnail, provider } : null
+    })
+    .filter(Boolean)
+    .filter((video) => {
+      const key = video.id || video.url
+      if (!key || seen.has(key)) {
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+    .slice(0, 4)
+}
+
 function isMissingSyncStateTableError(error) {
   const message = String(error?.message || error || "").toLowerCase()
   const code = String(error?.code || "").trim()
@@ -33,7 +62,7 @@ function isMissingSyncStateTableError(error) {
 function isMissingSnapshotDateColumnError(error) {
   const code = String(error?.code || "").trim()
   const message = String(error?.message || error?.details || error || "").toLowerCase()
-  return code === "PGRST204" && (message.includes("ml_date_created") || message.includes("ml_last_updated"))
+  return code === "PGRST204" && (message.includes("ml_date_created") || message.includes("ml_last_updated") || message.includes("videos_json"))
 }
 
 function omitSnapshotDateColumns(row) {
@@ -41,7 +70,7 @@ function omitSnapshotDateColumns(row) {
     return row
   }
 
-  const { ml_date_created: _mlDateCreated, ml_last_updated: _mlLastUpdated, ...rest } = row
+  const { ml_date_created: _mlDateCreated, ml_last_updated: _mlLastUpdated, videos_json: _videosJson, ...rest } = row
   return rest
 }
 
@@ -89,6 +118,7 @@ function normalizeSyncState(row) {
 
 function buildIncrementalSnapshotPatch(projectId, item, previousRow = null) {
   const now = new Date().toISOString()
+  const videos = sanitizeVideoList(item)
   return {
     projeto_id: projectId,
     ml_item_id: sanitizeText(item?.id, 60),
@@ -96,6 +126,7 @@ function buildIncrementalSnapshotPatch(projectId, item, previousRow = null) {
     slug: sanitizeText(slugifyProduct(item?.title || previousRow?.titulo), 180),
     preco: Number(item?.price ?? previousRow?.preco ?? 0) || 0,
     thumbnail_url: sanitizeText(item?.thumbnail || item?.pictures?.[0] || previousRow?.thumbnail_url, 500),
+    videos_json: videos.length ? videos : Array.isArray(previousRow?.videos_json) ? previousRow.videos_json : [],
     permalink: sanitizeText(item?.permalink || previousRow?.permalink, 500),
     status: sanitizeText(item?.status || previousRow?.status, 40),
     estoque: Number(item?.availableQuantity ?? previousRow?.estoque ?? 0) || 0,
@@ -118,6 +149,7 @@ function hasIncrementalRowChanged(nextRow, previousRow = null) {
     sanitizeText(nextRow?.slug, 180) !== sanitizeText(previousRow?.slug, 180) ||
     Number(nextRow?.preco ?? 0) !== Number(previousRow?.preco ?? 0) ||
     sanitizeText(nextRow?.thumbnail_url, 500) !== sanitizeText(previousRow?.thumbnail_url, 500) ||
+    JSON.stringify(nextRow?.videos_json || []) !== JSON.stringify(previousRow?.videos_json || []) ||
     sanitizeText(nextRow?.permalink, 500) !== sanitizeText(previousRow?.permalink, 500) ||
     sanitizeText(nextRow?.status, 40) !== sanitizeText(previousRow?.status, 40) ||
     Number(nextRow?.estoque ?? 0) !== Number(previousRow?.estoque ?? 0) ||
@@ -239,6 +271,7 @@ function isSnapshotEligibleItem(item) {
 function buildSnapshotRow(projectId, item) {
   const now = new Date().toISOString()
   const images = sanitizeImageList(item?.pictures)
+  const videos = sanitizeVideoList(item)
   const thumbnail = sanitizeText(images[0], 500) || sanitizeText(item?.thumbnail, 500)
   return {
     projeto_id: projectId,
@@ -249,6 +282,7 @@ function buildSnapshotRow(projectId, item) {
     preco_original: 0,
     thumbnail_url: thumbnail,
     imagens_json: images,
+    videos_json: videos,
     permalink: sanitizeText(item?.permalink, 500),
     status: sanitizeText(item?.status, 40),
     estoque: Number(item?.availableQuantity ?? 0) || 0,
@@ -408,7 +442,7 @@ async function syncMercadoLivreSnapshotIncrementalForProject(project, options = 
   let supportsSnapshotDateColumns = true
   let existingResult = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("ml_item_id, titulo, slug, preco, thumbnail_url, permalink, status, estoque, categoria_id, categoria_nome, ml_date_created, ml_last_updated")
+    .select("ml_item_id, titulo, slug, preco, thumbnail_url, videos_json, permalink, status, estoque, categoria_id, categoria_nome, ml_date_created, ml_last_updated")
     .eq("projeto_id", project.id)
 
   if (existingResult.error && isMissingSnapshotDateColumnError(existingResult.error)) {

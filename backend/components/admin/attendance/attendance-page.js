@@ -15,6 +15,7 @@ import {
   ListTodo,
   MessageSquareText,
   Paperclip,
+  Play,
   SendHorizonal,
   Sparkles,
   Trash2,
@@ -533,12 +534,18 @@ function MessageBubble({ message, isAdmin = false }) {
                   )}
                 >
                   {asset.publicUrl ? (
-                    <div className="aspect-[4/3] w-full overflow-hidden bg-slate-950/45">
+                    <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-950/45">
                       <img
                         src={asset.publicUrl}
                         alt={asset.nome || "Produto"}
                         className="h-full w-full object-cover"
                       />
+                      {Array.isArray(asset.videos) && asset.videos.length ? (
+                        <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-slate-950/75 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                          <Play className="h-3 w-3 fill-current" />
+                          Vídeo
+                        </span>
+                      ) : null}
                     </div>
                   ) : null}
                   <div className="space-y-2 p-3">

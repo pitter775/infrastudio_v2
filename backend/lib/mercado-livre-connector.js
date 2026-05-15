@@ -110,6 +110,7 @@ function mapSnapshotProductToMercadoLivreItem(product) {
   }
 
   const pictures = Array.isArray(product?.images) ? product.images.map((image) => sanitizeString(image)).filter(Boolean) : []
+  const videos = Array.isArray(product?.videos) ? product.videos.filter(Boolean).slice(0, 4) : []
 
   return {
     id: sanitizeString(product?.itemId || product?.id),
@@ -141,6 +142,8 @@ function mapSnapshotProductToMercadoLivreItem(product) {
     channels: [],
     attributes: mapSnapshotAttributesToMercadoLivre(product?.attributes),
     pictures,
+    videoId: sanitizeString(product?.videoId || videos[0]?.id),
+    videos,
     variations: [],
     descriptionPlain: sanitizeString(product?.descriptionLong || product?.fullDescription),
     shortDescription: sanitizeString(product?.shortDescription),

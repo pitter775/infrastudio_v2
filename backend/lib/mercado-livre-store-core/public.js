@@ -6,13 +6,13 @@ import { getSupabaseAdminClient, getSupabaseAdminEnv } from "@/lib/supabase-admi
 
 import { isMissingStoreDomainColumnError, STORE_FIELDS, STORE_FIELDS_LEGACY } from "./constants"
 import { getSnapshotProductBySlug, listSnapshotCategoryFacetsByProjectId, listSnapshotProductsByProjectId } from "./snapshot"
-import { buildStoreProductRef, isStoreProductAvailable, normalizeSnapshotProduct, normalizeStore, parseStoreProductRef, sanitizeText, slugifyProduct } from "./sanitize"
+import { buildStoreProductRef, isStoreProductAvailable, normalizeMercadoLivreVideos, normalizeSnapshotProduct, normalizeStore, parseStoreProductRef, sanitizeText, slugifyProduct } from "./sanitize"
 
 const PRODUCT_RELATED_LIMIT = 50
 
 function isMissingSnapshotFieldError(error) {
   const message = String(error?.message || error || "")
-  return /imagens_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message) || /ml_date_created/i.test(message) || /ml_last_updated/i.test(message)
+  return /imagens_json/i.test(message) || /videos_json/i.test(message) || /categoria_nome/i.test(message) || /descricao_curta/i.test(message) || /descricao_longa/i.test(message) || /atributos_json/i.test(message) || /ml_date_created/i.test(message) || /ml_last_updated/i.test(message)
 }
 
 function productNeedsLiveDetails(product) {
@@ -21,6 +21,7 @@ function productNeedsLiveDetails(product) {
   }
 
   const images = Array.isArray(product.images) ? product.images.filter(Boolean) : []
+  const videos = Array.isArray(product.videos) ? product.videos.filter(Boolean) : []
   const attributes = Array.isArray(product.attributes) ? product.attributes : []
   const description = String(product.descriptionLong || product.shortDescription || "").trim()
 
@@ -41,6 +42,12 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
     : Array.isArray(liveProduct.pictures)
       ? liveProduct.pictures.filter(Boolean)
       : []
+  const liveVideos = normalizeMercadoLivreVideos(
+    Array.isArray(liveProduct.videos) && liveProduct.videos.length
+      ? liveProduct.videos
+      : liveProduct.videoId || liveProduct.video_id
+  )
+  const snapshotVideos = normalizeMercadoLivreVideos(snapshotProduct.videos)
 
   return {
     ...snapshotProduct,
@@ -58,6 +65,8 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
     unitPrice: snapshotProduct.unitPrice || liveProduct.unitPrice || 0,
     thumbnail: snapshotProduct.thumbnail || liveProduct.thumbnail,
     images: liveImages.length ? liveImages : Array.isArray(snapshotProduct.images) ? snapshotProduct.images.filter(Boolean) : [],
+    videos: liveVideos.length ? liveVideos : snapshotVideos,
+    videoId: liveVideos[0]?.id || snapshotVideos[0]?.id || snapshotProduct.videoId || liveProduct.videoId || "",
     permalink: snapshotProduct.permalink || liveProduct.permalink,
     status: liveProduct.status || snapshotProduct.status,
     stock: Number(liveProduct.availableQuantity ?? liveProduct.stock ?? snapshotProduct.stock ?? 0) || 0,
@@ -181,7 +190,7 @@ async function resolveFeaturedProducts(project, store, options = {}) {
 
   let { data, error } = await supabase
     .from("mercadolivre_produtos_snapshot")
-    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, ml_date_created, ml_last_updated, updated_at")
+    .select("id, ml_item_id, titulo, slug, preco, preco_original, thumbnail_url, imagens_json, videos_json, permalink, status, estoque, categoria_id, categoria_nome, descricao_curta, descricao_longa, atributos_json, ml_date_created, ml_last_updated, updated_at")
     .eq("projeto_id", project.id)
     .in("ml_item_id", itemIds)
     .eq("status", "active")
@@ -513,6 +522,8 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
           unitPrice: 0,
           thumbnail: liveProduct.thumbnail || "",
           images: Array.isArray(liveProduct.pictures) ? liveProduct.pictures.filter(Boolean) : [],
+          videos: normalizeMercadoLivreVideos(liveProduct.videos?.length ? liveProduct.videos : liveProduct.videoId || liveProduct.video_id),
+          videoId: liveProduct.videoId || liveProduct.video_id || "",
           permalink: liveProduct.permalink || "",
           status: liveProduct.status || "active",
           stock: Number(liveProduct.availableQuantity ?? 0) || 0,

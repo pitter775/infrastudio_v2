@@ -1,7 +1,7 @@
 "use client"
 
 import { useRef, useState } from "react"
-import { FileText, Info } from "lucide-react"
+import { FileText, Info, Play } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
@@ -67,31 +67,42 @@ export function ProductAssetCards({ assets, className }) {
 
   return (
     <div className={cn("mt-3 grid gap-3", className)}>
-      {products.map((asset, index) => (
-        <a
-          key={`${asset.id || "product"}-${index}`}
-          href={asset.targetUrl || asset.publicUrl || "#"}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="overflow-hidden rounded-2xl border border-sky-400/20 bg-sky-500/10 transition hover:border-sky-300/30 hover:bg-sky-500/15"
-        >
-          {asset.publicUrl ? (
-            <img src={asset.publicUrl} alt={asset.nome || "Produto"} className="h-40 w-full object-cover" />
-          ) : null}
-          <div className="space-y-2 px-3 py-3">
-            <div className="text-sm font-semibold text-white">{asset.nome || "Produto"}</div>
-            {asset.descricao ? <div className="text-xs leading-5 text-slate-300">{asset.descricao}</div> : null}
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
-                {asset.priceLabel || "Ver produto"}
+      {products.map((asset, index) => {
+        const hasVideo = Array.isArray(asset.videos) && asset.videos.length > 0
+        return (
+          <a
+            key={`${asset.id || "product"}-${index}`}
+            href={asset.targetUrl || asset.publicUrl || "#"}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="overflow-hidden rounded-2xl border border-sky-400/20 bg-sky-500/10 transition hover:border-sky-300/30 hover:bg-sky-500/15"
+          >
+            {asset.publicUrl ? (
+              <div className="relative">
+                <img src={asset.publicUrl} alt={asset.nome || "Produto"} className="h-40 w-full object-cover" />
+                {hasVideo ? (
+                  <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-slate-950/75 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                    <Play className="h-3 w-3 fill-current" />
+                    Vídeo
+                  </span>
+                ) : null}
               </div>
-              <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
-                Mercado Livre
+            ) : null}
+            <div className="space-y-2 px-3 py-3">
+              <div className="text-sm font-semibold text-white">{asset.nome || "Produto"}</div>
+              {asset.descricao ? <div className="text-xs leading-5 text-slate-300">{asset.descricao}</div> : null}
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-300">
+                  {asset.priceLabel || "Ver produto"}
+                </div>
+                <div className="rounded-full border border-white/10 bg-white/[0.05] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-200">
+                  Mercado Livre
+                </div>
               </div>
             </div>
-          </div>
-        </a>
-      ))}
+          </a>
+        )
+      })}
     </div>
   )
 }

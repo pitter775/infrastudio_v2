@@ -147,6 +147,76 @@ export function getStoreProductImages(product, options = {}) {
   return variant ? fallback.map((image) => getMercadoLivreImageVariant(image, variant)).filter(Boolean) : fallback
 }
 
+function getYoutubeVideoId(value) {
+  const normalized = String(value || '').trim()
+  if (!normalized) {
+    return ''
+  }
+
+  const match = normalized.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{6,})/i)
+  return match?.[1] || (/^[A-Za-z0-9_-]{6,}$/.test(normalized) ? normalized : '')
+}
+
+function normalizeStoreProductVideo(video) {
+  const source = video && typeof video === 'object' && !Array.isArray(video) ? video : { id: video }
+  const url = String(source.url || source.secure_url || source.permalink || '').trim()
+  const id = String(source.id || source.video_id || source.videoId || source.youtubeId || source.youtube_id || getYoutubeVideoId(url)).trim()
+  const thumbnail = String(source.thumbnail || source.thumbnail_url || source.picture_url || '').trim()
+
+  if (!id && !url) {
+    return null
+  }
+
+  const youtubeId = getYoutubeVideoId(id || url)
+  return {
+    id: id || youtubeId || url,
+    url,
+    provider: String(source.provider || (youtubeId ? 'youtube' : 'video')).trim(),
+    thumbnail: thumbnail || (youtubeId ? `https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg` : ''),
+    embedUrl: youtubeId ? `https://www.youtube-nocookie.com/embed/${youtubeId}` : '',
+  }
+}
+
+export function getStoreProductVideos(product) {
+  const candidates = [
+    ...(Array.isArray(product?.videos) ? product.videos : []),
+    product?.videoId,
+    product?.video_id,
+  ]
+  const seen = new Set()
+  return candidates
+    .map(normalizeStoreProductVideo)
+    .filter(Boolean)
+    .filter((video) => {
+      const key = video.id || video.url
+      if (!key || seen.has(key)) {
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+    .slice(0, 4)
+}
+
+export function getStoreProductMedia(product, options = {}) {
+  const images = getStoreProductImages(product, options).map((url, index) => ({
+    type: 'image',
+    id: `image-${index}-${url}`,
+    url,
+    thumbnail: getStoreProductImages(product)[index] || url,
+  }))
+  const videos = getStoreProductVideos(product).map((video, index) => ({
+    type: 'video',
+    id: `video-${index}-${video.id || video.url}`,
+    url: video.url,
+    thumbnail: video.thumbnail,
+    embedUrl: video.embedUrl,
+    provider: video.provider,
+  }))
+
+  return [...images, ...videos]
+}
+
 export function openStoreChat(widget) {
   if (typeof window === 'undefined') {
     return

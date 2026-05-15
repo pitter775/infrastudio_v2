@@ -15,7 +15,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { AlertCircle, BarChart3, CheckCircle2, LoaderCircle, RefreshCcw, ShoppingBag, TrendingUp, WalletCards } from 'lucide-react'
+import { AlertCircle, BarChart3, CheckCircle2, LoaderCircle, LockKeyhole, RefreshCcw, ShieldCheck, ShoppingBag, Sparkles, TrendingUp, WalletCards } from 'lucide-react'
 
 import {
   DASHBOARD_AXIS_TICK,
@@ -47,6 +47,27 @@ const STATUS_LABELS = {
 }
 
 const STATUS_COLORS = ['#38bdf8', '#34d399', '#fbbf24', '#fb7185', '#a78bfa', '#22d3ee']
+
+const MOCK_SALES_BY_DAY = [
+  { label: '01/05', Faturamento: 820, Pedidos: 3 },
+  { label: '06/05', Faturamento: 1280, Pedidos: 5 },
+  { label: '11/05', Faturamento: 960, Pedidos: 4 },
+  { label: '16/05', Faturamento: 1760, Pedidos: 7 },
+  { label: '21/05', Faturamento: 1420, Pedidos: 6 },
+  { label: '26/05', Faturamento: 2140, Pedidos: 8 },
+]
+
+const MOCK_STATUS_DATA = [
+  { status: 'paid', name: 'Pago', value: 14 },
+  { status: 'confirmed', name: 'Confirmado', value: 6 },
+  { status: 'payment_in_process', name: 'Pagamento em análise', value: 3 },
+]
+
+const MOCK_CATEGORY_DATA = [
+  { name: 'Categoria A', Receita: 2400 },
+  { name: 'Categoria B', Receita: 1850 },
+  { name: 'Categoria C', Receita: 1220 },
+]
 
 function RevenueAreaChart({ data, currency }) {
   return (
@@ -208,11 +229,134 @@ function getBuyerName(order) {
   return nickname && !/^\d+$/.test(nickname) ? nickname : 'Comprador'
 }
 
+function AnalyticsConsentModal({ activating, error, onClose, onConfirm }) {
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-md" role="dialog" aria-modal="true" aria-label="Ativar Dashboard Analítico">
+      <div className="w-full max-w-xl overflow-hidden rounded-2xl border border-sky-300/18 bg-[#071224] shadow-[0_28px_90px_-34px_rgba(56,189,248,0.6)]">
+        <div className="bg-[radial-gradient(circle_at_18%_0%,rgba(56,189,248,0.24),transparent_32%),radial-gradient(circle_at_88%_8%,rgba(52,211,153,0.18),transparent_26%),linear-gradient(135deg,#08111f_0%,#07172a_58%,#05101d_100%)] p-6">
+          <div className="flex items-start gap-4">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-sky-300/25 bg-sky-400/10 text-sky-100 shadow-[0_18px_55px_-30px_rgba(56,189,248,0.9)]">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-white">Ativar Dashboard Analítico</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-300">
+                Ao ativar o dashboard analítico, a InfraStudio poderá utilizar os dados da sua loja conectada para gerar gráficos, métricas e análises visuais dentro da sua própria conta.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div className="grid gap-4 p-6 text-sm leading-6 text-slate-300">
+          <p>
+            Esses dados são utilizados apenas para exibição e funcionamento das funcionalidades analíticas da plataforma e não são compartilhados com outros usuários.
+          </p>
+          <p>Você poderá desativar esta funcionalidade quando quiser.</p>
+          {error ? (
+            <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-4 py-3 text-rose-100">
+              {error}
+            </div>
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-3 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClose}
+              disabled={activating}
+              className="h-10 rounded-xl border border-white/10 bg-white/[0.04] px-4 text-sm text-slate-200 hover:bg-white/[0.08]"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={onConfirm}
+              disabled={activating}
+              className="h-10 rounded-xl border border-emerald-300/30 bg-emerald-400/15 px-4 text-sm font-semibold text-emerald-50 shadow-[0_18px_50px_-28px_rgba(52,211,153,0.9)] hover:bg-emerald-400/20"
+            >
+              {activating ? <LoaderCircle className="mr-2 h-4 w-4 animate-spin" /> : <ShieldCheck className="mr-2 h-4 w-4" />}
+              Ativar Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AnalyticsConsentPreview({ activating, error, loading, onActivateClick, onConfirm, onCloseModal, showModal, storeName }) {
+  return (
+    <div className="grid gap-4">
+      <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#071224] shadow-[0_28px_90px_-48px_rgba(0,0,0,0.95)]">
+        <div className="pointer-events-none absolute inset-0 z-10 bg-slate-950/18 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 z-20 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl border border-sky-300/18 bg-slate-950/72 p-6 text-center shadow-[0_24px_80px_-36px_rgba(56,189,248,0.75)] backdrop-blur-xl">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl border border-sky-300/25 bg-sky-400/10 text-sky-100">
+              <LockKeyhole className="h-6 w-6" />
+            </div>
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">Ativação opcional</p>
+            <h2 className="mt-2 text-2xl font-semibold text-white">Dashboard Analítico</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Os dados reais da loja só serão exibidos depois da sua ativação explícita.
+            </p>
+            <Button
+              type="button"
+              onClick={onActivateClick}
+              className="mt-5 h-11 rounded-xl border border-emerald-300/30 bg-emerald-400/15 px-5 text-sm font-semibold text-emerald-50 shadow-[0_18px_55px_-30px_rgba(52,211,153,0.95)] hover:bg-emerald-400/20"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Ativar Dashboard Analítico
+            </Button>
+            {loading ? <p className="mt-3 text-xs text-slate-500">Verificando preferência...</p> : null}
+          </div>
+        </div>
+
+        <div className="select-none opacity-70 blur-[1.5px]">
+          <div className="border-b border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(56,189,248,0.20),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(52,211,153,0.15),transparent_27%),linear-gradient(135deg,#070d1d_0%,#08182b_56%,#06131e_100%)] p-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-sky-200">
+                  <BarChart3 className="h-3.5 w-3.5" />
+                  Dashboard de vendas
+                </div>
+                <h2 className="mt-4 text-2xl font-semibold text-white md:text-3xl">{storeName || 'Loja Mercado Livre'}</h2>
+                <p className="mt-2 max-w-2xl text-sm text-slate-400">Prévia analítica com dados demonstrativos.</p>
+              </div>
+            </div>
+          </div>
+          <div className="grid gap-4 p-4">
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <DashboardKpiCard icon={WalletCards} label="Faturamento" value="R$ --" detail="Prévia protegida" tone="emerald" />
+              <DashboardKpiCard icon={ShoppingBag} label="Pedidos" value="--" detail="Prévia protegida" tone="sky" />
+              <DashboardKpiCard icon={TrendingUp} label="Ticket médio" value="R$ --" detail="Prévia protegida" tone="violet" />
+              <DashboardKpiCard icon={CheckCircle2} label="Itens vendidos" value="--" detail="Prévia protegida" tone="amber" />
+            </div>
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
+              <DashboardChartPanel title="Evolução de faturamento" description="Demonstração visual antes da ativação.">
+                <RevenueAreaChart data={MOCK_SALES_BY_DAY} currency="BRL" />
+              </DashboardChartPanel>
+              <DashboardChartPanel title="Pedidos por status" description="Distribuição demonstrativa.">
+                <StatusDonutChart data={MOCK_STATUS_DATA} />
+              </DashboardChartPanel>
+            </div>
+            <DashboardChartPanel title="Vendas por categoria" description="Dados neutros até a ativação.">
+              <CategoryBarChart data={MOCK_CATEGORY_DATA} currency="BRL" />
+            </DashboardChartPanel>
+          </div>
+        </div>
+      </div>
+
+      {showModal ? <AnalyticsConsentModal activating={activating} error={error} onClose={onCloseModal} onConfirm={onConfirm} /> : null}
+    </div>
+  )
+}
+
 export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMeta, storeName, onStartOAuth }) {
   const [period, setPeriod] = useState('30d')
   const [dashboard, setDashboard] = useState(null)
+  const [analyticsConsent, setAnalyticsConsent] = useState(null)
   const [loading, setLoading] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [activatingAnalytics, setActivatingAnalytics] = useState(false)
+  const [showConsentModal, setShowConsentModal] = useState(false)
   const [error, setError] = useState('')
 
   const hasConnector = Boolean(connectorMeta?.id)
@@ -255,6 +399,7 @@ export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMe
       }
 
       setDashboard(data.dashboard || null)
+      setAnalyticsConsent(data.consent || { enabled: false })
     } catch {
       setDashboard(null)
       setError('Não foi possível carregar o dashboard.')
@@ -287,10 +432,41 @@ export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMe
       }
 
       setDashboard(data.dashboard || null)
+      if (data.dashboard || analyticsConsent?.enabled) {
+        setAnalyticsConsent((current) => current || { enabled: true })
+      }
     } catch {
       setError('Não foi possível sincronizar as vendas.')
     } finally {
       setSyncing(false)
+    }
+  }
+
+  async function handleActivateAnalytics() {
+    setActivatingAnalytics(true)
+    setError('')
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/sales/dashboard`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        setError(data.error || 'Não foi possível ativar o dashboard analítico.')
+        return
+      }
+
+      setAnalyticsConsent(data.consent || { enabled: true })
+      setShowConsentModal(false)
+      await loadDashboard()
+    } catch {
+      setError('Não foi possível ativar o dashboard analítico.')
+    } finally {
+      setActivatingAnalytics(false)
     }
   }
 
@@ -325,9 +501,25 @@ export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMe
   }
 
   const hasSalesData = Boolean(dashboard?.hasSalesData)
+  const analyticsEnabled = analyticsConsent?.enabled === true
+
+  if (!analyticsEnabled) {
+    return (
+      <AnalyticsConsentPreview
+        activating={activatingAnalytics}
+        error={error}
+        loading={loading}
+        onActivateClick={() => setShowConsentModal(true)}
+        onCloseModal={() => setShowConsentModal(false)}
+        onConfirm={handleActivateAnalytics}
+        showModal={showConsentModal}
+        storeName={connectorMeta.oauthNickname || storeName}
+      />
+    )
+  }
 
   return (
-    <div className="grid gap-4">
+    <div className="grid animate-in fade-in-0 slide-in-from-bottom-2 duration-500 gap-4">
       <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#071224] shadow-[0_28px_90px_-48px_rgba(0,0,0,0.95)]">
         <div className="border-b border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(56,189,248,0.20),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(52,211,153,0.15),transparent_27%),linear-gradient(135deg,#070d1d_0%,#08182b_56%,#06131e_100%)] p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">

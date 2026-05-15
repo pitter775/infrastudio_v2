@@ -284,6 +284,8 @@ function buildChatProductContext(product, store, categoryLabel = "") {
     link: product.permalink || "",
     imagem: product.thumbnail || "",
     imagens: Array.isArray(product.images) ? product.images.filter(Boolean).slice(0, useFullChatContext ? 8 : 3) : [],
+    videos: Array.isArray(product.videos) ? product.videos.filter(Boolean).slice(0, useFullChatContext ? 4 : 2) : [],
+    videoId: product.videoId || product.videos?.[0]?.id || "",
     availableQuantity: Number(product.stock ?? 0) || 0,
     stock: Number(product.stock ?? 0) || 0,
     status: product.status || "",

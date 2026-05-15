@@ -3,23 +3,60 @@
 import Link from 'next/link'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Loader2, Play, X } from 'lucide-react'
 
-import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, formatStoreInstallmentText, getStoreProductImages, trackStoreEvent } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, formatStoreInstallmentText, getStoreProductImages, getStoreProductVideos, trackStoreEvent } from '@/components/store/store-utils'
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
+}
+
+function ProductVideoDialog({ onClose, product, video }) {
+  if (!video) {
+    return null
+  }
+
+  return (
+    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-slate-950/78 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={`Vídeo de ${product?.title || 'produto'}`}>
+      <div className="relative w-full max-w-3xl overflow-hidden rounded-[8px] bg-black shadow-[0_28px_70px_-28px_rgba(0,0,0,0.7)]">
+        <button
+          type="button"
+          onClick={onClose}
+          className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full bg-white/90 text-slate-950 shadow-sm transition hover:bg-white"
+          aria-label="Fechar vídeo"
+        >
+          <X className="h-4 w-4" />
+        </button>
+        <div className="aspect-video w-full bg-black">
+          {video.embedUrl ? (
+            <iframe
+              src={video.embedUrl}
+              title={`Vídeo de ${product?.title || 'produto'}`}
+              className="h-full w-full"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            />
+          ) : (
+            <video src={video.url} poster={video.thumbnail || undefined} controls autoPlay className="h-full w-full object-contain" />
+          )}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export function StoreProductCard({ storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card', variant = 'default' }) {
   const href = buildStoreProductHref(storeSlug, product)
   const images = getStoreProductImages(product)
   const largeImages = getStoreProductImages(product, { variant: 'F' })
+  const videos = getStoreProductVideos(product)
   const [imageIndex, setImageIndex] = useState(0)
   const [isOpening, setIsOpening] = useState(false)
+  const [activeVideo, setActiveVideo] = useState(null)
   const palette = buildStoreAccentPalette(accentColor)
   const image = largeImages[imageIndex] || images[imageIndex] || largeImages[0] || images[0] || ''
   const hasGallery = images.length > 1
+  const hasVideo = videos.length > 0
   const statusLabel = String(product.status || '').trim()
   const categoryLabel = String(product.categoryLabel || product.categoryId || '').trim()
   const visibleCategoryLabel = shouldHideCategoryCode(categoryLabel) ? '' : categoryLabel
@@ -33,9 +70,26 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
       : 'Produto publicado com checkout final no Mercado Livre e atendimento direto pela loja.')
   const marketplaceInstallment = formatStoreInstallmentText(product)
 
+  function openVideo(event) {
+    event.preventDefault()
+    event.stopPropagation()
+    setActiveVideo(videos[0] || null)
+  }
+
   if (variant === 'marketplace') {
     return (
-      <div className="snap-start">
+      <div className="snap-start relative">
+        {hasVideo ? (
+          <button
+            type="button"
+            onClick={openVideo}
+            className="absolute left-1 top-1 z-20 inline-flex items-center gap-1 rounded-[3px] bg-slate-950/82 px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md transition hover:bg-slate-900"
+            aria-label="Abrir vídeo do produto"
+          >
+            <Play className="h-2.5 w-2.5 fill-current" />
+            Vídeo
+          </button>
+        ) : null}
         <Link
           href={href}
           onClick={() => {
@@ -74,7 +128,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
 
             <div className="absolute left-1 top-1 flex max-w-[calc(100%-8px)] flex-wrap gap-1">
               {visibleCategoryLabel ? (
-                <span className="inline-flex max-w-full truncate rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md" style={{ backgroundColor: `${palette.accentDark}d9` }}>
+                <span className={hasVideo ? 'ml-[52px] inline-flex max-w-full truncate rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md' : 'inline-flex max-w-full truncate rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md'} style={{ backgroundColor: `${palette.accentDark}d9` }}>
                   {visibleCategoryLabel}
                 </span>
               ) : null}
@@ -99,7 +153,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
                   type="button"
                   onClick={showNextImage}
                   className="absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white/34 text-slate-900 shadow-[0_4px_12px_rgba(0,0,0,0.10)] backdrop-blur-md transition hover:scale-105 hover:bg-white/48 group-hover:inline-flex"
-                  aria-label="Proxima imagem"
+                  aria-label="Próxima imagem"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </button>
@@ -132,10 +186,11 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
             </div>
             {marketplaceInstallment ? <div className="mt-1 text-[12px] leading-4 text-[#333333]">{marketplaceInstallment}</div> : null}
             <div className="mt-2 text-[12px] font-semibold leading-4 text-[#00a650]">
-              Frete gratis <span className="font-normal text-[#777777]">por ser sua primeira compra</span>
+              Frete grátis <span className="font-normal text-[#777777]">por ser sua primeira compra</span>
             </div>
           </div>
         </Link>
+        <ProductVideoDialog video={activeVideo} product={product} onClose={() => setActiveVideo(null)} />
       </div>
     )
   }
@@ -164,7 +219,19 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, amount: 0.2 }}
       transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+      className="relative"
     >
+      {hasVideo ? (
+        <button
+          type="button"
+          onClick={openVideo}
+          className="absolute left-1 top-1 z-20 inline-flex items-center gap-1 rounded-[3px] bg-slate-950/82 px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md transition hover:bg-slate-900"
+          aria-label="Abrir vídeo do produto"
+        >
+          <Play className="h-2.5 w-2.5 fill-current" />
+          Vídeo
+        </button>
+      ) : null}
       <Link
         href={href}
         onClick={() => {
@@ -200,7 +267,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
 
           <div className="absolute left-1 top-1 flex max-w-[calc(100%-8px)] flex-wrap gap-1">
             {visibleCategoryLabel ? (
-              <span className="inline-flex max-w-full truncate rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md" style={{ backgroundColor: `${palette.accentDark}d9` }}>
+              <span className={hasVideo ? 'ml-[52px] inline-flex max-w-full truncate rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md' : 'inline-flex max-w-full truncate rounded-[3px] px-1.5 py-0.5 text-[7px] font-bold uppercase leading-none tracking-[0.08em] text-white shadow-[0_4px_10px_rgba(15,23,42,0.12)] backdrop-blur-md'} style={{ backgroundColor: `${palette.accentDark}d9` }}>
                 {visibleCategoryLabel}
               </span>
             ) : null}
@@ -225,7 +292,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
                 type="button"
                 onClick={showNextImage}
                 className="absolute right-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/34 text-slate-900 shadow-[0_16px_32px_-18px_rgba(15,23,42,0.20)] backdrop-blur-md transition hover:scale-105 hover:bg-white/48"
-                aria-label="Proxima imagem"
+                aria-label="Próxima imagem"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -286,6 +353,7 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
           </div>
         </div>
       </Link>
+      <ProductVideoDialog video={activeVideo} product={product} onClose={() => setActiveVideo(null)} />
     </motion.div>
   )
 }

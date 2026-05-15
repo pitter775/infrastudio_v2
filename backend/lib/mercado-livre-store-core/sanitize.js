@@ -60,6 +60,42 @@ function normalizeMercadoLivreImageUrl(value) {
   return normalized.replace(/-([A-Z])(\.(jpg|jpeg|png|webp)(\?.*)?)$/i, "-O$2")
 }
 
+function normalizeMercadoLivreVideo(value) {
+  const source = value && typeof value === "object" && !Array.isArray(value) ? value : { id: value }
+  const rawId = sanitizeText(source.id || source.video_id || source.videoId || source.youtubeId || source.youtube_id, 120)
+  const url = sanitizeText(source.url || source.secure_url || source.permalink, 500)
+  const youtubeMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{6,})/i)
+  const id = rawId || sanitizeText(youtubeMatch?.[1], 120)
+
+  if (!id && !url) {
+    return null
+  }
+
+  return {
+    id,
+    url,
+    provider: sanitizeText(source.provider, 40) || (id ? "youtube" : "video"),
+    thumbnail: normalizeMercadoLivreImageUrl(source.thumbnail || source.thumbnail_url || source.picture_url),
+  }
+}
+
+function normalizeMercadoLivreVideos(value) {
+  const list = Array.isArray(value) ? value : value ? [value] : []
+  const seen = new Set()
+  return list
+    .map(normalizeMercadoLivreVideo)
+    .filter(Boolean)
+    .filter((video) => {
+      const key = video.id || video.url
+      if (!key || seen.has(key)) {
+        return false
+      }
+      seen.add(key)
+      return true
+    })
+    .slice(0, 4)
+}
+
 function sanitizeColor(value) {
   const normalized = sanitizeText(value, 16)
   return /^#([0-9a-f]{6}|[0-9a-f]{3})$/i.test(normalized) ? normalized : "#0ea5e9"
@@ -227,6 +263,7 @@ function normalizeSnapshotProduct(row) {
   const images = Array.isArray(row.imagens_json)
     ? row.imagens_json.map((item) => normalizeMercadoLivreImageUrl(item)).filter(Boolean).slice(0, 8)
     : []
+  const videos = normalizeMercadoLivreVideos(row.videos_json)
   const thumbnail = normalizeMercadoLivreImageUrl(row.thumbnail_url) || images[0] || ""
   return {
     id: row.ml_item_id || row.id || null,
@@ -241,6 +278,8 @@ function normalizeSnapshotProduct(row) {
     unitPrice: Number(row.preco_por_unidade ?? 0) || 0,
     thumbnail,
     images,
+    videos,
+    videoId: videos[0]?.id || "",
     permalink: sanitizeText(row.permalink, 500),
     status: sanitizeText(row.status, 40),
     stock: Number(row.estoque ?? 0) || 0,
@@ -303,4 +342,5 @@ export {
   slugify,
   slugifyProduct,
   sortSnapshotProducts,
+  normalizeMercadoLivreVideos,
 }

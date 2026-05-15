@@ -36,6 +36,8 @@ export function extractRecentMercadoLivreProductsFromAssets(assets) {
       imagens: Array.isArray(asset.images)
         ? asset.images.filter((item) => typeof item === "string" && item.trim()).slice(0, 6)
         : [],
+      videos: Array.isArray(asset.videos) ? asset.videos.filter(Boolean).slice(0, 4) : [],
+      videoId: typeof asset.videoId === "string" ? asset.videoId : typeof asset.metadata?.videoId === "string" ? asset.metadata.videoId : null,
       sellerId: typeof asset.metadata?.sellerId === "string" ? asset.metadata.sellerId : null,
       sellerName: typeof asset.metadata?.sellerName === "string" ? asset.metadata.sellerName : null,
       availableQuantity:

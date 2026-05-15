@@ -219,6 +219,13 @@ function buildProductStructuredData(store, product) {
     return null
   }
 
+  const videos = Array.isArray(product.videos) ? product.videos.filter(Boolean).slice(0, 4) : []
+  const video = videos[0] || null
+  const videoId = String(video?.id || product.videoId || "").trim()
+  const videoUrl = String(video?.url || "").trim()
+  const videoThumbnail = String(video?.thumbnail || product.thumbnail || "").trim()
+  const embedUrl = videoId ? `https://www.youtube-nocookie.com/embed/${videoId}` : ""
+
   return {
     "@context": "https://schema.org",
     "@type": "Product",
@@ -240,6 +247,17 @@ function buildProductStructuredData(store, product) {
       "@type": "Brand",
       name: store.name,
     },
+    video: video || videoId
+      ? {
+          "@type": "VideoObject",
+          name: product.title,
+          description: product.shortDescription || product.descriptionLong || `Vídeo do produto ${product.title}`,
+          thumbnailUrl: videoThumbnail ? [videoThumbnail] : undefined,
+          uploadDate: product.mercadoLivreDateCreated || product.updatedAt || undefined,
+          embedUrl: embedUrl || undefined,
+          contentUrl: videoUrl || undefined,
+        }
+      : undefined,
   }
 }
 

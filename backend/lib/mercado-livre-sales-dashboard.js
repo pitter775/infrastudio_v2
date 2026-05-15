@@ -35,6 +35,10 @@ const ITEM_SELECT = [
 const SYNC_STATE_SELECT = [
   "projeto_id",
   "connector_id",
+  "analytics_enabled",
+  "analytics_enabled_at",
+  "analytics_enabled_by",
+  "analytics_disabled_at",
   "sync_in_progress",
   "sync_mode",
   "last_success_at",
@@ -51,6 +55,15 @@ const SYNC_STATE_SELECT = [
 
 const CANCELLED_STATUSES = new Set(["cancelled", "canceled"])
 const PAID_STATUSES = new Set(["paid"])
+
+function normalizeAnalyticsConsent(row) {
+  return {
+    enabled: row?.analytics_enabled === true,
+    enabledAt: row?.analytics_enabled_at || null,
+    enabledBy: row?.analytics_enabled_by || null,
+    disabledAt: row?.analytics_disabled_at || null,
+  }
+}
 
 function sanitizeString(value) {
   const normalized = String(value || "").trim()
@@ -355,11 +368,68 @@ async function upsertSyncState(supabase, projectId, payload) {
   )
 }
 
+async function loadSyncState(supabase, projectId) {
+  const { data, error } = await supabase
+    .from("mercadolivre_vendas_sync_state")
+    .select(SYNC_STATE_SELECT)
+    .eq("projeto_id", projectId)
+    .maybeSingle()
+
+  if (error) {
+    throw error
+  }
+
+  return data || null
+}
+
+export async function enableMercadoLivreSalesAnalyticsForUser(project, user) {
+  if (!project?.id || (!user?.id && user?.role !== "admin")) {
+    return { consent: normalizeAnalyticsConsent(null), error: "Projeto não encontrado." }
+  }
+
+  const supabase = getSupabaseAdminClient()
+  const now = new Date().toISOString()
+  const { data, error } = await supabase
+    .from("mercadolivre_vendas_sync_state")
+    .upsert(
+      {
+        projeto_id: project.id,
+        analytics_enabled: true,
+        analytics_enabled_at: now,
+        analytics_enabled_by: user.id || null,
+        analytics_disabled_at: null,
+        updated_at: now,
+      },
+      { onConflict: "projeto_id" },
+    )
+    .select(SYNC_STATE_SELECT)
+    .single()
+
+  if (error) {
+    console.error("[mercado-livre-sales] failed to enable analytics consent", error)
+    return { consent: normalizeAnalyticsConsent(null), error: "Não foi possível ativar o dashboard analítico." }
+  }
+
+  return { consent: normalizeAnalyticsConsent(data), error: null }
+}
+
 export async function syncMercadoLivreSalesForUser(project, user, options = {}) {
   const supabase = getSupabaseAdminClient()
   const pageLimit = Math.min(Math.max(toNumber(options.limit, 20), 1), 20)
   const maxPages = Math.min(Math.max(toNumber(options.pages, 5), 1), 10)
   const startedAt = new Date().toISOString()
+
+  let currentSyncState = null
+  try {
+    currentSyncState = await loadSyncState(supabase, project.id)
+  } catch (error) {
+    console.error("[mercado-livre-sales] failed to load analytics consent before sync", error)
+    return { syncedOrders: 0, syncedItems: 0, connector: null, error: "Não foi possível validar a ativação do dashboard." }
+  }
+
+  if (currentSyncState?.analytics_enabled !== true) {
+    return { syncedOrders: 0, syncedItems: 0, connector: null, error: "Ative o Dashboard Analítico antes de sincronizar as vendas." }
+  }
 
   await upsertSyncState(supabase, project.id, {
     sync_in_progress: true,
@@ -488,28 +558,38 @@ export async function syncMercadoLivreSalesForUser(project, user, options = {}) 
 
 export async function getMercadoLivreSalesDashboardForUser(project, user, options = {}) {
   if (!project?.id || (!user?.id && user?.role !== "admin")) {
-    return { dashboard: null, error: "Projeto não encontrado." }
+    return { dashboard: null, consent: normalizeAnalyticsConsent(null), error: "Projeto não encontrado." }
   }
 
   const supabase = getSupabaseAdminClient()
   const range = resolveDateRange(options)
   const limit = Math.min(Math.max(toNumber(options.limit, 2000), 100), 5000)
+  let syncState = null
 
-  const [{ data: syncState }, ordersResult] = await Promise.all([
-    supabase.from("mercadolivre_vendas_sync_state").select(SYNC_STATE_SELECT).eq("projeto_id", project.id).maybeSingle(),
-    supabase
-      .from("mercadolivre_pedidos_snapshot")
-      .select(ORDER_SELECT)
-      .eq("projeto_id", project.id)
-      .gte("date_created", range.from)
-      .lte("date_created", range.to)
-      .order("date_created", { ascending: false, nullsFirst: false })
-      .limit(limit),
-  ])
+  try {
+    syncState = await loadSyncState(supabase, project.id)
+  } catch (error) {
+    console.error("[mercado-livre-sales] failed to load analytics consent", error)
+    return { dashboard: null, consent: normalizeAnalyticsConsent(null), error: "Não foi possível carregar a preferência do dashboard." }
+  }
+
+  const consent = normalizeAnalyticsConsent(syncState)
+  if (!consent.enabled) {
+    return { dashboard: null, consent, error: null }
+  }
+
+  const ordersResult = await supabase
+    .from("mercadolivre_pedidos_snapshot")
+    .select(ORDER_SELECT)
+    .eq("projeto_id", project.id)
+    .gte("date_created", range.from)
+    .lte("date_created", range.to)
+    .order("date_created", { ascending: false, nullsFirst: false })
+    .limit(limit)
 
   if (ordersResult.error) {
     console.error("[mercado-livre-sales] failed to load dashboard orders", ordersResult.error)
-    return { dashboard: null, error: "Não foi possível carregar o dashboard de vendas." }
+    return { dashboard: null, consent, error: "Não foi possível carregar o dashboard de vendas." }
   }
 
   const orders = ordersResult.data || []
@@ -552,6 +632,7 @@ export async function getMercadoLivreSalesDashboardForUser(project, user, option
 
   return {
     dashboard: buildDashboardPayload({ orders, items, syncState, range, categoryNameMap }),
+    consent,
     error: null,
   }
 }

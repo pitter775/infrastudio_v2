@@ -723,6 +723,9 @@
       ".chat-product-carousel .chat-product-media { touch-action: pan-x pan-y pinch-zoom; }",
       ".chat-product-media img { display: block; width: 100%; height: 112px; max-height: 112px; object-fit: cover; user-select: none; -webkit-user-drag: none; }",
       ".chat-product-carousel.is-single .chat-product-media img { height: 188px; max-height: 188px; }",
+      ".chat-product-media > .chat-asset-preview { width: 100%; height: 100%; }",
+      ".chat-product-video-badge { position: absolute; left: 7px; top: 7px; z-index: 2; display: inline-flex; align-items: center; gap: 4px; border-radius: 999px; background: rgba(15,23,42,0.72); color: white; padding: 4px 6px; font-size: 9px; font-weight: 700; line-height: 1; backdrop-filter: blur(6px); }",
+      ".chat-product-video-badge .chat-icon { width: 10px; height: 10px; fill: currentColor; }",
       ".chat-product-gallery-dots { position: absolute; left: 50%; bottom: 7px; z-index: 1; display: inline-flex; gap: 4px; transform: translateX(-50%); padding: 4px 6px; border-radius: 999px; background: rgba(15,23,42,0.26); backdrop-filter: blur(6px); }",
       ".chat-product-gallery-dot { width: 5px; height: 5px; border-radius: 999px; background: rgba(255,255,255,0.42); transition: transform .18s ease, background-color .18s ease; }",
       ".chat-product-gallery-dot.is-active { background: rgba(255,255,255,0.96); transform: scale(1.15); }",
@@ -1087,6 +1090,10 @@
 
     function createAudioIcon() {
       return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5 13v-2M9 16V8M13 14v-4M17 17V7M21 13v-2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>';
+    }
+
+    function createPlayIcon() {
+      return '<span class="chat-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.9v12.2c0 .8.9 1.3 1.6.9l9.5-6.1a1.1 1.1 0 0 0 0-1.8L9.6 5c-.7-.4-1.6.1-1.6.9Z"/></svg></span>';
     }
 
     function createResetIcon() {
@@ -2147,6 +2154,10 @@
       if (productAction) {
         actions.appendChild(productAction);
       }
+      var videoAction = createProductVideoAction(asset);
+      if (videoAction) {
+        actions.appendChild(videoAction);
+      }
       var askAction = createProductAskAction(asset);
       if (askAction) {
         actions.appendChild(askAction);
@@ -2192,13 +2203,84 @@
       }).slice(0, 6);
     }
 
+    function normalizeProductVideos(asset) {
+      var videos = [];
+      if (asset && Array.isArray(asset.videos)) {
+        asset.videos.forEach(function (video) {
+          var source = video && typeof video === "object" ? video : { id: video };
+          var id = String(source.id || source.video_id || source.videoId || source.youtubeId || source.youtube_id || "").trim();
+          var url = String(source.url || source.secure_url || source.permalink || "").trim();
+          var thumbnail = String(source.thumbnail || source.thumbnail_url || source.picture_url || "").trim();
+          if (id || url) {
+            videos.push({ id: id, url: url, thumbnail: thumbnail });
+          }
+        });
+      }
+      var directVideoId = String((asset && (asset.videoId || asset.video_id || asset.metadata?.videoId)) || "").trim();
+      if (directVideoId) {
+        videos.push({ id: directVideoId, url: "", thumbnail: "" });
+      }
+
+      var seen = {};
+      return videos.filter(function (video) {
+        var key = video.id || video.url;
+        if (!key || seen[key]) {
+          return false;
+        }
+        seen[key] = true;
+        return true;
+      }).slice(0, 4);
+    }
+
+    function resolveProductVideoUrl(asset) {
+      var videos = normalizeProductVideos(asset);
+      var first = videos[0];
+      if (!first) {
+        return "";
+      }
+      if (first.url) {
+        return first.url;
+      }
+      if (first.id) {
+        return "https://www.youtube.com/watch?v=" + encodeURIComponent(first.id);
+      }
+      return "";
+    }
+
+    function createProductVideoAction(asset) {
+      var videoUrl = resolveProductVideoUrl(asset);
+      if (!videoUrl) {
+        return null;
+      }
+
+      var action = document.createElement("a");
+      action.className = "chat-asset-action";
+      action.href = videoUrl;
+      action.target = "_blank";
+      action.rel = "noreferrer noopener";
+      action.setAttribute("aria-label", "Abrir vídeo do produto");
+      action.innerHTML = createPlayIcon() + "<span>Vídeo</span>";
+      return action;
+    }
+
     function createProductAssetMedia(asset, options) {
       var settings = options && typeof options === "object" ? options : {};
       var images = normalizeProductImages(asset);
+      var videos = normalizeProductVideos(asset);
       if (settings.compact === true) {
         images = images.slice(0, 1);
       }
       if (!images.length) {
+        if (videos.length) {
+          var videoPreview = document.createElement("div");
+          videoPreview.className = "chat-product-media";
+          var videoBadgeOnly = document.createElement("span");
+          videoBadgeOnly.className = "chat-product-video-badge";
+          videoBadgeOnly.innerHTML = createPlayIcon() + "<span>Vídeo</span>";
+          videoPreview.appendChild(videoBadgeOnly);
+          videoPreview.appendChild(createAssetPreviewBadge({ arquivoNome: "VIDEO", mimeType: "", categoria: "preview" }));
+          return videoPreview;
+        }
         return createAssetPreviewBadge({ arquivoNome: "PROD", mimeType: "", categoria: "preview" });
       }
 
@@ -2210,6 +2292,13 @@
       image.alt = asset.nome || "Produto";
       image.loading = "lazy";
       media.appendChild(image);
+
+      if (videos.length) {
+        var videoBadge = document.createElement("span");
+        videoBadge.className = "chat-product-video-badge";
+        videoBadge.innerHTML = createPlayIcon() + "<span>Vídeo</span>";
+        media.appendChild(videoBadge);
+      }
 
       if (images.length <= 1) {
         return media;
