@@ -319,7 +319,7 @@ function ProductPurchasePanel({
   className = "",
 }) {
   return (
-    <section className={`rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6 ${className}`}>
+    <section className={`-mx-5 rounded-none bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:mx-0 sm:rounded-[8px] sm:p-6 ${className}`}>
       <div className="text-xs uppercase tracking-[0.22em] text-slate-500">{result.store.name}</div>
       <div className="mt-4 flex flex-wrap gap-2">
         {visibleCategoryLabel ? (
@@ -582,7 +582,7 @@ export default async function LojaProdutoPage({ params }) {
                 />
 
                 {attributeGroups.length ? (
-                  <section className="rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+                  <section className="-mx-5 rounded-none bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:mx-0 sm:rounded-[8px] sm:p-6">
                     <style>{`
                       .store-accordion::details-content {
                         block-size: 0;
@@ -646,7 +646,7 @@ export default async function LojaProdutoPage({ params }) {
             </div>
 
             {descriptionBlocks.length ? (
-              <section className="relative mt-6 rounded-[8px] bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:p-6">
+              <section className="relative -mx-5 mt-6 rounded-none bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:mx-0 sm:rounded-[8px] sm:p-6">
                 {result.store.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={result.store.logoUrl} alt={result.store.name} loading="lazy" decoding="async" className="absolute right-4 top-4 hidden h-24 w-24 rounded-[8px] object-contain lg:block" />

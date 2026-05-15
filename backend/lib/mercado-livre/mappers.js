@@ -75,6 +75,7 @@ export function mapMercadoLivreItem(payload) {
   const pictures = Array.isArray(payload?.pictures)
     ? payload.pictures.map((picture) => normalizeMercadoLivreImageUrl(picture?.secure_url || picture?.url)).filter(Boolean)
     : []
+  const videos = normalizeMercadoLivreVideos(payload)
   const variations = Array.isArray(payload?.variations)
     ? payload.variations
         .map((variation) => ({
