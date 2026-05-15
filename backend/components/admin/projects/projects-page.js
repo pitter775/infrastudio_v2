@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { CheckCircle2, ChevronRight, Coins, List, LoaderCircle, MessageSquare, Pencil, Plus, Repeat, Store, Trash2 } from 'lucide-react'
 import { AdminPageHeader } from '@/components/admin/page-header'
 import { AdminProjectCard } from '@/components/admin/projects/project-card'
+import { TermsConsentModal } from '@/components/app/terms/terms-consent-modal'
 import { AppSelect } from '@/components/ui/app-select'
 import { Button } from '@/components/ui/button'
 import { LogoCubo3D } from '@/components/ui/LogoCubo3D'
@@ -63,7 +64,7 @@ function canDeleteProject(user, project, projects) {
   return (projects?.length ?? 0) > 1
 }
 
-export function AdminProjectsPage({ projects: initialProjects, user, users = [] }) {
+export function AdminProjectsPage({ projects: initialProjects, user, users = [], termsConsent = null }) {
   const router = useRouter()
   const [projects, setProjects] = useState(initialProjects)
   const [loadingProjectSlug, setLoadingProjectSlug] = useState(null)
@@ -773,6 +774,8 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [] 
           </div>
         </div>
       ) : null}
+
+      <TermsConsentModal initialAccepted={termsConsent?.accepted === true} userName={user?.name || 'usuário'} />
     </motion.div>
   )
 }

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { AgentSimulator } from '@/components/app/agents/agent-simulator'
 import { AdminProjectCard, buildProjectUsageSummary } from '@/components/admin/projects/project-card'
+import { TermsConsentModal } from '@/components/app/terms/terms-consent-modal'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { HorizontalDragScroll } from '@/components/ui/horizontal-drag-scroll'
@@ -78,7 +79,7 @@ import {
 import { ProjectPanel } from './project-agent-panel'
 import { cn } from '@/lib/utils'
 
-export function AdminProjectDetailPage({ project }) {
+export function AdminProjectDetailPage({ project, user = null, termsConsent = null }) {
   const router = useRouter()
   const projectIdentifier = project.routeKey || project.slug || project.id
   const [isPanelOpen, setIsPanelOpen] = useState(false)
@@ -781,6 +782,7 @@ export function AdminProjectDetailPage({ project }) {
           </div>
         </SheetContent>
       </Sheet>
+      <TermsConsentModal initialAccepted={termsConsent?.accepted === true} userName={user?.name || 'usuário'} />
     </div>
   )
 }

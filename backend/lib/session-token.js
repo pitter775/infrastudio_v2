@@ -22,6 +22,7 @@ export async function signSessionToken(user) {
     status: user.status,
     currentProjectId: user.currentProjectId ?? null,
     memberships: user.memberships ?? [],
+    termsConsent: user.termsConsent ?? null,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setSubject(user.id)
@@ -46,5 +47,9 @@ export async function verifySessionToken(token) {
         ? payload.currentProjectId
         : null,
     memberships: Array.isArray(payload.memberships) ? payload.memberships : [],
+    termsConsent:
+      payload.termsConsent && typeof payload.termsConsent === "object"
+        ? payload.termsConsent
+        : null,
   }
 }

@@ -361,6 +361,46 @@ CREATE TABLE public.feedbacks (
   CONSTRAINT feedbacks_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(id),
   CONSTRAINT feedbacks_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
 );
+CREATE TABLE public.google_calendar_connections (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  projeto_id uuid NOT NULL,
+  agente_id uuid,
+  google_account_email text,
+  calendar_id text,
+  calendar_name text,
+  access_token text,
+  refresh_token text,
+  expires_at timestamp with time zone,
+  status text NOT NULL DEFAULT 'disconnected'::text CHECK (status = ANY (ARRAY['connected'::text, 'disconnected'::text, 'error'::text])),
+  configuracoes jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT google_calendar_connections_pkey PRIMARY KEY (id),
+  CONSTRAINT google_calendar_connections_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT google_calendar_connections_agente_id_fkey FOREIGN KEY (agente_id) REFERENCES public.agentes(id)
+);
+CREATE TABLE public.google_calendar_events (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  connection_id uuid,
+  projeto_id uuid NOT NULL,
+  agente_id uuid,
+  chat_id uuid,
+  google_event_id text,
+  calendar_id text,
+  status text NOT NULL DEFAULT 'created'::text CHECK (status = ANY (ARRAY['created'::text, 'cancelled'::text, 'rescheduled'::text, 'error'::text])),
+  start_at timestamp with time zone,
+  end_at timestamp with time zone,
+  summary text,
+  attendee_email text,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  updated_at timestamp with time zone NOT NULL DEFAULT timezone('utc'::text, now()),
+  CONSTRAINT google_calendar_events_pkey PRIMARY KEY (id),
+  CONSTRAINT google_calendar_events_connection_id_fkey FOREIGN KEY (connection_id) REFERENCES public.google_calendar_connections(id),
+  CONSTRAINT google_calendar_events_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT google_calendar_events_agente_id_fkey FOREIGN KEY (agente_id) REFERENCES public.agentes(id),
+  CONSTRAINT google_calendar_events_chat_id_fkey FOREIGN KEY (chat_id) REFERENCES public.chats(id)
+);
 CREATE TABLE public.logs (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   projeto_id uuid,
@@ -449,6 +489,57 @@ CREATE TABLE public.mercadolivre_lojas_sync (
   CONSTRAINT mercadolivre_lojas_sync_pkey PRIMARY KEY (project_id),
   CONSTRAINT mercadolivre_lojas_sync_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projetos(id)
 );
+CREATE TABLE public.mercadolivre_pedido_itens_snapshot (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  projeto_id uuid NOT NULL,
+  pedido_snapshot_id uuid NOT NULL,
+  mercadolivre_order_id text NOT NULL CHECK (length(TRIM(BOTH FROM mercadolivre_order_id)) > 0),
+  item_position integer NOT NULL DEFAULT 0,
+  item_id text,
+  title text,
+  quantity integer NOT NULL DEFAULT 0,
+  unit_price numeric NOT NULL DEFAULT 0,
+  full_unit_price numeric,
+  sale_fee numeric,
+  currency_id text NOT NULL DEFAULT 'BRL'::text,
+  category_id text,
+  variation_id text,
+  variation_attributes jsonb NOT NULL DEFAULT '[]'::jsonb,
+  raw_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT mercadolivre_pedido_itens_snapshot_pkey PRIMARY KEY (id),
+  CONSTRAINT mercadolivre_pedido_itens_snapshot_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT mercadolivre_pedido_itens_snapshot_pedido_id_fkey FOREIGN KEY (pedido_snapshot_id) REFERENCES public.mercadolivre_pedidos_snapshot(id)
+);
+CREATE TABLE public.mercadolivre_pedidos_snapshot (
+  id uuid NOT NULL DEFAULT uuid_generate_v4(),
+  projeto_id uuid NOT NULL,
+  connector_id uuid,
+  mercadolivre_order_id text NOT NULL CHECK (length(TRIM(BOTH FROM mercadolivre_order_id)) > 0),
+  status text,
+  status_detail text,
+  currency_id text NOT NULL DEFAULT 'BRL'::text,
+  total_amount numeric NOT NULL DEFAULT 0,
+  paid_amount numeric,
+  total_items integer NOT NULL DEFAULT 0,
+  buyer_id text,
+  buyer_nickname text,
+  buyer_first_name text,
+  buyer_last_name text,
+  shipping_id text,
+  date_created timestamp with time zone,
+  date_closed timestamp with time zone,
+  date_last_updated timestamp with time zone,
+  tags jsonb NOT NULL DEFAULT '[]'::jsonb,
+  raw_summary jsonb NOT NULL DEFAULT '{}'::jsonb,
+  synced_at timestamp with time zone NOT NULL DEFAULT now(),
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  CONSTRAINT mercadolivre_pedidos_snapshot_pkey PRIMARY KEY (id),
+  CONSTRAINT mercadolivre_pedidos_snapshot_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT mercadolivre_pedidos_snapshot_connector_id_fkey FOREIGN KEY (connector_id) REFERENCES public.conectores(id)
+);
 CREATE TABLE public.mercadolivre_produtos_snapshot (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),
   projeto_id uuid NOT NULL,
@@ -472,8 +563,33 @@ CREATE TABLE public.mercadolivre_produtos_snapshot (
   descricao_longa text,
   ml_date_created timestamp without time zone,
   ml_last_updated timestamp without time zone,
+  videos_json jsonb NOT NULL DEFAULT '[]'::jsonb,
   CONSTRAINT mercadolivre_produtos_snapshot_pkey PRIMARY KEY (id),
   CONSTRAINT mercadolivre_produtos_snapshot_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id)
+);
+CREATE TABLE public.mercadolivre_vendas_sync_state (
+  projeto_id uuid NOT NULL,
+  connector_id uuid,
+  sync_in_progress boolean NOT NULL DEFAULT false,
+  sync_mode text NOT NULL DEFAULT 'manual_incremental'::text,
+  last_success_at timestamp with time zone,
+  last_error_at timestamp with time zone,
+  last_error_message text,
+  last_sync_started_at timestamp with time zone,
+  last_sync_finished_at timestamp with time zone,
+  last_order_date_created timestamp with time zone,
+  last_order_date_updated timestamp with time zone,
+  total_orders_synced integer NOT NULL DEFAULT 0,
+  total_items_synced integer NOT NULL DEFAULT 0,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  analytics_enabled boolean NOT NULL DEFAULT false,
+  analytics_enabled_at timestamp with time zone,
+  analytics_enabled_by uuid,
+  analytics_disabled_at timestamp with time zone,
+  CONSTRAINT mercadolivre_vendas_sync_state_pkey PRIMARY KEY (projeto_id),
+  CONSTRAINT mercadolivre_vendas_sync_state_projeto_id_fkey FOREIGN KEY (projeto_id) REFERENCES public.projetos(id),
+  CONSTRAINT mercadolivre_vendas_sync_state_connector_id_fkey FOREIGN KEY (connector_id) REFERENCES public.conectores(id)
 );
 CREATE TABLE public.modelos (
   id uuid NOT NULL DEFAULT uuid_generate_v4(),

@@ -91,6 +91,62 @@ function buildCompatSnippet(project, widget) {
   ].join("\n")
 }
 
+function buildAiStudioWidgetPrompt({ project, widget }) {
+  const safeWidget = widget || { slug: "meu-widget" }
+  return [
+    "Você está editando meu projeto no AI Studio.",
+    "Tarefa: adicionar o Chat Widget da InfraStudio ao projeto sem quebrar o layout existente.",
+    "",
+    "Regras:",
+    "- Não recrie o chat do zero.",
+    "- Não altere as regras visuais principais do projeto.",
+    "- Não duplique o script se ele já existir.",
+    "- Instale o script uma única vez, preferencialmente antes do fechamento do </body> ou no componente/layout global equivalente.",
+    "- Se o projeto for React, Next.js, Vite ou SPA, carregue o script no layout/componente raiz e garanta que ele rode apenas no navegador.",
+    "- Se existir rota de produto, imóvel, pedido, atendimento ou detalhe de recurso, envie data-context com o ID real da página.",
+    "- Não envie tokens, senhas, cookies, CPF completo ou dados sensíveis no data-context.",
+    "",
+    "Script principal para instalar:",
+    buildWidgetSnippet(project, safeWidget),
+    "",
+    "Se a página tiver um recurso específico aberto, use este formato e troque os IDs pelos valores reais do sistema:",
+    buildWidgetContextSnippet(project, safeWidget),
+    "",
+    "Dados atuais do projeto InfraStudio:",
+    JSON.stringify(
+      {
+        projeto: {
+          id: project?.id || null,
+          nome: project?.name || project?.nome || project?.title || null,
+          slug: project?.slug || null,
+        },
+        agente: {
+          id: project?.agent?.id || null,
+          slug: project?.agent?.slug || null,
+          nome: project?.agent?.name || project?.agent?.nome || null,
+        },
+        widget: {
+          id: safeWidget.id || null,
+          titulo: safeWidget.name || null,
+          slug: safeWidget.slug || null,
+          dominioPermitido: safeWidget.domain || null,
+          tema: safeWidget.theme || null,
+          corPrimaria: safeWidget.accent || null,
+          ativo: safeWidget.active !== false,
+        },
+      },
+      null,
+      2,
+    ),
+    "",
+    "Critério de pronto:",
+    "- O widget aparece no site/app.",
+    "- O script não foi duplicado.",
+    "- Em páginas de detalhe, o contexto do item atual é enviado corretamente.",
+    "- O código continua compilando sem erro.",
+  ].join("\n")
+}
+
 function buildPreviewUrl(project, widget) {
   const params = new URLSearchParams({
     projeto: project.slug || project.id,
@@ -421,6 +477,30 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
     }
   }
 
+  async function copyAiStudioPrompt() {
+    const prompt = buildAiStudioWidgetPrompt({ project, widget: selectedWidget || form || null })
+
+    try {
+      await navigator.clipboard.writeText(prompt)
+      setStatus({ type: "success", message: "Prompt para AI Studio copiado." })
+    } catch {
+      try {
+        const textarea = document.createElement("textarea")
+        textarea.value = prompt
+        textarea.setAttribute("readonly", "")
+        textarea.style.position = "fixed"
+        textarea.style.left = "-9999px"
+        document.body.appendChild(textarea)
+        textarea.select()
+        document.execCommand("copy")
+        document.body.removeChild(textarea)
+        setStatus({ type: "success", message: "Prompt para AI Studio copiado." })
+      } catch {
+        setStatus({ type: "error", message: "Não foi possível copiar o prompt para AI Studio." })
+      }
+    }
+  }
+
   return (
     <section className={cn("mt-4 rounded-lg border border-zinc-200 bg-white p-5 shadow-sm", compact && "mt-0 border-0 bg-transparent p-0 text-slate-300 shadow-none")}>
       {compact && loading ? (
@@ -661,6 +741,28 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
               copySnippet(buildWidgetSnippet(project, selectedWidget))
             }}
           />
+          <div className="rounded-[22px] border border-cyan-400/16 bg-[radial-gradient(circle_at_8%_0%,rgba(56,189,248,0.16),transparent_34%),linear-gradient(135deg,rgba(14,20,38,0.98),rgba(7,13,27,0.98))] p-4 shadow-[0_20px_60px_-42px_rgba(34,211,238,0.8)]">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div className="min-w-0">
+                <div className="inline-flex items-center gap-2 rounded-full border border-cyan-300/20 bg-cyan-400/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-cyan-100">
+                  Instalação no-code
+                </div>
+                <h3 className="mt-3 text-sm font-semibold text-white">Copiar para AI Studio</h3>
+                <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+                  Cole no AI Studio ou na IA que está criando seu site. O texto já leva o script do widget e as instruções para instalar sem precisar entender código.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={copyAiStudioPrompt}
+                className="h-10 shrink-0 rounded-xl border border-cyan-300/20 bg-cyan-400/10 px-4 text-sm font-semibold text-cyan-50 transition hover:bg-cyan-400/16"
+              >
+                <Copy className="mr-2 h-4 w-4" />
+                Copiar para AI Studio
+              </Button>
+            </div>
+          </div>
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -728,6 +830,15 @@ export function WidgetManager({ project, initialWidgetId = null, activeTab: cont
             >
               <Copy className="mr-1.5 h-3.5 w-3.5" />
               Copiar para LLM (GPT)
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={copyAiStudioPrompt}
+              className="h-9 shrink-0 rounded-xl border border-cyan-500/20 bg-cyan-500/10 px-3 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-500/20"
+            >
+              <Copy className="mr-1.5 h-3.5 w-3.5" />
+              Copiar para AI Studio
             </Button>
           </div>
           {[

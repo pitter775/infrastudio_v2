@@ -6,7 +6,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { applyInitialFreePlan } from "@/lib/usuario-project-bootstrap"
 
 const usuarioSelectFields =
-  "id, nome, email, telefone, senha, provider, provider_id, avatar_url, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
+  "id, nome, email, telefone, senha, provider, provider_id, avatar_url, role, email_verificado, ativo, terms_accepted, terms_accepted_at, terms_version, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
 const usuarioSelectFieldsLegacy =
   "id, nome, email, senha, provider, provider_id, avatar_url, role, email_verificado, ativo, usuarios_projetos(papel, projeto_id, projetos(nome, slug))"
 
@@ -69,6 +69,11 @@ export function mapUsuarioToAppUser(row) {
     status: normalizeStatus(row.ativo),
     currentProjectId: memberships[0]?.projetoId ?? null,
     memberships,
+    termsConsent: {
+      accepted: row.terms_accepted === true,
+      acceptedAt: row.terms_accepted_at || null,
+      version: row.terms_version || null,
+    },
   }
 }
 
