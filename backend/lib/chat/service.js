@@ -656,6 +656,10 @@ export function normalizeInboundMessage(body) {
     .trim()
 }
 
+function shouldForceNewConversation(body) {
+  return body?.forceNewConversation === true || body?.context?.ui?.forceNewConversation === true
+}
+
 function normalizeMemoryGuardText(value) {
   return String(value || "")
     .normalize("NFD")
@@ -1812,7 +1816,7 @@ export async function ensureActiveChatSession(input, deps = {}) {
     }
   }
 
-  if (input.normalizedExternalIdentifier && input.resolved?.projeto?.id) {
+  if (!input.forceNewConversation && input.normalizedExternalIdentifier && input.resolved?.projeto?.id) {
     const preferredAgentId = input.resolved?.agente?.id ?? null
     chat = await findChatByChannel({
       projetoId: input.resolved.projeto.id,
@@ -2410,6 +2414,7 @@ export async function executeV2RuntimePrelude(body, options = {}) {
     {
       resolved,
       chatId: prelude.effectiveBody.chatId ?? null,
+      forceNewConversation: shouldForceNewConversation(prelude.effectiveBody),
       channelKind: prelude.channelKind,
       normalizedExternalIdentifier: prelude.normalizedExternalIdentifier,
       whatsappChannelId: prelude.effectiveBody.whatsappChannelId ?? null,

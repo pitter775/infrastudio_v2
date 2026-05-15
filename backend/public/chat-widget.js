@@ -93,6 +93,7 @@
     var cleanup = [];
     var storageKey = null;
     var chatId = null;
+    var forceNewConversation = false;
     var messages = [];
     var simulatorContext = null;
     var attachments = [];
@@ -3110,6 +3111,7 @@
       var settings = options && typeof options === "object" ? options : {};
       var animated = settings.animated === true;
       var onComplete = typeof settings.onComplete === "function" ? settings.onComplete : null;
+      var clearLead = settings.clearLead !== false;
 
       if (resetTransitionTimer) {
         window.clearTimeout(resetTransitionTimer);
@@ -3118,6 +3120,8 @@
 
       function finalizeReset() {
         chatId = "";
+        forceNewConversation = true;
+        simulatorContext = null;
         lastSyncedMessageAt = null;
         pendingAgendaSelection = null;
         inlineActionState = null;
@@ -3125,6 +3129,10 @@
         input.value = "";
         attachments = [];
         messages = [];
+        if (clearLead) {
+          leadContact = null;
+          leadCaptureDismissed = false;
+        }
         updateHumanHandoffState(null);
         persist();
         renderAttachmentsPreview();
@@ -3148,6 +3156,8 @@
       }
 
       chatId = "";
+      forceNewConversation = true;
+      simulatorContext = null;
       lastSyncedMessageAt = null;
       pendingAgendaSelection = null;
       inlineActionState = null;
@@ -3155,6 +3165,10 @@
       input.value = "";
       attachments = [];
       messages = [];
+      if (clearLead) {
+        leadContact = null;
+        leadCaptureDismissed = false;
+      }
       updateHumanHandoffState(null);
       persist();
       renderAttachmentsPreview();
@@ -3914,6 +3928,7 @@
           },
           body: JSON.stringify({
             chatId: chatId,
+            forceNewConversation: forceNewConversation === true,
             message: trimmed,
             widgetId: widgetId || undefined,
             widgetSlug: widgetSlug,
@@ -3938,6 +3953,7 @@
           }
         } else if (payload.chatId) {
           chatId = payload.chatId;
+          forceNewConversation = false;
         }
         if (payload.createdAt) {
           lastSyncedMessageAt = payload.createdAt;
@@ -4150,15 +4166,12 @@
     });
 
     addListener(resetButton, "click", function () {
-      chatId = null;
-      messages = [];
-      lastSyncedMessageAt = null;
-      input.value = "";
-      persist();
-      renderMessages({ forceScroll: true });
-      autoResizeInput();
-      updateComposerState();
-      input.focus();
+      resetConversationState({
+        animated: true,
+        onComplete: function () {
+          input.focus();
+        },
+      });
     });
 
     addListener(messagesWrap, "scroll", updateScrollBottomButton);

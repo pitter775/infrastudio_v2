@@ -10443,6 +10443,42 @@ const tests: TestCase[] = [
 
       assert.equal(crossChannel.chat.id, "chat-widget-existing")
       assert.equal(crossChannel.created, false)
+
+      let skippedLookup = true
+      const forcedNewConversation = await ensureActiveChatSession(
+        {
+          resolved,
+          forceNewConversation: true,
+          channelKind: "whatsapp",
+          normalizedExternalIdentifier: "5511999999999",
+          whatsappChannelId: "wa-20",
+          contactSnapshot,
+          message: "novo teste",
+          extraContext: { lead: { origem: "site" } },
+        },
+        {
+          findActiveChatByChannel: async () => {
+            skippedLookup = false
+            return { id: "chat-existing" }
+          },
+          findActiveWhatsAppChatByPhone: async () => {
+            skippedLookup = false
+            return { id: "chat-phone-existing" }
+          },
+          findActiveChatByContactPhone: async () => {
+            skippedLookup = false
+            return { id: "chat-contact-existing" }
+          },
+          createChat: async (payload: any) => ({
+            id: "chat-forced-new",
+            ...payload,
+          }),
+        }
+      )
+
+      assert.equal(skippedLookup, true)
+      assert.equal(forcedNewConversation.chat.id, "chat-forced-new")
+      assert.equal(forcedNewConversation.created, true)
     },
   },
   {
