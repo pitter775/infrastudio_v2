@@ -214,7 +214,12 @@ export function getStoreProductMedia(product, options = {}) {
     provider: video.provider,
   }))
 
-  return [...images, ...videos]
+  if (!videos.length) {
+    return images
+  }
+
+  const [coverImage, ...remainingImages] = images
+  return [coverImage, ...videos, ...remainingImages].filter(Boolean)
 }
 
 export function openStoreChat(widget) {

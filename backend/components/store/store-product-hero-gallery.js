@@ -37,19 +37,19 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
           animation: store-gallery-fade 220ms ease-out both;
         }
       `}</style>
-      <div className="relative overflow-hidden rounded-[8px] bg-white">
-        <div className="relative aspect-[4/3] overflow-hidden rounded-[8px] bg-white">
+      <div className="relative -mx-5 overflow-hidden sm:mx-0 sm:rounded-[8px] sm:bg-white">
+        <div className="relative aspect-square overflow-hidden sm:aspect-[4/3] sm:rounded-[8px] sm:bg-white">
           {activeMedia?.type === 'video' && activeMedia.embedUrl ? (
             <iframe
               key={activeMedia.embedUrl}
               src={activeMedia.embedUrl}
               title={`Vídeo de ${title}`}
-              className="h-full w-full rounded-[8px]"
+              className="h-full w-full sm:rounded-[8px]"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
               allowFullScreen
             />
           ) : activeMedia?.type === 'video' && activeMedia.url ? (
-            <video key={activeMedia.url} src={activeMedia.url} poster={activeMedia.thumbnail || undefined} controls className="h-full w-full rounded-[8px] bg-black object-contain" />
+            <video key={activeMedia.url} src={activeMedia.url} poster={activeMedia.thumbnail || undefined} controls className="h-full w-full bg-black object-contain sm:rounded-[8px]" />
           ) : activeMedia?.url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img key={activeMedia.url} src={activeMedia.url} alt={title} loading="eager" decoding="async" fetchPriority="high" className="store-gallery-active-image h-full w-full object-contain" />

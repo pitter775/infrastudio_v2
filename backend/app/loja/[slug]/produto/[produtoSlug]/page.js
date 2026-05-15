@@ -384,7 +384,7 @@ function ProductPurchasePanel({
 
 function MobileProductTitle({ product }) {
   return (
-    <h1 className="text-xl font-semibold leading-tight text-slate-950 sm:hidden">{product.title}</h1>
+    <h1 className="text-[18px] font-semibold leading-snug text-slate-950 sm:hidden">{product.title}</h1>
   )
 }
 

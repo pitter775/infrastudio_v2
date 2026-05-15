@@ -25,7 +25,7 @@ function productNeedsLiveDetails(product) {
   const attributes = Array.isArray(product.attributes) ? product.attributes : []
   const description = String(product.descriptionLong || product.shortDescription || "").trim()
 
-  return images.length <= 1 || !attributes.length || !description
+  return images.length <= 1 || !videos.length || !attributes.length || !description
 }
 
 function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {

@@ -23,8 +23,6 @@ function normalizeMercadoLivreVideo(value) {
     return null
   }
 
-  const videos = normalizeMercadoLivreVideos(payload)
-
   return {
     id,
     url,
