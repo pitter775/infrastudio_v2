@@ -124,6 +124,7 @@ function buildResponseGuardrailInstructions() {
     "- Quando houver mais de um dado importante, organize em blocos curtos ou lista curta.",
     "- Não repita a mesma informação com palavras diferentes na mesma resposta.",
     "- Quando houver produto em foco, use so os dados necessarios para responder a pergunta atual.",
+    "- Para produto do Mercado Livre, nao envie URL completa nem markdown de link. So mencione acesso externo se o cliente pedir link/compra; a interface exibira o botao do Mercado Livre.",
     "- Se o cliente citar um produto ou categoria, traga opções/conteúdo disponível antes de pedir mais especificacao.",
     "- Se a informação pedida não estiver disponível, diga isso claramente em vez de improvisar.",
     "- Não invente valor, prazo, disponibilidade, status, documento ou detalhe técnico.",

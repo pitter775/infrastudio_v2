@@ -771,3 +771,8 @@ Ainda errado / fragil:
   - quando uma nova listagem com varios itens chega sem foco explicito, o contexto limpa `produtoAtual/productFocus` antigo para nao prender o chat na primeira entrega
   - smoke adicionado cobre `imovel via API -> tem aparelho de jantar?` dentro da loja, garantindo resposta por Mercado Livre e sem recarregar a API
   - smoke adicional cobre pedido explicito de consulta na API dentro da loja, garantindo que a API ainda possa vencer quando a classificacao estruturada apontar isso
+- links externos do Mercado Livre agora ficam sob pedido explicito do cliente:
+  - respostas do web chat removem URL bruta/markdown do Mercado Livre gerada pelo modelo
+  - assets de produto carregam `metadata.showExternalLink` apenas quando a mensagem pede link, compra, anuncio ou Mercado Livre
+  - o widget so renderiza o botao externo nesse caso, como botao pequeno amarelo com `/icomercado.png` e texto `Mercado Livre`
+  - WhatsApp tambem deixa de anexar URL de produto Mercado Livre em card/lista quando o cliente nao pediu o link

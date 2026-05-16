@@ -79,7 +79,8 @@ function buildSelectedProductInstructions(product) {
     product.descricaoLonga
       ? `Descrição do anúncio para responder perguntas específicas do produto:\n${String(product.descricaoLonga).slice(0, product.contextoCompleto ? 3000 : 1800)}`
       : "",
-    product.link ? `Link conhecido: ${product.link}` : "",
+    product.link ? "Link externo do Mercado Livre disponivel apenas para acao visual quando o cliente pedir explicitamente. Nao escreva a URL na resposta." : "",
+    product.link ? "Nao envie URL completa do Mercado Livre nem texto como [aqui](url). Se o cliente pedir o link, a interface mostra um botao pequeno do Mercado Livre." : "",
     product.descricaoLonga
       ? "Quando o cliente perguntar algo específico do produto em foco, responda primeiro com a informação encontrada na descrição do anúncio. Reescreva de forma natural, curta e comercial, sem despejar ficha técnica nem repetir um resumo geral do produto."
       : "",

@@ -10295,6 +10295,70 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "service remove url bruta do Mercado Livre quando cliente nao pediu link",
+    run: () => {
+      const payload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: {
+          reply:
+            "O produto é embalado com proteção reforçada.\n\nVocê pode conferir o produto [aqui](https://produto.mercadolivre.com.br/MLB123-produto).",
+          assets: [
+            {
+              id: "MLB123",
+              kind: "product",
+              provider: "mercado_livre",
+              nome: "Aparelho de jantar",
+              targetUrl: "https://produto.mercadolivre.com.br/MLB123-produto",
+            },
+          ],
+        },
+        nextContext: {
+          storefront: { kind: "mercado_livre", pageKind: "product_detail" },
+          catalogo: {
+            produtoAtual: { id: "MLB123", nome: "Aparelho de jantar" },
+          },
+        },
+        normalizedExternalIdentifier: "lead-ml-link-1",
+        userMessage: "como é embalado?",
+      })
+
+      assert.match(payload.primaryReply, /prote[cç][aã]o refor[cç]ada/i)
+      assert.doesNotMatch(payload.primaryReply, /mercadolivre|produto \[aqui\]/i)
+      assert.equal(payload.assets[0]?.metadata?.showExternalLink, false)
+    },
+  },
+  {
+    name: "service libera botao do Mercado Livre quando cliente pede link",
+    run: () => {
+      const payload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: {
+          reply: "Claro, posso te mandar o acesso do produto.",
+          assets: [
+            {
+              id: "MLB123",
+              kind: "product",
+              provider: "mercado_livre",
+              nome: "Aparelho de jantar",
+              targetUrl: "https://produto.mercadolivre.com.br/MLB123-produto",
+            },
+          ],
+        },
+        nextContext: {
+          storefront: { kind: "mercado_livre", pageKind: "product_detail" },
+          catalogo: {
+            produtoAtual: { id: "MLB123", nome: "Aparelho de jantar" },
+          },
+        },
+        normalizedExternalIdentifier: "lead-ml-link-2",
+        userMessage: "me manda o link do mercado livre",
+      })
+
+      assert.equal(payload.assets[0]?.metadata?.showExternalLink, true)
+      assert.doesNotMatch(payload.primaryReply, /https?:\/\//i)
+    },
+  },
+  {
     name: "service nao oferece agenda em contexto de catalogo da loja",
     run: () => {
       const payload = prepareAiReplyPayload({

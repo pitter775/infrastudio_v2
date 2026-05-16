@@ -747,9 +747,9 @@
       ".chat-asset-action { display: inline-flex; align-items: center; justify-content: center; min-width: 0; min-height: 28px; padding: 6px 8px; border-radius: 999px; border: 1px solid " + headerBorder + "; background: rgba(255,255,255,0.05); color: inherit; font-size: 10px; font-weight: 700; text-decoration: none; transition: transform .18s ease, background-color .18s ease; }",
       ".chat-asset-action:hover { transform: translateY(-1px); background: rgba(255,255,255,0.09); }",
       ".chat-asset-action.primary { border-color: color-mix(in srgb, " + accent + " 40%, transparent); background: color-mix(in srgb, " + accent + " 18%, transparent); color: white; }",
-      ".chat-mercado-link { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: auto; height: auto; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; outline: 0; background: transparent; box-shadow: none; color: inherit; text-decoration: none; line-height: 0; }",
-      ".chat-mercado-link:hover { background: transparent; box-shadow: none; transform: none; }",
-      ".chat-mercado-link img { display: block; width: 35px; height: 24px; object-fit: contain; background: transparent; }",
+      ".chat-mercado-link { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; gap: 4px; width: auto; min-width: 0; min-height: 24px; margin: 0; padding: 3px 7px 3px 5px; border: 1px solid rgba(245,158,11,0.36); border-radius: 999px; outline: 0; background: #ffe600; box-shadow: none; color: #2f2a00; text-decoration: none; font-size: 10px; font-weight: 800; line-height: 1; white-space: nowrap; }",
+      ".chat-mercado-link:hover { background: #ffd600; box-shadow: none; transform: translateY(-1px); }",
+      ".chat-mercado-link img { display: block; width: 24px; height: 16px; object-fit: contain; background: transparent; }",
       ".chat-asset-action.ask { flex: 0 0 auto; width: auto; border-color: " + (theme === "light" ? "rgba(148,163,184,0.22)" : "rgba(148,163,184,0.18)") + "; background: " + (theme === "light" ? "rgba(241,245,249,0.92)" : "rgba(255,255,255,0.06)") + "; color: " + (theme === "light" ? "#334155" : "rgba(226,232,240,0.92)") + "; }",
       ".chat-asset-action.ask:hover { background: " + (theme === "light" ? "rgba(226,232,240,0.96)" : "rgba(255,255,255,0.1)") + "; }",
       ".chat-asset-action .chat-icon { width: 13px; height: 13px; }",
@@ -2493,11 +2493,15 @@
 
     function createProductAssetAction(asset) {
       var isApiRuntimeAsset = asset && asset.provider === "api_runtime";
+      var showMercadoLivreLink = !asset || asset.provider !== "mercado_livre" || (asset.metadata && asset.metadata.showExternalLink === true);
       var actionUrl = isApiRuntimeAsset ? (asset.targetUrl || "") : (asset.targetUrl || asset.publicUrl || "");
       if (!actionUrl) {
         return null;
       }
       if (isApiRuntimeAsset) {
+        return null;
+      }
+      if (!showMercadoLivreLink) {
         return null;
       }
       var action = document.createElement("a");
@@ -2513,6 +2517,9 @@
       icon.alt = "";
       icon.loading = "lazy";
       action.appendChild(icon);
+      var label = document.createElement("span");
+      label.textContent = "Mercado Livre";
+      action.appendChild(label);
       return action;
     }
 

@@ -229,6 +229,10 @@ function isApiProductAsset(asset) {
   )
 }
 
+function shouldExposeMercadoLivreExternalLink(asset) {
+  return asset?.provider !== "mercado_livre" || asset?.metadata?.showExternalLink === true
+}
+
 function hasCatalogProductAssets(assets = []) {
   return Array.isArray(assets) && assets.some((asset) => isMercadoLivreProductAsset(asset) || isApiProductAsset(asset))
 }
@@ -365,7 +369,7 @@ export function buildWhatsAppMessageSequence(reply, assets, followUpReply) {
 
             return [
               formatWhatsAppOutboundTextSafe(`*${index + 1}. ${String(asset.nome || "Produto").trim()}*`),
-              String(asset.targetUrl || "").trim(),
+              shouldExposeMercadoLivreExternalLink(asset) ? String(asset.targetUrl || "").trim() : "",
               salesComment,
             ]
               .filter(Boolean)
@@ -374,7 +378,8 @@ export function buildWhatsAppMessageSequence(reply, assets, followUpReply) {
           }
 
           const nome = "nome" in asset ? String(asset.nome || "").trim() : ""
-          const targetUrl = "targetUrl" in asset ? String(asset.targetUrl || "").trim() : ""
+          const targetUrl =
+            "targetUrl" in asset && shouldExposeMercadoLivreExternalLink(asset) ? String(asset.targetUrl || "").trim() : ""
           const whatsappText = "whatsappText" in asset ? String(asset.whatsappText || "").trim() : ""
           const descricao = "descricao" in asset ? String(asset.descricao || "").trim() : ""
           const supportText = whatsappText || descricao

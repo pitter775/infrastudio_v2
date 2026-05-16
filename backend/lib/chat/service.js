@@ -195,6 +195,62 @@ function sanitizeCatalogStringArray(values = []) {
   return [...new Set((Array.isArray(values) ? values : []).map((item) => sanitizeCatalogString(item)).filter(Boolean))]
 }
 
+function normalizeCatalogToken(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+function hasMercadoLivreLinkRequest(message = "") {
+  const normalized = normalizeCatalogToken(message)
+  if (!normalized) {
+    return false
+  }
+
+  return (
+    /\b(link|mercado\s*livre|comprar|compra|finalizar|checkout|anuncio|pagina de compra)\b/.test(normalized) ||
+    /\b(me manda|manda|envia|passa)\b[\s\S]{0,28}\b(link|anuncio)\b/.test(normalized)
+  )
+}
+
+function stripMercadoLivreUrlsFromReply(reply = "") {
+  const text = String(reply || "")
+  if (!text) {
+    return ""
+  }
+
+  return text
+    .split("\n")
+    .filter((line) => !/mercadolivre\.com|mercadolivre\.com\.br|produto\.mercadolivre/i.test(line))
+    .join("\n")
+    .replace(/\[[^\]]{1,60}\]\(\s*https?:\/\/[^)\s]*mercadolivre[^)]*\)/gi, "")
+    .replace(/https?:\/\/\S*mercadolivre\S*/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim()
+}
+
+function decorateMercadoLivreExternalLinkVisibility(assets = [], userMessage = "") {
+  if (!Array.isArray(assets) || !assets.length) {
+    return Array.isArray(assets) ? assets : []
+  }
+
+  const showExternalLink = hasMercadoLivreLinkRequest(userMessage)
+  return assets.map((asset) => {
+    if (!asset || typeof asset !== "object" || Array.isArray(asset) || asset.provider !== "mercado_livre") {
+      return asset
+    }
+
+    return {
+      ...asset,
+      metadata: {
+        ...(asset.metadata && typeof asset.metadata === "object" && !Array.isArray(asset.metadata) ? asset.metadata : {}),
+        showExternalLink,
+      },
+    }
+  })
+}
+
 function buildCatalogProductFactualContextState(input = {}) {
   const source = input && typeof input === "object" ? input : {}
   const fields = sanitizeCatalogStringArray(source.fields)
@@ -1382,7 +1438,10 @@ export async function resolveApiRuntimeConfirmationContext(input = {}) {
 
 export function prepareAiReplyPayload(input) {
   const isWhatsAppChannel = input.channelKind === "whatsapp"
-  const catalogAwareAssets = decorateCatalogAssetsWithListingSession(input.ai.assets ?? [], input.nextContext)
+  const catalogAwareAssets = decorateMercadoLivreExternalLinkVisibility(
+    decorateCatalogAssetsWithListingSession(input.ai.assets ?? [], input.nextContext),
+    input.userMessage
+  )
   const structuredEnvelope = extractStructuredReplyEnvelope(input.ai.reply)
   const metadataCatalogSearch =
     isPlainObject(input.ai?.metadata?.catalogoBusca) ? input.ai.metadata.catalogoBusca : null
@@ -1421,11 +1480,11 @@ export function prepareAiReplyPayload(input) {
   const primaryReply =
     isWhatsAppChannel
       ? sanitizeWhatsAppCustomerFacingReply(normalizedPrimaryReplyBase)
-      : normalizedPrimaryReplyBase
+      : stripMercadoLivreUrlsFromReply(normalizedPrimaryReplyBase)
   const followUpReply =
     isWhatsAppChannel
       ? sanitizeWhatsAppCustomerFacingReply(normalizedFollowUpReplyBase)
-      : normalizedFollowUpReplyBase
+      : stripMercadoLivreUrlsFromReply(normalizedFollowUpReplyBase)
   const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(input.nextContext)
   const userAskedForWhatsApp = hasWhatsAppIntentSignal(input.userMessage || "")
   const shouldMentionWhatsAppInText =
