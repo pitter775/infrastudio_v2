@@ -53,6 +53,7 @@ import {
   resolveCatalogLoadMoreDecision,
   resolveRecentCatalogReferenceDecision,
   resolveDeterministicCatalogFollowUpDecision,
+  normalizeCatalogFactHints,
   enrichLeadContext,
   ensureActiveChatSession,
   applyAiHumanEscalation,
@@ -2694,6 +2695,32 @@ const tests: TestCase[] = [
         {
           semanticIntent: {
             targetFactHints: ["detalhes"],
+            factScope: "package",
+          },
+        }
+      );
+
+      assert.equal(reply, null);
+    },
+  },
+  {
+    name: "catalogo normaliza embalagem como detalhe sem responder slot material",
+    run: () => {
+      assert.deepEqual(normalizeCatalogFactHints(["embalagem"]), ["details"]);
+
+      const reply = buildFocusedProductFactualReply(
+        {
+          id: "MLB-79B2",
+          nome: "Aparelho De Jantar Schmidt Ivory China Fio Dourado",
+          material: "Porcelana",
+          atributos: [{ nome: "Material", valor: "Porcelana" }],
+          descricaoLonga:
+            "As peças são embaladas com proteção reforçada em papel, plástico-bolha e papelão duplo.",
+        },
+        "Como o produto é embalado",
+        {
+          semanticIntent: {
+            targetFactHints: ["embalagem"],
             factScope: "package",
           },
         }

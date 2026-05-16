@@ -49,6 +49,8 @@ export { resolveCatalogDecisionState } from "@/lib/chat/catalog-intent-handler";
 export { resolveCatalogExecutionState } from "@/lib/chat/catalog-intent-handler";
 export { resolveCatalogComparisonDecisionState } from "@/lib/chat/catalog-intent-handler";
 
+export { normalizeCatalogFactHints } from "@/lib/chat/catalog-product-facts";
+
 export {
   buildProductSearchCandidates,
   isGreetingOrAckMessage,

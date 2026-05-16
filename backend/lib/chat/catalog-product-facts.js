@@ -32,6 +32,9 @@ const FACT_HINT_ALIASES = new Map([
   ["detalhes", "details"],
   ["detalhe", "details"],
   ["descricao", "details"],
+  ["embalagem", "details"],
+  ["embalado", "details"],
+  ["embalada", "details"],
   ["dimensoes", "dimensions"],
   ["dimensao", "dimensions"],
   ["medidas", "dimensions"],
@@ -372,11 +375,6 @@ function resolveFactScope(input = {}) {
   const semanticScope = normalizeCatalogFactScope(input?.semanticIntent?.factScope)
   if (semanticScope) {
     return semanticScope
-  }
-
-  const normalized = normalizeToken(input?.message)
-  if (/\bembalagem\b/.test(normalized)) {
-    return "package"
   }
 
   if (shouldReusePreviousScope(input?.factHints, previousFactContext)) {
