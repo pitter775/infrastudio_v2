@@ -1,6 +1,8 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "framework": "nextjs",
-  "installCommand": "npm install --workspaces=false",
-  "buildCommand": "npm run build"
+  "crons": [
+    {
+      "path": "/api/cron/vercel-domains",
+      "schedule": "0 * * * *"
+    }
+  ]
 }

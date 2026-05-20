@@ -249,6 +249,8 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   const [accessSheetOpen, setAccessSheetOpen] = useState(false)
   const [accessSaving, setAccessSaving] = useState(false)
   const [accessError, setAccessError] = useState(null)
+  const [domainAutomation, setDomainAutomation] = useState(null)
+  const [domainChecking, setDomainChecking] = useState(false)
   const [accessRequest, setAccessRequest] = useState({
     featureKey: '',
     label: '',
@@ -375,6 +377,99 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     }
   }, [projectIdentifier])
 
+  useEffect(() => {
+    if (activeSubTab !== 'domain' || !String(draft.customDomain || '').trim() || draft.customDomainStatus === 'active') {
+      return undefined
+    }
+
+    let activeRequest = true
+    let timeoutId = null
+
+    async function checkDomain() {
+      setDomainChecking(true)
+      try {
+        const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store/domain`, {
+          cache: 'no-store',
+        })
+        const data = await response.json().catch(() => ({}))
+        if (!activeRequest || !response.ok) {
+          return
+        }
+
+        setDomainAutomation(data.domainAutomation || null)
+        const storeDomain = data.domainAutomation?.storeDomain
+        if (storeDomain) {
+          setDraft((current) => ({
+            ...current,
+            customDomain: storeDomain.dominio_personalizado || current.customDomain,
+            customDomainActive: storeDomain.dominio_ativo === true,
+            customDomainStatus: storeDomain.dominio_status || current.customDomainStatus,
+            customDomainNotes: storeDomain.dominio_observacoes || current.customDomainNotes,
+          }))
+        }
+      } catch {
+      } finally {
+        if (activeRequest) {
+          setDomainChecking(false)
+          timeoutId = window.setTimeout(checkDomain, 45000)
+        }
+      }
+    }
+
+    checkDomain()
+    return () => {
+      activeRequest = false
+      if (timeoutId) {
+        window.clearTimeout(timeoutId)
+      }
+    }
+  }, [activeSubTab, draft.customDomain, draft.customDomainStatus, projectIdentifier])
+
+  async function handleDomainVerifyNow() {
+    if (!String(draft.customDomain || '').trim()) {
+      setFeedback({ tone: 'error', text: 'Informe um domínio antes de verificar.' })
+      return
+    }
+
+    setDomainChecking(true)
+    setFeedback(null)
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/conectores/mercado-livre/store/domain`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ action: 'verify' }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível verificar o domínio.' })
+        return
+      }
+
+      setDomainAutomation(data.domainAutomation || null)
+      const storeDomain = data.domainAutomation?.storeDomain
+      if (storeDomain) {
+        setDraft((current) => ({
+          ...current,
+          customDomain: storeDomain.dominio_personalizado || current.customDomain,
+          customDomainActive: storeDomain.dominio_ativo === true,
+          customDomainStatus: storeDomain.dominio_status || current.customDomainStatus,
+          customDomainNotes: storeDomain.dominio_observacoes || current.customDomainNotes,
+        }))
+      }
+
+      setFeedback({
+        tone: data.domainAutomation?.ok ? 'success' : 'error',
+        text: data.domainAutomation?.ok ? 'Domínio validado e ativado.' : 'Domínio ainda aguardando DNS do cliente.',
+      })
+    } catch {
+      setFeedback({ tone: 'error', text: 'Não foi possível verificar o domínio.' })
+    } finally {
+      setDomainChecking(false)
+    }
+  }
+
   async function handleSave(event) {
     event.preventDefault()
     setSaving(true)
@@ -412,8 +507,17 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       }
 
       setDraft(buildInitialDraft(project, data.store))
+      setDomainAutomation(data.domainAutomation || null)
 
       let nextFeedback = { tone: 'success', text: 'Loja salva.' }
+      if (data.domainAutomation?.summary) {
+        nextFeedback = {
+          tone: data.domainAutomation.summary.errors?.length ? 'error' : 'success',
+          text: data.domainAutomation.summary.verified
+            ? 'Loja salva. Domínio configurado e ativado automaticamente.'
+            : 'Loja salva. Domínio configurado na Vercel e aguardando DNS do cliente.',
+        }
+      }
       const shouldBootstrapSnapshot = (data.store?.active === true) && Number(snapshot?.total || 0) === 0
 
       if (shouldBootstrapSnapshot) {
@@ -869,7 +973,14 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       {activeSubTab === 'menu' ? <StoreMenuSection draft={draft} onUpdateMenuLink={updateMenuLink} /> : null}
 
       {activeSubTab === 'domain' ? (
-        <StoreDomainSection draft={draft} setDraft={setDraft} publicUrl={publicUrl} />
+        <StoreDomainSection
+          draft={draft}
+          setDraft={setDraft}
+          publicUrl={publicUrl}
+          domainAutomation={domainAutomation}
+          domainChecking={domainChecking}
+          onVerifyNow={handleDomainVerifyNow}
+        />
       ) : null}
 
       {active ? (

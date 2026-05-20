@@ -8,6 +8,7 @@ import {
 } from "@/lib/mercado-livre-store"
 import { getProjectForUser } from "@/lib/projetos"
 import { getSessionUser } from "@/lib/session"
+import { provisionStoreDomain } from "@/lib/vercel-project-domains"
 
 export async function GET(request, context) {
   const user = await getSessionUser()
@@ -50,7 +51,22 @@ export async function PUT(request, context) {
     return NextResponse.json({ error }, { status: 400 })
   }
 
-  return NextResponse.json({ store }, { status: 200 })
+  let nextStore = store
+  let domainAutomation = null
+  if (store?.id && store?.customDomain) {
+    domainAutomation = await provisionStoreDomain(store)
+    if (domainAutomation.storeDomain) {
+      nextStore = {
+        ...store,
+        customDomain: domainAutomation.storeDomain.dominio_personalizado || store.customDomain,
+        customDomainActive: domainAutomation.storeDomain.dominio_ativo === true,
+        customDomainStatus: domainAutomation.storeDomain.dominio_status || store.customDomainStatus,
+        customDomainNotes: domainAutomation.storeDomain.dominio_observacoes || store.customDomainNotes,
+      }
+    }
+  }
+
+  return NextResponse.json({ store: nextStore, domainAutomation }, { status: 200 })
 }
 
 export async function POST(_request, context) {

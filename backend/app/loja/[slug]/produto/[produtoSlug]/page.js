@@ -512,8 +512,8 @@ export default async function LojaProdutoPage({ params }) {
     : null
   const structuredData = buildProductStructuredData(result.store, result.product)
   const breadcrumbStructuredData = buildBreadcrumbStructuredData([
-    { name: "Loja", url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`) },
-    { name: result.store.name, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`) },
+    { name: "Loja", url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`, result.store) },
+    { name: result.store.name, url: buildAbsoluteStoreUrl(`/loja/${result.store.slug}`, result.store) },
     { name: result.product.title, url: buildAbsoluteStoreUrl(buildStoreProductPath(result.store, result.product), result.store) },
   ])
 

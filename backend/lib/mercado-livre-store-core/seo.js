@@ -14,9 +14,35 @@ function buildStoreBaseUrl(store) {
   return STORE_BASE_URL
 }
 
+function buildStoreDomainPath(pathname, store = null) {
+  const normalizedPath = String(pathname || "").trim()
+  if (!store?.slug || store?.customDomainActive !== true || !store?.customDomain || !normalizedPath.startsWith("/")) {
+    return normalizedPath
+  }
+
+  const storePath = `/loja/${store.slug}`
+  if (normalizedPath === storePath) {
+    return "/"
+  }
+
+  if (normalizedPath.startsWith(`${storePath}?`)) {
+    return `/${normalizedPath.slice(storePath.length)}`
+  }
+
+  if (normalizedPath.startsWith(`${storePath}/produto/`)) {
+    return `/produto/${normalizedPath.slice(`${storePath}/produto/`.length)}`
+  }
+
+  if (normalizedPath === `${storePath}/opengraph-image`) {
+    return "/opengraph-image"
+  }
+
+  return normalizedPath
+}
+
 function buildAbsoluteStoreUrl(pathname, store = null) {
   const baseUrl = buildStoreBaseUrl(store)
-  const normalizedPath = String(pathname || "").trim()
+  const normalizedPath = buildStoreDomainPath(pathname, store)
   if (!normalizedPath) {
     return baseUrl
   }

@@ -605,36 +605,71 @@ export function StoreMenuSection({ draft, onUpdateMenuLink }) {
   )
 }
 
-export function StoreDomainSection({ draft, setDraft, publicUrl }) {
+export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomation = null, domainChecking = false, onVerifyNow }) {
   const hasCustomDomain = Boolean(String(draft.customDomain || '').trim())
   const domainPreview = hasCustomDomain ? `https://${draft.customDomain}` : ''
+  const verificationRecords = Array.isArray(domainAutomation?.summary?.verificationRecords)
+    ? domainAutomation.summary.verificationRecords
+    : []
+  const managedDomains = Array.isArray(domainAutomation?.summary?.domains)
+    ? domainAutomation.summary.domains
+    : []
 
   return (
     <div className="grid gap-4">
       <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
         <div className="inline-flex items-center gap-2 text-sm font-semibold text-white">
           <Globe className="h-4 w-4 text-sky-300" />
-          Dominio proprio da loja
+          Domínio próprio da loja
         </div>
         <div className="mt-3 text-sm leading-7 text-slate-400">
-          Esta aba prepara a loja para rodar em um domínio do cliente. A resolução pública pode ser ligada depois, mas a configuração e o preview já ficam salvos agora.
+          No Registro.br, abra o domínio, entre em DNS e crie os registros abaixo. Depois salve esta tela e use Verificar DNS quando a propagação terminar.
         </div>
         <div className="mt-4 grid gap-2 text-xs text-slate-400">
           <div>Domínio padrão atual: {publicUrl}</div>
-          {domainPreview ? <div>Dominio previsto: {domainPreview}</div> : null}
-          <div>DNS sugerido: criar `CNAME` de `www` apontando para `infrastudio.pro`.</div>
+          {domainPreview ? <div>Domínio previsto: {domainPreview}</div> : null}
+          <div>Registro tipo `A`: nome `@`, valor `76.76.21.21`.</div>
+          <div>Registro tipo `CNAME`: nome `www`, valor `cname.vercel-dns.com`.</div>
         </div>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!hasCustomDomain || domainChecking}
+            onClick={onVerifyNow}
+            className="gap-2"
+          >
+            <RefreshCcw className={`h-4 w-4 ${domainChecking ? 'animate-spin' : ''}`} />
+            {domainChecking ? 'Verificando' : 'Verificar DNS'}
+          </Button>
+          {managedDomains.length ? (
+            <span className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-slate-300">
+              {managedDomains.every((item) => item.verified) ? 'Domínios verificados na Vercel' : 'Aguardando propagação do DNS'}
+            </span>
+          ) : null}
+        </div>
+        {verificationRecords.length ? (
+          <div className="mt-4 grid gap-2 rounded-xl border border-amber-400/20 bg-amber-500/10 p-3 text-xs text-amber-50">
+            <div className="font-semibold">Verificação adicional solicitada pela Vercel:</div>
+            {verificationRecords.map((record) => (
+              <div key={`${record.type}-${record.domain}-${record.value}`} className="break-all">
+                {record.type} {record.domain}: {record.value}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
         <StorePanelInput
-          label="Dominio personalizado"
+          label="Domínio personalizado"
           value={draft.customDomain}
           onChange={(event) => setDraft((current) => ({ ...current, customDomain: event.target.value }))}
           placeholder="www.sualoja.com.br"
         />
 
-        <StorePanelField label="Status do dominio">
+        <StorePanelField label="Status do domínio">
           <select
             value={draft.customDomainStatus}
             onChange={(event) => setDraft((current) => ({ ...current, customDomainStatus: event.target.value }))}
@@ -653,7 +688,7 @@ export function StoreDomainSection({ draft, setDraft, publicUrl }) {
         labelOn="Ligado"
         labelOff="Desligado"
       >
-        Dominio proprio nesta loja
+        Domínio próprio nesta loja
       </StorePanelToggle>
 
       <StorePanelTextarea
