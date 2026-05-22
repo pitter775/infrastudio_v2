@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { AtSign, Camera, Globe, LayoutGrid, Menu, Phone, Play, Sparkles, Store, Users, X } from 'lucide-react'
 
-import { buildStoreAccentPalette } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, buildStoreUrl } from '@/components/store/store-utils'
 
 const socialIcons = {
   instagram: Camera,
@@ -21,16 +21,16 @@ const menuIconMap = {
   contato: Phone,
 }
 
-function resolveMenuHref(storeSlug, href, samePageNavigation) {
+function resolveMenuHref(store, href, samePageNavigation) {
   if (!href || !href.startsWith('#')) {
-    return href || `/loja/${storeSlug}`
+    return href || buildStoreUrl(store)
   }
 
   if (samePageNavigation) {
     return href
   }
 
-  return href === '#topo' ? `/loja/${storeSlug}` : `/loja/${storeSlug}${href}`
+  return href === '#topo' ? buildStoreUrl(store) : `${buildStoreUrl(store)}${href}`
 }
 
 export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavigation = false, store }) {
@@ -78,7 +78,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
     >
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
         <div className="flex min-w-0 items-center justify-between gap-3 px-1 sm:gap-6 sm:px-0">
-          <Link href={`/loja/${store.slug}`} className="flex min-w-0 items-center gap-3 sm:gap-5">
+          <Link href={buildStoreUrl(store)} className="flex min-w-0 items-center gap-3 sm:gap-5">
             <div
               className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] text-sm font-semibold text-white"
               style={{ backgroundColor: store.logoUrl ? undefined : store.accentColor }}
@@ -103,7 +103,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
               return (
                 <a
                   key={`${item.label}-${item.href}`}
-                  href={resolveMenuHref(store.slug, item.href, samePageNavigation)}
+                  href={resolveMenuHref(store, item.href, samePageNavigation)}
                   onClick={(event) => handleAnchorNavigation(event, item.href)}
                   className={`inline-flex items-center gap-2 rounded-[14px] px-4 py-2.5 text-[13px] font-semibold transition ${
                     isActive
@@ -146,7 +146,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
               return (
                 <a
                   key={`${item.label}-${item.href}-mobile`}
-                  href={resolveMenuHref(store.slug, item.href, samePageNavigation)}
+                  href={resolveMenuHref(store, item.href, samePageNavigation)}
                   onClick={(event) => handleAnchorNavigation(event, item.href)}
                   className={`inline-flex items-center gap-2 rounded-[14px] px-4 py-3 text-[12px] font-semibold uppercase tracking-[0.14em] transition-all ${
                     isActive

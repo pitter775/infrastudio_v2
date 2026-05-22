@@ -144,10 +144,39 @@ function buildStoreRewritePath(pathname, storeSlug) {
   return null
 }
 
+function buildStoreCanonicalRedirectUrl(request, storeSlug) {
+  const pathname = request.nextUrl.pathname
+  const storePath = `/loja/${storeSlug}`
+  if (pathname === storePath) {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = "/"
+    return redirectUrl
+  }
+
+  if (pathname.startsWith(`${storePath}/produto/`)) {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = `/produto/${pathname.slice(`${storePath}/produto/`.length)}`
+    return redirectUrl
+  }
+
+  if (pathname === `${storePath}/opengraph-image`) {
+    const redirectUrl = request.nextUrl.clone()
+    redirectUrl.pathname = "/opengraph-image"
+    return redirectUrl
+  }
+
+  return null
+}
+
 async function handleCustomStoreDomain(request) {
   const storeSlug = await resolveStoreSlugByHost(request.headers.get("host"))
   if (!storeSlug) {
     return null
+  }
+
+  const redirectUrl = buildStoreCanonicalRedirectUrl(request, storeSlug)
+  if (redirectUrl) {
+    return NextResponse.redirect(redirectUrl, 308)
   }
 
   const rewritePath = buildStoreRewritePath(request.nextUrl.pathname, storeSlug)
@@ -201,5 +230,5 @@ export async function proxy(request) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/api/admin/:path*", "/", "/produto/:path*", "/opengraph-image"],
+  matcher: ["/admin/:path*", "/api/admin/:path*", "/", "/loja/:path*", "/produto/:path*", "/opengraph-image"],
 }

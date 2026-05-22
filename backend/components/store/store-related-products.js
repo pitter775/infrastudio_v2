@@ -9,7 +9,7 @@ import { buildStoreAccentPalette } from '@/components/store/store-utils'
 
 const RELATED_PAGE_SIZE = 10
 
-export function StoreRelatedProducts({ accentColor, products, storeSlug }) {
+export function StoreRelatedProducts({ accentColor, products, store, storeSlug }) {
   const [visibleCount, setVisibleCount] = useState(RELATED_PAGE_SIZE)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const palette = buildStoreAccentPalette(accentColor)
@@ -22,6 +22,7 @@ export function StoreRelatedProducts({ accentColor, products, storeSlug }) {
         {visibleItems.map((product) => (
           <StoreProductCard
             key={product.slug}
+            store={store}
             storeSlug={storeSlug}
             product={product}
             accentColor={accentColor}

@@ -10,7 +10,7 @@ import { StoreProductHeroGallery } from "@/components/store/store-product-hero-g
 import { StoreRelatedProducts } from "@/components/store/store-related-products"
 import { StoreSnapshotRefresh } from "@/components/store/store-snapshot-refresh"
 import { StoreProductTopSearch } from "@/components/store/store-product-top-search"
-import { buildStoreAccentPalette, formatStoreCurrency, formatStoreInstallmentText } from "@/components/store/store-utils"
+import { buildStoreAccentPalette, buildStoreProductHref, buildStoreUrl, formatStoreCurrency, formatStoreInstallmentText } from "@/components/store/store-utils"
 import { getPublicMercadoLivreProductPage } from "@/lib/mercado-livre-store"
 import { buildStoreProductRef } from "@/lib/mercado-livre-store-core/sanitize"
 import {
@@ -412,7 +412,7 @@ export default async function LojaProdutoPage({ params }) {
         <div className="min-h-screen bg-[#f7f7f5] text-slate-950">
           <StoreHeader store={result.store} activeSection="produtos" />
           <main className="mx-auto w-full max-w-[1180px] px-4 pb-20 pt-28 sm:px-6 sm:pt-32 lg:px-8">
-            <Link href={`/loja/${result.store.slug}`} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">
+            <Link href={buildStoreUrl(result.store)} className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 transition hover:text-slate-950">
               <ArrowLeft className="h-4 w-4" />
               Voltar para a loja
             </Link>
@@ -439,11 +439,11 @@ export default async function LojaProdutoPage({ params }) {
             <section className="mt-10">
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-[20px] font-normal leading-tight text-slate-700">Outros produtos</h2>
-                <Link href={`/loja/${result.store.slug}`} className="text-sm font-medium text-slate-600 transition hover:text-slate-950">
+                <Link href={buildStoreUrl(result.store)} className="text-sm font-medium text-slate-600 transition hover:text-slate-950">
                   Ver todos
                 </Link>
               </div>
-              <StoreRelatedProducts products={result.relatedProducts} storeSlug={result.store.slug} accentColor={result.store.accentColor} />
+              <StoreRelatedProducts products={result.relatedProducts} store={result.store} storeSlug={result.store.slug} accentColor={result.store.accentColor} />
             </section>
           </main>
           <StoreFooter store={result.store} />
@@ -454,7 +454,7 @@ export default async function LojaProdutoPage({ params }) {
 
   const canonicalProductRef = buildStoreProductRef(result.product.itemId || result.product.id, result.product.slug || result.product.title)
   if (produtoSlug !== canonicalProductRef) {
-    permanentRedirect(`/loja/${result.store.slug}/produto/${canonicalProductRef}`)
+    permanentRedirect(buildStoreProductHref(result.store, { slug: canonicalProductRef }))
   }
 
   const visibleCategoryLabel = getVisibleCategoryLabel(result.product)
@@ -538,7 +538,7 @@ export default async function LojaProdutoPage({ params }) {
           <div className="absolute inset-0" style={heroStyle.overlay} />
           <StoreHeader store={result.store} activeSection="produtos" />
           <Link
-            href={`/loja/${result.store.slug}`}
+            href={buildStoreUrl(result.store)}
             className="absolute bottom-[-20px] left-1/2 z-20 flex h-10 w-10 -translate-x-1/2 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105 sm:hidden"
             style={{ color: palette.accentDark }}
             aria-label="Voltar para a loja"
@@ -550,6 +550,7 @@ export default async function LojaProdutoPage({ params }) {
             <div className="absolute bottom-[-20px] left-5 right-5 z-20 min-w-0 sm:left-7 sm:right-7 lg:static lg:right-auto lg:z-auto lg:w-[430px]">
               <StoreProductTopSearch
                 accentColor={palette.accentDark}
+                store={result.store}
                 storeSlug={result.store.slug}
               />
             </div>
@@ -559,7 +560,7 @@ export default async function LojaProdutoPage({ params }) {
         <main>
           <div className="mx-auto max-w-7xl px-5 pb-8 pt-8 sm:px-7 sm:pt-2 lg:px-10">
             <Link
-              href={`/loja/${result.store.slug}`}
+              href={buildStoreUrl(result.store)}
               className="relative z-30 -mt-7 mb-5 hidden h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105 sm:flex"
               style={{ color: palette.accentDark }}
               aria-label="Voltar para a loja"
@@ -669,12 +670,12 @@ export default async function LojaProdutoPage({ params }) {
             <section className="mt-14">
               <div className="flex items-center justify-between gap-4">
                 <h2 className="text-[20px] font-normal leading-tight text-slate-700">Outros produtos</h2>
-                <Link href={`/loja/${result.store.slug}`} className="text-sm font-medium text-slate-600 transition hover:text-slate-950">
+                <Link href={buildStoreUrl(result.store)} className="text-sm font-medium text-slate-600 transition hover:text-slate-950">
                   Ver todos
                 </Link>
               </div>
 
-              <StoreRelatedProducts products={result.relatedProducts} storeSlug={result.store.slug} accentColor={result.store.accentColor} />
+              <StoreRelatedProducts products={result.relatedProducts} store={result.store} storeSlug={result.store.slug} accentColor={result.store.accentColor} />
             </section>
           </div>
         </main>

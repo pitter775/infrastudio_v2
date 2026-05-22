@@ -45,8 +45,9 @@ function ProductVideoDialog({ onClose, product, video }) {
   )
 }
 
-export function StoreProductCard({ storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card', variant = 'default' }) {
-  const href = buildStoreProductHref(storeSlug, product)
+export function StoreProductCard({ store, storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card', variant = 'default' }) {
+  const resolvedStoreSlug = storeSlug || store?.slug
+  const href = buildStoreProductHref(store || resolvedStoreSlug, product)
   const images = getStoreProductImages(product)
   const largeImages = getStoreProductImages(product, { variant: 'F' })
   const videos = getStoreProductVideos(product)
@@ -95,11 +96,11 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
           onClick={() => {
             setIsOpening(true)
             trackStoreEvent({
-              storeSlug,
+              storeSlug: resolvedStoreSlug,
               type: 'product_open',
               source: analyticsSource,
               product,
-              dedupeKey: `${storeSlug}:product_open:${analyticsSource}:${product.slug}`,
+              dedupeKey: `${resolvedStoreSlug}:product_open:${analyticsSource}:${product.slug}`,
             })
           }}
           aria-busy={isOpening}
@@ -237,11 +238,11 @@ export function StoreProductCard({ storeSlug, product, accentColor, compact = fa
         onClick={() => {
           setIsOpening(true)
           trackStoreEvent({
-            storeSlug,
+            storeSlug: resolvedStoreSlug,
             type: 'product_open',
             source: analyticsSource,
             product,
-            dedupeKey: `${storeSlug}:product_open:${analyticsSource}:${product.slug}`,
+            dedupeKey: `${resolvedStoreSlug}:product_open:${analyticsSource}:${product.slug}`,
           })
         }}
         aria-busy={isOpening}

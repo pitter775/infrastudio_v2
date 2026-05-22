@@ -245,7 +245,33 @@ export function openStoreChat(widget) {
   )
 }
 
-export function buildStoreUrl(storeSlug, query, page, categoryId, sort) {
+function getStoreSlug(storeOrSlug) {
+  return typeof storeOrSlug === 'string'
+    ? storeOrSlug
+    : String(storeOrSlug?.slug || '').trim()
+}
+
+function getActiveStoreDomain(storeOrSlug) {
+  if (!storeOrSlug || typeof storeOrSlug === 'string') {
+    return ''
+  }
+
+  const domain = String(storeOrSlug.customDomain || '').trim()
+  const active = storeOrSlug.customDomainActive === true && storeOrSlug.customDomainStatus === 'active'
+  return active && domain ? `https://${domain}` : ''
+}
+
+function buildStoreBaseHref(storeOrSlug) {
+  const customDomain = getActiveStoreDomain(storeOrSlug)
+  if (customDomain) {
+    return customDomain
+  }
+
+  const storeSlug = getStoreSlug(storeOrSlug)
+  return storeSlug ? `/loja/${storeSlug}` : ''
+}
+
+export function buildStoreUrl(storeOrSlug, query, page, categoryId, sort) {
   const params = new URLSearchParams()
   if (query) {
     params.set('q', query)
@@ -261,14 +287,36 @@ export function buildStoreUrl(storeSlug, query, page, categoryId, sort) {
   }
 
   const serialized = params.toString()
-  return serialized ? `/loja/${storeSlug}?${serialized}` : `/loja/${storeSlug}`
+  const baseHref = buildStoreBaseHref(storeOrSlug)
+  return serialized ? `${baseHref}?${serialized}` : baseHref
 }
 
-export function buildStoreProductHref(storeSlug, product) {
+export function buildStoreProductHref(storeOrSlug, product) {
   const itemId = String(product?.itemId || product?.id || '').trim()
   const slug = String(product?.slug || product?.title || '').trim()
   const productRef = itemId ? `${itemId}${slug ? `-${slug}` : ''}` : slug
-  return `/loja/${storeSlug}/produto/${productRef}`
+  const baseHref = buildStoreBaseHref(storeOrSlug)
+  return `${baseHref}/produto/${productRef}`
+}
+
+export function navigateStoreHref(router, href, options = {}) {
+  const targetHref = String(href || '').trim()
+  if (!targetHref) {
+    return
+  }
+
+  if (/^https?:\/\//i.test(targetHref) && typeof window !== 'undefined') {
+    const targetUrl = new URL(targetHref)
+    if (targetUrl.origin !== window.location.origin) {
+      window.location.assign(targetHref)
+      return
+    }
+
+    router.push(`${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`, options)
+    return
+  }
+
+  router.push(targetHref, options)
 }
 
 function slugifyMercadoLivreTitle(value) {

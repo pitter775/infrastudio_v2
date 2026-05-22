@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Loader2, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
-import { buildStoreUrl } from '@/components/store/store-utils'
+import { buildStoreUrl, navigateStoreHref } from '@/components/store/store-utils'
 
 function ProductSearchForm({
   accentColor,
@@ -37,17 +37,17 @@ function ProductSearchForm({
   )
 }
 
-export function StoreProductTopSearch({ accentColor = '#0f172a', storeSlug }) {
+export function StoreProductTopSearch({ accentColor = '#0f172a', store, storeSlug }) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [isSearching, setIsSearching] = useState(false)
 
   function navigateStore(nextQuery = searchTerm) {
-    if (!storeSlug) {
+    if (!storeSlug && !store?.slug) {
       return
     }
 
-    router.push(buildStoreUrl(storeSlug, nextQuery, 1), { scroll: false })
+    navigateStoreHref(router, buildStoreUrl(store || storeSlug, nextQuery, 1), { scroll: false })
   }
 
   function handleSearchSubmit(event) {

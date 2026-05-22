@@ -1,6 +1,6 @@
 'use client'
 
-import { buildStoreAccentPalette } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, buildStoreUrl } from '@/components/store/store-utils'
 import { Globe, LayoutGrid, Phone, Sparkles, Store } from 'lucide-react'
 
 const menuIconMap = {
@@ -10,16 +10,16 @@ const menuIconMap = {
   contato: Phone,
 }
 
-function resolveFooterHref(storeSlug, href, samePageNavigation) {
+function resolveFooterHref(store, href, samePageNavigation) {
   if (!href || !href.startsWith('#')) {
-    return href || `/loja/${storeSlug}`
+    return href || buildStoreUrl(store)
   }
 
   if (samePageNavigation) {
     return href
   }
 
-  return href === '#topo' ? `/loja/${storeSlug}` : `/loja/${storeSlug}${href}`
+  return href === '#topo' ? buildStoreUrl(store) : `${buildStoreUrl(store)}${href}`
 }
 
 export function StoreFooter({ store, samePageNavigation = false }) {
@@ -71,7 +71,7 @@ export function StoreFooter({ store, samePageNavigation = false }) {
             return (
               <a
                 key={`${item.label}-${item.href}-footer`}
-                href={resolveFooterHref(store.slug, item.href, samePageNavigation)}
+                href={resolveFooterHref(store, item.href, samePageNavigation)}
                 onClick={(event) => handleAnchorNavigation(event, item.href)}
                 className="inline-flex max-h-[43px] items-center gap-2 rounded-[8px] px-3 py-2 text-sm text-slate-700 transition hover:bg-[var(--store-footer-hover)] hover:text-slate-950"
                 style={{ '--store-footer-hover': palette.accentBorder }}

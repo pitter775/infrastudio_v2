@@ -11,13 +11,13 @@ import { StoreProductCard } from '@/components/store/store-product-card'
 import { StoreSnapshotRefresh } from '@/components/store/store-snapshot-refresh'
 import { AppSelect } from '@/components/ui/app-select'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
-import { buildStoreAccentPalette, buildStoreUrl, buildStoreWhatsAppUrl } from '@/components/store/store-utils'
+import { buildStoreAccentPalette, buildStoreUrl, buildStoreWhatsAppUrl, navigateStoreHref } from '@/components/store/store-utils'
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
 }
 
-function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }) {
+function ProductRow({ accentColor, analyticsSource, products, store, storeSlug, title }) {
   const rowRef = useRef(null)
   const palette = buildStoreAccentPalette(accentColor)
 
@@ -97,6 +97,7 @@ function ProductRow({ accentColor, analyticsSource, products, storeSlug, title }
           {products.map((product) => (
             <StoreProductCard
               key={`${title}-${product.id}`}
+              store={store}
               storeSlug={storeSlug}
               product={product}
               accentColor={accentColor}
@@ -352,7 +353,7 @@ export function MercadoLivreStorefront({
   }
 
   function navigateStore(nextQuery = searchTerm, nextCategoryId = categoryId, nextSort = sortValue, nextPage = 1) {
-    router.push(buildStoreUrl(store.slug, nextQuery, nextPage, nextCategoryId, nextSort), { scroll: false })
+    navigateStoreHref(router, buildStoreUrl(store, nextQuery, nextPage, nextCategoryId, nextSort), { scroll: false })
   }
 
   function handleSearchSubmit(event) {
@@ -511,6 +512,7 @@ export function MercadoLivreStorefront({
             <ProductRow
               title={useLatestProducts ? 'Ultimos adicionados' : 'Em destaque'}
               products={recommendedProducts}
+              store={store}
               storeSlug={store.slug}
               accentColor={store.accentColor}
               analyticsSource="featured_row"
@@ -525,6 +527,7 @@ export function MercadoLivreStorefront({
                   {visibleProducts.map((product) => (
                     <StoreProductCard
                       key={`grid-${product.id}`}
+                      store={store}
                       storeSlug={store.slug}
                       product={product}
                       accentColor={store.accentColor}

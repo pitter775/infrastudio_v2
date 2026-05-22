@@ -144,7 +144,7 @@ export function StoreProductSheet({
                   </div>
                   <StoreProductActions
                     accentColor={store.accentColor}
-                    openPageHref={buildStoreProductHref(store.slug, product)}
+                    openPageHref={buildStoreProductHref(store, product)}
                     permalink={product.permalink}
                     product={product}
                     storeSlug={store.slug}
@@ -160,6 +160,7 @@ export function StoreProductSheet({
                       {relatedProducts.map((relatedProduct) => (
                         <StoreProductCard
                           key={relatedProduct.id}
+                          store={store}
                           storeSlug={store.slug}
                           product={relatedProduct}
                           accentColor={store.accentColor}
