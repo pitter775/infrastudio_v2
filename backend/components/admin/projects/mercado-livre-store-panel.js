@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Check, CreditCard, ExternalLink, Globe, ImageIcon, LayoutTemplate, Save, Share2, Store, Truck } from 'lucide-react'
 
 import { AccessRequestSheet, buildAccessRequestMessage } from '@/components/admin/access-request-sheet'
@@ -229,7 +229,7 @@ function buildDeveloperUploadError(stage, message, fallbackText) {
   }
 }
 
-export function MercadoLivreStorePanel({ project, active = false, onFooterStateChange }) {
+export function MercadoLivreStorePanel({ project, active = false, onFooterStateChange, showTabs = true }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const [activeSubTab, setActiveSubTab] = useState('general')
   const [loading, setLoading] = useState(true)
@@ -270,14 +270,40 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     [project],
   )
 
+  const handleAccessTabClick = useCallback((tab) => {
+    const label = `${tab.label} da loja Mercado Livre`
+    const projectName = project.name || project.nome || project.slug || ''
+    setAccessError(null)
+    setAccessRequest({
+      featureKey: `mercado_livre_${tab.id}`,
+      label,
+      projetoId: project.id || '',
+      assunto: `Solicitação de acesso: ${label}`,
+      mensagemInicial: buildAccessRequestMessage(label, projectName),
+    })
+    setAccessSheetOpen(true)
+  }, [project.id, project.name, project.nome, project.slug])
+
+  const handleSubTabChange = useCallback((tab) => {
+    if (tab.accessRequest) {
+      handleAccessTabClick(tab)
+      return
+    }
+
+    setActiveSubTab(tab.id)
+  }, [handleAccessTabClick])
+
   useEffect(() => {
     onFooterStateChange?.({
       canSave: true,
       saving,
       activeTab: activeSubTab,
       publicUrl,
+      storeTabs: STORE_TABS,
+      activeStoreTab: activeSubTab,
+      onStoreTabChange: handleSubTabChange,
     })
-  }, [activeSubTab, onFooterStateChange, publicUrl, saving])
+  }, [activeSubTab, handleSubTabChange, onFooterStateChange, publicUrl, saving])
 
   useEffect(() => {
     let activeRequest = true
@@ -864,26 +890,13 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
     }
   }
 
-  function handleAccessTabClick(tab) {
-    const label = `${tab.label} da loja Mercado Livre`
-    const projectName = project.name || project.nome || project.slug || ''
-    setAccessError(null)
-    setAccessRequest({
-      featureKey: `mercado_livre_${tab.id}`,
-      label,
-      projetoId: project.id || '',
-      assunto: `Solicitação de acesso: ${label}`,
-      mensagemInicial: buildAccessRequestMessage(label, projectName),
-    })
-    setAccessSheetOpen(true)
-  }
-
   if (loading) {
     return <div className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">Carregando loja...</div>
   }
 
   return (
     <form id="mercado-livre-store-form" className="grid gap-4" onSubmit={handleSave}>
+      {showTabs ? (
       <div className="-mt-2 flex flex-nowrap items-center gap-1 overflow-hidden pb-1">
         {STORE_TABS.map((tab) => {
           const Icon = tab.icon
@@ -893,7 +906,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
             <button
               key={tab.id}
               type="button"
-              onClick={() => (tab.accessRequest ? handleAccessTabClick(tab) : setActiveSubTab(tab.id))}
+              onClick={() => handleSubTabChange(tab)}
               className={cn(
                 'inline-flex h-8 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-xs font-normal transition-[background-color,color,box-shadow]',
                 activeTab
@@ -907,6 +920,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           )
         })}
       </div>
+      ) : null}
 
       {feedback ? (
         <div

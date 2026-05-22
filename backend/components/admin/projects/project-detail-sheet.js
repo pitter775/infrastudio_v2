@@ -16,6 +16,7 @@ export function SheetPanelHeader({
   enabled = true,
   leftAction = null,
   rightAction = null,
+  bottomContent = null,
   onCancel = null,
 }) {
   const statusClasses = colorClassName
@@ -55,6 +56,7 @@ export function SheetPanelHeader({
             </div>
 
             {description ? <p className="mt-2 hidden text-sm text-slate-400 sm:block">{description}</p> : null}
+            {bottomContent ? <div className="mt-4">{bottomContent}</div> : null}
           </div>
         </div>
 

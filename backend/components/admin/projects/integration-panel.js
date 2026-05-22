@@ -90,6 +90,38 @@ function ManagerFrame({ children }) {
   )
 }
 
+function StoreHeaderTabs({ activeTab, onChange, tabs = [] }) {
+  if (!tabs.length || !onChange) {
+    return null
+  }
+
+  return (
+    <div className="flex flex-nowrap items-center gap-1 overflow-hidden pb-0.5">
+      {tabs.map((tab) => {
+        const Icon = tab.icon
+        const active = activeTab === tab.id
+
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onChange(tab)}
+            className={cn(
+              'inline-flex h-8 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-xs font-normal transition-[background-color,color,box-shadow]',
+              active
+                ? 'bg-sky-500/14 text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.16)]'
+                : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
+            )}
+          >
+            {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" /> : null}
+            <span className="truncate">{tab.label}</span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 export function resolveProjectPlanSummary(project) {
   const projectPlanName = project.billing?.projectPlan?.planName?.trim?.() || ''
   const subscriptionPlanName = project.billing?.subscription?.plan?.name?.trim?.() || ''
@@ -255,6 +287,15 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
               <ExternalLink className="h-3.5 w-3.5" />
               Abrir loja
             </a>
+          ) : null
+        }
+        bottomContent={
+          panel.id === 'mercado-livre' && activeTab === 'store' ? (
+            <StoreHeaderTabs
+              tabs={mercadoFooter.storeTabs}
+              activeTab={mercadoFooter.activeStoreTab}
+              onChange={mercadoFooter.onStoreTabChange}
+            />
           ) : null
         }
         onCancel={onCloseSheet}

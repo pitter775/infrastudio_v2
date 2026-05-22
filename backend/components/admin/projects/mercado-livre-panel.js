@@ -909,7 +909,7 @@ export function MercadoLivrePanel({
       ) : null}
 
       {currentTab === 'store' ? (
-        <MercadoLivreStorePanel project={project} onFooterStateChange={onFooterStateChange} />
+        <MercadoLivreStorePanel project={project} onFooterStateChange={onFooterStateChange} showTabs={false} />
       ) : null}
 
       {currentTab === 'dashboard' ? (
