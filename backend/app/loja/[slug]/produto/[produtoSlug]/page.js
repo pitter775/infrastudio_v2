@@ -385,7 +385,7 @@ function ProductPurchasePanel({
 
 function MobileProductTitle({ product }) {
   return (
-    <h1 className="text-[18px] font-semibold leading-snug text-slate-950 sm:hidden">{product.title}</h1>
+    <h1 className="text-[17px] font-semibold leading-snug text-slate-950 min-[390px]:text-[18px] sm:hidden">{product.title}</h1>
   )
 }
 
@@ -534,7 +534,7 @@ export default async function LojaProdutoPage({ params }) {
         />
       ) : null}
       <div className="min-h-screen overflow-x-clip bg-slate-50 text-slate-900">
-        <section className="relative min-h-[138px] overflow-x-clip overflow-y-visible pt-[70px]" style={heroStyle.base}>
+        <section className="relative min-h-[130px] overflow-x-clip overflow-y-visible pt-[64px] min-[390px]:min-h-[138px] min-[390px]:pt-[70px]" style={heroStyle.base}>
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
           <StoreHeader store={result.store} activeSection="produtos" />
@@ -546,9 +546,9 @@ export default async function LojaProdutoPage({ params }) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div className="relative mx-auto flex max-w-7xl min-w-0 items-start justify-between gap-4 px-5 py-3 sm:px-7 lg:px-10">
+          <div className="relative mx-auto flex max-w-7xl min-w-0 items-start justify-between gap-4 px-3 py-3 min-[390px]:px-5 sm:px-7 lg:px-10">
             <div className="hidden flex-1 lg:block" />
-            <div className="absolute bottom-[-20px] left-5 right-5 z-20 min-w-0 sm:left-7 sm:right-7 lg:static lg:right-auto lg:z-auto lg:w-[430px]">
+            <div className="absolute bottom-[-20px] left-3 right-3 z-20 min-w-0 min-[390px]:left-5 min-[390px]:right-5 sm:left-7 sm:right-7 lg:static lg:right-auto lg:z-auto lg:w-[430px]">
               <StoreProductTopSearch
                 accentColor={palette.accentDark}
                 store={result.store}
@@ -559,7 +559,7 @@ export default async function LojaProdutoPage({ params }) {
         </section>
 
         <main>
-          <div className="mx-auto max-w-7xl px-5 pb-8 pt-8 sm:px-7 sm:pt-2 lg:px-10">
+          <div className="mx-auto max-w-7xl px-3 pb-8 pt-8 min-[390px]:px-5 sm:px-7 sm:pt-2 lg:px-10">
             <Link
               href={buildStoreUrl(result.store)}
               className="relative z-30 -mt-7 mb-5 hidden h-10 w-10 items-center justify-center rounded-full bg-[#f8fafc] shadow-[0_12px_26px_-12px_rgba(15,23,42,0.34)] transition hover:scale-105 sm:flex"
@@ -584,7 +584,7 @@ export default async function LojaProdutoPage({ params }) {
                 />
 
                 {attributeGroups.length ? (
-                  <section className="-mx-5 rounded-none bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:mx-0 sm:rounded-[8px] sm:p-6">
+                  <section className="-mx-3 rounded-none bg-white p-3 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] min-[390px]:-mx-5 min-[390px]:p-5 sm:mx-0 sm:rounded-[8px] sm:p-6">
                     <style>{`
                       .store-accordion::details-content {
                         block-size: 0;
@@ -648,7 +648,7 @@ export default async function LojaProdutoPage({ params }) {
             </div>
 
             {descriptionBlocks.length ? (
-              <section className="relative -mx-5 mt-6 rounded-none bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:mx-0 sm:rounded-[8px] sm:p-6">
+              <section className="relative -mx-3 mt-6 rounded-none bg-white p-3 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] min-[390px]:-mx-5 min-[390px]:p-5 sm:mx-0 sm:rounded-[8px] sm:p-6">
                 {result.store.logoUrl ? (
                   <Image
                     src={result.store.logoUrl}

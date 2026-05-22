@@ -77,11 +77,11 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
           : 'bg-transparent shadow-none'
       }`}
     >
-      <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex min-w-0 items-center justify-between gap-3 px-1 sm:gap-6 sm:px-0">
-          <Link href={buildStoreUrl(store)} className="flex min-w-0 items-center gap-3 sm:gap-5">
+      <div className="mx-auto max-w-7xl px-3 py-3 min-[390px]:px-4 min-[390px]:py-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center justify-between gap-2 px-0 min-[390px]:gap-3 min-[390px]:px-1 sm:gap-6 sm:px-0">
+          <Link href={buildStoreUrl(store)} className="flex min-w-0 items-center gap-2 min-[390px]:gap-3 sm:gap-5">
             <div
-              className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] text-sm font-semibold text-white"
+              className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-[12px] text-sm font-semibold text-white min-[390px]:h-12 min-[390px]:w-12 min-[390px]:rounded-[14px]"
               style={{ backgroundColor: store.logoUrl ? undefined : store.accentColor }}
             >
               {store.logoUrl ? (
@@ -91,7 +91,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
               )}
             </div>
             <div className="min-w-0">
-              <div className="truncate text-[1.02rem] font-semibold tracking-[-0.02em]" style={{ color: palette.accentDark, textShadow: '0 2px 10px rgba(255,255,255,0.78)' }}>{store.name}</div>
+              <div className="truncate text-[0.92rem] font-semibold tracking-[-0.02em] min-[390px]:text-[1.02rem]" style={{ color: palette.accentDark, textShadow: '0 2px 10px rgba(255,255,255,0.78)' }}>{store.name}</div>
             </div>
           </Link>
 
@@ -127,7 +127,7 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
             <button
               type="button"
               onClick={() => setMobileMenuOpen((current) => !current)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-[14px] bg-white/88 text-slate-900 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.24)] md:hidden"
+              className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-[12px] bg-white/88 text-slate-900 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.24)] min-[390px]:h-11 min-[390px]:w-11 min-[390px]:rounded-[14px] md:hidden"
               aria-label={mobileMenuOpen ? 'Fechar menu' : 'Abrir menu'}
               aria-expanded={mobileMenuOpen}
             >
