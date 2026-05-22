@@ -328,11 +328,10 @@ function AnalyticsConsentPreview({ activating, error, loading, onActivateClick, 
             </div>
           </div>
           <div className="grid gap-4 p-4">
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <div className="grid gap-3 md:grid-cols-3">
               <DashboardKpiCard icon={WalletCards} label="Faturamento" value="R$ --" detail="Prévia protegida" tone="emerald" />
-              <DashboardKpiCard icon={ShoppingBag} label="Pedidos" value="--" detail="Prévia protegida" tone="sky" />
-              <DashboardKpiCard icon={TrendingUp} label="Ticket médio" value="R$ --" detail="Prévia protegida" tone="violet" />
-              <DashboardKpiCard icon={CheckCircle2} label="Itens vendidos" value="--" detail="Prévia protegida" tone="amber" />
+              <DashboardKpiCard icon={TrendingUp} label="Ticket" value="R$ --" detail="Prévia protegida" tone="violet" />
+              <DashboardKpiCard icon={CheckCircle2} label="Vendidos" value="--" detail="Prévia protegida" tone="amber" />
             </div>
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
               <DashboardChartPanel title="Evolução de faturamento" description="Demonstração visual antes da ativação.">
@@ -619,11 +618,10 @@ export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMe
 
           {hasSalesData ? (
             <>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <div className="grid gap-3 md:grid-cols-3">
                 <DashboardKpiCard icon={WalletCards} label="Faturamento" value={formatCurrency(summary.grossRevenue, currency)} detail="Não cancelados no período." tone="emerald" />
-                <DashboardKpiCard icon={ShoppingBag} label="Pedidos" value={formatNumber(summary.ordersCount)} detail={`${formatNumber(summary.paidOrdersCount)} pagos`} tone="sky" />
-                <DashboardKpiCard icon={TrendingUp} label="Ticket médio" value={formatCurrency(summary.averageTicket, currency)} detail="Média dos pagos." tone="violet" />
-                <DashboardKpiCard icon={CheckCircle2} label="Itens vendidos" value={formatNumber(summary.itemsSold)} detail={`Cancelados: ${formatNumber(summary.cancelledOrdersCount)}`} tone="amber" />
+                <DashboardKpiCard icon={TrendingUp} label="Ticket" value={formatCurrency(summary.averageTicket, currency)} detail="Média dos pagos." tone="violet" />
+                <DashboardKpiCard icon={CheckCircle2} label="Vendidos" value={formatNumber(summary.itemsSold)} detail={`Cancelados: ${formatNumber(summary.cancelledOrdersCount)}`} tone="amber" />
               </div>
 
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
