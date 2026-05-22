@@ -465,7 +465,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ action: 'verify' }),
+        body: JSON.stringify({ action: 'provision' }),
       })
       const data = await response.json().catch(() => ({}))
       if (!response.ok) {

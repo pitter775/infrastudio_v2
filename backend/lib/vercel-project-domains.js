@@ -1,7 +1,10 @@
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { sanitizeDomain, sanitizeText } from "@/lib/mercado-livre-store-core/sanitize"
+import { resolve4, resolveCname } from "node:dns/promises"
 
 const VERCEL_API_BASE_URL = "https://api.vercel.com"
+const VERCEL_APEX_IP = "76.76.21.21"
+const VERCEL_CNAME = "cname.vercel-dns.com"
 
 function getVercelDomainConfig() {
   const token = process.env.VERCEL_TOKEN?.trim()
@@ -140,14 +143,38 @@ function collectVerificationRecords(results) {
   )
 }
 
-function summarizeVercelDomains(results) {
+async function resolveStoreDns(domain) {
+  const apex = getApexDomain(domain)
+  if (!apex) {
+    return { ready: false, apexReady: false, wwwReady: false, apexRecords: [], wwwRecords: [] }
+  }
+
+  const apexRecords = await resolve4(apex).catch(() => [])
+  const wwwRecords = await resolveCname(`www.${apex}`).catch(() => [])
+  const apexReady = apexRecords.includes(VERCEL_APEX_IP)
+  const wwwReady = wwwRecords.some((record) => String(record || "").replace(/\.$/, "").toLowerCase() === VERCEL_CNAME)
+
+  return {
+    ready: apexReady && wwwReady,
+    apexReady,
+    wwwReady,
+    apexRecords,
+    wwwRecords,
+  }
+}
+
+async function summarizeVercelDomains(results, domain) {
   const validResults = Array.isArray(results) ? results : []
   const errors = validResults.filter((item) => item?.ok !== true).map((item) => item?.error).filter(Boolean)
-  const verified = validResults.length > 0 && validResults.every((item) => item?.data?.verified === true)
+  const vercelVerified = validResults.length > 0 && validResults.every((item) => item?.data?.verified === true)
+  const dns = await resolveStoreDns(domain)
+  const verified = vercelVerified && dns.ready
 
   return {
     configured: validResults.every((item) => item?.configured !== false),
     verified,
+    vercelVerified,
+    dns,
     status: verified ? "active" : errors.length ? "error" : "configuring",
     errors,
     domains: validResults.map((item) => ({
@@ -167,7 +194,11 @@ function buildDomainNotes(summary) {
   }
 
   if (summary.verified) {
-    return "Domínio verificado automaticamente pela Vercel."
+    return "Domínio verificado automaticamente pela Vercel e resolvendo no DNS público."
+  }
+
+  if (summary.vercelVerified && !summary.dns?.ready) {
+    return "Domínio validado na Vercel. Aguardando o DNS público resolver para o endereço correto."
   }
 
   if (summary.errors.length) {
@@ -185,7 +216,7 @@ function buildDomainNotes(summary) {
 async function updateStoreDomainState(storeId, domain, summary, options = {}) {
   const supabase = options.supabase ?? getSupabaseAdminClient()
   const status = summary.verified ? "active" : summary.status === "error" ? "configuring" : "configuring"
-  const active = summary.verified || (summary.configured && !summary.errors.length)
+  const active = summary.verified
   const { data, error } = await supabase
     .from("mercadolivre_lojas")
     .update({
@@ -214,10 +245,11 @@ async function provisionStoreDomain(store, options = {}) {
 
   const results = []
   for (const item of getManagedDomains(domain)) {
-    results.push(await addProjectDomain(item.name, item.redirect))
+    const added = await addProjectDomain(item.name, item.redirect)
+    results.push(added.ok ? await verifyProjectDomain(item.name) : added)
   }
 
-  const summary = summarizeVercelDomains(results)
+  const summary = await summarizeVercelDomains(results, domain)
   const storeDomain = await updateStoreDomainState(store.id, domain, summary, options)
   return {
     ok: summary.configured && !summary.errors.length,
@@ -239,7 +271,7 @@ async function verifyStoreDomain(store, options = {}) {
     results.push(await verifyProjectDomain(item.name))
   }
 
-  const summary = summarizeVercelDomains(results)
+  const summary = await summarizeVercelDomains(results, domain)
   const storeDomain = await updateStoreDomainState(store.id, domain, summary, options)
   return {
     ok: summary.verified,

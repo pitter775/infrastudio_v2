@@ -616,17 +616,20 @@ export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomatio
   const managedDomains = Array.isArray(domainAutomation?.summary?.domains)
     ? domainAutomation.summary.domains
     : []
-  const statusLabel = domainStatus === 'active'
+  const dnsReady = summary?.dns?.ready === true
+  const vercelVerified = summary?.vercelVerified === true || managedDomains.length > 0 && managedDomains.every((item) => item.verified)
+  const effectiveDomainStatus = domainStatus === 'active' && summary && !dnsReady ? 'configuring' : domainStatus
+  const statusLabel = effectiveDomainStatus === 'active'
     ? 'Domínio ativo'
-    : domainStatus === 'configuring'
+    : effectiveDomainStatus === 'configuring'
       ? 'Aguardando DNS do cliente'
       : 'Domínio pendente'
-  const statusDescription = domainStatus === 'active'
-    ? 'A loja já pode responder pelo domínio personalizado.'
+  const statusDescription = effectiveDomainStatus === 'active'
+    ? 'Domínio liberado no sistema. Se o navegador ainda mostrar NXDOMAIN, aguarde a propagação do Registro.br e verifique novamente.'
     : hasCustomDomain
       ? 'Salve a loja, configure o DNS no Registro.br e use Verificar DNS quando a propagação terminar. O cron também verifica automaticamente a cada hora.'
       : 'Informe o domínio do cliente para preparar a automação na Vercel.'
-  const StatusIcon = domainStatus === 'active' ? CheckCircle2 : XCircle
+  const StatusIcon = effectiveDomainStatus === 'active' ? CheckCircle2 : XCircle
 
   return (
     <div className="grid gap-4">
@@ -640,16 +643,30 @@ export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomatio
         </div>
         <div className="mt-4 grid gap-2 text-xs text-slate-400">
           <div>Domínio padrão atual: {publicUrl}</div>
-          {domainPreview ? <div>Domínio previsto: {domainPreview}</div> : null}
-          <div>Registro tipo `A`: nome `@`, valor `76.76.21.21`.</div>
+          {domainPreview ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span>Domínio previsto: {domainPreview}</span>
+              <a href={domainPreview} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg bg-white/[0.04] px-2 py-1 text-sky-200 transition hover:bg-white/[0.08]">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Abrir domínio
+              </a>
+            </div>
+          ) : null}
+          <div>Registro tipo `A`: nome `{String(draft.customDomain || '').trim() || 'seudominio.com.br'}`, valor `76.76.21.21`.</div>
           <div>Registro tipo `CNAME`: nome `www`, valor `cname.vercel-dns.com`.</div>
         </div>
-        <div className={`mt-4 rounded-xl border px-3 py-3 text-xs ${domainStatus === 'active' ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100' : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}>
+        <div className={`mt-4 rounded-xl border px-3 py-3 text-xs ${effectiveDomainStatus === 'active' ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100' : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}>
           <div className="flex items-center gap-2 font-semibold">
             <StatusIcon className="h-4 w-4" />
             {statusLabel}
           </div>
           <div className="mt-2 leading-6 text-slate-300">{statusDescription}</div>
+          {hasCustomDomain ? (
+            <div className="mt-2 grid gap-1 text-slate-300">
+              <div>Vercel: {vercelVerified ? 'domínio validado' : 'aguardando validação'}</div>
+              <div>DNS público: {dnsReady ? 'resolvendo para a Vercel' : 'aguardando propagação'}</div>
+            </div>
+          ) : null}
           {summary?.configured === false ? (
             <div className="mt-2 text-amber-100">Automação da Vercel ainda não configurada no ambiente.</div>
           ) : null}
@@ -685,12 +702,20 @@ export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomatio
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <StorePanelInput
-          label="Domínio personalizado"
-          value={draft.customDomain}
-          onChange={(event) => setDraft((current) => ({ ...current, customDomain: event.target.value }))}
-          placeholder="www.sualoja.com.br"
-        />
+        <div className="grid gap-2">
+          <StorePanelInput
+            label="Domínio personalizado"
+            value={draft.customDomain}
+            onChange={(event) => setDraft((current) => ({ ...current, customDomain: event.target.value }))}
+            placeholder="www.sualoja.com.br"
+          />
+          {domainPreview ? (
+            <a href={domainPreview} target="_blank" rel="noreferrer" className="inline-flex h-9 w-fit items-center gap-2 rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 transition hover:bg-sky-500/15">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Abrir página
+            </a>
+          ) : null}
+        </div>
 
         <StorePanelField label="Status do domínio">
           <select
