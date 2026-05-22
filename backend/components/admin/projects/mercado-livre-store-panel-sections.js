@@ -26,6 +26,7 @@ export function StoreGeneralSection({
   slugAvailability,
   snapshotTotal = 0,
   onCopyPublicUrl,
+  onOpenDomainSettings,
 }) {
   const normalizedSlug = String(slugAvailability?.slug || draft.slug || '').trim()
   const slugStatus = slugAvailability?.status || 'idle'
@@ -66,6 +67,14 @@ export function StoreGeneralSection({
           >
             <Copy className="h-4 w-4" />
             {publicUrlCopied ? 'Link copiado' : 'Copiar link'}
+          </button>
+          <button
+            type="button"
+            onClick={onOpenDomainSettings}
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.03] px-4 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06]"
+          >
+            <Globe className="h-4 w-4" />
+            Configurar domínio próprio
           </button>
         </div>
         <div className="mt-2 text-xs text-slate-400">
@@ -709,12 +718,6 @@ export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomatio
             onChange={(event) => setDraft((current) => ({ ...current, customDomain: event.target.value }))}
             placeholder="www.sualoja.com.br"
           />
-          {domainPreview ? (
-            <a href={domainPreview} target="_blank" rel="noreferrer" className="inline-flex h-9 w-fit items-center gap-2 rounded-xl border border-sky-400/20 bg-sky-500/10 px-3 text-xs font-semibold text-sky-100 transition hover:bg-sky-500/15">
-              <ExternalLink className="h-3.5 w-3.5" />
-              Abrir página
-            </a>
-          ) : null}
         </div>
 
         <StorePanelField label="Status do domínio">

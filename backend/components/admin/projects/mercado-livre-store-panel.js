@@ -949,6 +949,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           publicUrlCopied={publicUrlCopied}
           snapshotTotal={Number(snapshot?.total || 0)}
           onCopyPublicUrl={handleCopyPublicUrl}
+          onOpenDomainSettings={() => setActiveSubTab('domain')}
           onRestoreDefaults={handleRestoreDefaults}
           restoringDefaults={restoringDefaults}
           slugAvailability={slugAvailability}
