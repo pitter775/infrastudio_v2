@@ -438,6 +438,7 @@ export function MercadoLivrePanel({
     onFooterStateChange?.({
       step,
       activeTab: currentTab,
+      hasSavedConnector,
       saving: step === 1 ? resolvingStore : savingConnector || deletingContract,
       canSaveConnection: !(step === 2 && hasSavedConnector),
       onBackToProductUrl: () => setStep(1),

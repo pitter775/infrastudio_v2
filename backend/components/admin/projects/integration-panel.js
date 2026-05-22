@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, BarChart3, BookOpen, CalendarDays, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
 
@@ -109,7 +109,7 @@ function StoreHeaderTabs({ activeTab, onChange, tabs = [] }) {
             className={cn(
               'inline-flex h-8 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-xs font-normal transition-[background-color,color,box-shadow]',
               active
-                ? 'bg-sky-500/14 text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.16)]'
+                ? 'bg-[#10192b] text-slate-200'
                 : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
             )}
           >
@@ -153,6 +153,10 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
   const [widgetFooter, setWidgetFooter] = useState({})
   const [mercadoFooter, setMercadoFooter] = useState({})
   const [integrationStats, setIntegrationStats] = useState({})
+  const mercadoDashboardAutoOpenRef = useRef(false)
+  const hasMercadoLivreConnection =
+    panel.id === 'mercado-livre' &&
+    (mercadoFooter.hasSavedConnector === true || Number(project.directConnections?.mercadoLivre || 0) > 0)
 
   const handleStatsChange = useCallback((stats) => {
     setIntegrationStats((current) => mergeIntegrationStats(current, stats))
@@ -184,7 +188,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
     }
 
       if (panel.id === 'mercado-livre') {
-        return [
+        const mercadoTabs = [
           { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
           { id: 'connection', label: 'Conexão', icon: Store },
           { id: 'tutorial', label: 'Ajuda', icon: BookOpen },
@@ -193,13 +197,29 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
           { id: 'orders', label: 'Pedidos', icon: Files },
           { id: 'questions', label: 'Perguntas', icon: MessageSquare },
         ]
+
+        return hasMercadoLivreConnection ? mercadoTabs : mercadoTabs.filter((tab) => tab.id === 'connection')
       }
 
     return buildIntegrationTabs(panel.id)
-  }, [panel.id])
+  }, [hasMercadoLivreConnection, panel.id])
   const [activeTab, setActiveTab] = useState(
     deepLink?.tab && tabs.some((tab) => tab.id === deepLink.tab) ? deepLink.tab : tabs[0]?.id || 'overview',
   )
+  const currentActiveTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0]?.id || 'overview'
+
+  const handleMercadoFooterStateChange = useCallback((nextFooter) => {
+    setMercadoFooter(nextFooter || {})
+    if (
+      nextFooter?.hasSavedConnector &&
+      activeTab === 'connection' &&
+      !deepLink?.tab &&
+      !mercadoDashboardAutoOpenRef.current
+    ) {
+      mercadoDashboardAutoOpenRef.current = true
+      setActiveTab('dashboard')
+    }
+  }, [activeTab, deepLink?.tab])
 
   const realPanel =
     panel.id === 'apis' ? (
@@ -226,9 +246,9 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
     ) : panel.id === 'mercado-livre' ? (
       <MercadoLivrePanel
         project={project}
-        activeTab={activeTab}
+        activeTab={currentActiveTab}
         onTabChange={setActiveTab}
-        onFooterStateChange={setMercadoFooter}
+        onFooterStateChange={handleMercadoFooterStateChange}
         compact
         initialNotice={deepLink?.notice || ''}
       />
@@ -236,13 +256,13 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       <ManagerFrame>
         <GoogleCalendarManager
           project={project}
-          activeTab={activeTab}
+          activeTab={currentActiveTab}
           onStatsChange={handleStatsChange}
           compact
         />
       </ManagerFrame>
     ) : null
-  const contentKey = realPanel ? `${panel.id}:manager` : `${panel.id}:${activeTab}`
+  const contentKey = realPanel ? `${panel.id}:manager` : `${panel.id}:${currentActiveTab}`
 
   return (
     <>
@@ -277,7 +297,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
               <BookOpen className="h-3.5 w-3.5" />
               Guia
             </Button>
-          ) : panel.id === 'mercado-livre' && activeTab === 'store' && mercadoFooter.publicUrl ? (
+          ) : panel.id === 'mercado-livre' && currentActiveTab === 'store' && mercadoFooter.publicUrl ? (
             <a
               href={mercadoFooter.publicUrl}
               target="_blank"
@@ -290,7 +310,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
           ) : null
         }
         bottomContent={
-          panel.id === 'mercado-livre' && activeTab === 'store' ? (
+          panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
             <StoreHeaderTabs
               tabs={mercadoFooter.storeTabs}
               activeTab={mercadoFooter.activeStoreTab}
@@ -302,7 +322,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       />
       <div className={cn("min-h-0 flex-1", panel.id === 'apis' ? "flex flex-col overflow-hidden" : "flex flex-col overflow-hidden md:overflow-visible md:flex-row")}>
         {panel.id === 'apis' ? null : (
-          <SheetInternalTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
+          <SheetInternalTabs tabs={tabs} activeTab={currentActiveTab} onChange={setActiveTab} />
         )}
 
         <div
@@ -334,7 +354,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
                 Modulos conectados
               </div>
-              <div className="mt-2 text-xs text-slate-500">Aba ativa: {tabs.find((tab) => tab.id === activeTab)?.label}</div>
+              <div className="mt-2 text-xs text-slate-500">Aba ativa: {tabs.find((tab) => tab.id === currentActiveTab)?.label}</div>
               <div className="mt-4 space-y-3">
                 {sheetItems.map((item) => (
                   <div
@@ -456,11 +476,11 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
           </div>
         </div>
       ) : null}
-      {panel.id === 'mercado-livre' && (activeTab === 'connection' || activeTab === 'store') ? (
+      {panel.id === 'mercado-livre' && (currentActiveTab === 'connection' || currentActiveTab === 'store') ? (
         <div className="border-t border-white/5 px-6 py-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              {activeTab === 'connection' && mercadoFooter.step === 2 && mercadoFooter.canSaveConnection !== false ? (
+              {currentActiveTab === 'connection' && mercadoFooter.step === 2 && mercadoFooter.canSaveConnection !== false ? (
                 <Button
                   type="button"
                   variant="ghost"
@@ -474,7 +494,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
               ) : null}
             </div>
             <div className="flex justify-end">
-              {activeTab === 'connection' && mercadoFooter.step === 1 ? (
+              {currentActiveTab === 'connection' && mercadoFooter.step === 1 ? (
                 <Button
                   type="submit"
                   form="mercado-livre-resolve-form"
@@ -487,7 +507,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
                   {mercadoFooter.saving ? 'Localizando...' : 'Avancar'}
                 </Button>
               ) : null}
-              {activeTab === 'connection' && mercadoFooter.step === 2 ? (
+              {currentActiveTab === 'connection' && mercadoFooter.step === 2 ? (
                 <Button
                   type="submit"
                   form="mercado-livre-save-form"
@@ -500,7 +520,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
                   {mercadoFooter.saving ? 'Salvando...' : 'Salvar conexão'}
                 </Button>
               ) : null}
-              {activeTab === 'store' ? (
+              {currentActiveTab === 'store' ? (
                 <Button
                   type="submit"
                   form="mercado-livre-store-form"

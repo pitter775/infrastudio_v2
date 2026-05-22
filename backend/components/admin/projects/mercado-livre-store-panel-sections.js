@@ -4,8 +4,26 @@ import { CheckCircle2, Copy, Database, ExternalLink, Globe, ImageUp, Phone, Refr
 import Image from 'next/image'
 
 import { Button } from '@/components/ui/button'
+import { AppSelect } from '@/components/ui/app-select'
 
 import { StorePanelField, StorePanelInput, StorePanelTextarea, StorePanelToggle } from '@/components/admin/projects/mercado-livre-store-panel-fields'
+
+const HERO_BACKGROUND_OPTIONS = [
+  { value: 'solid', label: 'Cor sólida' },
+  { value: 'gradient', label: 'Gradiente' },
+  { value: 'image', label: 'Imagem' },
+]
+
+const HERO_IMAGE_MODE_OPTIONS = [
+  { value: 'cover', label: 'Cobrir hero' },
+  { value: 'repeat-x', label: 'Infinito lateral' },
+]
+
+const DOMAIN_STATUS_OPTIONS = [
+  { value: 'pending', label: 'Pendente' },
+  { value: 'configuring', label: 'Configurando DNS' },
+  { value: 'active', label: 'Ativo' },
+]
 
 function normalizeStoreSlugInput(value) {
   return String(value || '')
@@ -252,17 +270,15 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
         <div className="mb-4 text-sm font-semibold text-white">Hero da loja</div>
         <div className="grid gap-4 md:grid-cols-3">
           <StorePanelField label="Tipo de fundo">
-            <select
+            <AppSelect
               value={heroBackgroundMode}
-              onChange={(event) => updateHeroConfig(setDraft, { backgroundMode: event.target.value })}
-              className="h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30"
-            >
-              <option value="solid">Cor solida</option>
-              <option value="gradient">Gradiente</option>
-              <option value="image">Imagem</option>
-            </select>
+              onChangeValue={(value) => updateHeroConfig(setDraft, { backgroundMode: value || 'solid' })}
+              options={HERO_BACKGROUND_OPTIONS}
+              minHeight={44}
+              placeholder="Tipo de fundo"
+            />
           </StorePanelField>
-          <StorePanelField label="Cor solida">
+          <StorePanelField label="Cor sólida">
             <input
               type="color"
               value={hero.solidColor || '#ffffff'}
@@ -271,14 +287,13 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
             />
           </StorePanelField>
           <StorePanelField label="Modo da imagem">
-            <select
+            <AppSelect
               value={heroImageMode}
-              onChange={(event) => updateHeroConfig(setDraft, { imageMode: event.target.value })}
-              className="h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30"
-            >
-              <option value="cover">Cobrir hero</option>
-              <option value="repeat-x">Infinito lateral</option>
-            </select>
+              onChangeValue={(value) => updateHeroConfig(setDraft, { imageMode: value || 'cover' })}
+              options={HERO_IMAGE_MODE_OPTIONS}
+              minHeight={44}
+              placeholder="Modo da imagem"
+            />
           </StorePanelField>
           <StorePanelField label="Gradiente inicio">
             <input
@@ -579,7 +594,7 @@ export function StoreContactSection({ draft, setDraft }) {
 
 export function StoreSocialSection({ draft, setDraft }) {
   return (
-    <div className="grid gap-4 md:grid-cols-2">
+    <div className="grid gap-x-4 gap-y-3 md:grid-cols-2">
       {['instagram', 'facebook', 'tiktok', 'youtube', 'x'].map((key) => (
         <StorePanelInput
           key={key}
@@ -603,9 +618,9 @@ export function StoreSocialSection({ draft, setDraft }) {
 
 export function StoreMenuSection({ draft, onUpdateMenuLink }) {
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       {draft.menuLinks.map((item, index) => (
-        <div key={`${index}-${item.label}`} className="grid gap-4 px-1 py-2 md:grid-cols-2">
+        <div key={`${index}-${item.label}`} className="grid gap-x-4 gap-y-3 px-1 py-1 md:grid-cols-2">
           <StorePanelInput label={`Label ${index + 1}`} value={item.label} onChange={(event) => onUpdateMenuLink(index, 'label', event.target.value)} placeholder="Produtos" />
           <StorePanelInput label={`Destino ${index + 1}`} value={item.href} onChange={(event) => onUpdateMenuLink(index, 'href', event.target.value)} placeholder="#produtos" />
         </div>
@@ -721,15 +736,13 @@ export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomatio
         </div>
 
         <StorePanelField label="Status do domínio">
-          <select
+          <AppSelect
             value={draft.customDomainStatus}
-            onChange={(event) => setDraft((current) => ({ ...current, customDomainStatus: event.target.value }))}
-            className="h-11 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none transition focus:border-sky-400/30"
-          >
-            <option value="pending">Pendente</option>
-            <option value="configuring">Configurando DNS</option>
-            <option value="active">Ativo</option>
-          </select>
+            onChangeValue={(value) => setDraft((current) => ({ ...current, customDomainStatus: value || 'pending' }))}
+            options={DOMAIN_STATUS_OPTIONS}
+            minHeight={44}
+            placeholder="Status do domínio"
+          />
         </StorePanelField>
       </div>
 

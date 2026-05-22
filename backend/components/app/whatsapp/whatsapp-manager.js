@@ -1049,11 +1049,11 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
             </div>
           ) : null}
 
-          <div className="mt-5 overflow-hidden rounded-2xl border border-white/10">
+          <div className="mt-5 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.015]">
             {contacts.length ? (
-              <div className="divide-y divide-zinc-200">
+              <div className="divide-y divide-white/[0.06]">
                 {contacts.map((contact) => (
-                  <div key={contact.id} className="grid gap-3 p-4 text-sm xl:grid-cols-[minmax(0,1fr)_220px]">
+                  <div key={contact.id} className="grid gap-3 p-4 text-sm transition-colors hover:bg-white/[0.025] xl:grid-cols-[minmax(0,1fr)_220px]">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-white">{contact.nome}</h3>

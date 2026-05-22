@@ -19,12 +19,12 @@ import { cn } from '@/lib/utils'
 const STORE_TABS = [
   { id: 'general', label: 'Geral', icon: Store },
   { id: 'appearance', label: 'Visual', icon: ImageIcon },
+  { id: 'domain', label: 'Dominio', icon: ExternalLink },
   { id: 'featured', label: 'Destaques', icon: LayoutTemplate },
   { id: 'social', label: 'Redes', icon: Share2 },
   { id: 'menu', label: 'Menu', icon: Globe },
   { id: 'payment', label: 'Pagamento', icon: CreditCard, accessRequest: true },
   { id: 'freight', label: 'Frete', icon: Truck, accessRequest: true },
-  { id: 'domain', label: 'Dominio', icon: ExternalLink },
 ]
 
 const DEFAULT_MENU_LINKS = [
@@ -910,7 +910,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
               className={cn(
                 'inline-flex h-8 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-xs font-normal transition-[background-color,color,box-shadow]',
                 activeTab
-                  ? 'bg-sky-500/14 text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.16)]'
+                  ? 'bg-[#10192b] text-slate-200'
                   : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
               )}
             >
