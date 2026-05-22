@@ -680,12 +680,27 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                           }}
                           className="relative z-10 flex min-w-0 flex-1 flex-col items-center justify-center gap-1"
                         >
-                          <Icon
+                          <span
                             className={cn(
-                              'h-4 w-4 shrink-0',
-                              activePanel === panel.id && isPanelOpen ? accent.icon : toneClasses.text,
+                              'flex h-8 w-8 items-center justify-center rounded-xl border shadow-[0_0_18px_rgba(255,255,255,0.08)]',
+                              activePanel === panel.id && isPanelOpen
+                                ? 'border-white/18 bg-white/10 text-white'
+                                : cn(
+                                    'bg-white/[0.06]',
+                                    panel.colorClassName === 'emerald' && 'border-emerald-300/35 shadow-emerald-400/20',
+                                    panel.colorClassName === 'amber' && 'border-amber-300/35 shadow-amber-400/20',
+                                    panel.colorClassName === 'sky' && 'border-sky-300/35 shadow-sky-400/20',
+                                    panel.colorClassName === 'violet' && 'border-fuchsia-300/35 shadow-fuchsia-400/20',
+                                  ),
                             )}
-                          />
+                          >
+                            <Icon
+                              className={cn(
+                                'h-5 w-5 shrink-0 drop-shadow-[0_0_8px_currentColor]',
+                                activePanel === panel.id && isPanelOpen ? accent.icon : toneClasses.text,
+                              )}
+                            />
+                          </span>
                           <span className={cn('truncate text-center text-[11px] font-medium tracking-[0.08em]', activePanel === panel.id && isPanelOpen ? null : toneClasses.text)}>
                             {panel.label}
                           </span>

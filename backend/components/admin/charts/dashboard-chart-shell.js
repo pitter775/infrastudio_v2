@@ -76,14 +76,14 @@ export function DashboardKpiCard({ icon: Icon, label, value, detail, tone = 'sky
     <div className={cn('relative min-h-[168px] overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-4 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.95)]', selectedTone.shell)}>
       <div className={cn('pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r', selectedTone.line)} />
       <div className={cn('pointer-events-none absolute -right-5 -top-4 flex h-20 w-20 items-center justify-center rounded-full blur-[0.2px]', selectedTone.icon)} />
-      <div className="relative z-10 flex min-w-0 items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase leading-5 tracking-[0.18em] text-slate-400">{label}</p>
-          <p className="mt-2 break-words text-[1.15rem] font-semibold leading-snug text-white md:text-[1.25rem]">{value}</p>
-        </div>
-        <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-xl shadow-[0_18px_40px_-26px_currentColor]', selectedTone.icon)}>
+      <div className="relative z-10 min-w-0 pr-10">
+        <p className="text-[11px] font-semibold uppercase leading-5 tracking-[0.18em] text-slate-400">{label}</p>
+        <div className={cn('absolute right-0 top-0 flex h-8 w-8 items-center justify-center rounded-xl shadow-[0_18px_40px_-26px_currentColor]', selectedTone.icon)}>
           <Icon className="h-4 w-4" />
         </div>
+      </div>
+      <div className="relative z-10 mt-2 min-w-0">
+        <p className="w-full whitespace-nowrap text-[1.08rem] font-semibold leading-tight text-white md:text-[1.18rem]">{value}</p>
       </div>
       {detail ? <p className="mt-3 max-w-[13rem] text-[13px] leading-5 text-slate-400">{detail}</p> : null}
     </div>

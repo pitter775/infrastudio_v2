@@ -620,10 +620,10 @@ export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMe
           {hasSalesData ? (
             <>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <DashboardKpiCard icon={WalletCards} label="Faturamento" value={formatCurrency(summary.grossRevenue, currency)} detail="Pedidos não cancelados no período." tone="emerald" />
+                <DashboardKpiCard icon={WalletCards} label="Faturamento" value={formatCurrency(summary.grossRevenue, currency)} detail="Não cancelados no período." tone="emerald" />
                 <DashboardKpiCard icon={ShoppingBag} label="Pedidos" value={formatNumber(summary.ordersCount)} detail={`${formatNumber(summary.paidOrdersCount)} pagos`} tone="sky" />
-                <DashboardKpiCard icon={TrendingUp} label="Ticket médio" value={formatCurrency(summary.averageTicket, currency)} detail="Baseado nos pedidos pagos." tone="violet" />
-                <DashboardKpiCard icon={CheckCircle2} label="Itens vendidos" value={formatNumber(summary.itemsSold)} detail={`${formatNumber(summary.cancelledOrdersCount)} pedidos cancelados`} tone="amber" />
+                <DashboardKpiCard icon={TrendingUp} label="Ticket médio" value={formatCurrency(summary.averageTicket, currency)} detail="Média dos pagos." tone="violet" />
+                <DashboardKpiCard icon={CheckCircle2} label="Itens vendidos" value={formatNumber(summary.itemsSold)} detail={`Cancelados: ${formatNumber(summary.cancelledOrdersCount)}`} tone="amber" />
               </div>
 
               <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.8fr)]">
