@@ -113,6 +113,7 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [],
 
     return window.localStorage.getItem(onboardingStorageKey) !== 'done'
   }, [onboardingStorageKey])
+  const shouldShowOnboardingPanel = showOnboardingHint && primaryProject && orderedProjects.length === 1
 
   useEffect(() => {
     function syncMobileState() {
@@ -367,10 +368,10 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [],
       ) : null}
 
       {orderedProjects.length > 0 ? (
-        <div className="flex flex-col gap-8 xl:flex-row xl:items-start">
-          <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(320px,1fr))] items-start gap-5">
+        <div className={cn('flex flex-col gap-8 xl:items-start', shouldShowOnboardingPanel && 'xl:flex-row')}>
+          <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(min(100%,460px),1fr))] items-start gap-5">
             {orderedProjects.map((project, index) => (
-              <div key={project.id} className="min-w-0 max-w-[720px]">
+              <div key={project.id} className="min-w-0">
                 {isAdmin ? (
                   <div className="mb-2 flex justify-end">
                     <Button
@@ -402,8 +403,8 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [],
             ))}
           </div>
 
-          <aside className="w-full xl:sticky xl:top-6 xl:w-[min(40vw,640px)] xl:min-w-[480px]">
-            {showOnboardingHint && primaryProject && orderedProjects.length === 1 ? (
+          {shouldShowOnboardingPanel ? (
+            <aside className="w-full xl:sticky xl:top-6 xl:w-[min(40vw,640px)] xl:min-w-[480px]">
               <div className="px-2 pt-1 text-slate-200 xl:[font-size:clamp(0.84rem,0.68rem+0.34vw,1rem)]">
                 <div className="flex items-center gap-3">
                   <LogoCubo3D animado velocidade={0.16} tamanho={32} />
@@ -437,8 +438,8 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [],
                   </p>
                 </div>
               </div>
-            ) : null}
-          </aside>
+            </aside>
+          ) : null}
         </div>
       ) : (
         <div className="rounded-xl border border-white/5 bg-[#0b1120] p-6 text-sm text-slate-400">
