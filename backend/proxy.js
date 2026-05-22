@@ -69,6 +69,7 @@ function buildSupabaseStoreLookupUrl(baseUrl, domain) {
   url.searchParams.set("select", "slug")
   url.searchParams.set("dominio_personalizado", `eq.${domain}`)
   url.searchParams.set("dominio_ativo", "eq.true")
+  url.searchParams.set("dominio_status", "eq.active")
   url.searchParams.set("ativo", "eq.true")
   url.searchParams.set("limit", "1")
   return url

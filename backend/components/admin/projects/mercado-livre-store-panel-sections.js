@@ -608,12 +608,25 @@ export function StoreMenuSection({ draft, onUpdateMenuLink }) {
 export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomation = null, domainChecking = false, onVerifyNow }) {
   const hasCustomDomain = Boolean(String(draft.customDomain || '').trim())
   const domainPreview = hasCustomDomain ? `https://${draft.customDomain}` : ''
+  const domainStatus = String(draft.customDomainStatus || 'pending').trim()
+  const summary = domainAutomation?.summary || null
   const verificationRecords = Array.isArray(domainAutomation?.summary?.verificationRecords)
     ? domainAutomation.summary.verificationRecords
     : []
   const managedDomains = Array.isArray(domainAutomation?.summary?.domains)
     ? domainAutomation.summary.domains
     : []
+  const statusLabel = domainStatus === 'active'
+    ? 'Domínio ativo'
+    : domainStatus === 'configuring'
+      ? 'Aguardando DNS do cliente'
+      : 'Domínio pendente'
+  const statusDescription = domainStatus === 'active'
+    ? 'A loja já pode responder pelo domínio personalizado.'
+    : hasCustomDomain
+      ? 'Salve a loja, configure o DNS no Registro.br e use Verificar DNS quando a propagação terminar. O cron também verifica automaticamente a cada hora.'
+      : 'Informe o domínio do cliente para preparar a automação na Vercel.'
+  const StatusIcon = domainStatus === 'active' ? CheckCircle2 : XCircle
 
   return (
     <div className="grid gap-4">
@@ -630,6 +643,16 @@ export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomatio
           {domainPreview ? <div>Domínio previsto: {domainPreview}</div> : null}
           <div>Registro tipo `A`: nome `@`, valor `76.76.21.21`.</div>
           <div>Registro tipo `CNAME`: nome `www`, valor `cname.vercel-dns.com`.</div>
+        </div>
+        <div className={`mt-4 rounded-xl border px-3 py-3 text-xs ${domainStatus === 'active' ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100' : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}>
+          <div className="flex items-center gap-2 font-semibold">
+            <StatusIcon className="h-4 w-4" />
+            {statusLabel}
+          </div>
+          <div className="mt-2 leading-6 text-slate-300">{statusDescription}</div>
+          {summary?.configured === false ? (
+            <div className="mt-2 text-amber-100">Automação da Vercel ainda não configurada no ambiente.</div>
+          ) : null}
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           <Button
