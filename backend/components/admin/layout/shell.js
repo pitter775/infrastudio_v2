@@ -76,7 +76,7 @@ const notificationIconByKind = {
   billing: CreditCard,
 }
 
-function SidebarItem({ item, pathname, collapsed, pendingHref, onNavigate, badgeCount }) {
+function SidebarItem({ item, pathname, collapsed, textVisible, pendingHref, onNavigate, badgeCount }) {
   const Icon = item.icon
   const active = isItemActive(item, pathname)
   const loading = pendingHref === item.href
@@ -87,7 +87,7 @@ function SidebarItem({ item, pathname, collapsed, pendingHref, onNavigate, badge
       href={item.href}
       onClick={() => onNavigate?.(item.href)}
       className={cn(
-        'group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200',
+        'group flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200',
         collapsed && 'justify-center',
         active
           ? 'bg-slate-800/60 text-white'
@@ -105,12 +105,17 @@ function SidebarItem({ item, pathname, collapsed, pendingHref, onNavigate, badge
           )}
         />
       )}
-      {collapsed ? null : <span>{item.label}</span>}
+      {collapsed ? null : (
+        <span className={cn('min-w-0 truncate transition-[opacity,transform] duration-150', textVisible ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0')}>
+          {item.label}
+        </span>
+      )}
       {badgeLabel ? (
         <span
           className={cn(
-            'ml-auto inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
+            'ml-auto inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-opacity duration-150',
             active ? 'bg-sky-400/20 text-sky-100' : 'bg-rose-500/15 text-rose-200',
+            !collapsed && !textVisible && 'opacity-0',
           )}
         >
           {badgeLabel}
@@ -131,9 +136,9 @@ function SidebarItem({ item, pathname, collapsed, pendingHref, onNavigate, badge
   )
 }
 
-function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavigate, counts, projectUsageSummary = null, buildLabel = '' }) {
+function SidebarContent({ user, collapsed = false, textVisible = !collapsed, pathname, pendingHref, onNavigate, counts, projectUsageSummary = null, buildLabel = '' }) {
   const availableNavItems = navItems.filter((item) => !item.adminOnly || user?.role === "admin")
-  const shouldShowBuildLabel = user?.role === 'admin' && !collapsed && buildLabel
+  const shouldShowBuildLabel = user?.role === 'admin' && !collapsed && textVisible && buildLabel
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -147,7 +152,7 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
           <LogoCubo3D animado tamanho={20} velocidade={0.16} />
 
           {collapsed ? null : (
-            <span className={`${conthrax.className} font-brand-conthrax text-[0.72rem] leading-none`}>
+            <span className={cn(`${conthrax.className} font-brand-conthrax text-[0.72rem] leading-none transition-[opacity,transform] duration-200`, textVisible ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0')}>
               <span className="text-white">Infra</span>
               <span className="text-[#2B6BEE]">Studio</span>
             </span>
@@ -161,6 +166,7 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
               item={item}
               pathname={pathname}
               collapsed={collapsed}
+              textVisible={textVisible}
               pendingHref={pendingHref}
               onNavigate={onNavigate}
               badgeCount={counts?.[item.badgeKey] ?? 0}
@@ -178,7 +184,11 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
             )}
           >
             <LogOut className="h-4 w-4 text-slate-400 group-hover:text-[#6f9aea]" />
-            {collapsed ? null : <span>Sair</span>}
+            {collapsed ? null : (
+              <span className={cn('transition-[opacity,transform] duration-200', textVisible ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0')}>
+                Sair
+              </span>
+            )}
           </button>
         </div>
 
@@ -196,14 +206,14 @@ function SidebarContent({ user, collapsed = false, pathname, pendingHref, onNavi
           <div className="flex min-w-0 items-center gap-3">
             <UserAvatar src={user?.avatarUrl} label={user?.name || user?.email} className="h-8 w-8" />
             {collapsed ? null : (
-              <div className="min-w-0">
+              <div className={cn('min-w-0 transition-[opacity,transform] duration-200', textVisible ? 'translate-x-0 opacity-100' : '-translate-x-1 opacity-0')}>
                 <p className="truncate text-sm font-medium text-white">{user?.name || 'Usuário'}</p>
                 <p className="truncate text-xs text-slate-500">{user?.role || 'viewer'}</p>
               </div>
             )}
           </div>
 
-          {collapsed ? null : (
+          {collapsed || !textVisible ? null : (
             <Button
               variant="ghost"
               size="icon"
@@ -312,6 +322,7 @@ export function AdminShell({ user, children, buildLabel = '' }) {
   const [projectUsageSummary, setProjectUsageSummary] = useState(null)
   const [billingModalOpen, setBillingModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [sidebarTextVisible, setSidebarTextVisible] = useState(!compactSidebarRoute)
   const notificationsRef = useRef(null)
   const billingHistoryActiveRef = useRef(false)
   const billingPopClosingRef = useRef(false)
@@ -322,6 +333,19 @@ export function AdminShell({ user, children, buildLabel = '' }) {
         backgroundSize: '36px 36px',
       }
     : undefined
+
+  useEffect(() => {
+    if (collapsed) {
+      setSidebarTextVisible(false)
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setSidebarTextVisible(true)
+    }, 145)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [collapsed])
 
   useEffect(() => {
     function syncMobileState() {
@@ -621,6 +645,7 @@ export function AdminShell({ user, children, buildLabel = '' }) {
               <SidebarContent
                 user={user}
                 collapsed={collapsed}
+                textVisible={sidebarTextVisible}
                 pathname={pathname}
                 pendingHref={pendingHref}
                 onNavigate={handleNavigate}
