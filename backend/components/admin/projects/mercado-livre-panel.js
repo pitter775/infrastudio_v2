@@ -11,6 +11,7 @@ import { buildMercadoLivreRedirectUri, buildMercadoLivreWebhookUrl } from '@/lib
 import { formatMercadoLivreProductLimit, getMercadoLivreProductLimitForPlan, normalizePlanKey } from '@/lib/public-planos'
 import { MercadoLivreSalesDashboardPanel } from './mercado-livre-sales-dashboard-panel'
 import { MercadoLivreStorePanel } from './mercado-livre-store-panel'
+import { SheetInternalTabs } from './project-detail-sheet'
 
 function buildMercadoLivreLlmGuidePrompt({
   project,
@@ -219,7 +220,7 @@ export function MercadoLivrePanel({
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'connection', label: 'Conexão', icon: Store },
     { id: 'test', label: 'Teste', icon: PackageSearch },
-    { id: 'store', label: 'Loja', icon: Store },
+    { id: 'store', label: 'Loja', icon: Store, tone: 'amber' },
     { id: 'orders', label: 'Pedidos', icon: Files },
     { id: 'questions', label: 'Perguntas', icon: MessageSquare },
     { id: 'tutorial', label: 'Ajuda', icon: BookOpen },
@@ -889,35 +890,10 @@ export function MercadoLivrePanel({
 
   return (
     <>
-    <div className="grid gap-4">
-      <div className={cn("flex flex-wrap gap-2", compact && "hidden")}>
-        {tabs.map((tab) => {
-          const Icon = tab.icon
-          const active = currentTab === tab.id
-          const storeTab = tab.id === 'store'
+    <div className={cn("min-h-[560px]", compact ? "grid gap-4" : "flex flex-col overflow-hidden md:flex-row")}>
+      {compact ? null : <SheetInternalTabs tabs={tabs} activeTab={currentTab} onChange={handlePanelTabChange} />}
 
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => handlePanelTabChange(tab.id)}
-              className={cn(
-                'infra-tab-motion inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium',
-                active
-                  ? storeTab
-                    ? 'border-amber-300/50 bg-amber-400/15 text-amber-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]'
-                    : 'border-sky-400/40 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]'
-                  : storeTab
-                    ? 'border-amber-300/25 bg-amber-400/10 text-amber-100 hover:bg-amber-400/15 hover:text-amber-50'
-                    : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
-              )}
-            >
-              <Icon className="h-4 w-4" />
-              {tab.label}
-            </button>
-          )
-        })}
-      </div>
+      <div className={cn("grid min-w-0 flex-1 gap-4", !compact && "pt-4 md:pl-4 md:pt-0")}>
 
       {feedback ? (
         <div
@@ -1691,6 +1667,7 @@ export function MercadoLivrePanel({
           </div>
         </div>
       ) : null}
+      </div>
     </div>
 
     <ConfirmDialog

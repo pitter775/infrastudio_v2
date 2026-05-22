@@ -201,6 +201,11 @@ function formatNumber(value) {
   return Number(value || 0).toLocaleString('pt-BR')
 }
 
+function formatStoreDashboardTitle(value) {
+  const normalized = String(value || '').trim().replace(/\.+/g, ' ').replace(/\s+/g, ' ')
+  return normalized || 'Loja Mercado Livre'
+}
+
 function formatDateTime(value) {
   if (!value) {
     return 'nunca'
@@ -317,7 +322,7 @@ function AnalyticsConsentPreview({ activating, error, loading, onActivateClick, 
                   <BarChart3 className="h-3.5 w-3.5" />
                   Dashboard de vendas
                 </div>
-                <h2 className="mt-4 text-2xl font-semibold text-white md:text-3xl">{storeName || 'Loja Mercado Livre'}</h2>
+                <h2 className="mt-4 text-xl font-semibold text-white md:text-2xl">{formatStoreDashboardTitle(storeName)}</h2>
                 <p className="mt-2 max-w-2xl text-sm text-slate-400">Prévia analítica com dados demonstrativos.</p>
               </div>
             </div>
@@ -528,7 +533,7 @@ export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMe
                 <BarChart3 className="h-3.5 w-3.5" />
                 Dashboard de vendas
               </div>
-              <h2 className="mt-4 text-2xl font-semibold text-white md:text-3xl">{connectorMeta.oauthNickname || storeName || 'Loja Mercado Livre'}</h2>
+              <h2 className="mt-4 text-xl font-semibold text-white md:text-2xl">{formatStoreDashboardTitle(connectorMeta.oauthNickname || storeName)}</h2>
               <p className="mt-2 max-w-2xl text-sm text-slate-400">
                 Visão comercial baseada nos pedidos sincronizados da conta conectada.
               </p>

@@ -765,6 +765,9 @@ CREATE TABLE public.usuarios (
   role character varying NOT NULL DEFAULT 'viewer'::character varying,
   email_verificado boolean NOT NULL DEFAULT false,
   telefone text,
+  terms_accepted boolean NOT NULL DEFAULT false,
+  terms_accepted_at timestamp with time zone,
+  terms_version text,
   CONSTRAINT usuarios_pkey PRIMARY KEY (id)
 );
 CREATE TABLE public.usuarios_limites_ia (

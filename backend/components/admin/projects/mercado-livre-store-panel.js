@@ -883,8 +883,8 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   }
 
   return (
-    <form id="mercado-livre-store-form" className="grid gap-5" onSubmit={handleSave}>
-      <div className="flex flex-wrap gap-2">
+    <form id="mercado-livre-store-form" className="grid gap-4" onSubmit={handleSave}>
+      <div className="-mt-2 flex flex-nowrap items-center gap-1 overflow-hidden pb-1">
         {STORE_TABS.map((tab) => {
           const Icon = tab.icon
           const activeTab = activeSubTab === tab.id
@@ -895,14 +895,14 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
               type="button"
               onClick={() => (tab.accessRequest ? handleAccessTabClick(tab) : setActiveSubTab(tab.id))}
               className={cn(
-                'inline-flex h-9 items-center gap-2 rounded-lg border px-3 text-sm font-medium',
+                'inline-flex h-8 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-xs font-normal transition-[background-color,color,box-shadow]',
                 activeTab
-                  ? 'border-sky-400/40 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]'
-                  : 'border-transparent bg-transparent text-slate-400 hover:bg-[#10192b] hover:text-white',
+                  ? 'bg-sky-500/14 text-sky-100 shadow-[0_0_18px_rgba(56,189,248,0.16)]'
+                  : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
               )}
             >
-              <Icon className="h-4 w-4" />
-              {tab.label}
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{tab.label}</span>
             </button>
           )
         })}

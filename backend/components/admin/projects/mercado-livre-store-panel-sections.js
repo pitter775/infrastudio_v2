@@ -34,12 +34,12 @@ export function StoreGeneralSection({
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
+      <div className="md:col-span-2 px-1 py-1 text-sm text-slate-300">
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className={`rounded-full border px-3 py-1 ${draft.active ? 'border-emerald-400/20 bg-emerald-500/10 text-emerald-100' : 'border-amber-400/20 bg-amber-500/10 text-amber-100'}`}>
+          <span className={`rounded-full px-3 py-1 ${draft.active ? 'bg-emerald-500/10 text-emerald-100' : 'bg-amber-500/10 text-amber-100'}`}>
             {draft.active ? 'Loja pública ativa' : 'Loja pública desativada'}
           </span>
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-slate-300">
+          <span className="rounded-full bg-white/[0.03] px-3 py-1 text-slate-300">
             {snapshotTotal > 0 ? `${snapshotTotal} produtos no snapshot` : 'Snapshot ainda vazio'}
           </span>
         </div>
@@ -54,7 +54,7 @@ export function StoreGeneralSection({
             href={publicUrl}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm font-medium text-sky-100"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-sky-500/10 px-4 text-sm font-medium text-sky-100"
           >
             <ExternalLink className="h-4 w-4" />
             Abrir loja
@@ -62,7 +62,7 @@ export function StoreGeneralSection({
           <button
             type="button"
             onClick={onCopyPublicUrl}
-            className="inline-flex h-10 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-100"
+            className="inline-flex h-10 items-center gap-2 rounded-xl bg-white/[0.03] px-4 text-sm font-medium text-slate-100"
           >
             <Copy className="h-4 w-4" />
             {publicUrlCopied ? 'Link copiado' : 'Copiar link'}
@@ -135,7 +135,7 @@ export function StoreGeneralSection({
           className="min-h-[160px]"
         />
       </div>
-      <div className="md:col-span-2 rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+      <div className="md:col-span-2 px-1 py-2">
         <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
           <Phone className="h-4 w-4 text-sky-300" />
           Contato da loja
@@ -188,7 +188,7 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
     <div className="grid gap-4 md:grid-cols-2">
       <StorePanelField label="Cor predominante">
         <div className="grid gap-3">
-          <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2">
+          <div className="flex items-center gap-3 px-1 py-2">
             <input
               type="color"
               value={draft.accentColor}
@@ -206,7 +206,7 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
         placeholder="https://..."
       />
       <StorePanelField label="Upload do logo">
-        <div className="grid gap-3 rounded-xl border border-white/10 bg-[#080e1d] p-3">
+        <div className="grid gap-3 px-1 py-2">
           <StoreAssetUpload
             disabled={assetUploading === 'logo'}
             label="Enviar logo"
@@ -236,10 +236,10 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
       >
         Contexto completo no chat do produto
       </StorePanelToggle>
-      <div className="md:col-span-2 rounded-xl border border-white/10 bg-[#0a1020] px-4 py-3 text-xs leading-6 text-slate-400">
+      <div className="md:col-span-2 px-1 py-2 text-xs leading-6 text-slate-400">
         Quando ligar, a página de detalhe do produto envia a descrição longa completa e uma ficha mais ampla do anuncio para o agente. Desligado, o chat continua no modo resumido atual.
       </div>
-      <div className="md:col-span-2 rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+      <div className="md:col-span-2 px-1 py-2">
         <div className="mb-4 text-sm font-semibold text-white">Hero da loja</div>
         <div className="grid gap-4 md:grid-cols-3">
           <StorePanelField label="Tipo de fundo">

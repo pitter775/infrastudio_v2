@@ -51,22 +51,22 @@ export function DashboardKpiCard({ icon: Icon, label, value, detail, tone = 'sky
   const tones = {
     sky: {
       shell: 'from-sky-500/16 via-sky-500/7 to-transparent',
-      icon: 'border-sky-300/25 bg-sky-400/12 text-sky-100',
+      icon: 'bg-sky-400/12 text-sky-100',
       line: 'from-sky-300/0 via-sky-300/60 to-sky-300/0',
     },
     emerald: {
       shell: 'from-emerald-500/16 via-emerald-500/7 to-transparent',
-      icon: 'border-emerald-300/25 bg-emerald-400/12 text-emerald-100',
+      icon: 'bg-emerald-400/12 text-emerald-100',
       line: 'from-emerald-300/0 via-emerald-300/60 to-emerald-300/0',
     },
     amber: {
       shell: 'from-amber-500/16 via-amber-500/7 to-transparent',
-      icon: 'border-amber-300/25 bg-amber-400/12 text-amber-100',
+      icon: 'bg-amber-400/12 text-amber-100',
       line: 'from-amber-300/0 via-amber-300/60 to-amber-300/0',
     },
     violet: {
       shell: 'from-violet-500/16 via-violet-500/7 to-transparent',
-      icon: 'border-violet-300/25 bg-violet-400/12 text-violet-100',
+      icon: 'bg-violet-400/12 text-violet-100',
       line: 'from-violet-300/0 via-violet-300/60 to-violet-300/0',
     },
   }
@@ -75,12 +75,13 @@ export function DashboardKpiCard({ icon: Icon, label, value, detail, tone = 'sky
   return (
     <div className={cn('relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-4 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.95)]', selectedTone.shell)}>
       <div className={cn('pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r', selectedTone.line)} />
-      <div className="flex items-start justify-between gap-3">
+      <div className={cn('pointer-events-none absolute -right-4 -top-3 flex h-20 w-20 items-center justify-center rounded-full blur-[0.2px]', selectedTone.icon)} />
+      <div className="relative z-10 min-w-0 pr-10">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">{label}</p>
-          <p className="mt-2 truncate text-xl font-semibold text-white md:text-2xl">{value}</p>
+          <p className="mt-2 break-words text-[1.35rem] font-semibold leading-tight text-white md:text-[1.55rem]">{value}</p>
         </div>
-        <div className={cn('flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border shadow-[0_18px_40px_-26px_currentColor]', selectedTone.icon)}>
+        <div className={cn('absolute right-0 top-0 flex h-9 w-9 items-center justify-center rounded-xl shadow-[0_18px_40px_-26px_currentColor]', selectedTone.icon)}>
           <Icon className="h-5 w-5" />
         </div>
       </div>

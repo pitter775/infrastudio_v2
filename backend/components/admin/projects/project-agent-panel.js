@@ -594,17 +594,18 @@ export function ProjectPanel({
         statusTone="sky"
         onCancel={onCloseSheet}
       />
-      <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={handleAgentTabChange} />
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:overflow-visible md:flex-row">
+        <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={handleAgentTabChange} />
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={`agent-tab:${activeAgentTab}`}
-            initial={{ opacity: 0.985, y: 4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0.985, y: -3 }}
-            transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
-          >
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={`agent-tab:${activeAgentTab}`}
+              initial={{ opacity: 0.985, y: 4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0.985, y: -3 }}
+              transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
+            >
         {activeAgentTab === 'edit' ? (
         <div className="min-h-full px-6 py-5">
           {!agent?.id ? (
@@ -874,8 +875,9 @@ export function ProjectPanel({
           </div>
         ) : null}
 
-          </motion.div>
-        </AnimatePresence>
+            </motion.div>
+          </AnimatePresence>
+        </div>
       </div>
 
       <div className="border-t border-white/5 px-6 py-4">

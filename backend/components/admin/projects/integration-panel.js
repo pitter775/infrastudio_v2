@@ -259,58 +259,60 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         }
         onCancel={onCloseSheet}
       />
-      {panel.id === 'apis' ? null : (
-        <SheetInternalTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
-      )}
-
-      <div
-        className={cn(
-          "min-h-0 flex-1",
-          panel.id === 'apis' ? "overflow-hidden px-0 pb-0 pt-0" : "overflow-y-auto px-6 pb-6 pt-6",
+      <div className={cn("min-h-0 flex-1", panel.id === 'apis' ? "flex flex-col overflow-hidden" : "flex flex-col overflow-hidden md:overflow-visible md:flex-row")}>
+        {panel.id === 'apis' ? null : (
+          <SheetInternalTabs tabs={tabs} activeTab={activeTab} onChange={setActiveTab} />
         )}
-      >
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={contentKey}
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className={cn(panel.id === 'apis' && "flex h-full min-h-0 flex-col")}
-          >
-        {realPanel ? (
-          realPanel
-        ) : (
-        <div className="space-y-6 text-sm text-slate-300">
-          <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Status</div>
-            <div className="mt-3 text-base font-medium text-white">{panel.statusLabel}</div>
-            <div className="mt-2 text-sm text-slate-400">{panel.description}</div>
-          </div>
 
-          <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
-            <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
-              Modulos conectados
+        <div
+          className={cn(
+            "min-h-0 flex-1",
+            panel.id === 'apis' ? "overflow-hidden px-0 pb-0 pt-0" : "overflow-y-auto px-6 pb-6 pt-6",
+          )}
+        >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={contentKey}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+              className={cn(panel.id === 'apis' && "flex h-full min-h-0 flex-col")}
+            >
+          {realPanel ? (
+            realPanel
+          ) : (
+          <div className="space-y-6 text-sm text-slate-300">
+            <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Status</div>
+              <div className="mt-3 text-base font-medium text-white">{panel.statusLabel}</div>
+              <div className="mt-2 text-sm text-slate-400">{panel.description}</div>
             </div>
-            <div className="mt-2 text-xs text-slate-500">Aba ativa: {tabs.find((tab) => tab.id === activeTab)?.label}</div>
-            <div className="mt-4 space-y-3">
-              {sheetItems.map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-950/40 px-4 py-3"
-                >
-                  <span className="text-sm text-slate-200">{item}</span>
-                  <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-emerald-300">
-                    ok
-                  </span>
-                </div>
-              ))}
+
+            <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
+              <div className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                Modulos conectados
+              </div>
+              <div className="mt-2 text-xs text-slate-500">Aba ativa: {tabs.find((tab) => tab.id === activeTab)?.label}</div>
+              <div className="mt-4 space-y-3">
+                {sheetItems.map((item) => (
+                  <div
+                    key={item}
+                    className="flex items-center justify-between rounded-xl border border-white/5 bg-slate-950/40 px-4 py-3"
+                  >
+                    <span className="text-sm text-slate-200">{item}</span>
+                    <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[11px] uppercase tracking-[0.14em] text-emerald-300">
+                      ok
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+          )}
+            </motion.div>
+          </AnimatePresence>
         </div>
-        )}
-          </motion.div>
-        </AnimatePresence>
       </div>
       {panel.id === 'apis' && apiDetailOpen ? (
         <div className="border-t border-white/5 px-6 py-4">

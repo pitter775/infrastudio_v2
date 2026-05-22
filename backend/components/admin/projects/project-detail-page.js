@@ -22,7 +22,6 @@ import { AdminProjectCard, buildProjectUsageSummary } from '@/components/admin/p
 import { TermsConsentModal } from '@/components/app/terms/terms-consent-modal'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { HorizontalDragScroll } from '@/components/ui/horizontal-drag-scroll'
 import { JsonCodeBlock } from '@/components/ui/json-code-block'
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet'
 import {
@@ -466,7 +465,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
     <div className={cn('min-h-full px-8 py-10', isMobile && 'h-[calc(100dvh-88px)] overflow-hidden px-0 pb-4 pt-4')}>
       <div
         className={cn(
-          'z-30',
+          'z-30 transition-[left,width,max-width] duration-300 ease-in-out',
           isMobile
             ? 'relative mb-4 w-full'
             : 'fixed',
@@ -482,12 +481,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
               }
         }
       >
-        <div className={cn(isMobile ? 'py-0' : 'px-0 py-1')}>
-          <HorizontalDragScroll
-            className="w-full"
-            itemClassName={isMobile ? 'px-0' : 'px-0.5'}
-            scrollClassName={isMobile ? 'px-0 py-0.5' : 'px-0.5 py-0.5'}
-          >
+        <div className={cn(isMobile ? 'flex flex-wrap gap-2 py-0' : 'flex items-start gap-2 px-0 py-1')}>
             {topMenuItems.map((item) => {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen
@@ -517,18 +511,31 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                   type="button"
                   onClick={() => handleOpenPanel(item.id)}
                   className={cn(
-                    'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold transition-[background-color,border-color,box-shadow,color]',
-                    active
-                      ? cn(toneClasses.pillActive, glowClassName)
-                      : cn(toneClasses.pill, toneClasses.text, toneClasses.hover, hoverGlowClassName),
+                    isMobile
+                      ? 'inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 text-xs font-semibold transition-[background-color,border-color,box-shadow,color]'
+                      : 'group relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-semibold transition-[background-color,box-shadow,color,transform] hover:-translate-y-0.5',
+                    isMobile
+                      ? active
+                        ? cn(toneClasses.pillActive, glowClassName)
+                        : cn(toneClasses.pill, toneClasses.text, toneClasses.hover, hoverGlowClassName)
+                      : active
+                        ? cn('bg-white/[0.04]', toneClasses.text, glowClassName)
+                        : cn('bg-transparent', toneClasses.text, hoverGlowClassName),
                   )}
+                  title={item.label}
                 >
-                  {loading ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-                  {item.label}
+                  {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : Icon ? <Icon className={cn(isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4')} /> : null}
+                  {isMobile ? item.label : null}
+                  {!isMobile ? (
+                    <span
+                      className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-100 opacity-0 shadow-[0_10px_24px_rgba(2,6,23,0.48)] transition-[opacity,transform] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+                    >
+                      {item.label}
+                    </span>
+                  ) : null}
                 </button>
               )
             })}
-          </HorizontalDragScroll>
         </div>
       </div>
 
@@ -742,12 +749,12 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
           <SheetTitle className="sr-only">{sheetHeading}</SheetTitle>
           <SheetDescription className="sr-only">{sheetIntro}</SheetDescription>
           {!isMobile ? (
-            <SheetClose className="absolute left-0 top-[102px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
+            <SheetClose className="absolute left-0 top-[30px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
               <ChevronRight className="h-4 w-4" />
               <span className="sr-only">Fechar painel</span>
             </SheetClose>
           ) : null}
-          <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-l-lg">
+          <div className="flex h-full min-h-0 flex-col rounded-l-lg overflow-hidden md:overflow-visible">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activePanel}
