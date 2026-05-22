@@ -161,7 +161,7 @@ function updateHeroConfig(setDraft, patch) {
 
 function StoreAssetUpload({ accept = 'image/avif,image/png,image/jpeg,image/svg+xml,image/webp,.svg', disabled, label, onChange }) {
   return (
-    <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-medium text-slate-100 transition hover:bg-white/[0.06]">
+    <label className="inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-xl bg-white/[0.04] px-4 text-sm font-medium text-slate-100 transition hover:bg-white/[0.07]">
       <ImageUp className="h-4 w-4" />
       {disabled ? 'Enviando...' : label}
       <input
@@ -390,20 +390,20 @@ export function StoreFeaturedSection({
 
   return (
     <div className="grid gap-4">
-      <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0a1020] p-4 md:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid gap-3 px-1 py-2 md:grid-cols-[minmax(0,1fr)_auto]">
         <div className="grid gap-3">
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-white">
             <Database className="h-4 w-4 text-sky-300" />
             Snapshot da loja
           </div>
           <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+            <span className="rounded-full bg-white/[0.03] px-3 py-1">
               {snapshotLoading ? 'Carregando...' : `${Number(snapshot?.total || 0)} produtos`}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+            <span className="rounded-full bg-white/[0.03] px-3 py-1">
               Ultima sync: {snapshot?.lastSyncAt ? new Date(snapshot.lastSyncAt).toLocaleString('pt-BR') : 'nunca'}
             </span>
-            <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1">
+            <span className="rounded-full bg-white/[0.03] px-3 py-1">
               {isSnapshotEmpty ? 'Pronto para primeira sync' : 'Snapshot ativo'}
             </span>
           </div>
@@ -428,7 +428,7 @@ export function StoreFeaturedSection({
       </div>
 
       {latestProducts.length ? (
-        <div className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+        <div className="grid gap-3 px-1 py-2">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="text-sm font-semibold text-white">Ultimos produtos do snapshot</div>
@@ -458,7 +458,7 @@ export function StoreFeaturedSection({
           </div>
           <div className="grid gap-2">
             {latestProducts.map((item) => (
-              <div key={item.ml_item_id || item.slug} className="flex items-center justify-between gap-4 rounded-xl border border-white/10 bg-[#0a1020] px-3 py-3">
+              <div key={item.ml_item_id || item.slug} className="flex items-center justify-between gap-4 rounded-xl bg-white/[0.025] px-3 py-3">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-white">{item.titulo}</div>
                   <div className="mt-1 text-xs text-slate-400">{item.slug}</div>
@@ -470,7 +470,7 @@ export function StoreFeaturedSection({
         </div>
       ) : null}
 
-      <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0a1020] p-4 md:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid gap-3 px-1 py-2 md:grid-cols-[minmax(0,1fr)_auto]">
         <StorePanelInput label="Buscar produto" value={catalogQuery} onChange={onCatalogQueryChange} placeholder="Digite o nome do produto" />
         <div className="flex items-end">
           <Button type="button" variant="ghost" onClick={onCatalogSearch} disabled={catalogLoading} className="h-11 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
@@ -483,7 +483,7 @@ export function StoreFeaturedSection({
       {catalogItems.length ? (
         <div className="grid gap-3 md:grid-cols-2">
           {catalogItems.map((item) => (
-            <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+            <div key={item.id} className="rounded-2xl bg-white/[0.025] p-4">
               <div className="text-sm font-semibold text-white">{item.title}</div>
               <div className="mt-2 text-sm text-slate-400">
                 {Number(item.price || 0).toLocaleString('pt-BR', {
@@ -495,7 +495,7 @@ export function StoreFeaturedSection({
                 type="button"
                 variant="ghost"
                 onClick={() => onAddFeaturedProduct(item)}
-                className="mt-4 h-9 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-xs text-slate-100"
+                className="mt-4 h-9 rounded-xl bg-white/[0.04] px-4 text-xs text-slate-100"
               >
                 Adicionar no rotativo
               </Button>
@@ -503,7 +503,7 @@ export function StoreFeaturedSection({
           ))}
         </div>
       ) : isSnapshotEmpty ? (
-        <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+        <div className="px-1 py-4 text-sm text-slate-400">
           Depois da primeira sync, a busca vai listar os produtos locais para escolher o rotativo.
         </div>
       ) : null}
@@ -513,7 +513,7 @@ export function StoreFeaturedSection({
         {draft.featuredProducts.length ? (
           <div className="grid gap-3 md:grid-cols-2">
             {draft.featuredProducts.map((item) => (
-              <div key={item.id} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+              <div key={item.id} className="rounded-2xl bg-white/[0.025] p-4">
                 <div className="text-sm font-semibold text-white">{item.title}</div>
                 <div className="mt-2 text-xs text-slate-400">{item.id}</div>
                 <Button
@@ -528,7 +528,7 @@ export function StoreFeaturedSection({
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-5 text-sm text-slate-400">
+          <div className="px-1 py-4 text-sm text-slate-400">
             Escolha os produtos que vao aparecer no rotativo da hero depois da sync do snapshot.
           </div>
         )}
@@ -596,7 +596,7 @@ export function StoreMenuSection({ draft, onUpdateMenuLink }) {
   return (
     <div className="grid gap-4">
       {draft.menuLinks.map((item, index) => (
-        <div key={`${index}-${item.label}`} className="grid gap-4 rounded-2xl border border-white/10 bg-[#0a1020] p-4 md:grid-cols-2">
+        <div key={`${index}-${item.label}`} className="grid gap-4 px-1 py-2 md:grid-cols-2">
           <StorePanelInput label={`Label ${index + 1}`} value={item.label} onChange={(event) => onUpdateMenuLink(index, 'label', event.target.value)} placeholder="Produtos" />
           <StorePanelInput label={`Destino ${index + 1}`} value={item.href} onChange={(event) => onUpdateMenuLink(index, 'href', event.target.value)} placeholder="#produtos" />
         </div>
@@ -630,7 +630,7 @@ export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomatio
 
   return (
     <div className="grid gap-4">
-      <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 text-sm text-slate-300">
+      <div className="px-1 py-2 text-sm text-slate-300">
         <div className="inline-flex items-center gap-2 text-sm font-semibold text-white">
           <Globe className="h-4 w-4 text-sky-300" />
           Domínio próprio da loja
@@ -667,7 +667,7 @@ export function StoreDomainSection({ draft, setDraft, publicUrl, domainAutomatio
             {domainChecking ? 'Verificando' : 'Verificar DNS'}
           </Button>
           {managedDomains.length ? (
-            <span className="inline-flex items-center rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-slate-300">
+            <span className="inline-flex items-center rounded-xl bg-white/[0.03] px-3 text-xs text-slate-300">
               {managedDomains.every((item) => item.verified) ? 'Domínios verificados na Vercel' : 'Aguardando propagação do DNS'}
             </span>
           ) : null}
