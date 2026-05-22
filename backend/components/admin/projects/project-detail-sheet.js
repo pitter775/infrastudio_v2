@@ -226,8 +226,8 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
       >
         <div
           className={cn(
-            'absolute right-0 top-8 z-30 w-14 overflow-hidden rounded-l-2xl rounded-r-none border-y border-l border-white/10 border-r-0 bg-[#080e1d]/96 py-2 shadow-[-14px_18px_46px_rgba(2,6,23,0.46)] backdrop-blur-xl transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
-            railOpen && 'w-48 border-white/14 bg-[#0a1122]/98 shadow-[-22px_24px_72px_rgba(2,6,23,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
+            'absolute right-0 top-8 z-30 w-14 overflow-hidden rounded-l-2xl rounded-r-none border-y border-l border-white/10 border-r-0 bg-[#080e1d] py-2 shadow-[-14px_18px_46px_rgba(2,6,23,0.46)] transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
+            railOpen && 'w-48 border-white/14 bg-[#0a1122] shadow-[-22px_24px_72px_rgba(2,6,23,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
           )}
         >
           <div className="grid gap-1 px-2">

@@ -319,39 +319,40 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         {panel.id === 'apis' ? null : (
           <SheetInternalTabs tabs={tabs} activeTab={currentActiveTab} onChange={setActiveTab} />
         )}
-        {panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
-          <div className="bg-[#080e1d] px-4 py-2">
-            <StoreHeaderTabs
-              tabs={mercadoFooter.storeTabs}
-              activeTab={mercadoFooter.activeStoreTab}
-              onChange={mercadoFooter.onStoreTabChange}
-            />
-          </div>
-        ) : null}
+        <div className="flex min-w-0 flex-1 flex-col">
+          {panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
+            <div className="shrink-0 bg-[#080e1d] px-4 py-2">
+              <StoreHeaderTabs
+                tabs={mercadoFooter.storeTabs}
+                activeTab={mercadoFooter.activeStoreTab}
+                onChange={mercadoFooter.onStoreTabChange}
+              />
+            </div>
+          ) : null}
 
-        <div
-          className={cn(
-            "min-h-0 flex-1",
-            panel.id === 'apis'
-              ? "overflow-hidden px-0 pb-0 pt-0"
-              : panel.id === 'mercado-livre' && currentActiveTab === 'dashboard'
-                ? "overflow-x-hidden overflow-y-auto px-0 pb-4 pt-4 md:px-6 md:pb-6 md:pt-6"
-                : "overflow-x-hidden overflow-y-auto px-6 pb-6 pt-6",
-          )}
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={contentKey}
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-              className={cn(panel.id === 'apis' && "flex h-full min-h-0 flex-col")}
-            >
-          {realPanel ? (
-            realPanel
-          ) : (
-          <div className="space-y-6 text-sm text-slate-300">
+          <div
+            className={cn(
+              "min-h-0 flex-1",
+              panel.id === 'apis'
+                ? "overflow-hidden px-0 pb-0 pt-0"
+                : panel.id === 'mercado-livre' && currentActiveTab === 'dashboard'
+                  ? "overflow-x-hidden overflow-y-auto px-0 pb-4 pt-4 md:px-6 md:pb-6 md:pt-6"
+                  : "overflow-x-hidden overflow-y-auto px-6 pb-6 pt-6",
+            )}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={contentKey}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                className={cn("w-full min-w-0", panel.id === 'apis' && "flex h-full min-h-0 flex-col")}
+              >
+            {realPanel ? (
+              realPanel
+            ) : (
+            <div className="space-y-6 text-sm text-slate-300">
             <div className="rounded-2xl border border-white/5 bg-white/[0.03] p-5">
               <div className="text-xs uppercase tracking-[0.18em] text-slate-500">Status</div>
               <div className="mt-3 text-base font-medium text-white">{panel.statusLabel}</div>
@@ -377,10 +378,11 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
                 ))}
               </div>
             </div>
+            </div>
+            )}
+              </motion.div>
+            </AnimatePresence>
           </div>
-          )}
-            </motion.div>
-          </AnimatePresence>
         </div>
       </div>
       {panel.id === 'apis' && apiDetailOpen ? (
