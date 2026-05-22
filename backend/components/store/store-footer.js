@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { buildStoreAccentPalette, buildStoreUrl } from '@/components/store/store-utils'
 import { Globe, LayoutGrid, Phone, Sparkles, Store } from 'lucide-react'
 
@@ -46,8 +47,7 @@ export function StoreFooter({ store, samePageNavigation = false }) {
         <div>
           <div className="flex items-center gap-5">
             {store.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-32 w-32 shrink-0 rounded-[10px] object-contain" />
+              <Image src={store.logoUrl} alt={store.name} width={128} height={128} unoptimized className="h-32 w-32 shrink-0 rounded-[10px] object-contain" />
             ) : (
               <div className="flex h-32 w-32 shrink-0 items-center justify-center rounded-[10px] text-3xl font-semibold text-slate-800">
                 {store.name.slice(0, 2).toUpperCase()}
@@ -57,8 +57,7 @@ export function StoreFooter({ store, samePageNavigation = false }) {
               <div className="text-lg font-semibold text-slate-950">{store.name}</div>
               {footerText ? <div className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">{footerText}</div> : null}
               <a href="https://www.infrastudio.pro" target="_blank" rel="noreferrer" className="mt-4 inline-flex opacity-70 transition hover:opacity-90">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/infrastudio-preto.png" alt="InfraStudio" loading="lazy" decoding="async" className="w-[100px] object-contain" />
+                <Image src="/infrastudio-preto.png" alt="InfraStudio" width={100} height={32} className="w-[100px] object-contain" />
               </a>
             </div>
           </div>

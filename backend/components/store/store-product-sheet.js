@@ -1,6 +1,7 @@
 'use client'
 
 import { ChevronLeft, ChevronRight, Package, ShieldCheck, Tag, X } from 'lucide-react'
+import Image from 'next/image'
 import { useMemo, useState } from 'react'
 
 import { StoreProductActions } from '@/components/store/store-product-actions'
@@ -67,8 +68,14 @@ export function StoreProductSheet({
                 <div className="overflow-hidden rounded-[24px] border border-slate-200 bg-white p-4 shadow-[0_20px_42px_-30px_rgba(15,23,42,0.14)]">
                   <div className="relative aspect-[4/3] overflow-hidden rounded-[20px] bg-[#e9eef5]">
                     {images[activeImageIndex] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={images[activeImageIndex]} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                      <Image
+                        src={images[activeImageIndex]}
+                        alt={product.title}
+                        fill
+                        sizes="(min-width: 768px) 50vw, 100vw"
+                        unoptimized
+                        className="h-full w-full object-cover"
+                      />
                     ) : null}
                     {images.length > 1 ? (
                       <>

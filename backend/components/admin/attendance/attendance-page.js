@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
+import Image from "next/image"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import {
   ChevronLeft,
@@ -497,9 +498,12 @@ function MessageBubble({ message, isAdmin = false }) {
                   className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]"
                 >
                   {previewable ? (
-                    <img
+                    <Image
                       src={attachment.publicUrl}
                       alt={attachment.name || "Anexo"}
+                      width={800}
+                      height={600}
+                      unoptimized
                       className="max-h-56 w-full object-cover"
                     />
                   ) : null}
@@ -535,9 +539,12 @@ function MessageBubble({ message, isAdmin = false }) {
                 >
                   {asset.publicUrl ? (
                     <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-950/45">
-                      <img
+                      <Image
                         src={asset.publicUrl}
                         alt={asset.nome || "Produto"}
+                        fill
+                        sizes={hasMultipleProductAssets ? "260px" : "270px"}
+                        unoptimized
                         className="h-full w-full object-cover"
                       />
                       {Array.isArray(asset.videos) && asset.videos.length ? (
@@ -1388,9 +1395,12 @@ function ChatPanel({
                             className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]"
                           >
                             {previewable ? (
-                              <img
+                              <Image
                                 src={attachment.publicUrl}
                                 alt={attachment.name || "Midia"}
+                                width={320}
+                                height={224}
+                                unoptimized
                                 className="h-28 w-full object-cover"
                               />
                             ) : null}

@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react"
 import { FileText, Info, Play } from "lucide-react"
+import Image from "next/image"
 
 import { cn } from "@/lib/utils"
 
@@ -79,7 +80,14 @@ export function ProductAssetCards({ assets, className }) {
           >
             {asset.publicUrl ? (
               <div className="relative">
-                <img src={asset.publicUrl} alt={asset.nome || "Produto"} className="h-40 w-full object-cover" />
+                <Image
+                  src={asset.publicUrl}
+                  alt={asset.nome || "Produto"}
+                  width={640}
+                  height={400}
+                  unoptimized
+                  className="h-40 w-full object-cover"
+                />
                 {hasVideo ? (
                   <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-slate-950/75 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
                     <Play className="h-3 w-3 fill-current" />
@@ -306,7 +314,14 @@ export function AttachmentCards({ messageId, attachments }) {
             className="overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]"
           >
             {previewable ? (
-              <img src={attachment.publicUrl} alt={attachment.name || "Anexo"} className="max-h-56 w-full object-cover" />
+              <Image
+                src={attachment.publicUrl}
+                alt={attachment.name || "Anexo"}
+                width={800}
+                height={600}
+                unoptimized
+                className="max-h-56 w-full object-cover"
+              />
             ) : null}
             <div className="flex items-center gap-2 px-3 py-2 text-[11px] text-slate-300">
               <FileText className="h-3.5 w-3.5 shrink-0" />

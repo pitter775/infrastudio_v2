@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { BarChart3, BookOpen, Check, ChevronDown, Copy, Files, LoaderCircle, MessageCircle, MessageSquare, PackageSearch, RefreshCcw, Store, Trash2, TrendingUp } from 'lucide-react'
+import Image from 'next/image'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -1020,7 +1021,7 @@ export function MercadoLivrePanel({
                   download="logo-infrastudio-mercado-livre.png"
                   className="inline-flex h-8 items-center rounded-lg border border-white/10 bg-white/[0.04] px-2.5 text-xs font-semibold text-slate-100 transition hover:bg-white/[0.08]"
                 >
-                  <img src="/logoexportar.png" alt="" className="mr-1.5 h-4 w-4 rounded object-cover" />
+                  <Image src="/logoexportar.png" alt="" width={16} height={16} className="mr-1.5 h-4 w-4 rounded object-cover" />
                   Baixar logo
                 </a>
                 <Button
@@ -1209,9 +1210,9 @@ export function MercadoLivrePanel({
                       rel="noreferrer"
                       className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-sky-400/30 hover:bg-white/[0.05] md:grid-cols-[72px_minmax(0,1fr)_auto]"
                     >
-                      <div className="h-[72px] w-[72px] overflow-hidden rounded-xl border border-white/10 bg-[#080e1d]">
+                      <div className="relative h-[72px] w-[72px] overflow-hidden rounded-xl border border-white/10 bg-[#080e1d]">
                         {item.thumbnail ? (
-                          <img src={item.thumbnail} alt={item.title} className="h-full w-full object-cover" />
+                          <Image src={item.thumbnail} alt={item.title} fill sizes="72px" unoptimized className="h-full w-full object-cover" />
                         ) : (
                           <div className="flex h-full items-center justify-center text-xs text-slate-500">sem foto</div>
                         )}
@@ -1442,9 +1443,9 @@ export function MercadoLivrePanel({
                             onClick={() => setExpandedQuestionId((current) => (current === question.id ? '' : question.id))}
                             className="flex w-full items-center gap-3 px-4 py-4 text-left transition hover:bg-white/[0.04]"
                           >
-                            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#080e1d]">
+                            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-white/10 bg-[#080e1d]">
                               {question.itemThumbnail ? (
-                                <img src={question.itemThumbnail} alt={question.itemTitle || question.itemId || 'Produto'} className="h-full w-full object-cover" />
+                                <Image src={question.itemThumbnail} alt={question.itemTitle || question.itemId || 'Produto'} fill sizes="56px" unoptimized className="h-full w-full object-cover" />
                               ) : (
                                 <div className="flex h-full items-center justify-center text-[10px] uppercase tracking-[0.16em] text-slate-500">sem foto</div>
                               )}

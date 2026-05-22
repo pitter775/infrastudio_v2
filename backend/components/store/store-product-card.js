@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Loader2, Play, X } from 'lucide-react'
@@ -117,12 +118,12 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
 
           <div className="relative h-[224px] shrink-0 overflow-hidden bg-white p-[5px]">
             {image ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
+              <Image
                 src={image}
                 alt={product.title}
-                loading="lazy"
-                decoding="async"
+                fill
+                sizes="(min-width: 1024px) 280px, 50vw"
+                unoptimized
                 className="h-full w-full rounded-[4px] bg-white object-contain transition duration-300 group-hover:scale-[1.02]"
               />
             ) : null}
@@ -167,8 +168,7 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
                       className="relative aspect-square min-w-0 overflow-hidden rounded-[3px] bg-white"
                       aria-label={`Ver imagem ${index + 1}`}
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={thumbnail} alt={`${product.title} ${index + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                      <Image src={thumbnail} alt={`${product.title} ${index + 1}`} fill sizes="48px" unoptimized className="h-full w-full object-cover" />
                       <span
                         className="pointer-events-none absolute inset-0 rounded-[3px] border-2"
                         style={{ borderColor: index === imageIndex ? palette.accentDark : 'transparent' }}
@@ -262,8 +262,14 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
         ) : null}
         <div className={compact ? 'relative aspect-[1.12/1] overflow-hidden bg-[#eef2f7]' : 'relative aspect-[1.1/1] overflow-hidden bg-[#eef2f7]'}>
           {image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={image} alt={product.title} loading="lazy" decoding="async" className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.06]" />
+            <Image
+              src={image}
+              alt={product.title}
+              fill
+              sizes={compact ? "(min-width: 1024px) 260px, 50vw" : "(min-width: 1024px) 360px, 100vw"}
+              unoptimized
+              className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.06]"
+            />
           ) : null}
 
           <div className="absolute left-1 top-1 flex max-w-[calc(100%-8px)] flex-wrap gap-1">
@@ -306,8 +312,7 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
                     className="relative aspect-square min-w-0 overflow-hidden rounded-[4px] bg-white"
                     aria-label={`Ver imagem ${index + 1}`}
                   >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={thumbnail} alt={`${product.title} ${index + 1}`} loading="lazy" decoding="async" className="h-full w-full object-cover" />
+                    <Image src={thumbnail} alt={`${product.title} ${index + 1}`} fill sizes="72px" unoptimized className="h-full w-full object-cover" />
                     <span
                       className="pointer-events-none absolute inset-0 rounded-[4px] border-2"
                       style={{ borderColor: index === imageIndex ? palette.accentDark : 'transparent' }}
@@ -325,8 +330,7 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
               {formatStoreCurrency(product.price, product.currencyId)}
             </span>
             <span className="inline-flex items-center gap-1 text-xs text-slate-500">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/icomercado.png" alt="" className="h-4 w-5 object-contain" />
+              <Image src="/icomercado.png" alt="" width={20} height={16} className="h-4 w-5 object-contain" />
               {locationLabel}
             </span>
           </div>

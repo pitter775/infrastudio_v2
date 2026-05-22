@@ -1,6 +1,7 @@
 'use client'
 
 import { MessageCircle } from 'lucide-react'
+import Image from 'next/image'
 
 import { buildStoreProductExternalUrl, openStoreChat, trackStoreEvent } from '@/components/store/store-utils'
 
@@ -34,8 +35,7 @@ export function StoreProductActions({
           }
           className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-[#ffe600] bg-[#ffe600] px-5 text-sm font-semibold text-[#333333] shadow-[0_12px_24px_-18px_rgba(15,23,42,0.16)] transition hover:bg-[#fff159] hover:shadow-[0_14px_28px_-18px_rgba(15,23,42,0.28)]"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/icomercado.png" alt="" className="h-5 w-5 object-contain" />
+          <Image src="/icomercado.png" alt="" width={20} height={20} className="h-5 w-5 object-contain" />
           Mercado Livre
         </a>
         <button

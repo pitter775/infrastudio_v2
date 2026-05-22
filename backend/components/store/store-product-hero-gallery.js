@@ -1,6 +1,7 @@
 'use client'
 
 import { ChevronLeft, ChevronRight, ImageIcon, Play } from 'lucide-react'
+import Image from 'next/image'
 import { useMemo, useRef, useState } from 'react'
 
 import { getStoreProductMedia } from '@/components/store/store-utils'
@@ -84,8 +85,16 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
           ) : activeMedia?.type === 'video' && activeMedia.url ? (
             <video key={activeMedia.url} src={activeMedia.url} poster={activeMedia.thumbnail || undefined} controls className="h-full w-full bg-black object-contain sm:rounded-[8px]" />
           ) : activeMedia?.url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img key={activeMedia.url} src={activeMedia.url} alt={title} loading="eager" decoding="async" fetchPriority="high" className="store-gallery-active-image h-full w-full object-contain" />
+            <Image
+              key={activeMedia.url}
+              src={activeMedia.url}
+              alt={title}
+              fill
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              priority
+              unoptimized
+              className="store-gallery-active-image h-full w-full object-contain"
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-slate-400">
               <ImageIcon className="h-8 w-8" />
@@ -125,8 +134,7 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
               aria-label={item.type === 'video' ? `Ver vídeo ${index + 1}` : `Ver imagem ${index + 1}`}
             >
               {item.thumbnail || item.url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={item.thumbnail || item.url} alt={`${title} ${index + 1}`} loading="lazy" decoding="async" className="block h-full w-full object-cover" />
+                <Image src={item.thumbnail || item.url} alt={`${title} ${index + 1}`} fill sizes="96px" unoptimized className="block h-full w-full object-cover" />
               ) : (
                 <span className="flex h-full w-full items-center justify-center bg-slate-100 text-slate-400">
                   <Play className="h-4 w-4" />

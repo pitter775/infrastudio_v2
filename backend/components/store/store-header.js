@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import { AtSign, Camera, Globe, LayoutGrid, Menu, Phone, Play, Sparkles, Store, Users, X } from 'lucide-react'
 
@@ -80,12 +81,11 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
         <div className="flex min-w-0 items-center justify-between gap-3 px-1 sm:gap-6 sm:px-0">
           <Link href={buildStoreUrl(store)} className="flex min-w-0 items-center gap-3 sm:gap-5">
             <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] text-sm font-semibold text-white"
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] text-sm font-semibold text-white"
               style={{ backgroundColor: store.logoUrl ? undefined : store.accentColor }}
             >
               {store.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-full w-full object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.95)]" />
+                <Image src={store.logoUrl} alt={store.name} fill sizes="48px" unoptimized className="h-full w-full object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.95)]" />
               ) : (
                 store.name.slice(0, 2).toUpperCase()
               )}

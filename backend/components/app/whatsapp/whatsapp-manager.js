@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { AlertTriangle, CheckCircle2, LoaderCircle, MessageCircle, Pencil, Plus, Power, QrCode, Trash2, Users, XCircle } from "lucide-react"
+import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
@@ -929,7 +930,14 @@ export function WhatsAppManager({ project, initialChannelId = null, activeTab: c
           {connectionHint ? <p className="mt-2 text-sm text-amber-200">{connectionHint}</p> : null}
           {pendingQrExpiresAt ? <p className="mt-2 text-xs text-slate-400">Ações do canal ficam bloqueadas até o QR concluir ou expirar.</p> : null}
           {qrSnapshot.qrCodeDataUrl ? (
-            <img src={qrSnapshot.qrCodeDataUrl} alt="QR Code do WhatsApp" className="mt-3 h-56 w-56 rounded-lg border border-zinc-200 bg-white p-2" />
+            <Image
+              src={qrSnapshot.qrCodeDataUrl}
+              alt="QR Code do WhatsApp"
+              width={224}
+              height={224}
+              unoptimized
+              className="mt-3 h-56 w-56 rounded-lg border border-zinc-200 bg-white p-2"
+            />
           ) : (
             <p className="mt-3 text-sm text-slate-400">QR indisponível no momento. Se a conexão estiver ativa, o painel atualiza sozinho.</p>
           )}

@@ -1,6 +1,7 @@
 'use client'
 
 import { CheckCircle2, Copy, Database, ExternalLink, Globe, ImageUp, Phone, RefreshCcw, Search, XCircle } from 'lucide-react'
+import Image from 'next/image'
 
 import { Button } from '@/components/ui/button'
 
@@ -213,8 +214,7 @@ export function StoreAppearanceSection({ assetUploading = null, draft, setDraft,
           />
           {draft.logoUrl ? (
             <div className="flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={draft.logoUrl} alt="Preview do logo" className="h-12 w-12 rounded-xl object-cover" />
+              <Image src={draft.logoUrl} alt="Preview do logo" width={48} height={48} unoptimized className="h-12 w-12 rounded-xl object-cover" />
               <span className="text-xs text-slate-400">Preview do logo atualizado</span>
             </div>
           ) : null}

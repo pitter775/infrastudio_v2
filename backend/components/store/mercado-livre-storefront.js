@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AtSign, Camera, ChevronLeft, ChevronRight, ExternalLink, Filter, Globe, Loader2, MapPin, MessageCircle, Phone, Play, Search, Sparkles, Tag, Users } from 'lucide-react'
@@ -487,8 +488,7 @@ export function MercadoLivreStorefront({
               className="absolute right-3 top-0 flex w-[190px] -translate-y-1/2 justify-center overflow-hidden rounded-t-[18px] px-4 pt-3 sm:right-4 lg:right-3"
               style={{ backgroundColor: '#f8fafc' }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/vitrini.png" alt="" loading="eager" decoding="async" className="store-vitrine-mark w-[160px] max-w-full object-contain" />
+              <Image src="/vitrini.png" alt="" width={160} height={64} priority className="store-vitrine-mark w-[160px] max-w-full object-contain" />
             </a>
           </div>
 

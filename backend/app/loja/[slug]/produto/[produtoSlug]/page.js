@@ -1,4 +1,5 @@
 import Link from "next/link"
+import Image from "next/image"
 import { notFound, permanentRedirect } from "next/navigation"
 import { ArrowLeft, ChevronDown, FileText, LayoutGrid, Package, Sparkles, Tag } from "lucide-react"
 
@@ -649,8 +650,14 @@ export default async function LojaProdutoPage({ params }) {
             {descriptionBlocks.length ? (
               <section className="relative -mx-5 mt-6 rounded-none bg-white p-5 shadow-[0_14px_28px_-22px_rgba(15,23,42,0.14)] sm:mx-0 sm:rounded-[8px] sm:p-6">
                 {result.store.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={result.store.logoUrl} alt={result.store.name} loading="lazy" decoding="async" className="absolute right-4 top-4 hidden h-24 w-24 rounded-[8px] object-contain lg:block" />
+                  <Image
+                    src={result.store.logoUrl}
+                    alt={result.store.name}
+                    width={96}
+                    height={96}
+                    unoptimized
+                    className="absolute right-4 top-4 hidden h-24 w-24 rounded-[8px] object-contain lg:block"
+                  />
                 ) : null}
                 <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                   <FileText className="h-4 w-4" />

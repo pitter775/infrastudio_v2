@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { cn } from "@/lib/utils"
 
 function getInitials(label) {
@@ -27,14 +28,17 @@ export function UserAvatar({ src, label, className, imageClassName, fallbackClas
   return (
     <div
       className={cn(
-        "flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-xs font-semibold text-white",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-sky-500 to-indigo-500 text-xs font-semibold text-white",
         className,
       )}
     >
       {showImage ? (
-        <img
+        <Image
           src={normalizedSrc}
           alt={label || "Avatar"}
+          fill
+          sizes="40px"
+          unoptimized
           referrerPolicy="no-referrer"
           onError={() => setFailedSrc(normalizedSrc)}
           className={cn("h-full w-full object-cover", imageClassName)}
