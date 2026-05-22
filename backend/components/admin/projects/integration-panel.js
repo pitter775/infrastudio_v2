@@ -319,9 +319,9 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         {panel.id === 'apis' ? null : (
           <SheetInternalTabs tabs={tabs} activeTab={currentActiveTab} onChange={setActiveTab} />
         )}
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
-            <div className="shrink-0 bg-[#080e1d] px-4 py-2">
+            <div className="shrink-0 border-b border-white/5 bg-[#080e1d] px-4 py-2 md:border-b-0">
               <StoreHeaderTabs
                 tabs={mercadoFooter.storeTabs}
                 activeTab={mercadoFooter.activeStoreTab}
@@ -336,8 +336,8 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
               panel.id === 'apis'
                 ? "overflow-hidden px-0 pb-0 pt-0"
                 : panel.id === 'mercado-livre' && currentActiveTab === 'dashboard'
-                  ? "overflow-x-hidden overflow-y-auto px-0 pb-4 pt-4 md:px-6 md:pb-6 md:pt-6"
-                  : "overflow-x-hidden overflow-y-auto px-6 pb-6 pt-6",
+                  ? "overflow-x-hidden overflow-y-auto px-0 pb-24 pt-4 md:px-6 md:pb-6 md:pt-6"
+                  : "overflow-x-hidden overflow-y-auto px-4 pb-24 pt-5 md:px-6 md:pb-6 md:pt-6",
             )}
           >
             <AnimatePresence mode="wait" initial={false}>
@@ -487,7 +487,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         </div>
       ) : null}
       {panel.id === 'mercado-livre' && (currentActiveTab === 'connection' || currentActiveTab === 'store') ? (
-        <div className="border-t border-white/5 px-6 py-4">
+        <div className="shrink-0 border-t border-white/5 bg-[#080e1d] px-4 py-4 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               {currentActiveTab === 'connection' && mercadoFooter.step === 2 && mercadoFooter.canSaveConnection !== false ? (

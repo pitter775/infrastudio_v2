@@ -430,21 +430,21 @@ export function StoreFeaturedSection({
   const useLatestProducts = draft.visualConfig?.catalog?.useLatestProducts !== false
 
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-3 px-1 py-2 md:grid-cols-[minmax(0,1fr)_auto]">
-        <div className="grid gap-3">
+    <div className="grid min-w-0 gap-4">
+      <div className="grid min-w-0 gap-3 px-1 py-2 md:grid-cols-[minmax(0,1fr)_auto]">
+        <div className="grid min-w-0 gap-3">
           <div className="inline-flex items-center gap-2 text-sm font-semibold text-white">
             <Database className="h-4 w-4 text-sky-300" />
             Snapshot da loja
           </div>
-          <div className="flex flex-wrap gap-3 text-xs text-slate-400">
-            <span className="rounded-full bg-white/[0.03] px-3 py-1">
+          <div className="flex min-w-0 flex-wrap gap-2 text-xs text-slate-400">
+            <span className="max-w-full rounded-full bg-white/[0.03] px-3 py-1">
               {snapshotLoading ? 'Carregando...' : `${Number(snapshot?.total || 0)} produtos`}
             </span>
-            <span className="rounded-full bg-white/[0.03] px-3 py-1">
+            <span className="max-w-full truncate rounded-full bg-white/[0.03] px-3 py-1">
               Ultima sync: {snapshot?.lastSyncAt ? new Date(snapshot.lastSyncAt).toLocaleString('pt-BR') : 'nunca'}
             </span>
-            <span className="rounded-full bg-white/[0.03] px-3 py-1">
+            <span className="max-w-full rounded-full bg-white/[0.03] px-3 py-1">
               {isSnapshotEmpty ? 'Pronto para primeira sync' : 'Snapshot ativo'}
             </span>
           </div>
@@ -469,11 +469,11 @@ export function StoreFeaturedSection({
       </div>
 
       {latestProducts.length ? (
-        <div className="grid gap-3 px-1 py-2">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+        <div className="grid min-w-0 gap-3 px-1 py-2">
+          <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
               <div className="text-sm font-semibold text-white">Ultimos produtos do snapshot</div>
-              <div className="mt-1 text-xs leading-5 text-slate-400">
+              <div className="mt-1 max-w-full truncate text-xs leading-5 text-slate-400 md:whitespace-normal">
                 Quando ativado, a home usa os ultimos produtos adicionados no Mercado Livre no bloco principal.
               </div>
             </div>
@@ -497,21 +497,21 @@ export function StoreFeaturedSection({
               Usar ultimos adicionados
             </StorePanelToggle>
           </div>
-          <div className="grid gap-2">
+          <div className="grid min-w-0 gap-2">
             {latestProducts.map((item) => (
-              <div key={item.ml_item_id || item.slug} className="flex items-center justify-between gap-4 rounded-xl bg-white/[0.025] px-3 py-3">
+              <div key={item.ml_item_id || item.slug} className="flex min-w-0 items-center justify-between gap-4 rounded-xl bg-white/[0.025] px-3 py-3">
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-white">{item.titulo}</div>
-                  <div className="mt-1 text-xs text-slate-400">{item.slug}</div>
+                  <div className="mt-1 truncate text-xs text-slate-400">{item.slug}</div>
                 </div>
-                <div className="text-xs text-slate-500">{item.updated_at ? new Date(item.updated_at).toLocaleDateString('pt-BR') : ''}</div>
+                <div className="hidden shrink-0 text-xs text-slate-500 sm:block">{item.updated_at ? new Date(item.updated_at).toLocaleDateString('pt-BR') : ''}</div>
               </div>
             ))}
           </div>
         </div>
       ) : null}
 
-      <div className="grid gap-3 px-1 py-2 md:grid-cols-[minmax(0,1fr)_auto]">
+      <div className="grid min-w-0 gap-3 px-1 py-2 md:grid-cols-[minmax(0,1fr)_auto]">
         <StorePanelInput label="Buscar produto" value={catalogQuery} onChange={onCatalogQueryChange} placeholder="Digite o nome do produto" />
         <div className="flex items-end">
           <Button type="button" variant="ghost" onClick={onCatalogSearch} disabled={catalogLoading} className="h-11 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
@@ -522,10 +522,10 @@ export function StoreFeaturedSection({
       </div>
 
       {catalogItems.length ? (
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid min-w-0 gap-3 md:grid-cols-2">
           {catalogItems.map((item) => (
-            <div key={item.id} className="rounded-2xl bg-white/[0.025] p-4">
-              <div className="text-sm font-semibold text-white">{item.title}</div>
+            <div key={item.id} className="min-w-0 rounded-2xl bg-white/[0.025] p-4">
+              <div className="truncate text-sm font-semibold text-white">{item.title}</div>
               <div className="mt-2 text-sm text-slate-400">
                 {Number(item.price || 0).toLocaleString('pt-BR', {
                   style: 'currency',
@@ -549,14 +549,14 @@ export function StoreFeaturedSection({
         </div>
       ) : null}
 
-      <div className="grid gap-3">
+      <div className="grid min-w-0 gap-3">
         <div className="text-sm font-semibold text-white">Produtos em destaque</div>
         {draft.featuredProducts.length ? (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid min-w-0 gap-3 md:grid-cols-2">
             {draft.featuredProducts.map((item) => (
-              <div key={item.id} className="rounded-2xl bg-white/[0.025] p-4">
-                <div className="text-sm font-semibold text-white">{item.title}</div>
-                <div className="mt-2 text-xs text-slate-400">{item.id}</div>
+              <div key={item.id} className="min-w-0 rounded-2xl bg-white/[0.025] p-4">
+                <div className="truncate text-sm font-semibold text-white">{item.title}</div>
+                <div className="mt-2 truncate text-xs text-slate-400">{item.id}</div>
                 <Button
                   type="button"
                   variant="ghost"
