@@ -470,12 +470,12 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
   }
 
   return (
-    <div className={cn('min-h-full px-8 py-10', isMobile && 'h-[calc(100dvh-88px)] overflow-hidden px-0 pb-4 pt-4')}>
+    <div className={cn('min-h-full px-8 py-10', isMobile && 'h-[calc(100dvh-4rem)] overflow-hidden px-0 pb-4 pt-3')}>
       <div
         className={cn(
           'z-30 transition-[left,width,max-width] duration-300 ease-in-out',
           isMobile
-            ? 'relative mb-4 w-full'
+            ? 'fixed left-0 right-0 top-16 w-full'
             : 'fixed',
         )}
         style={
@@ -489,7 +489,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
               }
         }
       >
-        <div className={cn(isMobile ? 'flex flex-wrap justify-center gap-2 px-3 py-0' : 'flex items-start gap-2 px-0 py-1')}>
+        <div className={cn(isMobile ? 'flex flex-wrap justify-center gap-2 bg-[#080e1d]/92 px-3 py-3 backdrop-blur' : 'flex items-start gap-2 px-0 py-1')}>
             {topMenuItems.map((item) => {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen

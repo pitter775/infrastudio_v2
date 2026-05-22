@@ -1551,6 +1551,7 @@ export default function AttendancePage() {
   const [selectedConversationId, setSelectedConversationId] = useState(null)
   const [conversationDetails, setConversationDetails] = useState({})
   const [mobileChatOpen, setMobileChatOpen] = useState(false)
+  const [mobileChatReady, setMobileChatReady] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [activeFilter, setActiveFilter] = useState("all")
   const [projectFilter, setProjectFilter] = useState("")
@@ -1780,6 +1781,7 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!mobileChatOpen) {
+      setMobileChatReady(false)
       return undefined
     }
 
@@ -1892,6 +1894,7 @@ export default function AttendancePage() {
     if (!conversationId) {
       if (isMobile) {
         setMobileChatOpen(false)
+        setMobileChatReady(false)
       }
       return
     }
@@ -1904,6 +1907,7 @@ export default function AttendancePage() {
     setSelectedConversationId(conversation.id)
 
     if (isMobile) {
+      setMobileChatReady(false)
       setMobileChatOpen(true)
     }
   }, [conversations, isMobile, searchParams])
@@ -1988,12 +1992,14 @@ export default function AttendancePage() {
     setConversationQuery(conversation.id)
 
     if (isMobile) {
+      setMobileChatReady(false)
       setMobileChatOpen(true)
     }
   }
 
   function handleMobileClose() {
     setMobileChatOpen(false)
+    setMobileChatReady(false)
     setConversationQuery(null)
   }
 
@@ -2266,10 +2272,15 @@ export default function AttendancePage() {
                 initial={{ x: "100%" }}
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
-                transition={{ duration: 0.24, ease: "easeInOut" }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                onAnimationComplete={(definition) => {
+                  if (definition?.x === 0) {
+                    setMobileChatReady(true)
+                  }
+                }}
                 className="fixed inset-0 z-[70] flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
               >
-                {activeConversation ? (
+                {activeConversation && mobileChatReady ? (
                   <ChatPanel
                     key={activeConversation.id}
                     conversation={activeConversation}

@@ -96,7 +96,7 @@ function StoreHeaderTabs({ activeTab, onChange, tabs = [] }) {
   }
 
   return (
-    <div className="flex flex-nowrap items-center gap-1 overflow-hidden pb-0.5">
+    <div className="flex flex-nowrap items-start gap-1 overflow-x-auto overflow-y-hidden pb-0.5 [scrollbar-width:none] md:items-center md:overflow-hidden [&::-webkit-scrollbar]:hidden">
       {tabs.map((tab) => {
         const Icon = tab.icon
         const active = activeTab === tab.id
@@ -107,14 +107,18 @@ function StoreHeaderTabs({ activeTab, onChange, tabs = [] }) {
             type="button"
             onClick={() => onChange(tab)}
             className={cn(
-              'inline-flex h-8 min-w-0 shrink items-center gap-1.5 rounded-lg px-2 text-xs font-normal transition-[background-color,color,box-shadow]',
+              'inline-flex min-w-0 shrink-0 items-center justify-center rounded-lg text-xs font-normal transition-[background-color,color,box-shadow] md:h-8 md:shrink md:gap-1.5 md:px-2',
+              'h-12 w-12 flex-col gap-0.5 px-1 md:w-auto md:flex-row',
               active
-                ? 'bg-[#10192b] text-slate-200'
+                ? 'bg-[#10192b] text-amber-300'
                 : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
             )}
+            title={tab.label}
           >
             {Icon ? <Icon className="h-3.5 w-3.5 shrink-0" /> : null}
-            <span className="truncate">{tab.label}</span>
+            <span className={cn('max-w-11 truncate text-[10px] leading-3 md:max-w-none md:text-xs', active ? 'block' : 'hidden md:block')}>
+              {tab.label}
+            </span>
           </button>
         )
       })}
@@ -321,6 +325,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
           ) : null
         }
         onCancel={onCloseSheet}
+        mobileCompact={panel.id === 'mercado-livre'}
       />
       <div className={cn("min-h-0 flex-1", panel.id === 'apis' ? "flex flex-col overflow-hidden" : "flex flex-col overflow-hidden md:overflow-visible md:flex-row")}>
         {panel.id === 'apis' ? null : (

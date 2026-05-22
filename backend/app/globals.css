@@ -656,24 +656,24 @@ a {
 @keyframes infra-sheet-mobile-in {
   from {
     opacity: 0;
-    transform: translateY(24px) scale(0.98);
+    transform: translateX(100%);
   }
 
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
   }
 }
 
 @keyframes infra-sheet-mobile-out {
   from {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateX(0);
   }
 
   to {
     opacity: 0;
-    transform: translateY(18px) scale(0.985);
+    transform: translateX(100%);
   }
 }
 

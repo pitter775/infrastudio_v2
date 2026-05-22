@@ -18,6 +18,7 @@ export function SheetPanelHeader({
   rightAction = null,
   bottomContent = null,
   onCancel = null,
+  mobileCompact = false,
 }) {
   const statusClasses = colorClassName
     ? getToneClasses(colorClassName)
@@ -26,8 +27,8 @@ export function SheetPanelHeader({
       : { text: 'text-emerald-300', mutedText: 'text-slate-500', track: 'bg-emerald-500/20', thumb: 'bg-emerald-300' }
 
   return (
-    <div className={cn('px-6', compact ? 'pt-4 pb-3 sm:py-3' : 'pt-8 pb-5 sm:py-5')}>
-      <div className="relative flex flex-col gap-3 pr-14 sm:pr-0">
+    <div className={cn('px-6', mobileCompact ? 'pt-4 pb-2 sm:pt-5 sm:pb-5' : compact ? 'pt-4 pb-3 sm:py-3' : 'pt-8 pb-5 sm:py-5')}>
+      <div className={cn('relative flex flex-col pr-14 sm:pr-0', mobileCompact ? 'gap-2' : 'gap-3')}>
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -65,7 +66,10 @@ export function SheetPanelHeader({
             type="button"
             variant="ghost"
             onClick={onCancel}
-            className="absolute right-0 top-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] p-0 text-slate-300 hover:bg-white/[0.06] hover:text-white sm:hidden"
+            className={cn(
+              'absolute right-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl p-0 text-slate-300 hover:bg-white/[0.06] hover:text-white sm:hidden',
+              mobileCompact ? '-top-1 border-0 bg-transparent' : 'top-0 border border-white/10 bg-white/[0.03]',
+            )}
           >
             <X className="h-4 w-4" />
             <span className="sr-only">Fechar</span>
