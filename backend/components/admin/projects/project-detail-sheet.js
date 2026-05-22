@@ -226,8 +226,8 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
       >
         <div
           className={cn(
-            'absolute right-0 top-8 z-30 w-14 overflow-hidden rounded-l-2xl rounded-r-none border-y border-l border-r border-white/10 border-r-white/25 bg-[#080e1d] py-2 shadow-[-14px_18px_46px_rgba(2,6,23,0.46)] transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
-            railOpen && 'w-48 border-white/14 border-r-white/35 bg-[#0a1122] shadow-[-22px_24px_72px_rgba(2,6,23,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
+            'absolute right-0 top-8 z-30 w-14 overflow-visible rounded-l-2xl rounded-r-none border-y border-l border-white/10 border-r-0 bg-[#080e1d] py-2 shadow-[-14px_18px_46px_rgba(2,6,23,0.46)] transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
+            railOpen && 'w-48 border-white/14 bg-[#0a1122] shadow-[-22px_24px_72px_rgba(2,6,23,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
           )}
         >
           <div className="grid gap-1 px-2">
@@ -247,11 +247,11 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
               onClick={() => handleChange(tab.id)}
               title={tab.label}
               className={cn(
-                'infra-tab-motion flex h-10 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-xs font-semibold transition-[background-color,box-shadow,color]',
+                'infra-tab-motion relative flex h-10 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-xs font-semibold transition-[background-color,box-shadow,color]',
                 active
                   ? amber
-                    ? cn('bg-amber-400/14 text-amber-50', activeGlow)
-                    : cn('bg-sky-500/14 text-sky-50', activeGlow)
+                    ? cn('-mr-2 rounded-r-none bg-amber-400/14 text-amber-50 after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#080e1d]', railOpen && 'after:bg-[#0a1122]', activeGlow)
+                    : cn('-mr-2 rounded-r-none bg-sky-500/14 text-sky-50 after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#080e1d]', railOpen && 'after:bg-[#0a1122]', activeGlow)
                   : amber
                     ? 'bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50'
                     : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
