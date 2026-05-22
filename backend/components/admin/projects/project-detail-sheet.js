@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Menu, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -118,6 +118,26 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
   const [railLocked, setRailLocked] = useState(false)
   const currentTab = tabs.find((tab) => tab.id === activeTab) || tabs[0]
   const CurrentIcon = currentTab?.icon
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      return undefined
+    }
+
+    const openTimer = window.setTimeout(() => {
+      setRailOpen(true)
+      setRailLocked(true)
+    }, 120)
+    const closeTimer = window.setTimeout(() => {
+      setRailOpen(false)
+      setRailLocked(false)
+    }, 1500)
+
+    return () => {
+      window.clearTimeout(openTimer)
+      window.clearTimeout(closeTimer)
+    }
+  }, [])
 
   function handleChange(tabId) {
     onChange(tabId)
