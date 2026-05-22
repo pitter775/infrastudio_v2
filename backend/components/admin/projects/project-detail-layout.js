@@ -22,6 +22,9 @@ const DOCKED_CARD_TOP_SHIFT = 156
 const MOBILE_SATELLITE_START_Y = 298
 const MOBILE_SATELLITE_GAP = 82
 const MOBILE_SATELLITE_ROUTE_OFFSET = 30
+const DESKTOP_SATELLITE_START_Y = 332
+const DESKTOP_SATELLITE_GAP = 96
+const DESKTOP_SATELLITE_ROUTE_OFFSET = 44
 
 export function buildIntegrationPanels(project) {
   return [
@@ -226,17 +229,19 @@ export function getToneClasses(colorClassName) {
 export function getSatelliteLayout(panel, isMobile, sequenceIndex = null) {
   const basePosition = isMobile ? panel.mobilePosition : panel.desktopPosition
   const position =
-    isMobile && Number.isInteger(sequenceIndex)
+    Number.isInteger(sequenceIndex)
       ? {
           ...basePosition,
-          y: MOBILE_SATELLITE_START_Y + sequenceIndex * MOBILE_SATELLITE_GAP,
+          y: isMobile
+            ? MOBILE_SATELLITE_START_Y + sequenceIndex * MOBILE_SATELLITE_GAP
+            : DESKTOP_SATELLITE_START_Y + sequenceIndex * DESKTOP_SATELLITE_GAP,
         }
       : basePosition
   const lineStart = { x: panel.cardAnchor.x, y: panel.cardAnchor.y }
   const lineEnd = { x: position.x + panel.buttonAnchor.x, y: position.y + panel.buttonAnchor.y }
   const routeY =
-    isMobile && Number.isInteger(sequenceIndex)
-      ? Math.max(lineStart.y + 24, position.y - MOBILE_SATELLITE_ROUTE_OFFSET)
+    Number.isInteger(sequenceIndex)
+      ? Math.max(lineStart.y + 24, position.y - (isMobile ? MOBILE_SATELLITE_ROUTE_OFFSET : DESKTOP_SATELLITE_ROUTE_OFFSET))
       : panel.routeY
 
   return {

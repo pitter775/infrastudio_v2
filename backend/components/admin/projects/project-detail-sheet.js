@@ -18,7 +18,6 @@ export function SheetPanelHeader({
   rightAction = null,
   bottomContent = null,
   onCancel = null,
-  mobileCompact = false,
 }) {
   const statusClasses = colorClassName
     ? getToneClasses(colorClassName)
@@ -27,8 +26,8 @@ export function SheetPanelHeader({
       : { text: 'text-emerald-300', mutedText: 'text-slate-500', track: 'bg-emerald-500/20', thumb: 'bg-emerald-300' }
 
   return (
-    <div className={cn('px-6', mobileCompact ? 'pt-4 pb-2 sm:pt-5 sm:pb-5' : compact ? 'pt-4 pb-3 sm:py-3' : 'pt-8 pb-5 sm:py-5')}>
-      <div className={cn('relative flex flex-col pr-14 sm:pr-0', mobileCompact ? 'gap-2' : 'gap-3')}>
+    <div className={cn('px-6', compact ? 'pt-4 pb-3 sm:py-3' : 'pt-4 pb-2 sm:pt-5 sm:pb-5')}>
+      <div className="relative flex flex-col gap-2 pr-14 sm:gap-3 sm:pr-0">
         <div className="flex items-start gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -68,7 +67,7 @@ export function SheetPanelHeader({
             onClick={onCancel}
             className={cn(
               'absolute right-0 inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl p-0 text-slate-300 hover:bg-white/[0.06] hover:text-white sm:hidden',
-              mobileCompact ? '-top-1 border-0 bg-transparent' : 'top-0 border border-white/10 bg-white/[0.03]',
+              '-top-1 border-0 bg-transparent',
             )}
           >
             <X className="h-4 w-4" />
@@ -227,8 +226,8 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
       >
         <div
           className={cn(
-            'absolute inset-y-0 right-0 z-30 w-14 overflow-hidden border-r border-white/5 bg-[#070d1b]/98 py-3 shadow-[-18px_0_40px_rgba(2,6,23,0)] transition-[width,box-shadow] duration-200 ease-out',
-            railOpen && 'w-48 shadow-[-18px_0_40px_rgba(2,6,23,0.42)]',
+            'absolute right-0 top-8 z-30 w-14 overflow-hidden rounded-2xl border border-white/10 bg-[#080e1d]/96 py-2 shadow-[-14px_18px_46px_rgba(2,6,23,0.46)] backdrop-blur-xl transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
+            railOpen && 'w-48 border-white/14 bg-[#0a1122]/98 shadow-[-22px_24px_72px_rgba(2,6,23,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
           )}
         >
           <div className="grid gap-1 px-2">

@@ -40,7 +40,7 @@ export function StorePanelTextarea({ label, value, onChange, className = 'min-h-
 
 export function StorePanelToggle({ checked, onChange, labelOn, labelOff, disabled = false, children }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl px-1 py-2 text-sm text-slate-200">
+    <div className="flex items-center justify-start gap-3 rounded-xl px-1 py-2 text-sm text-slate-200">
       <span>{children}</span>
       <ToggleSwitchButton checked={checked} onChange={onChange} labelOn={labelOn} labelOff={labelOff} disabled={disabled} />
     </div>

@@ -114,6 +114,19 @@ function getConversationSubtitle(conversation) {
   return null
 }
 
+function getConversationDisplay(conversation) {
+  const phone = getConversationSubtitle(conversation)
+  const rawName = String(conversation?.cliente?.nome || "").trim()
+  const origin = conversation?.origem === "whatsapp" ? "WhatsApp" : "Site"
+  const title = origin === "WhatsApp" && rawName ? rawName : "Cliente do site"
+
+  return {
+    title,
+    subtitle: phone || origin,
+    initials: origin === "WhatsApp" ? getInitials(title || "WhatsApp") : "CS",
+  }
+}
+
 function getAttachmentKey(attachment, index) {
   return attachment.storagePath || attachment.publicUrl || `${attachment.name || "arquivo"}-${index}`
 }
@@ -322,9 +335,8 @@ function resolveConversationStatusLabel(conversation) {
 
 function ConversationItem({ conversation, active, onClick, isMobile = false }) {
   const lastMessage = getLastMessage(conversation)
-  const initials = getInitials(conversation.cliente.nome)
   const loopPaused = conversation.status === "pausado_loop"
-  const subtitle = getConversationSubtitle(conversation)
+  const display = getConversationDisplay(conversation)
   const messageCount = getConversationMessageCount(conversation)
 
   return (
@@ -332,24 +344,28 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
       type="button"
       onClick={onClick}
       className={cn(
-        "w-full rounded-[12px] border px-2.5 py-2 text-left transition-all duration-200",
-        isMobile && !active
-          ? "border-transparent bg-transparent px-0 hover:border-transparent hover:bg-transparent"
-          : active
-          ? "border-sky-500/30 bg-sky-500/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
-          : "border-white/5 bg-white/[0.02] hover:border-white/10 hover:bg-white/[0.04]"
+        "w-full rounded-[12px] border border-transparent px-2.5 py-2 text-left transition-all duration-200",
+        active
+          ? "bg-sky-500/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
+          : "bg-transparent hover:bg-white/[0.04]",
+        isMobile && "px-0"
       )}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-2.5">
-          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[#182235] text-[9px] font-semibold uppercase text-slate-200">
-            {initials}
+        <div className="flex min-w-0 items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#182235] text-[11px] font-semibold uppercase text-slate-200 ring-1 ring-white/8">
+            {display.initials}
           </div>
           <div className="min-w-0">
-            <div className="truncate text-[12px] font-semibold leading-4 text-slate-100">
-              {conversation.cliente.nome}
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="truncate text-[13px] font-semibold leading-4 text-slate-100">
+                {display.title}
+              </span>
+              {display.subtitle ? <span className="shrink-0 truncate text-[10px] leading-4 text-slate-500">{display.subtitle}</span> : null}
             </div>
-            {subtitle ? <div className="truncate text-[10px] leading-4 text-slate-400">{subtitle}</div> : null}
+            <p className="mt-1.5 truncate text-[11px] leading-4 text-slate-400">
+              {lastMessage?.texto || "Sem mensagens."}
+            </p>
           </div>
         </div>
         <div className="shrink-0 text-right">
@@ -367,9 +383,6 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
         </div>
       </div>
 
-      <p className="mt-1.5 truncate text-[10px] leading-4 text-slate-400">
-        {lastMessage?.texto || "Sem mensagens."}
-      </p>
     </button>
   )
 }
