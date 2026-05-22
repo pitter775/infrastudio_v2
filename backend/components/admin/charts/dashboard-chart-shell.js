@@ -18,7 +18,7 @@ export function DashboardChartFrame({ children, className }) {
   return (
     <div
       className={cn(
-        'relative h-72 overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_16%_12%,rgba(56,189,248,0.18),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.74),rgba(2,6,23,0.34))] p-3',
+        'dashboard-mobile-soft-shell relative h-72 overflow-hidden rounded-2xl border border-white/10 bg-[radial-gradient(circle_at_16%_12%,rgba(56,189,248,0.18),transparent_34%),linear-gradient(180deg,rgba(15,23,42,0.74),rgba(2,6,23,0.34))] p-3',
         className,
       )}
     >
@@ -73,7 +73,7 @@ export function DashboardKpiCard({ icon: Icon, label, value, detail, tone = 'sky
   const selectedTone = tones[tone] || tones.sky
 
   return (
-    <div className={cn('relative min-h-[168px] overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-4 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.95)]', selectedTone.shell)}>
+    <div className={cn('dashboard-mobile-soft-shell relative min-h-[168px] overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br p-4 shadow-[0_18px_60px_-34px_rgba(0,0,0,0.95)]', selectedTone.shell)}>
       <div className={cn('pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r', selectedTone.line)} />
       <div className={cn('pointer-events-none absolute -right-5 -top-4 flex h-20 w-20 items-center justify-center rounded-full blur-[0.2px]', selectedTone.icon)} />
       <div className="relative z-10 min-w-0 pr-10">
@@ -92,7 +92,7 @@ export function DashboardKpiCard({ icon: Icon, label, value, detail, tone = 'sky
 
 export function DashboardChartPanel({ title, description, children, className }) {
   return (
-    <div className={cn('relative overflow-hidden rounded-2xl border border-white/10 bg-[#080e1d]/88 p-4 shadow-[0_22px_70px_-40px_rgba(0,0,0,0.95)]', className)}>
+    <div className={cn('dashboard-mobile-soft-shell relative overflow-hidden rounded-2xl border border-white/10 bg-[#080e1d]/88 p-4 shadow-[0_22px_70px_-40px_rgba(0,0,0,0.95)]', className)}>
       <div className="pointer-events-none absolute inset-x-4 top-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent" />
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">

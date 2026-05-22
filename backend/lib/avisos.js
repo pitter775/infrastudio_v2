@@ -52,13 +52,43 @@ export async function markNoticeKeysAsRead(userId, items, deps = {}) {
   }
 
   const supabase = deps.supabase ?? getSupabaseAdminClient()
-  const { error } = await supabase
+  const keys = rows.map((item) => item.aviso_chave)
+  const { data: existingRows, error: existingError } = await supabase
     .from("avisos_leituras")
-    .upsert(rows, { onConflict: "usuario_id,aviso_chave" })
+    .select("aviso_chave")
+    .eq("usuario_id", normalizedUserId)
+    .in("aviso_chave", keys)
 
-  if (error) {
-    console.error("[avisos] failed to mark notices as read", error)
+  if (existingError) {
+    console.error("[avisos] failed to read existing notices before mark as read", existingError)
     return false
+  }
+
+  const existingKeys = new Set((existingRows ?? []).map((item) => item.aviso_chave).filter(Boolean))
+  const missingRows = rows.filter((item) => !existingKeys.has(item.aviso_chave))
+
+  if (missingRows.length) {
+    const { error: insertError } = await supabase
+      .from("avisos_leituras")
+      .insert(missingRows)
+
+    if (insertError) {
+      console.error("[avisos] failed to insert read notices", insertError)
+      return false
+    }
+  }
+
+  if (existingKeys.size) {
+    const { error: updateError } = await supabase
+      .from("avisos_leituras")
+      .update({ lido_em: now, updated_at: now })
+      .eq("usuario_id", normalizedUserId)
+      .in("aviso_chave", Array.from(existingKeys))
+
+    if (updateError) {
+      console.error("[avisos] failed to update read notices", updateError)
+      return false
+    }
   }
 
   return true

@@ -311,11 +311,13 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         }
         bottomContent={
           panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
-            <StoreHeaderTabs
-              tabs={mercadoFooter.storeTabs}
-              activeTab={mercadoFooter.activeStoreTab}
-              onChange={mercadoFooter.onStoreTabChange}
-            />
+            <div className="hidden md:block">
+              <StoreHeaderTabs
+                tabs={mercadoFooter.storeTabs}
+                activeTab={mercadoFooter.activeStoreTab}
+                onChange={mercadoFooter.onStoreTabChange}
+              />
+            </div>
           ) : null
         }
         onCancel={onCloseSheet}
@@ -324,11 +326,24 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         {panel.id === 'apis' ? null : (
           <SheetInternalTabs tabs={tabs} activeTab={currentActiveTab} onChange={setActiveTab} />
         )}
+        {panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
+          <div className="border-b border-white/5 px-4 py-2 md:hidden">
+            <StoreHeaderTabs
+              tabs={mercadoFooter.storeTabs}
+              activeTab={mercadoFooter.activeStoreTab}
+              onChange={mercadoFooter.onStoreTabChange}
+            />
+          </div>
+        ) : null}
 
         <div
           className={cn(
             "min-h-0 flex-1",
-            panel.id === 'apis' ? "overflow-hidden px-0 pb-0 pt-0" : "overflow-y-auto px-6 pb-6 pt-6",
+            panel.id === 'apis'
+              ? "overflow-hidden px-0 pb-0 pt-0"
+              : panel.id === 'mercado-livre' && currentActiveTab === 'dashboard'
+                ? "overflow-y-auto px-0 pb-4 pt-4 md:px-6 md:pb-6 md:pt-6"
+                : "overflow-y-auto px-6 pb-6 pt-6",
           )}
         >
           <AnimatePresence mode="wait" initial={false}>

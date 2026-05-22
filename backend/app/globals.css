@@ -252,6 +252,14 @@ a {
   animation: infra-sheet-mobile-out 190ms ease-in forwards;
 }
 
+@media (max-width: 767px) {
+  .mercado-sales-dashboard-mobile-clean .dashboard-mobile-soft-shell {
+    border-width: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}
+
 .infra-tab-motion {
   transition:
     transform 180ms ease,

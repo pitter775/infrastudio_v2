@@ -12,6 +12,12 @@ function getAttendanceItems(conversations) {
     })
     .map((conversation) => {
       const lastMessage = conversation.mensagens.at(-1)
+      const chatKey = Array.isArray(conversation.chatIds) && conversation.chatIds.length
+        ? [...conversation.chatIds].sort().join(",")
+        : conversation.id
+      const stateKey = lastMessage?.autor === "cliente"
+        ? `client:${lastMessage.id || lastMessage.createdAt || conversation.updatedAt || ""}`
+        : `status:${conversation.status}`
       const updatedAt = lastMessage?.createdAt || conversation.updatedAt || new Date(0).toISOString()
 
       return {
@@ -20,7 +26,7 @@ function getAttendanceItems(conversations) {
         title: conversation.cliente.nome || "Conversa sem nome",
         description: lastMessage?.texto || "Conversa aguardando atendimento humano.",
         href: `/admin/atendimento?conversa=${conversation.id}`,
-        readKey: `attendance:${conversation.id}:${updatedAt}`,
+        readKey: `attendance:${chatKey}:${stateKey}`,
         count: 1,
         createdAt: updatedAt,
       }
@@ -40,7 +46,7 @@ function getFeedbackItems(feedbacks, user) {
       title: item.assunto || "Solicitação",
       description: item.ultimaMensagem || "Solicitação com atualização pendente.",
       href: `/admin/feedback/${item.id}`,
-      readKey: `feedback:${item.id}:${item.ultimaMensagemAt || item.updatedAt || item.createdAt || ""}`,
+      readKey: `feedback:${item.id}:${item.ultimaMensagemAt || item.createdAt || item.updatedAt || ""}`,
       count: isAdmin ? item.mensagensNaoLidasAdmin || 1 : item.mensagensNaoLidasUsuario || 1,
       createdAt: item.ultimaMensagemAt || item.updatedAt || item.createdAt || new Date(0).toISOString(),
     }))

@@ -524,9 +524,9 @@ export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMe
   }
 
   return (
-    <div className="grid animate-in fade-in-0 slide-in-from-bottom-2 duration-500 gap-4">
-      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#071224] shadow-[0_28px_90px_-48px_rgba(0,0,0,0.95)]">
-        <div className="border-b border-white/10 bg-[radial-gradient(circle_at_18%_0%,rgba(56,189,248,0.20),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(52,211,153,0.15),transparent_27%),linear-gradient(135deg,#070d1d_0%,#08182b_56%,#06131e_100%)] p-5">
+    <div className="mercado-sales-dashboard-mobile-clean grid animate-in fade-in-0 slide-in-from-bottom-2 duration-500 gap-4">
+      <div className="overflow-hidden rounded-none border-0 bg-[#071224] shadow-none md:rounded-2xl md:border md:border-white/10 md:shadow-[0_28px_90px_-48px_rgba(0,0,0,0.95)]">
+        <div className="border-b-0 bg-[radial-gradient(circle_at_18%_0%,rgba(56,189,248,0.20),transparent_30%),radial-gradient(circle_at_82%_16%,rgba(52,211,153,0.15),transparent_27%),linear-gradient(135deg,#070d1d_0%,#08182b_56%,#06131e_100%)] p-4 md:border-b md:border-white/10 md:p-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="min-w-0">
               <div className="inline-flex items-center gap-2 rounded-full border border-sky-400/25 bg-sky-500/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-sky-200 shadow-[0_18px_50px_-32px_rgba(56,189,248,0.9)]">
@@ -576,7 +576,7 @@ export function MercadoLivreSalesDashboardPanel({ projectIdentifier, connectorMe
           </div>
         </div>
 
-        <div className="grid gap-4 p-4">
+        <div className="grid gap-3 p-3 md:gap-4 md:p-4">
           {error ? (
             <div className="flex items-start gap-3 rounded-xl border border-rose-400/20 bg-rose-500/10 p-4 text-sm text-rose-100">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
