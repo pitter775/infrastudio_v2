@@ -110,12 +110,12 @@ function SidebarItem({ item, pathname, collapsed, textVisible, pendingHref, onNa
           {item.label}
         </span>
       )}
-      {badgeLabel ? (
+      {badgeLabel && !collapsed ? (
         <span
           className={cn(
             'ml-auto inline-flex min-w-5 items-center justify-center rounded-full px-1.5 py-0.5 text-[10px] font-semibold transition-opacity duration-150',
             active ? 'bg-sky-400/20 text-sky-100' : 'bg-rose-500/15 text-rose-200',
-            !collapsed && !textVisible && 'opacity-0',
+            !textVisible && 'opacity-0',
           )}
         >
           {badgeLabel}
