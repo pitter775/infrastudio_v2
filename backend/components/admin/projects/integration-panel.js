@@ -320,7 +320,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
           <SheetInternalTabs tabs={tabs} activeTab={currentActiveTab} onChange={setActiveTab} />
         )}
         {panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
-          <div className="border-b border-white/5 px-4 py-2">
+          <div className="bg-[#080e1d] px-4 py-2">
             <StoreHeaderTabs
               tabs={mercadoFooter.storeTabs}
               activeTab={mercadoFooter.activeStoreTab}
@@ -335,8 +335,8 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
             panel.id === 'apis'
               ? "overflow-hidden px-0 pb-0 pt-0"
               : panel.id === 'mercado-livre' && currentActiveTab === 'dashboard'
-                ? "overflow-y-auto px-0 pb-4 pt-4 md:px-6 md:pb-6 md:pt-6"
-                : "overflow-y-auto px-6 pb-6 pt-6",
+                ? "overflow-x-hidden overflow-y-auto px-0 pb-4 pt-4 md:px-6 md:pb-6 md:pt-6"
+                : "overflow-x-hidden overflow-y-auto px-6 pb-6 pt-6",
           )}
         >
           <AnimatePresence mode="wait" initial={false}>

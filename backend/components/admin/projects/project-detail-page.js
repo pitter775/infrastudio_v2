@@ -489,7 +489,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
               }
         }
       >
-        <div className={cn(isMobile ? 'flex flex-wrap justify-center gap-2 bg-[#080e1d]/92 px-3 py-3 backdrop-blur' : 'flex items-start gap-2 px-0 py-1')}>
+        <div className={cn(isMobile ? 'flex flex-wrap justify-center gap-2 bg-[#080e1d]/92 px-3 py-3 backdrop-blur' : 'inline-flex items-start gap-2 rounded-xl bg-[#080e1d]/96 px-2 py-2 shadow-[0_12px_34px_rgba(2,6,23,0.42)] backdrop-blur-xl')}>
             {topMenuItems.map((item) => {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen
@@ -760,7 +760,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
           className={
             isMobile
               ? 'infra-sheet-mobile inset-0 h-[100svh] w-screen max-w-none overflow-hidden rounded-none border-0 bg-[#080e1d] p-0 text-slate-300 shadow-none'
-              : 'right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible rounded-l-lg border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-none'
+              : 'right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible rounded-l-lg bg-[#080e1d] p-0 text-slate-300 shadow-none'
           }
           style={
             isMobile
@@ -776,7 +776,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
               <span className="sr-only">Fechar painel</span>
             </SheetClose>
           ) : null}
-          <div className="flex h-full min-h-0 flex-col rounded-l-lg overflow-hidden md:overflow-visible">
+          <div className="flex h-full min-h-0 flex-col overflow-hidden md:overflow-visible">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activePanel}

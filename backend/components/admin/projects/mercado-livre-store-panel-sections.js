@@ -58,8 +58,8 @@ export function StoreGeneralSection({
     : ''
 
   return (
-    <div className="grid gap-4 md:grid-cols-2 md:items-start">
-      <div className="md:col-span-2 rounded-2xl border border-white/10 bg-white/[0.025] p-3 text-sm text-slate-300 sm:p-4">
+    <div className="grid min-w-0 gap-4 md:grid-cols-2 md:items-start">
+      <div className="min-w-0 rounded-2xl bg-white/[0.025] p-3 text-sm text-slate-300 sm:p-4 md:col-span-2">
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className={`rounded-full px-3 py-1 ${draft.active ? 'bg-emerald-500/10 text-emerald-100' : 'bg-amber-500/10 text-amber-100'}`}>
             {draft.active ? 'Loja pública ativa' : 'Loja pública desativada'}
@@ -70,14 +70,14 @@ export function StoreGeneralSection({
         </div>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <span>Link Infrastudio:</span>
-          <a href={publicUrl} target="_blank" rel="noreferrer" className="break-all text-sky-200 underline-offset-4 hover:underline">
+          <a href={publicUrl} target="_blank" rel="noreferrer" className="min-w-0 break-all text-sky-200 underline-offset-4 hover:underline">
             {publicUrl}
           </a>
         </div>
         {customDomainUrl ? (
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span>Domínio próprio:</span>
-            <a href={customDomainUrl} target="_blank" rel="noreferrer" className="break-all text-emerald-200 underline-offset-4 hover:underline">
+            <a href={customDomainUrl} target="_blank" rel="noreferrer" className="min-w-0 break-all text-emerald-200 underline-offset-4 hover:underline">
               {customDomainUrl}
             </a>
           </div>

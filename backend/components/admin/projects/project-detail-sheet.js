@@ -226,7 +226,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
       >
         <div
           className={cn(
-            'absolute right-0 top-8 z-30 w-14 overflow-hidden rounded-2xl border border-white/10 bg-[#080e1d]/96 py-2 shadow-[-14px_18px_46px_rgba(2,6,23,0.46)] backdrop-blur-xl transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
+            'absolute right-0 top-8 z-30 w-14 overflow-hidden rounded-l-2xl rounded-r-none border-y border-l border-white/10 border-r-0 bg-[#080e1d]/96 py-2 shadow-[-14px_18px_46px_rgba(2,6,23,0.46)] backdrop-blur-xl transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
             railOpen && 'w-48 border-white/14 bg-[#0a1122]/98 shadow-[-22px_24px_72px_rgba(2,6,23,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
           )}
         >
@@ -247,14 +247,14 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
               onClick={() => handleChange(tab.id)}
               title={tab.label}
               className={cn(
-                'infra-tab-motion flex h-10 w-full items-center gap-3 rounded-xl border px-3 text-left text-xs font-semibold transition-[background-color,border-color,box-shadow,color]',
+                'infra-tab-motion flex h-10 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-xs font-semibold transition-[background-color,box-shadow,color]',
                 active
                   ? amber
-                    ? cn('border-amber-300/70 bg-amber-400/22 text-amber-50', activeGlow)
-                    : cn('border-sky-300/65 bg-sky-500/22 text-sky-50', activeGlow)
+                    ? cn('bg-amber-400/14 text-amber-50', activeGlow)
+                    : cn('bg-sky-500/14 text-sky-50', activeGlow)
                   : amber
-                    ? 'border-transparent bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50'
-                    : 'border-transparent bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
+                    ? 'bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50'
+                    : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
               )}
             >
               {Icon ? (
