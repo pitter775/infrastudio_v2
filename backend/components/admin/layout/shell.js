@@ -526,17 +526,20 @@ export function AdminShell({ user, children, buildLabel = '' }) {
     setNotificationsLoading(true)
     const response = await fetch('/api/admin/avisos', { cache: 'no-store' }).catch(() => null)
     const data = await response?.json().catch(() => ({}))
+    let nextItems = []
 
     if (response?.ok) {
+      nextItems = data.items ?? []
       setNotificationCounts({
         attendance: Number(data.summary?.attendance ?? 0),
         feedback: Number(data.summary?.feedback ?? 0),
         notifications: Number(data.summary?.notifications ?? 0),
       })
-      setNotificationItems(data.items ?? [])
+      setNotificationItems(nextItems)
     }
 
     setNotificationsLoading(false)
+    return nextItems
   }
 
   async function loadNotificationSummary() {
@@ -601,7 +604,10 @@ export function AdminShell({ user, children, buildLabel = '' }) {
     setNotificationsOpen(nextOpen)
 
     if (nextOpen) {
-      await loadNotificationItems()
+      const items = await loadNotificationItems()
+      if (items.length) {
+        void markNotificationsAsRead(items)
+      }
     }
   }
 

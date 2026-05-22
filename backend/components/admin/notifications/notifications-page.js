@@ -58,6 +58,7 @@ export function AdminNotificationsPage() {
       setSummary(data.summary ?? { attendance: 0, feedback: 0, notifications: 0 })
       const nextItems = data.items ?? []
       setItems(nextItems)
+      setSummary({ attendance: 0, feedback: 0, notifications: 0 })
       void markItemsAsRead(nextItems)
     } catch (loadError) {
       setError(loadError.message || "Não foi possível carregar os avisos.")
