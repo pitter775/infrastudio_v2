@@ -532,8 +532,8 @@ export default async function LojaProdutoPage({ params }) {
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData) }}
         />
       ) : null}
-      <div className="min-h-screen bg-slate-50 text-slate-900">
-        <section className="relative min-h-[138px] overflow-visible pt-[70px]" style={heroStyle.base}>
+      <div className="min-h-screen overflow-x-clip bg-slate-50 text-slate-900">
+        <section className="relative min-h-[138px] overflow-x-clip overflow-y-visible pt-[70px]" style={heroStyle.base}>
           {heroStyle.image ? <div className="absolute inset-0" style={heroStyle.image} /> : null}
           <div className="absolute inset-0" style={heroStyle.overlay} />
           <StoreHeader store={result.store} activeSection="produtos" />
@@ -545,9 +545,9 @@ export default async function LojaProdutoPage({ params }) {
           >
             <ArrowLeft className="h-5 w-5" />
           </Link>
-          <div className="relative mx-auto flex max-w-7xl items-start justify-between gap-4 px-5 py-3 sm:px-7 lg:px-10">
+          <div className="relative mx-auto flex max-w-7xl min-w-0 items-start justify-between gap-4 px-5 py-3 sm:px-7 lg:px-10">
             <div className="hidden flex-1 lg:block" />
-            <div className="absolute bottom-[-20px] left-5 right-5 z-20 sm:left-7 sm:right-7 lg:static lg:right-auto lg:z-auto lg:w-[430px]">
+            <div className="absolute bottom-[-20px] left-5 right-5 z-20 min-w-0 sm:left-7 sm:right-7 lg:static lg:right-auto lg:z-auto lg:w-[430px]">
               <StoreProductTopSearch
                 accentColor={palette.accentDark}
                 storeSlug={result.store.slug}

@@ -77,21 +77,21 @@ export function StoreHeader({ activeSection = 'topo', headerSolid, samePageNavig
       }`}
     >
       <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-6 px-1 sm:px-0">
-          <Link href={`/loja/${store.slug}`} className="flex items-center gap-5">
+        <div className="flex min-w-0 items-center justify-between gap-3 px-1 sm:gap-6 sm:px-0">
+          <Link href={`/loja/${store.slug}`} className="flex min-w-0 items-center gap-3 sm:gap-5">
             <div
-              className="flex h-12 w-12 items-center justify-center rounded-[14px] text-sm font-semibold text-white"
+              className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-[14px] text-sm font-semibold text-white"
               style={{ backgroundColor: store.logoUrl ? undefined : store.accentColor }}
             >
               {store.logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-20 w-20 max-w-none object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.95)]" />
+                <img src={store.logoUrl} alt={store.name} loading="lazy" decoding="async" className="h-full w-full object-contain drop-shadow-[0_2px_12px_rgba(255,255,255,0.95)]" />
               ) : (
                 store.name.slice(0, 2).toUpperCase()
               )}
             </div>
-            <div>
-              <div className="text-[1.02rem] font-semibold tracking-[-0.02em]" style={{ color: palette.accentDark, textShadow: '0 2px 10px rgba(255,255,255,0.78)' }}>{store.name}</div>
+            <div className="min-w-0">
+              <div className="truncate text-[1.02rem] font-semibold tracking-[-0.02em]" style={{ color: palette.accentDark, textShadow: '0 2px 10px rgba(255,255,255,0.78)' }}>{store.name}</div>
             </div>
           </Link>
 

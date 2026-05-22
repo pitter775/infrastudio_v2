@@ -66,7 +66,7 @@ export function StoreProductHeroGallery({ accentColor = '#0f172a', product, titl
           animation: store-gallery-fade 220ms ease-out both;
         }
       `}</style>
-      <div className="relative -mx-5 overflow-hidden bg-white sm:mx-0 sm:rounded-[8px]">
+      <div className="relative -mx-5 max-w-[calc(100%+2.5rem)] overflow-hidden bg-white sm:mx-0 sm:max-w-full sm:rounded-[8px]">
         <div
           className="relative aspect-square touch-pan-y overflow-hidden bg-white sm:aspect-[4/3] sm:rounded-[8px]"
           onTouchStart={handleTouchStart}
