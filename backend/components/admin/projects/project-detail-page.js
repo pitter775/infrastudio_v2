@@ -127,13 +127,6 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
     [integrationPanels],
   )
   const topMenuItems = useMemo(() => buildTopMenuItems(integrationPanels), [integrationPanels])
-  const directCardIcons = useMemo(
-    () =>
-      activeIntegrationPanels
-        .filter((panel) => panel.directToAgent)
-        .map((panel) => panel.serviceIconType || panel.id),
-    [activeIntegrationPanels],
-  )
   const agentHintStorageKey = `admin-project-agent-hint-opened:${projectIdentifier}`
 
   useEffect(() => {
@@ -237,6 +230,21 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
   const viewportWidth = viewport.width || DESKTOP_BREAKPOINT
   const viewportHeight = viewport.height || 900
   const isMobile = viewportWidth < MOBILE_BREAKPOINT
+  const directIntegrationPanels = useMemo(
+    () =>
+      [...activeIntegrationPanels]
+        .filter((panel) => panel.directToAgent)
+        .sort((first, second) => {
+          const firstPosition = isMobile ? first.mobilePosition : first.desktopPosition
+          const secondPosition = isMobile ? second.mobilePosition : second.desktopPosition
+          return firstPosition.y - secondPosition.y
+        }),
+    [activeIntegrationPanels, isMobile],
+  )
+  const directCardIcons = useMemo(
+    () => directIntegrationPanels.map((panel) => panel.serviceIconType || panel.id),
+    [directIntegrationPanels],
+  )
   const baseCardWidth = getCardWidth(viewportWidth)
   const cardWidth = !isMobile && !isPanelOpen ? baseCardWidth + 28 : baseCardWidth
   const closedLayout = useMemo(
@@ -481,7 +489,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
               }
         }
       >
-        <div className={cn(isMobile ? 'flex flex-wrap gap-2 py-0' : 'flex items-start gap-2 px-0 py-1')}>
+        <div className={cn(isMobile ? 'flex flex-wrap justify-center gap-2 px-3 py-0' : 'flex items-start gap-2 px-0 py-1')}>
             {topMenuItems.map((item) => {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen
@@ -609,11 +617,10 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                 </div>
               </motion.div>
             ) : null}
-            {activeIntegrationPanels
-              .filter((panel) => panel.directToAgent)
+            {directIntegrationPanels
               .map((panel, index) => {
                 const Icon = panel.icon
-                const satelliteLayout = getSatelliteLayout(panel, isMobile)
+                const satelliteLayout = getSatelliteLayout(panel, isMobile, index)
                 const accent = getPanelAccentClasses(panel.colorClassName)
                 const toneClasses = getToneClasses(panel.colorClassName)
                 const isActiveConnector = activePanel === panel.id && isPanelOpen
@@ -669,7 +676,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                         )}
                       >
                         {activePanel === panel.id && isPanelOpen ? (
-                          <span className="pointer-events-none absolute inset-0 rounded-[22px] bg-[#0d1830]/88" />
+                          <span className="pointer-events-none absolute inset-0 rounded-[22px] bg-[#0d1830]" />
                         ) : null}
                         <button
                           type="button"
@@ -682,15 +689,15 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                         >
                           <span
                             className={cn(
-                              'flex h-8 w-8 items-center justify-center rounded-xl border shadow-[0_0_18px_rgba(255,255,255,0.08)]',
+                              'flex h-8 w-8 items-center justify-center rounded-xl shadow-[0_0_18px_rgba(255,255,255,0.08)]',
                               activePanel === panel.id && isPanelOpen
-                                ? 'border-white/18 bg-white/10 text-white'
+                                ? 'bg-white/10 text-white'
                                 : cn(
-                                    'bg-white/[0.06]',
-                                    panel.colorClassName === 'emerald' && 'border-emerald-300/35 shadow-emerald-400/20',
-                                    panel.colorClassName === 'amber' && 'border-amber-300/35 shadow-amber-400/20',
-                                    panel.colorClassName === 'sky' && 'border-sky-300/35 shadow-sky-400/20',
-                                    panel.colorClassName === 'violet' && 'border-fuchsia-300/35 shadow-fuchsia-400/20',
+                                  'bg-white/[0.06]',
+                                    panel.colorClassName === 'emerald' && 'shadow-emerald-400/20',
+                                    panel.colorClassName === 'amber' && 'shadow-amber-400/20',
+                                    panel.colorClassName === 'sky' && 'shadow-sky-400/20',
+                                    panel.colorClassName === 'violet' && 'shadow-fuchsia-400/20',
                                   ),
                             )}
                           >

@@ -19,6 +19,9 @@ const MOBILE_CARD_SCALE = 0.78
 const SATELLITE_BUTTON_WIDTH = 152
 const SATELLITE_BUTTON_HEIGHT = 64
 const DOCKED_CARD_TOP_SHIFT = 156
+const MOBILE_SATELLITE_START_Y = 298
+const MOBILE_SATELLITE_GAP = 82
+const MOBILE_SATELLITE_ROUTE_OFFSET = 30
 
 export function buildIntegrationPanels(project) {
   return [
@@ -220,11 +223,21 @@ export function getToneClasses(colorClassName) {
   }
 }
 
-export function getSatelliteLayout(panel, isMobile) {
-  const position = isMobile ? panel.mobilePosition : panel.desktopPosition
+export function getSatelliteLayout(panel, isMobile, sequenceIndex = null) {
+  const basePosition = isMobile ? panel.mobilePosition : panel.desktopPosition
+  const position =
+    isMobile && Number.isInteger(sequenceIndex)
+      ? {
+          ...basePosition,
+          y: MOBILE_SATELLITE_START_Y + sequenceIndex * MOBILE_SATELLITE_GAP,
+        }
+      : basePosition
   const lineStart = { x: panel.cardAnchor.x, y: panel.cardAnchor.y }
   const lineEnd = { x: position.x + panel.buttonAnchor.x, y: position.y + panel.buttonAnchor.y }
-  const routeY = panel.routeY
+  const routeY =
+    isMobile && Number.isInteger(sequenceIndex)
+      ? Math.max(lineStart.y + 24, position.y - MOBILE_SATELLITE_ROUTE_OFFSET)
+      : panel.routeY
 
   return {
     buttonStyle: {
@@ -313,7 +326,7 @@ export function getClosedCardLayout(viewportWidth, viewportHeight, cardWidth) {
 export function getMobileCardLayout(viewportWidth, cardWidth) {
   return {
     left: Math.max((viewportWidth - cardWidth) / 2, 0),
-    top: 104,
+    top: 126,
     scale: MOBILE_CARD_SCALE,
   }
 }
