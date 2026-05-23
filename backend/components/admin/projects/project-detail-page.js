@@ -797,7 +797,10 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
           <SheetTitle className="sr-only">{sheetHeading}</SheetTitle>
           <SheetDescription className="sr-only">{sheetIntro}</SheetDescription>
           {!isMobile ? (
-            <span className="pointer-events-none absolute inset-0 rounded-l-lg rounded-r-none border-l border-white/10 bg-[#080e1d]" />
+            <>
+              <span className="pointer-events-none absolute inset-0 z-0 rounded-l-lg rounded-r-none bg-[#080e1d]" />
+              <span className="pointer-events-none absolute inset-0 z-30 rounded-l-lg rounded-r-none border border-white/10" />
+            </>
           ) : null}
           {!isMobile ? (
             <SheetClose className="absolute left-0 top-[30px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
