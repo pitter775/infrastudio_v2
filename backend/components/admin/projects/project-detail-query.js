@@ -1,5 +1,6 @@
 const AGENT_TAB_URL_VALUES = {
   edit: 'editar',
+  structure: 'estrutura',
   history: 'historico',
   json: 'json',
   connections: 'conexao',
@@ -8,6 +9,8 @@ const AGENT_TAB_URL_VALUES = {
 const AGENT_TAB_ALIASES = {
   edit: 'edit',
   editar: 'edit',
+  structure: 'structure',
+  estrutura: 'structure',
   history: 'history',
   historico: 'history',
   json: 'json',

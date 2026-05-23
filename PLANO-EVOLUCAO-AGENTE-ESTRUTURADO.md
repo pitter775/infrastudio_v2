@@ -193,18 +193,18 @@ Estrutura sugerida:
 
 ### 8. Editor do agente
 
-- [ ] Substituir campo gigante como experiencia principal.
-- [ ] Criar secoes editaveis:
-  - [ ] Identidade
-  - [ ] Comportamento
+- [x] Substituir campo gigante como experiencia principal.
+- [x] Criar secoes editaveis:
+  - [x] Identidade
+  - [x] Comportamento
   - [ ] Regras
-  - [ ] Planos e precos
-  - [ ] Integracoes
+  - [x] Planos e precos
+  - [x] Integracoes
   - [ ] Mercado Livre
-  - [ ] WhatsApp
-  - [ ] Google Agenda
-  - [ ] Atendimento humano
-  - [ ] Base de conhecimento
+  - [x] WhatsApp
+  - [x] Google Agenda
+  - [x] Atendimento humano
+  - [x] Base de conhecimento
 - [x] Manter campo livre como "Organizar com IA".
 - [x] Adicionar "Atualizar com IA" para textos pequenos.
 - [x] Adicionar "Resetar e importar novamente".

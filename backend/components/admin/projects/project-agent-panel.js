@@ -199,22 +199,25 @@ export function ProjectPanel({
   const [activeAgentTab, setActiveAgentTab] = useState(resolveAgentTab(initialAgentTab) || 'edit')
   const agentTabs = [
     { id: 'edit', label: 'Editar agente', icon: Wand2 },
+    { id: 'structure', label: 'Estrutura', icon: Sparkles },
     { id: 'connections', label: 'Conexões', icon: PlugZap },
     { id: 'history', label: 'Histórico', icon: History },
     { id: 'json', label: 'Ver JSON', icon: Files },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
+  const [structuredEditor, setStructuredEditor] = useState(agent?.structuredConfig || agent?.structuredConfigDraft || null)
+  const activeStructuredConfig = structuredEditor || structuredDraft || agent?.structuredConfig || null
   const draftAgentConfig = useMemo(
     () =>
       buildAgentDraftConfig({
         runtimeConfig: agent?.runtimeConfig ?? null,
-        structuredConfig: agent?.structuredConfig ?? null,
+        structuredConfig: structuredEditor || agent?.structuredConfig || null,
         structuredConfigDraft: structuredDraft,
         promptText: normalizedPrompt,
         siteUrl,
         logoUrl,
       }),
-    [agent?.runtimeConfig, agent?.structuredConfig, logoUrl, normalizedPrompt, siteUrl, structuredDraft],
+    [agent?.runtimeConfig, agent?.structuredConfig, logoUrl, normalizedPrompt, siteUrl, structuredDraft, structuredEditor],
   )
   const draftAgentJson = useMemo(
     () => ({
@@ -265,12 +268,13 @@ export function ProjectPanel({
     setLogoUrl(initialLogoUrl)
     setPromptValue(plainTextToEditorHtml(initialPrompt))
     setStructuredDraft(agent?.structuredConfigDraft || null)
+    setStructuredEditor(agent?.structuredConfig || agent?.structuredConfigDraft || null)
     setPromptAutofillPendingClear(false)
     setPromptEditedByUser(false)
     setAgentActive(agent?.active !== false)
     setVersions(agent?.versions || [])
     setEditorStatus({ type: 'idle', message: '' })
-  }, [agent?.active, agent?.structuredConfigDraft, agent?.versions, agentServerSnapshot, initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
+  }, [agent?.active, agent?.structuredConfig, agent?.structuredConfigDraft, agent?.versions, agentServerSnapshot, initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
 
   useEffect(() => {
     const nextTab = resolveAgentTab(initialAgentTab)
@@ -312,6 +316,119 @@ export function ProjectPanel({
   function handleAgentTabChange(tabId) {
     setActiveAgentTab(tabId)
     onAgentTabChange?.(tabId)
+  }
+
+  function parseLines(value) {
+    return String(value || '')
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+  }
+
+  function formatLines(value) {
+    return Array.isArray(value) ? value.filter(Boolean).join('\n') : ''
+  }
+
+  function patchStructuredConfig(updater) {
+    setStructuredEditor((currentValue) => {
+      const base = currentValue || structuredDraft || agent?.structuredConfig || { structuredConfigVersion: 1 }
+      const nextValue = typeof updater === 'function' ? updater(base) : updater
+      return nextValue && typeof nextValue === 'object' && !Array.isArray(nextValue) ? nextValue : base
+    })
+  }
+
+  function patchStructuredSection(sectionKey, patch) {
+    patchStructuredConfig((currentValue) => ({
+      ...currentValue,
+      [sectionKey]: {
+        ...(currentValue?.[sectionKey] && typeof currentValue[sectionKey] === 'object' && !Array.isArray(currentValue[sectionKey])
+          ? currentValue[sectionKey]
+          : {}),
+        ...patch,
+      },
+    }))
+  }
+
+  function updatePricingItem(index, patch) {
+    patchStructuredConfig((currentValue) => {
+      const currentItems = Array.isArray(currentValue?.pricingCatalog?.items) ? currentValue.pricingCatalog.items : []
+      const items = currentItems.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item))
+      return {
+        ...currentValue,
+        pricingCatalog: {
+          ...(currentValue?.pricingCatalog || {}),
+          enabled: true,
+          items,
+        },
+      }
+    })
+  }
+
+  function addPricingItem() {
+    patchStructuredConfig((currentValue) => {
+      const currentItems = Array.isArray(currentValue?.pricingCatalog?.items) ? currentValue.pricingCatalog.items : []
+      return {
+        ...currentValue,
+        pricingCatalog: {
+          ...(currentValue?.pricingCatalog || {}),
+          enabled: true,
+          items: [
+            ...currentItems,
+            {
+              slug: `plano-${currentItems.length + 1}`,
+              name: 'Novo plano',
+              matchAny: [],
+              priceLabel: '',
+              features: [],
+              channels: [],
+            },
+          ],
+        },
+      }
+    })
+  }
+
+  function removePricingItem(index) {
+    patchStructuredConfig((currentValue) => ({
+      ...currentValue,
+      pricingCatalog: {
+        ...(currentValue?.pricingCatalog || {}),
+        items: (Array.isArray(currentValue?.pricingCatalog?.items) ? currentValue.pricingCatalog.items : []).filter((_, itemIndex) => itemIndex !== index),
+      },
+    }))
+  }
+
+  function updateKnowledgeItem(index, patch) {
+    patchStructuredConfig((currentValue) => {
+      const items = Array.isArray(currentValue?.knowledgeBase) ? currentValue.knowledgeBase : []
+      return {
+        ...currentValue,
+        knowledgeBase: items.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)),
+      }
+    })
+  }
+
+  function addKnowledgeItem() {
+    patchStructuredConfig((currentValue) => ({
+      ...currentValue,
+      knowledgeBase: [
+        ...(Array.isArray(currentValue?.knowledgeBase) ? currentValue.knowledgeBase : []),
+        {
+          title: 'Novo bloco',
+          content: '',
+          tags: [],
+          contentType: 'generic',
+          confidence: 1,
+        },
+      ],
+    }))
+  }
+
+  function removeKnowledgeItem(index) {
+    patchStructuredConfig((currentValue) => ({
+      ...currentValue,
+      knowledgeBase: (Array.isArray(currentValue?.knowledgeBase) ? currentValue.knowledgeBase : []).filter((_, itemIndex) => itemIndex !== index),
+    }))
   }
 
   const connectionItems = [
@@ -433,6 +550,8 @@ export function ProjectPanel({
           runtimeConfig: agent.runtimeConfig ?? null,
           configuracoes: buildAgentDraftConfig({
             runtimeConfig: agent.runtimeConfig ?? null,
+            structuredConfig: structuredEditor || agent.structuredConfig || null,
+            structuredConfigDraft: structuredDraft,
             promptText: agent.prompt,
             siteUrl,
             logoUrl,
@@ -582,7 +701,10 @@ export function ProjectPanel({
         throw new Error(data.error || 'Não foi possível organizar o agente.')
       }
 
-      setStructuredDraft(data.draft?.structuredConfig || data.agent?.structuredConfigDraft || null)
+      const nextStructuredDraft = data.draft?.structuredConfig || data.agent?.structuredConfigDraft || null
+      setStructuredDraft(nextStructuredDraft)
+      setStructuredEditor(nextStructuredDraft)
+      setActiveAgentTab('structure')
       if (Array.isArray(data.versions)) {
         setVersions(data.versions)
       }
@@ -596,7 +718,8 @@ export function ProjectPanel({
   }
 
   async function handleApplyStructuredConfig() {
-    if (!agent?.id || !structuredDraft || applyingStructure) {
+    const configToApply = structuredEditor || structuredDraft
+    if (!agent?.id || !configToApply || applyingStructure) {
       return
     }
 
@@ -611,7 +734,7 @@ export function ProjectPanel({
         },
         body: JSON.stringify({
           action: 'apply_structured_config',
-          structuredConfig: structuredDraft,
+          structuredConfig: configToApply,
         }),
       })
       const data = await response.json().catch(() => ({}))
@@ -621,6 +744,7 @@ export function ProjectPanel({
       }
 
       setStructuredDraft(null)
+      setStructuredEditor(data.agent?.structuredConfig || configToApply)
       if (Array.isArray(data.versions)) {
         setVersions(data.versions)
       }
@@ -946,6 +1070,238 @@ export function ProjectPanel({
             </div>
           </div>
         </div>
+        ) : null}
+
+        {activeAgentTab === 'structure' ? (
+          <div className="space-y-4 px-6 py-5">
+            {activeStructuredConfig ? (
+              <>
+                <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm font-semibold text-white">
+                        <Sparkles className="h-4 w-4 text-sky-300" />
+                        Estrutura ativa do agente
+                      </div>
+                      <p className="mt-1 text-xs leading-5 text-slate-500">
+                        Edite os blocos estruturados que o runtime usa antes de recorrer ao texto livre.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 rounded-xl border border-sky-400/25 bg-sky-500/10 px-3 text-xs text-sky-100 hover:bg-sky-500/15"
+                        disabled={structuringAgent || !normalizedPrompt.trim()}
+                        onClick={() => handleStructureAgent(agent?.structuredConfig ? 'update' : 'analyze')}
+                      >
+                        {structuringAgent ? 'Atualizando...' : 'Atualizar pelo texto'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 text-xs text-emerald-100 hover:bg-emerald-500/15"
+                        disabled={applyingStructure || !structuredEditor}
+                        onClick={handleApplyStructuredConfig}
+                      >
+                        <Check className="mr-1.5 h-3.5 w-3.5" />
+                        {applyingStructure ? 'Salvando...' : 'Salvar estrutura'}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                    <div className="text-sm font-semibold text-white">Identidade</div>
+                    <div className="mt-4 grid gap-3">
+                      <input
+                        value={activeStructuredConfig.identity?.businessName || ''}
+                        onChange={(event) => patchStructuredSection('identity', { businessName: event.target.value })}
+                        className="h-10 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none focus:border-sky-400/40"
+                        placeholder="Nome do negócio"
+                      />
+                      <input
+                        value={activeStructuredConfig.identity?.name || ''}
+                        onChange={(event) => patchStructuredSection('identity', { name: event.target.value })}
+                        className="h-10 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none focus:border-sky-400/40"
+                        placeholder="Nome estrutural do agente"
+                      />
+                      <input
+                        value={activeStructuredConfig.identity?.role || ''}
+                        onChange={(event) => patchStructuredSection('identity', { role: event.target.value })}
+                        className="h-10 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none focus:border-sky-400/40"
+                        placeholder="Papel do agente"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                    <div className="text-sm font-semibold text-white">Comportamento</div>
+                    <div className="mt-4 grid gap-3">
+                      <input
+                        value={activeStructuredConfig.behavior?.tone || ''}
+                        onChange={(event) => patchStructuredSection('behavior', { tone: event.target.value })}
+                        className="h-10 rounded-xl border border-white/10 bg-[#080e1d] px-3 text-sm text-white outline-none focus:border-sky-400/40"
+                        placeholder="Tom de voz"
+                      />
+                      <textarea
+                        value={formatLines(activeStructuredConfig.behavior?.rules)}
+                        onChange={(event) => patchStructuredSection('behavior', { rules: parseLines(event.target.value) })}
+                        className="min-h-28 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2 text-sm text-white outline-none focus:border-sky-400/40"
+                        placeholder="Regras, uma por linha"
+                      />
+                      <textarea
+                        value={formatLines(activeStructuredConfig.behavior?.avoid)}
+                        onChange={(event) => patchStructuredSection('behavior', { avoid: parseLines(event.target.value) })}
+                        className="min-h-20 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2 text-sm text-white outline-none focus:border-sky-400/40"
+                        placeholder="Evitar, um item por linha"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Planos e preços</div>
+                      <p className="mt-1 text-xs text-slate-500">Campos factuais usados por billing e perguntas de planos.</p>
+                    </div>
+                    <Button type="button" variant="ghost" className="h-8 rounded-xl border border-white/10 px-3 text-xs text-slate-200" onClick={addPricingItem}>
+                      Adicionar plano
+                    </Button>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {(activeStructuredConfig.pricingCatalog?.items || []).map((item, index) => (
+                      <div key={`${item.slug || item.name}-${index}`} className="rounded-xl border border-white/10 bg-[#080e1d] p-3">
+                        <div className="grid gap-2 lg:grid-cols-4">
+                          <input value={item.name || ''} onChange={(event) => updatePricingItem(index, { name: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Nome" />
+                          <input value={item.slug || ''} onChange={(event) => updatePricingItem(index, { slug: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="slug" />
+                          <input value={item.priceLabel || ''} onChange={(event) => updatePricingItem(index, { priceLabel: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Preço" />
+                          <input value={item.creditLimit ?? ''} onChange={(event) => updatePricingItem(index, { creditLimit: event.target.value ? Number(event.target.value) : null })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Créditos" />
+                          <input value={item.attendanceLimit ?? ''} onChange={(event) => updatePricingItem(index, { attendanceLimit: event.target.value ? Number(event.target.value) : null })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Atendimentos" />
+                          <input value={item.agentLimit ?? ''} onChange={(event) => updatePricingItem(index, { agentLimit: event.target.value ? Number(event.target.value) : null })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Agentes" />
+                          <input value={item.marketplaceProductLimit ?? ''} onChange={(event) => updatePricingItem(index, { marketplaceProductLimit: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Produtos ML ou unlimited" />
+                          <select value={item.whatsappIncluded == null ? '' : String(item.whatsappIncluded)} onChange={(event) => updatePricingItem(index, { whatsappIncluded: event.target.value === '' ? null : event.target.value === 'true' })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none">
+                            <option value="">WhatsApp?</option>
+                            <option value="true">WhatsApp sim</option>
+                            <option value="false">WhatsApp não</option>
+                          </select>
+                        </div>
+                        <div className="mt-2 flex justify-end">
+                          <Button type="button" variant="ghost" className="h-7 px-2 text-xs text-red-200" onClick={() => removePricingItem(index)}>
+                            Remover
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {!(activeStructuredConfig.pricingCatalog?.items || []).length ? (
+                      <div className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-sm text-slate-500">Nenhum plano estruturado.</div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="grid gap-4 xl:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                    <div className="text-sm font-semibold text-white">Integrações previstas</div>
+                    <div className="mt-4 space-y-3 text-sm text-slate-300">
+                      {[
+                        ['whatsapp', 'WhatsApp'],
+                        ['googleAgenda', 'Google Agenda'],
+                        ['apis', 'APIs externas'],
+                      ].map(([key, label]) => (
+                        <label key={key} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2">
+                          <span>{label}</span>
+                          <input
+                            type="checkbox"
+                            checked={activeStructuredConfig.integrations?.[key]?.enabled === true}
+                            onChange={(event) =>
+                              patchStructuredSection('integrations', {
+                                ...(activeStructuredConfig.integrations || {}),
+                                [key]: {
+                                  ...(activeStructuredConfig.integrations?.[key] || {}),
+                                  enabled: event.target.checked,
+                                },
+                              })
+                            }
+                          />
+                        </label>
+                      ))}
+                    </div>
+                    <textarea
+                      value={formatLines(activeStructuredConfig.integrations?.apis?.expectedContent)}
+                      onChange={(event) =>
+                        patchStructuredSection('integrations', {
+                          ...(activeStructuredConfig.integrations || {}),
+                          apis: {
+                            ...(activeStructuredConfig.integrations?.apis || {}),
+                            enabled: true,
+                            expectedContent: parseLines(event.target.value),
+                          },
+                        })
+                      }
+                      className="mt-3 min-h-20 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2 text-sm text-white outline-none focus:border-sky-400/40"
+                      placeholder="Conteúdos esperados das APIs, um por linha"
+                    />
+                  </div>
+
+                  <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                    <div className="text-sm font-semibold text-white">Atendimento humano</div>
+                    <div className="mt-4 space-y-3">
+                      <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2 text-sm text-slate-300">
+                        <span>Handoff ativo</span>
+                        <input
+                          type="checkbox"
+                          checked={activeStructuredConfig.handoff?.enabled === true}
+                          onChange={(event) => patchStructuredSection('handoff', { enabled: event.target.checked })}
+                        />
+                      </label>
+                      <textarea
+                        value={activeStructuredConfig.handoff?.policy || ''}
+                        onChange={(event) => patchStructuredSection('handoff', { policy: event.target.value })}
+                        className="min-h-24 w-full rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2 text-sm text-white outline-none focus:border-sky-400/40"
+                        placeholder="Política de atendimento humano"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-white">Base de conhecimento</div>
+                      <p className="mt-1 text-xs text-slate-500">Blocos longos que o agente pode usar quando forem relevantes.</p>
+                    </div>
+                    <Button type="button" variant="ghost" className="h-8 rounded-xl border border-white/10 px-3 text-xs text-slate-200" onClick={addKnowledgeItem}>
+                      Adicionar bloco
+                    </Button>
+                  </div>
+                  <div className="mt-4 space-y-3">
+                    {(activeStructuredConfig.knowledgeBase || []).map((item, index) => (
+                      <div key={`${item.title}-${index}`} className="rounded-xl border border-white/10 bg-[#080e1d] p-3">
+                        <input value={item.title || ''} onChange={(event) => updateKnowledgeItem(index, { title: event.target.value })} className="h-9 w-full rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Título" />
+                        <textarea value={item.content || ''} onChange={(event) => updateKnowledgeItem(index, { content: event.target.value })} className="mt-2 min-h-28 w-full rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-white outline-none" placeholder="Conteúdo" />
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <input value={formatLines(item.tags)} onChange={(event) => updateKnowledgeItem(index, { tags: parseLines(event.target.value) })} className="h-8 min-w-0 flex-1 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Tags, uma por linha" />
+                          <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-red-200" onClick={() => removeKnowledgeItem(index)}>
+                            Remover
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                    {!(activeStructuredConfig.knowledgeBase || []).length ? (
+                      <div className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-sm text-slate-500">Nenhum bloco de conhecimento.</div>
+                    ) : null}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <PlaceholderPanel
+                title="Sem estrutura aplicada"
+                description="Use Organizar com IA na aba Editar agente para gerar um rascunho estruturado a partir do texto atual."
+              />
+            )}
+          </div>
         ) : null}
 
         {activeAgentTab === 'json' ? (
