@@ -91,6 +91,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
   const [isCardDragging, setIsCardDragging] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [pendingPanelId, setPendingPanelId] = useState(null)
+  const [topMenuRevealIndex, setTopMenuRevealIndex] = useState(null)
   const [agentCardActive, setAgentCardActive] = useState(project.agent?.active !== false)
   const [savingAgentCardActive, setSavingAgentCardActive] = useState(false)
   const [showAgentHint, setShowAgentHint] = useState(false)
@@ -176,6 +177,33 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
   useEffect(() => {
     setDragResetSignal((value) => value + 1)
   }, [isPanelOpen])
+
+  useEffect(() => {
+    if (isMobile || !topMenuItems.length) {
+      setTopMenuRevealIndex(null)
+      return undefined
+    }
+
+    let currentIndex = 0
+    setTopMenuRevealIndex(currentIndex)
+
+    const interval = window.setInterval(() => {
+      currentIndex += 1
+
+      if (currentIndex >= topMenuItems.length) {
+        setTopMenuRevealIndex(null)
+        window.clearInterval(interval)
+        return
+      }
+
+      setTopMenuRevealIndex(currentIndex)
+    }, 720)
+
+    return () => {
+      window.clearInterval(interval)
+      setTopMenuRevealIndex(null)
+    }
+  }, [isMobile, topMenuItems.length])
 
   useEffect(() => {
     function handleSidebarStateChange(event) {
@@ -489,10 +517,11 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
               }
         }
       >
-        <div className={cn(isMobile ? 'flex flex-wrap justify-center gap-2 bg-[#080e1d]/92 px-3 py-3 backdrop-blur' : 'inline-flex items-start gap-2 rounded-xl bg-[#080e1d]/96 px-2 py-2 shadow-[0_12px_34px_rgba(2,6,23,0.42)] backdrop-blur-xl')}>
-            {topMenuItems.map((item) => {
+        <div className={cn(isMobile ? 'flex flex-wrap justify-center gap-2 bg-[#080e1d]/92 px-3 py-3 backdrop-blur' : 'inline-flex items-start gap-2 px-2 py-2')}>
+            {topMenuItems.map((item, index) => {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen
+              const revealLabel = topMenuRevealIndex === index
               const loading = pendingPanelId === item.id
               const toneClasses = getToneClasses(item.colorClassName)
               const glowClassName =
@@ -536,7 +565,12 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                   {isMobile ? item.label : null}
                   {!isMobile ? (
                     <span
-                      className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-100 opacity-0 shadow-[0_10px_24px_rgba(2,6,23,0.48)] transition-[opacity,transform] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100"
+                      className={cn(
+                        'pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-100 shadow-[0_10px_24px_rgba(2,6,23,0.48)] transition-[opacity,transform] duration-150',
+                        revealLabel
+                          ? 'translate-y-0 opacity-100'
+                          : 'translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100',
+                      )}
                     >
                       {item.label}
                     </span>
@@ -770,6 +804,9 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
         >
           <SheetTitle className="sr-only">{sheetHeading}</SheetTitle>
           <SheetDescription className="sr-only">{sheetIntro}</SheetDescription>
+          {!isMobile ? (
+            <span className="pointer-events-none absolute bottom-0 left-0 h-4 w-4 rounded-bl-lg border-b border-l border-white/10" />
+          ) : null}
           {!isMobile ? (
             <SheetClose className="absolute left-0 top-[30px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
               <ChevronRight className="h-4 w-4" />
