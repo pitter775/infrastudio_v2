@@ -112,7 +112,49 @@ export function SheetPowerToggle({ enabled, disabled = false, onClick, compact =
   )
 }
 
-export function SheetInternalTabs({ tabs, activeTab, onChange }) {
+function getSheetTabToneClasses(tone) {
+  switch (tone) {
+    case 'emerald':
+      return {
+        mobileActive: 'border-emerald-300/45 bg-emerald-400/14 text-emerald-100',
+        mobileIcon: 'text-emerald-300',
+        active: 'bg-emerald-400/14 text-emerald-50',
+        inactive: 'bg-transparent text-emerald-100/45 hover:bg-emerald-400/10 hover:text-emerald-50',
+        glow: 'shadow-[0_0_24px_rgba(52,211,153,0.36),0_0_52px_rgba(52,211,153,0.16)]',
+        iconGlow: 'drop-shadow-[0_0_10px_rgba(52,211,153,0.9)]',
+      }
+    case 'amber':
+      return {
+        mobileActive: 'border-amber-300/45 bg-amber-400/14 text-amber-100',
+        mobileIcon: 'text-amber-300',
+        active: 'bg-amber-400/14 text-amber-50',
+        inactive: 'bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50',
+        glow: 'shadow-[0_0_24px_rgba(251,191,36,0.38),0_0_52px_rgba(251,191,36,0.18)]',
+        iconGlow: 'drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]',
+      }
+    case 'violet':
+      return {
+        mobileActive: 'border-fuchsia-300/45 bg-fuchsia-400/14 text-fuchsia-100',
+        mobileIcon: 'text-fuchsia-300',
+        active: 'bg-fuchsia-400/14 text-fuchsia-50',
+        inactive: 'bg-transparent text-fuchsia-100/45 hover:bg-fuchsia-400/10 hover:text-fuchsia-50',
+        glow: 'shadow-[0_0_24px_rgba(217,70,239,0.36),0_0_52px_rgba(217,70,239,0.16)]',
+        iconGlow: 'drop-shadow-[0_0_10px_rgba(217,70,239,0.9)]',
+      }
+    case 'sky':
+    default:
+      return {
+        mobileActive: 'border-sky-400/40 bg-sky-500/16 text-sky-100',
+        mobileIcon: 'text-sky-300',
+        active: 'bg-sky-500/14 text-sky-50',
+        inactive: 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
+        glow: 'shadow-[0_0_24px_rgba(56,189,248,0.38),0_0_52px_rgba(56,189,248,0.18)]',
+        iconGlow: 'drop-shadow-[0_0_10px_rgba(56,189,248,0.9)]',
+      }
+  }
+}
+
+export function SheetInternalTabs({ tabs, activeTab, onChange, tone = 'sky' }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
   const [railLocked, setRailLocked] = useState(false)
@@ -189,7 +231,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
               {tabs.map((tab) => {
                 const Icon = tab.icon
                 const active = tab.id === activeTab
-                const amber = tab.tone === 'amber'
+                const toneClasses = getSheetTabToneClasses(tab.tone || tone)
 
                 return (
                   <button
@@ -199,13 +241,11 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
                     className={cn(
                       'flex h-12 items-center gap-3 rounded-xl border px-3 text-left text-sm font-semibold transition-colors',
                       active
-                        ? amber
-                          ? 'border-amber-300/45 bg-amber-400/14 text-amber-100'
-                          : 'border-sky-400/40 bg-sky-500/16 text-sky-100'
+                        ? toneClasses.mobileActive
                         : 'border-transparent text-slate-300 hover:bg-[#10192b] hover:text-white',
                     )}
                   >
-                    {Icon ? <Icon className={cn('h-4 w-4 shrink-0', active && amber ? 'text-amber-300' : active ? 'text-sky-300' : 'text-slate-500')} /> : null}
+                    {Icon ? <Icon className={cn('h-4 w-4 shrink-0', active ? toneClasses.mobileIcon : 'text-slate-500')} /> : null}
                     <span className="min-w-0 flex-1 truncate">{tab.label}</span>
                     {tab.badge ? (
                       <span className="rounded-lg border border-amber-300/20 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-amber-200">
@@ -254,10 +294,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
         {tabs.map((tab) => {
           const Icon = tab.icon
           const active = tab.id === activeTab
-          const amber = tab.tone === 'amber'
-          const activeGlow = amber
-            ? 'shadow-[0_0_24px_rgba(251,191,36,0.38),0_0_52px_rgba(251,191,36,0.18)]'
-            : 'shadow-[0_0_24px_rgba(56,189,248,0.38),0_0_52px_rgba(56,189,248,0.18)]'
+          const toneClasses = getSheetTabToneClasses(tab.tone || tone)
 
           return (
             <button
@@ -269,27 +306,18 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
               className={cn(
                 'infra-tab-motion relative flex h-9 w-full items-center gap-2 rounded-lg border border-transparent px-2.5 text-left text-xs font-semibold transition-[background-color,box-shadow,color]',
                 active
-                  ? amber
-                    ? cn(
-                        'bg-amber-400/14 text-amber-50',
-                        railOpen && '-mr-2 rounded-r-none after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#0a1122]',
-                        railOpen && activeGlow,
-                      )
-                    : cn(
-                        'bg-sky-500/14 text-sky-50',
-                        railOpen && '-mr-2 rounded-r-none after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#0a1122]',
-                        railOpen && activeGlow,
-                      )
-                  : amber
-                    ? 'bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50'
-                    : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
+                  ? cn(
+                      toneClasses.active,
+                      railOpen && toneClasses.glow,
+                    )
+                  : toneClasses.inactive,
               )}
             >
               {Icon ? (
                 <Icon
                   className={cn(
                     'h-4 w-4 shrink-0 transition-[filter,opacity]',
-                    active && (amber ? 'drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]' : 'drop-shadow-[0_0_10px_rgba(56,189,248,0.9)]'),
+                    active && toneClasses.iconGlow,
                     !active && 'opacity-70',
                   )}
                 />

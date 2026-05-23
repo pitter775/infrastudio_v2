@@ -892,7 +892,7 @@ export function MercadoLivrePanel({
   return (
     <>
     <div className={cn("min-h-[560px]", compact ? "grid gap-4" : "flex flex-col overflow-hidden md:flex-row")}>
-      {compact ? null : <SheetInternalTabs tabs={tabs} activeTab={currentTab} onChange={handlePanelTabChange} />}
+      {compact ? null : <SheetInternalTabs tabs={tabs} activeTab={currentTab} onChange={handlePanelTabChange} tone="amber" />}
 
       <div className={cn("grid min-w-0 flex-1 gap-4", !compact && "pt-4 md:pl-4 md:pt-0")}>
 

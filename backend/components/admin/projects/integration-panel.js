@@ -317,7 +317,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       />
       <div className={cn("min-h-0 flex-1", panel.id === 'apis' ? "flex flex-col overflow-hidden" : "flex flex-col overflow-hidden md:overflow-visible md:flex-row")}>
         {panel.id === 'apis' ? null : (
-          <SheetInternalTabs tabs={tabs} activeTab={currentActiveTab} onChange={setActiveTab} />
+          <SheetInternalTabs tabs={tabs} activeTab={currentActiveTab} onChange={setActiveTab} tone={panel.colorClassName} />
         )}
         <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col bg-[#080e1d]">
           {panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
