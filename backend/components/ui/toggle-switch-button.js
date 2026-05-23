@@ -2,7 +2,15 @@
 
 import { cn } from "@/lib/utils"
 
-export function ToggleSwitchButton({ checked, onChange, labelOn = "Ativo", labelOff = "Inativo", disabled = false }) {
+export function ToggleSwitchButton({
+  checked,
+  onChange,
+  labelOn = "Ativo",
+  labelOff = "Inativo",
+  disabled = false,
+  className = "",
+  labelClassName = "",
+}) {
   return (
     <button
       type="button"
@@ -13,12 +21,13 @@ export function ToggleSwitchButton({ checked, onChange, labelOn = "Ativo", label
         checked
           ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-100"
           : "border-red-400/25 bg-red-500/10 text-red-100",
+        className,
       )}
     >
       <span className={cn("flex h-4 w-7 items-center rounded-full p-0.5", checked ? "bg-emerald-400/25" : "bg-red-400/25")}>
         <span className={cn("h-3 w-3 rounded-full transition-transform", checked ? "translate-x-3 bg-emerald-300" : "translate-x-0 bg-red-300")} />
       </span>
-      {checked ? labelOn : labelOff}
+      <span className={labelClassName}>{checked ? labelOn : labelOff}</span>
     </button>
   )
 }

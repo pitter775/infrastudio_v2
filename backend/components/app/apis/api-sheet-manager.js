@@ -1618,23 +1618,35 @@ export function ApiSheetManager({
       ) : (
         <form id="api-postman-form" onSubmit={handleSave} className="flex h-full min-h-0 flex-col">
           <div className="-mr-6 min-h-0 flex-1 overflow-y-auto pr-6 pt-0">
-          <div className="sticky top-0 z-20 mb-5 rounded-2xl border border-white/10 bg-[#0b1221]/95 p-3 shadow-[0_22px_34px_-18px_rgba(2,6,23,1),0_10px_18px_-12px_rgba(8,15,38,0.92)] backdrop-blur">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="sticky top-0 z-20 mb-5 rounded-2xl border border-white/10 bg-[#0b1221]/95 p-3 shadow-[0_22px_34px_-18px_rgba(2,6,23,1),0_10px_18px_-12px_rgba(8,15,38,0.92)] backdrop-blur max-sm:mb-3 max-sm:p-2.5">
+            <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-2 md:grid-cols-[minmax(0,1fr)_220px] md:gap-3">
               <label className="block">
                 <span className={labelClassName}>Nome da API</span>
                 {internalApi ? (
-                  <div className={cn(inputClassName, "flex items-center text-slate-400")}>{form.name || "API interna"}</div>
+                  <div className={cn(inputClassName, "flex items-center text-slate-400 max-sm:h-10 max-sm:px-3")}>{form.name || "API interna"}</div>
                 ) : (
                   <input
                     value={form.name}
                     onChange={(event) => updateForm("name", event.target.value)}
                     placeholder="Consulta de pedidos"
-                    className={inputClassName}
+                    className={cn(inputClassName, "max-sm:h-10 max-sm:px-3")}
                     required
                   />
                 )}
               </label>
-              <div className="flex items-end">
+              <div className="block md:hidden">
+                <span className={labelClassName}>Método</span>
+                {internalApi ? (
+                  <div className="mt-1 flex h-10 w-full items-center rounded-xl border border-white/10 bg-[#0a1020] px-3 text-sm text-slate-400">
+                    {truncateMiddleValue(form.method)}
+                  </div>
+                ) : (
+                  <div className="mt-1">
+                    <AppSelect options={methodOptions} value={form.method} onChangeValue={(value) => updateForm("method", value)} minHeight={40} />
+                  </div>
+                )}
+              </div>
+              <div className="hidden items-end md:flex">
                 <ToggleSwitchButton
                   checked={form.active}
                   onChange={(value) => updateForm("active", value)}
@@ -1644,43 +1656,53 @@ export function ApiSheetManager({
               </div>
             </div>
 
-            <div className="mt-3 flex flex-col gap-3 lg:flex-row">
+            <div className="mt-2 flex flex-col gap-2 md:mt-3 md:gap-3 lg:flex-row">
               {internalApi ? (
                 <>
-                  <div className="flex h-12 w-full items-center rounded-xl border border-white/10 bg-[#0a1020] px-3 text-sm text-slate-400 lg:max-w-[112px]">
+                  <div className="hidden h-12 w-full items-center rounded-xl border border-white/10 bg-[#0a1020] px-3 text-sm text-slate-400 md:flex lg:max-w-[112px]">
                     {truncateMiddleValue(form.method)}
                   </div>
-                  <div className="flex h-12 flex-1 items-center rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-slate-400">
+                  <div className="flex h-10 flex-1 items-center rounded-xl border border-white/10 bg-[#0a1020] px-3 text-sm text-slate-400 md:h-12 md:px-4">
                     {truncateMiddleValue(form.url)}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="w-full lg:max-w-[112px]">
+                  <div className="hidden w-full md:block lg:max-w-[112px]">
                     <AppSelect options={methodOptions} value={form.method} onChangeValue={(value) => updateForm("method", value)} />
                   </div>
                   <input
                     value={form.url}
                     onChange={(event) => updateForm("url", event.target.value)}
                     placeholder="https://api.exemplo.com/rota"
-                    className="h-12 flex-1 rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
+                    className="h-10 flex-1 rounded-xl border border-white/10 bg-[#0a1020] px-3 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10 md:h-12 md:px-4"
                     required
                   />
                 </>
               )}
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleSend}
-                disabled={sending}
-                className="h-12 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 text-sm text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {sending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                {sending ? "Enviando..." : "Send"}
-              </Button>
+              <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 lg:block">
+                <div className="md:hidden">
+                  <ToggleSwitchButton
+                    checked={form.active}
+                    onChange={(value) => updateForm("active", value)}
+                    labelOn="API ativa"
+                    labelOff="API inativa"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleSend}
+                  disabled={sending}
+                  className="h-10 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-5 text-sm text-emerald-100 disabled:cursor-not-allowed disabled:opacity-50 md:h-12"
+                >
+                  {sending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {sending ? "Enviando..." : "Send"}
+                </Button>
+              </div>
             </div>
 
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-nowrap gap-1.5 overflow-x-auto pb-0.5 sm:flex-wrap sm:gap-2">
               {editorTabs.map((tab) => {
                 const active = editorTab === tab.id
 
@@ -1690,7 +1712,7 @@ export function ApiSheetManager({
                     type="button"
                     onClick={() => setEditorTab(tab.id)}
                     className={cn(
-                      "infra-tab-motion inline-flex h-9 items-center rounded-lg border px-3 text-sm font-medium",
+                      "infra-tab-motion inline-flex h-7 shrink-0 items-center rounded-lg border px-2 text-[11px] font-medium sm:h-9 sm:px-3 sm:text-sm",
                       active
                         ? "border-sky-400/40 bg-sky-500/15 text-sky-100 shadow-[6px_6px_0_rgba(8,15,38,0.16)]"
                         : "border-white/10 bg-white/[0.03] text-slate-400 hover:border-white/20 hover:text-slate-200",
@@ -2011,7 +2033,7 @@ export function ApiSheetManager({
                 <div className="space-y-3">
                   <p className="text-sm text-slate-400">Campos que o agente de IA pode enviar na API.</p>
                   <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-                    <div className="grid grid-cols-[minmax(0,1.2fr)_180px_140px_52px] gap-3 border-b border-white/10 px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                    <div className="grid grid-cols-[minmax(0,1fr)_88px_32px_28px] gap-1.5 border-b border-white/10 px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500 max-md:[&>span:nth-child(3)]:sr-only md:grid-cols-[minmax(0,1.2fr)_180px_140px_52px] md:gap-3 md:px-4 md:py-3 md:text-xs md:tracking-[0.18em]">
                       <span>Nome</span>
                       <span>Tipo</span>
                       <span>Obrigatório</span>
@@ -2019,12 +2041,12 @@ export function ApiSheetManager({
                     </div>
                     <div className="divide-y divide-white/10">
                       {form.bodyFields.map((field) => (
-                        <div key={field.id} className="grid grid-cols-[minmax(0,1.2fr)_180px_140px_52px] gap-3 px-4 py-3">
+                        <div key={field.id} className="grid grid-cols-[minmax(0,1fr)_88px_32px_28px] items-center gap-1.5 px-3 py-2 md:grid-cols-[minmax(0,1.2fr)_180px_140px_52px] md:gap-3 md:px-4 md:py-3">
                           <input
                             value={field.name}
                             onChange={(event) => updateBodyField(field.id, "name", event.target.value)}
                             placeholder="campo"
-                            className="h-11 rounded-xl border border-white/10 bg-[#0a1020] px-4 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10"
+                            className="h-10 min-w-0 rounded-xl border border-white/10 bg-[#0a1020] px-3 text-sm text-white outline-none transition focus:border-sky-400/40 focus:ring-2 focus:ring-sky-500/10 md:h-11 md:px-4"
                           />
                           <AppSelect
                             options={fieldTypeOptions}
@@ -2037,6 +2059,8 @@ export function ApiSheetManager({
                               checked={field.required}
                               onChange={(value) => updateBodyField(field.id, "required", value)}
                               labelOn="Sim"
+                              className="max-md:h-8 max-md:border-transparent max-md:bg-transparent max-md:px-0 max-md:pr-0"
+                              labelClassName="max-md:sr-only"
                               labelOff="Não"
                             />
                           </div>
@@ -2044,7 +2068,7 @@ export function ApiSheetManager({
                             type="button"
                             variant="ghost"
                             onClick={() => removeBodyField(field.id)}
-                            className="h-11 rounded-xl border border-white/10 bg-white/[0.03] px-0 text-sm text-slate-300"
+                            className="h-8 rounded-xl px-0 text-sm text-slate-300 hover:bg-white/[0.04] md:h-11 md:border md:border-white/10 md:bg-white/[0.03]"
                             aria-label="Remover campo"
                           >
                             <Trash2 className="h-4 w-4" />

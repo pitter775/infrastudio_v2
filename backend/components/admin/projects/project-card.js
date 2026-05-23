@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { animate, motion, useDragControls, useMotionValue } from 'framer-motion'
-import { LoaderCircle, MessageCircle, MessageSquareText, PackageSearch, Pencil, PlugZap, Store } from 'lucide-react'
+import { Bot, LoaderCircle, MessageCircle, MessageSquareText, PackageSearch, Pencil, PlugZap, Store } from 'lucide-react'
 import { formatCredits } from '@/lib/public-planos'
 import { cn } from '@/lib/utils'
 
@@ -65,6 +65,25 @@ function TinyAvatar({ src, fallback }) {
     >
       {fallback ? <span className="sr-only">{fallback}</span> : null}
     </span>
+  )
+}
+
+function AgentCornerIcon({ src, label }) {
+  return (
+    <div
+      className="pointer-events-none absolute right-4 top-4 z-20 flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border border-white/12 bg-slate-950/80 shadow-[0_10px_26px_rgba(2,6,23,0.42)]"
+      aria-hidden="true"
+      title={label || 'Agente'}
+    >
+      {src ? (
+        <span
+          className="h-full w-full bg-cover bg-center"
+          style={{ backgroundImage: `url(${src})` }}
+        />
+      ) : (
+        <Bot className="h-6 w-6 text-sky-200" />
+      )}
+    </div>
   )
 }
 
@@ -415,6 +434,7 @@ export function AdminProjectCard({
   compact = false,
   usageBarPlacement = 'satellite',
   primaryActionLabel = 'Entrar',
+  showAgentCornerIcon = false,
   children,
 }) {
   const icons = Array.isArray(serviceIcons) && serviceIcons.length ? serviceIcons : getProjectServiceIcons(project)
@@ -516,6 +536,7 @@ export function AdminProjectCard({
           active && 'border-emerald-400/35 shadow-[0_0_0_1px_rgba(52,211,153,0.16),0_0_24px_rgba(52,211,153,0.18)]',
         )}
       >
+        {showAgentCornerIcon ? <AgentCornerIcon src={projectAvatarUrl} label={cardTitle} /> : null}
         {usageBarPlacement !== 'satellite' ? (
           <div className="px-3 pt-2 pb-1">
             <ProjectUsageBar
@@ -528,7 +549,7 @@ export function AdminProjectCard({
             />
           </div>
         ) : null}
-        <div className={cn('border-b border-white/5', compact ? 'p-4' : 'p-5')}>
+        <div className={cn('border-b border-white/5', compact ? 'p-4' : 'p-5', showAgentCornerIcon && 'pr-20')}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <TinyAvatar src={projectAvatarUrl} fallback={cardTitle} />
