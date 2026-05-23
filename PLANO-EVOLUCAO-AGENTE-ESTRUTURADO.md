@@ -93,14 +93,21 @@ Campos importantes para planos:
 - [x] `slug`
 - [x] `name`
 - [x] `priceLabel`
+- [x] `features`
+- [x] `genericLimits`
+- [x] `channels`
+- [x] `supportLevel`
 - [x] `creditLimit`
 - [x] `attendanceLimit`
 - [x] `agentLimit`
 - [x] `marketplaceProductLimit`
 - [x] `whatsappIncluded`
-- [x] `supportLevel`
-- [x] `features`
-- [x] `channels`
+
+Observacao:
+
+- A UI do editor deve ser generica para clientes de qualquer segmento.
+- Campos como `attendanceLimit`, `agentLimit`, `marketplaceProductLimit` e `whatsappIncluded` continuam existindo para compatibilidade e extracao automatica, mas nao devem dominar a experiencia visual.
+- A edicao manual deve priorizar `features`, `genericLimits`, `channels`, `supportLevel`, nome, slug e preco/condicao comercial.
 
 ### 4. Draft antes de ativar
 
@@ -122,6 +129,7 @@ Modos:
 - [x] Criar modelo para textos longos do agente.
 - [x] Dividir textos longos em blocos.
 - [x] Gerar titulo, tags e tipo de conteudo por bloco.
+- [x] Evitar titulos genericos como `Bloco de conhecimento 7`; titulo precisa indicar o assunto real para ajudar a recuperacao.
 - [x] Diferenciar politica, FAQ, manual, termos, procedimento e informativo.
 - [ ] Usar busca textual/semantica para recuperar apenas blocos relevantes.
 - [ ] Evitar enviar toda a base de conhecimento em toda conversa.

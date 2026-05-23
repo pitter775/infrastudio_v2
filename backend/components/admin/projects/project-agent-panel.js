@@ -1194,7 +1194,7 @@ export function ProjectPanel({
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-white">Planos e preços</div>
-                      <p className="mt-1 text-xs text-slate-500">Campos factuais usados por billing e perguntas de planos.</p>
+                      <p className="mt-1 text-xs text-slate-500">Cadastre pacotes, assinaturas, orçamentos ou opções comerciais do negócio.</p>
                     </div>
                     <Button type="button" variant="ghost" className="h-8 rounded-xl border border-white/10 px-3 text-xs text-slate-200" onClick={addPricingItem}>
                       Adicionar plano
@@ -1205,17 +1205,31 @@ export function ProjectPanel({
                       <div key={`${item.slug || item.name}-${index}`} className="rounded-xl border border-white/10 bg-[#080e1d] p-3">
                         <div className="grid gap-2 lg:grid-cols-4">
                           <input value={item.name || ''} onChange={(event) => updatePricingItem(index, { name: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Nome" />
-                          <input value={item.slug || ''} onChange={(event) => updatePricingItem(index, { slug: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="slug" />
-                          <input value={item.priceLabel || ''} onChange={(event) => updatePricingItem(index, { priceLabel: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Preço" />
-                          <input value={item.creditLimit ?? ''} onChange={(event) => updatePricingItem(index, { creditLimit: event.target.value ? Number(event.target.value) : null })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Créditos" />
-                          <input value={item.attendanceLimit ?? ''} onChange={(event) => updatePricingItem(index, { attendanceLimit: event.target.value ? Number(event.target.value) : null })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Atendimentos" />
-                          <input value={item.agentLimit ?? ''} onChange={(event) => updatePricingItem(index, { agentLimit: event.target.value ? Number(event.target.value) : null })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Agentes" />
-                          <input value={item.marketplaceProductLimit ?? ''} onChange={(event) => updatePricingItem(index, { marketplaceProductLimit: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Produtos ML ou unlimited" />
-                          <select value={item.whatsappIncluded == null ? '' : String(item.whatsappIncluded)} onChange={(event) => updatePricingItem(index, { whatsappIncluded: event.target.value === '' ? null : event.target.value === 'true' })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none">
-                            <option value="">WhatsApp?</option>
-                            <option value="true">WhatsApp sim</option>
-                            <option value="false">WhatsApp não</option>
-                          </select>
+                          <input value={item.priceLabel || ''} onChange={(event) => updatePricingItem(index, { priceLabel: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Preço, faixa ou condição" />
+                          <input value={item.supportLevel || ''} onChange={(event) => updatePricingItem(index, { supportLevel: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Suporte ou observação" />
+                          <div className="flex h-9 items-center rounded-lg border border-white/10 bg-black/10 px-2 text-xs text-slate-500" title={item.slug || 'gerado automaticamente'}>
+                            ID interno automático
+                          </div>
+                        </div>
+                        <div className="mt-2 grid gap-2 lg:grid-cols-3">
+                          <textarea
+                            value={formatLines(item.features)}
+                            onChange={(event) => updatePricingItem(index, { features: parseLines(event.target.value) })}
+                            className="min-h-20 rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-white outline-none"
+                            placeholder={"O que inclui\num item por linha"}
+                          />
+                          <textarea
+                            value={formatLines(item.genericLimits)}
+                            onChange={(event) => updatePricingItem(index, { genericLimits: parseLines(event.target.value) })}
+                            className="min-h-20 rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-white outline-none"
+                            placeholder={"Limites, regras ou condições\num item por linha"}
+                          />
+                          <textarea
+                            value={formatLines(item.channels)}
+                            onChange={(event) => updatePricingItem(index, { channels: parseLines(event.target.value) })}
+                            className="min-h-20 rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-white outline-none"
+                            placeholder={"Canais, formas de entrega ou acesso\num item por linha"}
+                          />
                         </div>
                         <div className="mt-2 flex justify-end">
                           <Button type="button" variant="ghost" className="h-7 px-2 text-xs text-red-200" onClick={() => removePricingItem(index)}>
@@ -1305,13 +1319,12 @@ export function ProjectPanel({
                       Adicionar bloco
                     </Button>
                   </div>
-                  <div className="mt-4 space-y-3">
+                  <div className="mt-4 divide-y divide-white/10">
                     {(activeStructuredConfig.knowledgeBase || []).map((item, index) => (
-                      <div key={`${item.title}-${index}`} className="rounded-xl border border-white/10 bg-[#080e1d] p-3">
-                        <input value={item.title || ''} onChange={(event) => updateKnowledgeItem(index, { title: event.target.value })} className="h-9 w-full rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Título" />
+                      <div key={`${item.title}-${index}`} className="py-3 first:pt-0 last:pb-0">
+                        <input value={item.title || ''} onChange={(event) => updateKnowledgeItem(index, { title: event.target.value })} className="h-9 w-full rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Título descritivo do bloco" />
                         <textarea value={item.content || ''} onChange={(event) => updateKnowledgeItem(index, { content: event.target.value })} className="mt-2 min-h-28 w-full rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-white outline-none" placeholder="Conteúdo" />
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <input value={formatLines(item.tags)} onChange={(event) => updateKnowledgeItem(index, { tags: parseLines(event.target.value) })} className="h-8 min-w-0 flex-1 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Tags, uma por linha" />
+                        <div className="mt-2 flex justify-end">
                           <Button type="button" variant="ghost" className="h-8 px-2 text-xs text-red-200" onClick={() => removeKnowledgeItem(index)}>
                             Remover
                           </Button>

@@ -86,6 +86,7 @@ export function getStructuredPricingItems(runtimeConfig = {}) {
         whatsappIncluded: typeof item?.whatsappIncluded === "boolean" ? item.whatsappIncluded : null,
         supportLevel: sanitizeString(item?.supportLevel),
         features: normalizeFeatureList(item?.features),
+        genericLimits: normalizeFeatureList(item?.genericLimits),
         channels: normalizeFeatureList(item?.channels),
       }
     })
@@ -234,6 +235,12 @@ function buildSinglePlanSummary(plan) {
   if (plan.features.length) {
     lines.push(`- Recursos: ${plan.features.join(", ")}`)
   }
+  if (plan.genericLimits.length) {
+    lines.push(`- Limites/condições: ${plan.genericLimits.join(", ")}`)
+  }
+  if (plan.channels.length) {
+    lines.push(`- Canais: ${plan.channels.join(", ")}`)
+  }
 
   return lines
 }
@@ -262,6 +269,15 @@ function buildComparisonPlanSummary(plan) {
   }
   if (plan.supportLevel) {
     lines.push(`Suporte: ${plan.supportLevel}`)
+  }
+  if (plan.features.length) {
+    lines.push(`Recursos: ${plan.features.join(", ")}`)
+  }
+  if (plan.genericLimits.length) {
+    lines.push(`Limites/condições: ${plan.genericLimits.join(", ")}`)
+  }
+  if (plan.channels.length) {
+    lines.push(`Canais: ${plan.channels.join(", ")}`)
   }
 
   return lines.join(" | ")
@@ -434,6 +450,9 @@ function listStructuredFieldsForPlan(plan) {
   if (plan.marketplaceProductLimit != null) fields.push("produtos Mercado Livre")
   if (plan.whatsappIncluded != null) fields.push("whatsapp")
   if (plan.supportLevel) fields.push("suporte")
+  if (plan.features.length) fields.push("recursos")
+  if (plan.genericLimits.length) fields.push("limites/condições")
+  if (plan.channels.length) fields.push("canais")
   return fields
 }
 
