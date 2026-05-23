@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import { Bot, CalendarDays, Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Sparkles, Store, Wand2, X } from 'lucide-react'
@@ -8,6 +8,7 @@ import { Bot, CalendarDays, Check, ChevronRight, ClipboardCopy, Files, History, 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { JsonCodeBlock } from '@/components/ui/json-code-block'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { AgentRichEditor, plainTextToEditorHtml, richTextToPlainText } from './agent-rich-editor'
 import { buildAgentDraftConfig, buildMergedAgentSummary, buildVersionChangeNote, resolveEntityAvatarUrl } from './agent-config-utils'
@@ -31,6 +32,17 @@ function TinyEntityAvatar({ src, label }) {
       aria-hidden="true"
       title={label || ""}
     />
+  )
+}
+
+function AgentActionTooltip({ content, children }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top" className="max-w-[320px] text-left text-xs leading-relaxed text-slate-100">
+        {content}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
@@ -148,6 +160,7 @@ export function ProjectPanel({
   onCloseSheet = null,
 }) {
   const router = useRouter()
+  const structureBoxRef = useRef(null)
   const agent = project.agent
   const projectIdentifier = project.routeKey || project.slug || project.id
   const agentServerSnapshot = useMemo(
@@ -667,6 +680,12 @@ export function ProjectPanel({
       }
 
       setEditorStatus({ type: 'success', message: 'Agente salvo.' })
+      window.setTimeout(() => {
+        structureBoxRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center',
+        })
+      }, 120)
       router.refresh()
     } catch (error) {
       setEditorStatus({ type: 'error', message: error.message })
@@ -999,7 +1018,7 @@ export function ProjectPanel({
                   />
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
+                <div ref={structureBoxRef} className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-sky-100">Estrutura do agente</div>
@@ -1007,46 +1026,56 @@ export function ProjectPanel({
                         Organize o texto em dados estruturados para reduzir prompt gigante e melhorar respostas factuais.
                       </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-8 rounded-xl border border-sky-400/25 bg-white/5 px-3 text-xs text-sky-100 hover:bg-sky-500/15"
-                        disabled={structuringAgent || !normalizedPrompt.trim()}
-                        onClick={() => handleStructureAgent(agent?.structuredConfig ? 'update' : 'analyze')}
-                      >
-                        <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                        {structuringAgent ? 'Organizando...' : agent?.structuredConfig ? 'Atualizar com IA' : 'Organizar com IA'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-8 rounded-xl border border-sky-400/25 bg-white/5 px-3 text-xs text-sky-100 hover:bg-sky-500/15"
-                        disabled={structuringAgent || !normalizedPrompt.trim()}
-                        onClick={() => handleStructureAgent('reset')}
-                      >
-                        Resetar e importar
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-8 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 text-xs text-emerald-100 hover:bg-emerald-500/15"
-                        disabled={applyingStructure || !structuredDraft}
-                        onClick={handleApplyStructuredConfig}
-                      >
-                        <Check className="mr-1.5 h-3.5 w-3.5" />
-                        {applyingStructure ? 'Aplicando...' : 'Aplicar estrutura'}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        className="h-8 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-slate-300 hover:bg-white/[0.06]"
-                        disabled={applyingStructure || !structuredDraft}
-                        onClick={handleDiscardStructuredDraft}
-                      >
-                        Descartar
-                      </Button>
-                    </div>
+                    <TooltipProvider>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <AgentActionTooltip content="Lê o texto atual do editor com IA e cria um rascunho estruturado. Não altera o agente ativo até você clicar em Aplicar estrutura. Use para transformar um prompt grande em blocos como planos, integrações, regras e base de conhecimento.">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-8 rounded-xl border border-sky-400/25 bg-white/5 px-3 text-xs text-sky-100 hover:bg-sky-500/15"
+                            disabled={structuringAgent || !normalizedPrompt.trim()}
+                            onClick={() => handleStructureAgent(agent?.structuredConfig ? 'update' : 'analyze')}
+                          >
+                            <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                            {structuringAgent ? 'Organizando...' : agent?.structuredConfig ? 'Atualizar com IA' : 'Organizar com IA'}
+                          </Button>
+                        </AgentActionTooltip>
+                        <AgentActionTooltip content="Reprocessa o texto do editor como se fosse uma nova importação completa. Use quando quiser descartar a interpretação estrutural anterior e reconstruir tudo a partir do texto atual. Ainda gera apenas um rascunho.">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-8 rounded-xl border border-sky-400/25 bg-white/5 px-3 text-xs text-sky-100 hover:bg-sky-500/15"
+                            disabled={structuringAgent || !normalizedPrompt.trim()}
+                            onClick={() => handleStructureAgent('reset')}
+                          >
+                            Resetar e importar
+                          </Button>
+                        </AgentActionTooltip>
+                        <AgentActionTooltip content="Ativa o rascunho estruturado no agente. Depois disso o runtime passa a usar esses campos para responder com mais precisão, junto com as integrações cadastradas.">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-8 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 text-xs text-emerald-100 hover:bg-emerald-500/15"
+                            disabled={applyingStructure || !structuredDraft}
+                            onClick={handleApplyStructuredConfig}
+                          >
+                            <Check className="mr-1.5 h-3.5 w-3.5" />
+                            {applyingStructure ? 'Aplicando...' : 'Aplicar estrutura'}
+                          </Button>
+                        </AgentActionTooltip>
+                        <AgentActionTooltip content="Remove o rascunho estruturado que ainda não foi aplicado. Use quando a IA organizou errado ou quando você quer manter a estrutura ativa como está.">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-8 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-slate-300 hover:bg-white/[0.06]"
+                            disabled={applyingStructure || !structuredDraft}
+                            onClick={handleDiscardStructuredDraft}
+                          >
+                            Descartar
+                          </Button>
+                        </AgentActionTooltip>
+                      </div>
+                    </TooltipProvider>
                   </div>
 
                   {structuredDraft ? (

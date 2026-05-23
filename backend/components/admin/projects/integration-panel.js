@@ -213,9 +213,13 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
   const currentActiveTab = tabs.some((tab) => tab.id === activeTab) ? activeTab : tabs[0]?.id || 'overview'
 
   const handleMercadoFooterStateChange = useCallback((nextFooter) => {
-    setMercadoFooter(nextFooter || {})
+    setMercadoFooter((current) => ({
+      ...current,
+      ...(nextFooter || {}),
+    }))
     if (
       nextFooter?.hasSavedConnector &&
+      nextFooter?.activeTab === 'connection' &&
       activeTab === 'connection' &&
       !deepLink?.tab &&
       !mercadoDashboardAutoOpenRef.current

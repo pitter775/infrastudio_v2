@@ -310,10 +310,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange, tone = 'sky', act
               className={cn(
                 'infra-tab-motion relative flex h-9 w-full items-center gap-2 rounded-lg border border-transparent px-2.5 text-left text-xs font-semibold transition-[background-color,box-shadow,color]',
                 active
-                  ? cn(
-                      toneClasses.active,
-                      railOpen && activeGlow && toneClasses.glow,
-                    )
+                  ? toneClasses.active
                   : toneClasses.inactive,
               )}
             >
@@ -322,7 +319,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange, tone = 'sky', act
                   className={cn(
                     'h-4 w-4 shrink-0 transition-[filter,opacity]',
                     active && toneClasses.activeIcon,
-                    active && toneClasses.iconGlow,
+                    active && activeGlow && toneClasses.iconGlow,
                     !active && 'opacity-70',
                   )}
                 />

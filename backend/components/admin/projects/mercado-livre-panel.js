@@ -445,6 +445,16 @@ export function MercadoLivrePanel({
     })
   }, [currentTab, deletingContract, hasSavedConnector, onFooterStateChange, resolvingStore, savingConnector, step])
 
+  const handleStoreFooterStateChange = useCallback((nextFooter) => {
+    onFooterStateChange?.({
+      ...(nextFooter || {}),
+      step,
+      activeTab: 'store',
+      hasSavedConnector,
+      canSaveConnection: !(step === 2 && hasSavedConnector),
+    })
+  }, [hasSavedConnector, onFooterStateChange, step])
+
   const handleLoadTestItems = useCallback(async () => {
     setLoadingTestItems(true)
     setFeedback(null)
@@ -910,7 +920,7 @@ export function MercadoLivrePanel({
       ) : null}
 
       {currentTab === 'store' ? (
-        <MercadoLivreStorePanel project={project} onFooterStateChange={onFooterStateChange} showTabs={false} />
+        <MercadoLivreStorePanel project={project} onFooterStateChange={handleStoreFooterStateChange} showTabs={false} />
       ) : null}
 
       {currentTab === 'dashboard' ? (
