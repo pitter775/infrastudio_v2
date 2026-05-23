@@ -79,6 +79,17 @@ Saida comum:
   - `runtime.responsePath`
   - `runtime.previewPath`
   - `runtime.fields[].path`
+- Mercado Livre participa do runtime como catalogo estruturado quando existe conector ativo e snapshot disponivel
+- chat/widget da loja Mercado Livre usa contexto de storefront/produto e deve priorizar a vitrine da loja para intencoes catalogais
+- loja publica do Mercado Livre ja existe em `/loja/{slug}` e `/loja/{slug}/produto/{produtoSlug}`
+- loja Mercado Livre ja suporta dominio proprio do cliente via configuracao de DNS/dominio na aba da loja
+- Google Agenda participa do runtime por handler proprio:
+  - conexao OAuth por projeto/agente
+  - calendario selecionado
+  - janela de atendimento por dias e horarios
+  - antecedencia minima
+  - criacao, remarcacao e cancelamento de eventos
+  - convite por email quando configurado
 
 ## Regras importantes
 
@@ -95,6 +106,7 @@ Saida comum:
   - classificacao estruturada por LLM
   - handlers deterministas sobre dados estruturados
 - se um ajuste tocar orquestrador, `domain-router`, `sales-heuristics`, `catalog-follow-up`, `mercado-livre` ou `api-runtime`, atualizar obrigatoriamente `AGENTS/runtime-intent-refactor.md`
+- se um ajuste tocar agenda no chat, revisar tambem `backend/lib/chat/google-calendar-handler.js` e evitar decisao por frase/regex
 - tudo especifico de negocio deve ir para banco quando fizer sentido:
   - `agentes.configuracoes.runtimeConfig`
   - `apis.configuracoes`

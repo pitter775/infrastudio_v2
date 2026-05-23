@@ -6,6 +6,14 @@ import {
 
 function buildRuntimeConfigInstructions(context = {}) {
   const runtimeConfig = context?.agente?.runtimeConfig
+  const structuredConfig =
+    context?.agente?.structuredConfig && typeof context.agente.structuredConfig === "object" && !Array.isArray(context.agente.structuredConfig)
+      ? context.agente.structuredConfig
+      : context?.agente?.configuracoes?.structuredConfig &&
+          typeof context.agente.configuracoes.structuredConfig === "object" &&
+          !Array.isArray(context.agente.configuracoes.structuredConfig)
+        ? context.agente.configuracoes.structuredConfig
+        : null
   const contactProfile =
     context?.agente?.configuracoes?.contactProfile &&
     typeof context.agente.configuracoes.contactProfile === "object" &&
@@ -21,6 +29,31 @@ function buildRuntimeConfigInstructions(context = {}) {
 
   const lines = []
   const channelKind = String(context?.channel?.kind ?? context?.canal ?? "").trim().toLowerCase()
+
+  if (structuredConfig?.identity?.role || structuredConfig?.behavior?.tone) {
+    lines.push("Estrutura ativa do agente:")
+    if (structuredConfig.identity?.businessName) lines.push(`- Negocio: ${structuredConfig.identity.businessName}`)
+    if (structuredConfig.identity?.role) lines.push(`- Papel: ${structuredConfig.identity.role}`)
+    if (structuredConfig.behavior?.tone) lines.push(`- Tom: ${structuredConfig.behavior.tone}`)
+  }
+
+  if (Array.isArray(structuredConfig?.behavior?.rules) && structuredConfig.behavior.rules.length) {
+    lines.push("Regras estruturadas:")
+    lines.push(...structuredConfig.behavior.rules.slice(0, 8).map((rule) => `- ${rule}`))
+  }
+
+  if (Array.isArray(structuredConfig?.knowledgeBase) && structuredConfig.knowledgeBase.length) {
+    lines.push("Base de conhecimento estruturada disponivel:")
+    lines.push(
+      ...structuredConfig.knowledgeBase.slice(0, 4).map((item) => {
+        const title = String(item?.title || "Conteudo").trim()
+        const content = String(item?.content || "").replace(/\s+/g, " ").trim().slice(0, 420)
+        return content ? `- ${title}: ${content}` : `- ${title}`
+      }),
+    )
+    lines.push("Use essa base apenas quando ela responder diretamente a pergunta do cliente.")
+  }
+
   if (runtimeConfig?.business?.summary) {
     lines.push(`Contexto comercial: ${runtimeConfig.business.summary}`)
   }
@@ -54,6 +87,33 @@ function buildRuntimeConfigInstructions(context = {}) {
 
   if (runtimeConfig?.leadCapture?.policy) {
     lines.push(`Politica de lead: ${runtimeConfig.leadCapture.policy}`)
+  }
+
+  if (runtimeConfig?.integrations?.googleAgenda?.enabled) {
+    const agenda = runtimeConfig.integrations.googleAgenda
+    lines.push("Google Agenda estruturado:")
+    lines.push("- Use agenda quando o cliente pedir agendamento, disponibilidade, remarcacao ou cancelamento.")
+    if (agenda.canCheckAvailability !== false) lines.push("- Consulte disponibilidade antes de confirmar horario.")
+    if (agenda.canCreateEvents !== false) lines.push("- Crie evento somente quando houver data, horario e contato suficientes.")
+    if (agenda.canRescheduleEvents) lines.push("- Pode remarcar evento quando houver agendamento anterior no contexto.")
+    if (agenda.canCancelEvents) lines.push("- Pode cancelar evento quando houver agendamento anterior no contexto.")
+    if (Array.isArray(agenda.requiredFields) && agenda.requiredFields.length) {
+      lines.push(`Campos necessarios para agendar: ${agenda.requiredFields.join(", ")}.`)
+    }
+    lines.push("- Se o Google Agenda nao estiver conectado, explique que precisa conectar no painel do projeto.")
+  }
+
+  if (runtimeConfig?.integrations?.apis?.enabled) {
+    const apis = runtimeConfig.integrations.apis
+    lines.push("APIs externas estruturadas:")
+    if (apis.purpose) lines.push(`- Finalidade: ${apis.purpose}`)
+    if (Array.isArray(apis.expectedContent) && apis.expectedContent.length) {
+      lines.push(`- Conteudos esperados: ${apis.expectedContent.slice(0, 10).join(", ")}.`)
+    }
+    if (apis.runtimePolicy) lines.push(`- Politica: ${apis.runtimePolicy}`)
+    if (Array.isArray(apis.endpoints) && apis.endpoints.length) {
+      lines.push("- Endpoints citados no texto do agente servem como referencia de configuracao; use apenas APIs cadastradas no painel.")
+    }
   }
 
   if (Array.isArray(runtimeConfig?.pricingCatalog?.items) && runtimeConfig.pricingCatalog.items.length) {

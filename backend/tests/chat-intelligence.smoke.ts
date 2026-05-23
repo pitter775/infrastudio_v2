@@ -60,6 +60,7 @@ import {
   applyAiHumanEscalation,
   executeSalesOrchestrator,
   executeV2RuntimePrelude,
+  extractDeterministicPricingCatalogFromAgentText,
   extractRecentMercadoLivreProductsFromAssets,
   extractChatContactSnapshot,
   finalizeV2AiTurn,
@@ -175,6 +176,7 @@ const tests: TestCase[] = [
               name: "Criacao de site",
               matchAny: ["site", " site ", ""],
               priceLabel: "R$300 a R$1000",
+              marketplaceProductLimit: 50,
               ignored: "x",
             },
           ],
@@ -201,6 +203,7 @@ const tests: TestCase[] = [
               name: "Criacao de site",
               matchAny: ["site"],
               priceLabel: "R$300 a R$1000",
+              marketplaceProductLimit: 50,
             },
           ],
         },
@@ -495,6 +498,80 @@ const tests: TestCase[] = [
       assert.equal(reply?.metadata?.fieldFound, true)
       assert.equal(contextUpdate?.planFocus?.slug, "plus")
       assert.equal(contextUpdate?.lastField, "attendance_limit")
+    },
+  },
+  {
+    name: "billing estruturado responde limite de produtos Mercado Livre por plano",
+    run: () => {
+      const runtimeConfig = {
+        pricingCatalog: {
+          enabled: true,
+          items: [
+            {
+              slug: "basic",
+              name: "Basic",
+              matchAny: ["basic"],
+              priceLabel: "R$ 29,90/mes",
+              marketplaceProductLimit: 50,
+            },
+          ],
+        },
+      }
+
+      const reply = buildBillingReplyResult(
+        runtimeConfig,
+        { channel: { kind: "web" } },
+        {
+          kind: "plan_limit_question",
+          targetField: "marketplace_product_limit",
+          targetFields: ["marketplace_product_limit"],
+          requestedPlanNames: ["basic"],
+        }
+      )
+
+      assert.match(reply?.reply ?? "", /Basic/i)
+      assert.match(reply?.reply ?? "", /50 produtos/i)
+      assert.doesNotMatch(reply?.reply ?? "", /atendimentos/i)
+      assert.equal(reply?.metadata?.fieldFound, true)
+    },
+  },
+  {
+    name: "pricing extraido do prompt captura limite de produtos Mercado Livre",
+    run: () => {
+      const catalog = extractDeterministicPricingCatalogFromAgentText(`
+Planos mensais da plataforma:
+
+Free
+R$ 0/mês
+40.000 créditos por mês para testar a plataforma.
+
+Basic
+R$ 29,90/mês
+300.000 créditos por mês para uso leve.
+
+Plus
+R$ 79,90/mês
+800.000 créditos por mês com melhor custo-benefício.
+
+Pro
+R$ 149,90/mês
+2.000.000 créditos por mês para uso mais pesado.
+
+Limites de produtos do Mercado Livre por plano:
+Free: até 10 produtos.
+Basic: até 50 produtos.
+Plus: até 200 produtos.
+Pro: produtos ilimitados.
+
+Regras importantes sobre os planos:
+Cada projeto tem seu próprio plano.
+`)
+
+      const basic = catalog?.items.find((item) => item.slug === "basic")
+      const pro = catalog?.items.find((item) => item.slug === "pro")
+
+      assert.equal(basic?.marketplaceProductLimit, 50)
+      assert.equal(pro?.marketplaceProductLimit, "unlimited")
     },
   },
   {

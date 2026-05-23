@@ -64,6 +64,15 @@ O foco principal agora e fechar a paridade e o refinamento do cerebro de atendim
   - `sheet` na navegacao interna
   - snapshot local como fonte da vitrine
   - sync manual de snapshot preparado no backend
+  - dominio proprio do cliente com automacao/verificacao de DNS
+  - chat widget vinculado a loja e contexto de produto
+  - pedidos, perguntas, sugestao de resposta com IA e dashboard analitico
+- base funcional do Google Agenda:
+  - painel `Google Agenda`
+  - OAuth Google
+  - selecao de calendario
+  - configuracao de duracao, antecedencia, timezone, dias e horarios
+  - runtime capaz de criar/remarcar/cancelar eventos e enviar convite quando houver email
 
 ## Ordem recomendada quando voltar
 

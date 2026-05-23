@@ -776,3 +776,6 @@ Ainda errado / fragil:
   - assets de produto carregam `metadata.showExternalLink` apenas quando a mensagem pede link, compra, anuncio ou Mercado Livre
   - o widget so renderiza o botao externo nesse caso, como botao pequeno amarelo com `/icomercado.png` e texto `Mercado Livre`
   - WhatsApp tambem deixa de anexar URL de produto Mercado Livre em card/lista quando o cliente nao pediu o link
+- billing/pricing estruturado agora suporta `marketplace_product_limit`
+  - o catalogo extraido do texto do agente le a secao de limites de produtos do Mercado Livre por plano
+  - perguntas como `quantos produtos no Mercado Livre cabem no Basic?` respondem pelo limite de produtos, sem cair em `attendance_limit`

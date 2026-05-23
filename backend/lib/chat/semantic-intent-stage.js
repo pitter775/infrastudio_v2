@@ -37,6 +37,36 @@ function parseCreditLimitFromLines(lines = []) {
   return Number.isFinite(amount) ? amount : null
 }
 
+function parseMarketplaceProductLimitsFromText(sourceText = "") {
+  const limits = new Map()
+  const lines = sanitizeString(sourceText)
+    .split(/\r?\n/)
+    .map((line) => sanitizeString(line))
+    .filter(Boolean)
+
+  for (const line of lines) {
+    const normalized = normalizeText(line)
+    const match = normalized.match(/^(free|basic|plus|pro)\s*:\s*(?:ate\s+)?([\d.]+|produtos?\s+ilimitados?|ilimitado|ilimitados)/i)
+    if (!match?.[1] || !match?.[2]) {
+      continue
+    }
+
+    const slug = slugifyPricingName(match[1])
+    const valueText = match[2]
+    if (/ilimitad/.test(valueText)) {
+      limits.set(slug, "unlimited")
+      continue
+    }
+
+    const amount = Number(valueText.replace(/\D/g, ""))
+    if (Number.isFinite(amount)) {
+      limits.set(slug, amount)
+    }
+  }
+
+  return limits
+}
+
 function extractMonthlyPlansSection(sourceText = "") {
   const text = sanitizeString(sourceText)
   const sectionStart = text.search(/planos?\s+mensais/i)
@@ -51,6 +81,7 @@ function extractMonthlyPlansSection(sourceText = "") {
 
 export function extractDeterministicPricingCatalogFromAgentText(sourceText = "") {
   const section = extractMonthlyPlansSection(sourceText)
+  const marketplaceProductLimits = parseMarketplaceProductLimitsFromText(sourceText)
   const lines = section
     .split(/\r?\n/)
     .map((line) => sanitizeString(line))
@@ -92,6 +123,7 @@ export function extractDeterministicPricingCatalogFromAgentText(sourceText = "")
       attendanceLimit: null,
       agentLimit: null,
       creditLimit: parseCreditLimitFromLines(detailLines),
+      marketplaceProductLimit: marketplaceProductLimits.get(slug) ?? null,
       whatsappIncluded: null,
       supportLevel: "",
       features: detailLines.slice(0, 4),
@@ -506,12 +538,12 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
           content: [
             "Extraia um catálogo estruturado de planos/preços a partir do texto do agente.",
             "Retorne somente JSON valido.",
-            'Schema: {"enabled":true|false,"items":[{"slug":"string","name":"string","matchAny":["string"],"priceLabel":"string","attendanceLimit":0,"agentLimit":0,"creditLimit":0,"whatsappIncluded":true,"supportLevel":"string","features":["string"],"channels":["string"]}]}.',
+            'Schema: {"enabled":true|false,"items":[{"slug":"string","name":"string","matchAny":["string"],"priceLabel":"string","attendanceLimit":0,"agentLimit":0,"creditLimit":0,"marketplaceProductLimit":0,"whatsappIncluded":true,"supportLevel":"string","features":["string"],"channels":["string"]}]}.',
             "Use enabled=true apenas quando houver pelo menos um plano ou valor identificavel no texto.",
             "Cada item precisa ter nome e priceLabel.",
             "Use slug curto, estavel e em minusculas.",
             "matchAny deve conter variações literais úteis do plano, incluindo o próprio nome.",
-            "Se o texto trouxer limites, créditos, quantidade de agentes, canais ou suporte, preencha esses campos.",
+            "Se o texto trouxer limites, créditos, quantidade de agentes, produtos de Mercado Livre, canais ou suporte, preencha esses campos.",
             "Quando um dado não existir no texto, retorne null, false ou lista vazia conforme o schema.",
             "Não invente preço nem plano que não esteja claramente no texto.",
             "Ignore texto comercial generico sem valores concretos.",
@@ -549,6 +581,7 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
                     attendanceLimit: { type: ["number", "null"] },
                     agentLimit: { type: ["number", "null"] },
                     creditLimit: { type: ["number", "null"] },
+                    marketplaceProductLimit: { type: ["number", "string", "null"] },
                     whatsappIncluded: { type: ["boolean", "null"] },
                     supportLevel: { type: "string" },
                     features: {
@@ -568,6 +601,7 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
                     "attendanceLimit",
                     "agentLimit",
                     "creditLimit",
+                    "marketplaceProductLimit",
                     "whatsappIncluded",
                     "supportLevel",
                     "features",
@@ -602,6 +636,13 @@ export async function extractSemanticPricingCatalogFromAgentText(input = {}) {
           attendanceLimit: item?.attendanceLimit == null ? null : Number(item.attendanceLimit),
           agentLimit: item?.agentLimit == null ? null : Number(item.agentLimit),
           creditLimit: item?.creditLimit == null ? null : Number(item.creditLimit),
+          marketplaceProductLimit:
+            normalizeText(item?.marketplaceProductLimit).includes("ilimitad") ||
+            normalizeText(item?.marketplaceProductLimit) === "unlimited"
+              ? "unlimited"
+              : item?.marketplaceProductLimit == null
+                ? null
+                : Number(item.marketplaceProductLimit),
           whatsappIncluded: typeof item?.whatsappIncluded === "boolean" ? item.whatsappIncluded : null,
           supportLevel: sanitizeString(item?.supportLevel),
           features: Array.isArray(item?.features) ? item.features.map((token) => sanitizeString(token)).filter(Boolean) : [],
@@ -956,17 +997,17 @@ export async function classifySemanticBillingIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de catalogo estruturado de planos/precos.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"pricing_overview|highest_priced_plan|lowest_priced_plan|plan_comparison|specific_plan_question|plan_limit_question|plan_feature_question|plan_recommendation|other","confidence":0..1,"reason":"string","requestedPlanNames":["string"],"targetField":"attendance_limit|agent_limit|credit_limit|whatsapp_included|support_level|price|","targetFields":["attendance_limit","agent_limit","credit_limit","whatsapp_included","support_level","price"]}',
+            'Schema: {"intent":"pricing_overview|highest_priced_plan|lowest_priced_plan|plan_comparison|specific_plan_question|plan_limit_question|plan_feature_question|plan_recommendation|other","confidence":0..1,"reason":"string","requestedPlanNames":["string"],"targetField":"attendance_limit|agent_limit|credit_limit|marketplace_product_limit|whatsapp_included|support_level|price|","targetFields":["attendance_limit","agent_limit","credit_limit","marketplace_product_limit","whatsapp_included","support_level","price"]}',
             "Use pricing_overview quando o cliente pedir tabela, lista, valores, planos ou precos em geral.",
             "Use highest_priced_plan ou lowest_priced_plan quando ele pedir mais caro ou mais barato.",
             "Use plan_comparison quando ele pedir comparacao entre mais de um plano.",
             "Use specific_plan_question quando citar explicitamente um plano do catalogo e pedir uma visao geral dele.",
-            "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes ou créditos de um plano.",
+            "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes, créditos ou produtos de Mercado Livre de um plano.",
             "Use plan_feature_question quando pedir se o plano inclui WhatsApp, suporte ou algum recurso estruturado do catalogo.",
             "Use plan_recommendation quando ele pedir indicacao do melhor plano, mesmo sem explicitar o criterio. Quando o criterio nao estiver claro, deixe targetField vazio e targetFields vazio.",
             "Quando existir billing.planFocus no contexto e o cliente falar esse plano, nele ou equivalente, use esse foco sem inventar novo nome.",
             "Quando existir billing.comparisonFocus no contexto e o cliente fizer follow-up comparativo, mantenha a comparacao mesmo sem repetir os nomes dos planos.",
-            "Preencha targetField com attendance_limit, agent_limit, credit_limit, whatsapp_included, support_level ou price quando houver um slot factual claro.",
+            "Preencha targetField com attendance_limit, agent_limit, credit_limit, marketplace_product_limit, whatsapp_included, support_level ou price quando houver um slot factual claro.",
             "Quando a pergunta cobrar mais de um fato ao mesmo tempo, preencha targetFields com todos os slots pedidos e preserve targetField como o principal.",
             "Nao invente nomes de plano. So use nomes realmente presentes no catalogo.",
           ].join("\n"),
@@ -1034,13 +1075,13 @@ export async function classifySemanticBillingIntentStage(input = {}) {
               },
               targetField: {
                 type: "string",
-                enum: ["", "attendance_limit", "agent_limit", "credit_limit", "whatsapp_included", "support_level", "price"],
+                enum: ["", "attendance_limit", "agent_limit", "credit_limit", "marketplace_product_limit", "whatsapp_included", "support_level", "price"],
               },
               targetFields: {
                 type: "array",
                 items: {
                   type: "string",
-                  enum: ["attendance_limit", "agent_limit", "credit_limit", "whatsapp_included", "support_level", "price"],
+                  enum: ["attendance_limit", "agent_limit", "credit_limit", "marketplace_product_limit", "whatsapp_included", "support_level", "price"],
                 },
               },
             },

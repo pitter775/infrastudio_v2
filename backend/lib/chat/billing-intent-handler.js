@@ -44,6 +44,15 @@ function normalizeOptionalNumber(value) {
   return Number.isFinite(parsed) ? parsed : null
 }
 
+function normalizeOptionalLimit(value) {
+  const normalized = normalizeBillingText(value)
+  if (normalized === "ilimitado" || normalized === "ilimitados" || normalized === "unlimited") {
+    return "unlimited"
+  }
+
+  return normalizeOptionalNumber(value)
+}
+
 function buildPlanAliases(item = {}) {
   return [...new Set(
     [item.slug, item.name, ...(Array.isArray(item.matchAny) ? item.matchAny : [])]
@@ -73,6 +82,7 @@ export function getStructuredPricingItems(runtimeConfig = {}) {
         attendanceLimit: normalizeOptionalNumber(item?.attendanceLimit),
         agentLimit: normalizeOptionalNumber(item?.agentLimit),
         creditLimit: normalizeOptionalNumber(item?.creditLimit),
+        marketplaceProductLimit: normalizeOptionalLimit(item?.marketplaceProductLimit),
         whatsappIncluded: typeof item?.whatsappIncluded === "boolean" ? item.whatsappIncluded : null,
         supportLevel: sanitizeString(item?.supportLevel),
         features: normalizeFeatureList(item?.features),
@@ -152,6 +162,12 @@ function buildFactValue(plan, field) {
     return formatNumberLabel(plan.creditLimit, "crédito", "créditos")
   }
 
+  if (field === "marketplace_product_limit") {
+    return plan.marketplaceProductLimit === "unlimited"
+      ? "produtos ilimitados"
+      : formatNumberLabel(plan.marketplaceProductLimit, "produto", "produtos")
+  }
+
   if (field === "whatsapp_included") {
     if (plan.whatsappIncluded == null) {
       return null
@@ -181,6 +197,7 @@ function buildFactSentence(plan, field) {
     attendance_limit: `O plano ${plan.name} comporta ${factValue}.`,
     agent_limit: `O plano ${plan.name} permite ${factValue}.`,
     credit_limit: `O plano ${plan.name} inclui ${factValue} por mês.`,
+    marketplace_product_limit: `No plano ${plan.name}, a loja Mercado Livre permite ${factValue}.`,
     whatsapp_included: `No plano ${plan.name}, WhatsApp: ${factValue}.`,
     support_level: `No plano ${plan.name}, o suporte é ${factValue}.`,
     price: `O plano ${plan.name} custa ${factValue}.`,
@@ -194,6 +211,7 @@ function buildSinglePlanSummary(plan) {
   const attendanceLabel = buildFactValue(plan, "attendance_limit")
   const agentLabel = buildFactValue(plan, "agent_limit")
   const creditLabel = buildFactValue(plan, "credit_limit")
+  const marketplaceProductLabel = buildFactValue(plan, "marketplace_product_limit")
 
   if (attendanceLabel) {
     lines.push(`- Atendimentos: ${attendanceLabel}`)
@@ -203,6 +221,9 @@ function buildSinglePlanSummary(plan) {
   }
   if (creditLabel) {
     lines.push(`- Créditos: ${creditLabel}`)
+  }
+  if (marketplaceProductLabel) {
+    lines.push(`- Produtos Mercado Livre: ${marketplaceProductLabel}`)
   }
   if (plan.whatsappIncluded != null) {
     lines.push(`- WhatsApp: ${plan.whatsappIncluded ? "Sim" : "Não"}`)
@@ -222,6 +243,7 @@ function buildComparisonPlanSummary(plan) {
   const attendanceLabel = buildFactValue(plan, "attendance_limit")
   const agentLabel = buildFactValue(plan, "agent_limit")
   const creditLabel = buildFactValue(plan, "credit_limit")
+  const marketplaceProductLabel = buildFactValue(plan, "marketplace_product_limit")
 
   if (attendanceLabel) {
     lines.push(`Atendimentos: ${attendanceLabel}`)
@@ -231,6 +253,9 @@ function buildComparisonPlanSummary(plan) {
   }
   if (creditLabel) {
     lines.push(`Créditos: ${creditLabel}`)
+  }
+  if (marketplaceProductLabel) {
+    lines.push(`Produtos Mercado Livre: ${marketplaceProductLabel}`)
   }
   if (plan.whatsappIncluded != null) {
     lines.push(`WhatsApp: ${plan.whatsappIncluded ? "Sim" : "Não"}`)
@@ -250,6 +275,7 @@ function getComparableFactRawValue(plan, field) {
   if (field === "attendance_limit") return plan.attendanceLimit
   if (field === "agent_limit") return plan.agentLimit
   if (field === "credit_limit") return plan.creditLimit
+  if (field === "marketplace_product_limit") return plan.marketplaceProductLimit
   if (field === "whatsapp_included") return plan.whatsappIncluded
   if (field === "support_level") return plan.supportLevel || null
   if (field === "price") return plan.amount
@@ -261,6 +287,7 @@ function buildComparisonFieldLabel(field) {
     attendance_limit: "Atendimentos",
     agent_limit: "Agentes",
     credit_limit: "Créditos",
+    marketplace_product_limit: "Produtos Mercado Livre",
     whatsapp_included: "WhatsApp",
     support_level: "Suporte",
     price: "Preco",
@@ -282,7 +309,7 @@ function rankSupportLevel(value) {
 }
 
 function isImprovementField(field) {
-  return ["attendance_limit", "agent_limit", "credit_limit", "whatsapp_included", "support_level"].includes(field)
+  return ["attendance_limit", "agent_limit", "credit_limit", "marketplace_product_limit", "whatsapp_included", "support_level"].includes(field)
 }
 
 function getFieldRankingValue(plan, field) {
@@ -296,6 +323,10 @@ function getFieldRankingValue(plan, field) {
 
   if (field === "whatsapp_included") {
     return Number(plan.whatsappIncluded === true)
+  }
+
+  if (field === "marketplace_product_limit" && plan.marketplaceProductLimit === "unlimited") {
+    return Number.MAX_SAFE_INTEGER
   }
 
   const rawValue = getComparableFactRawValue(plan, field)
@@ -321,6 +352,10 @@ function comparePlansByField(left, right, field) {
 
   if (field === "whatsapp_included") {
     return Number(leftValue === true) - Number(rightValue === true)
+  }
+
+  if (field === "marketplace_product_limit") {
+    return getFieldRankingValue(left, field) - getFieldRankingValue(right, field)
   }
 
   if (leftValue == null || rightValue == null) {
@@ -370,6 +405,10 @@ function buildFocusedComparisonReply(plans = [], fields = []) {
 }
 
 function buildFallbackFieldMissingReply(plan, field) {
+  if (field === "marketplace_product_limit") {
+    return `Não encontrei no catálogo limite estruturado de produtos do Mercado Livre para o plano ${plan.name}.`
+  }
+
   const fieldLabels = {
     attendance_limit: "limite estruturado de atendimentos",
     agent_limit: "limite estruturado de agentes",
@@ -392,6 +431,7 @@ function listStructuredFieldsForPlan(plan) {
   if (plan.attendanceLimit != null) fields.push("atendimentos")
   if (plan.agentLimit != null) fields.push("agentes")
   if (plan.creditLimit != null) fields.push("créditos")
+  if (plan.marketplaceProductLimit != null) fields.push("produtos Mercado Livre")
   if (plan.whatsappIncluded != null) fields.push("whatsapp")
   if (plan.supportLevel) fields.push("suporte")
   return fields
@@ -415,7 +455,7 @@ function deriveRecommendationFieldsFromPlans(plans = []) {
     return []
   }
 
-  const candidateFields = ["price", "attendance_limit", "agent_limit", "credit_limit", "whatsapp_included", "support_level"]
+  const candidateFields = ["price", "attendance_limit", "agent_limit", "credit_limit", "marketplace_product_limit", "whatsapp_included", "support_level"]
   return candidateFields.filter((field) => {
     const values = plans.map((plan) => getComparableFactRawValue(plan, field))
     if (values.some((value) => value == null)) {
@@ -541,6 +581,7 @@ function buildPlanRecommendation(items = [], targetField = "", currentPlan = nul
     attendance_limit: "attendanceLimit",
     agent_limit: "agentLimit",
     credit_limit: "creditLimit",
+    marketplace_product_limit: "marketplaceProductLimit",
   }
 
   const property = fieldMap[targetField]
@@ -549,16 +590,17 @@ function buildPlanRecommendation(items = [], targetField = "", currentPlan = nul
   }
 
   const sortedItems = comparableItems
-    .filter((item) => Number.isFinite(Number(item[property])))
+    .filter((item) => item[property] === "unlimited" || Number.isFinite(Number(item[property])))
     .slice()
-    .sort((left, right) => Number(left[property]) - Number(right[property]))
+    .sort((left, right) => getFieldRankingValue(left, targetField) - getFieldRankingValue(right, targetField))
 
   if (!sortedItems.length) {
     return null
   }
 
-  if (currentPlan && Number.isFinite(Number(currentPlan[property]))) {
-    const nextPlan = sortedItems.find((item) => Number(item[property]) > Number(currentPlan[property]))
+  if (currentPlan && getFieldRankingValue(currentPlan, targetField) != null) {
+    const currentValue = getFieldRankingValue(currentPlan, targetField)
+    const nextPlan = sortedItems.find((item) => getFieldRankingValue(item, targetField) > currentValue)
     if (nextPlan) {
       return nextPlan
     }

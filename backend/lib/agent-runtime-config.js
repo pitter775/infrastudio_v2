@@ -44,6 +44,10 @@ function normalizePricingCatalogItems(value) {
         attendanceLimit: typeof item.attendanceLimit === "number" ? item.attendanceLimit : null,
         agentLimit: typeof item.agentLimit === "number" ? item.agentLimit : null,
         creditLimit: typeof item.creditLimit === "number" ? item.creditLimit : null,
+        marketplaceProductLimit:
+          typeof item.marketplaceProductLimit === "number" || item.marketplaceProductLimit === "unlimited"
+            ? item.marketplaceProductLimit
+            : null,
         whatsappIncluded: typeof item.whatsappIncluded === "boolean" ? item.whatsappIncluded : null,
         supportLevel: normalizeString(item.supportLevel),
         features: normalizeStringArray(item.features),
@@ -82,6 +86,58 @@ export function normalizeAgentRuntimeConfig(input) {
       ctaMultiple: normalizeString(input.pricingCatalog?.ctaMultiple),
       items: normalizePricingCatalogItems(input.pricingCatalog?.items),
     }),
+    integrations: compactObject({
+      googleAgenda:
+        input.integrations?.googleAgenda && typeof input.integrations.googleAgenda === "object"
+          ? compactObject({
+              enabled: typeof input.integrations.googleAgenda.enabled === "boolean" ? input.integrations.googleAgenda.enabled : null,
+              requiresConnection:
+                typeof input.integrations.googleAgenda.requiresConnection === "boolean"
+                  ? input.integrations.googleAgenda.requiresConnection
+                  : null,
+              canCheckAvailability:
+                typeof input.integrations.googleAgenda.canCheckAvailability === "boolean"
+                  ? input.integrations.googleAgenda.canCheckAvailability
+                  : null,
+              canCreateEvents:
+                typeof input.integrations.googleAgenda.canCreateEvents === "boolean"
+                  ? input.integrations.googleAgenda.canCreateEvents
+                  : null,
+              canRescheduleEvents:
+                typeof input.integrations.googleAgenda.canRescheduleEvents === "boolean"
+                  ? input.integrations.googleAgenda.canRescheduleEvents
+                  : null,
+              canCancelEvents:
+                typeof input.integrations.googleAgenda.canCancelEvents === "boolean"
+                  ? input.integrations.googleAgenda.canCancelEvents
+                  : null,
+              requiredFields: normalizeStringArray(input.integrations.googleAgenda.requiredFields),
+              fallbackWhenDisconnected: normalizeString(input.integrations.googleAgenda.fallbackWhenDisconnected),
+            })
+          : null,
+      apis:
+        input.integrations?.apis && typeof input.integrations.apis === "object"
+          ? compactObject({
+              enabled: typeof input.integrations.apis.enabled === "boolean" ? input.integrations.apis.enabled : null,
+              purpose: normalizeString(input.integrations.apis.purpose),
+              expectedContent: normalizeStringArray(input.integrations.apis.expectedContent),
+              runtimePolicy: normalizeString(input.integrations.apis.runtimePolicy),
+              endpoints: Array.isArray(input.integrations.apis.endpoints)
+                ? input.integrations.apis.endpoints
+                    .map((item) =>
+                      compactObject({
+                        url: normalizeString(item?.url),
+                        method: normalizeString(item?.method),
+                        description: normalizeString(item?.description),
+                        expectedContent: normalizeStringArray(item?.expectedContent),
+                      })
+                    )
+                    .filter((item) => Object.keys(item).length > 0)
+                    .slice(0, 8)
+                : [],
+            })
+          : null,
+    }),
   })
 
   return Object.keys(normalized).length ? normalized : null
@@ -118,12 +174,32 @@ export function buildAgentRuntimeConfigTemplate() {
           attendanceLimit: 100,
           agentLimit: 1,
           creditLimit: 200000,
+          marketplaceProductLimit: 50,
           whatsappIncluded: true,
           supportLevel: "padrao",
           features: ["recurso 1", "recurso 2"],
           channels: ["web", "whatsapp"],
         },
       ],
+    },
+    integrations: {
+      googleAgenda: {
+        enabled: false,
+        requiresConnection: true,
+        canCheckAvailability: true,
+        canCreateEvents: true,
+        canRescheduleEvents: true,
+        canCancelEvents: true,
+        requiredFields: ["nome", "contato", "data", "horario", "servico"],
+        fallbackWhenDisconnected: "Conecte o Google Agenda no painel do projeto para confirmar horarios.",
+      },
+      apis: {
+        enabled: false,
+        purpose: "Consultar dados externos quando o cliente pedir informacao que depende de outro sistema.",
+        expectedContent: ["produtos", "pedidos", "status", "precos"],
+        runtimePolicy: "Use APIs cadastradas e vinculadas ao agente. Nao invente dados que deveriam vir da API.",
+        endpoints: [],
+      },
     },
   }
 }

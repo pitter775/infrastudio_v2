@@ -1,5 +1,6 @@
 import "server-only"
 
+import { normalizeAgentStructuredConfig } from "@/lib/agent-structured-config"
 import { createDefaultAgenteForUser, listAgentVersionsForUser } from "@/lib/agentes"
 import { listAgentApiIdsForUser } from "@/lib/apis"
 import { getProjectBillingSnapshot } from "@/lib/billing"
@@ -229,6 +230,14 @@ async function getActiveAgent(supabase, projectId) {
       data.configuracoes?.runtimeConfig && typeof data.configuracoes.runtimeConfig === "object"
         ? data.configuracoes.runtimeConfig
       : null,
+    structuredConfig:
+      data.configuracoes?.structuredConfig && typeof data.configuracoes.structuredConfig === "object"
+        ? normalizeAgentStructuredConfig(data.configuracoes.structuredConfig)
+        : null,
+    structuredConfigDraft:
+      data.configuracoes?.structuredConfigDraft && typeof data.configuracoes.structuredConfigDraft === "object"
+        ? normalizeAgentStructuredConfig(data.configuracoes.structuredConfigDraft)
+        : null,
   }
 }
 
@@ -270,6 +279,14 @@ async function getProjectAgent(supabase, projectId) {
     runtimeConfig:
       data.configuracoes?.runtimeConfig && typeof data.configuracoes.runtimeConfig === "object"
         ? data.configuracoes.runtimeConfig
+        : null,
+    structuredConfig:
+      data.configuracoes?.structuredConfig && typeof data.configuracoes.structuredConfig === "object"
+        ? normalizeAgentStructuredConfig(data.configuracoes.structuredConfig)
+        : null,
+    structuredConfigDraft:
+      data.configuracoes?.structuredConfigDraft && typeof data.configuracoes.structuredConfigDraft === "object"
+        ? normalizeAgentStructuredConfig(data.configuracoes.structuredConfigDraft)
         : null,
   }
 }

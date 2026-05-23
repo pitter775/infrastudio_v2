@@ -1,5 +1,6 @@
 import "server-only"
 
+import { normalizeAgentStructuredConfig } from "@/lib/agent-structured-config"
 import { normalizeAgentRuntimeConfig } from "@/lib/agent-runtime-config"
 import { getOrCreateDefaultModelId } from "@/lib/modelos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
@@ -60,6 +61,14 @@ function mapAgent(row) {
       configuracoes.runtimeConfig && typeof configuracoes.runtimeConfig === "object" && !Array.isArray(configuracoes.runtimeConfig)
         ? normalizeAgentRuntimeConfig(configuracoes.runtimeConfig)
         : null,
+    structuredConfig:
+      configuracoes.structuredConfig && typeof configuracoes.structuredConfig === "object" && !Array.isArray(configuracoes.structuredConfig)
+        ? normalizeAgentStructuredConfig(configuracoes.structuredConfig)
+        : null,
+    structuredConfigDraft:
+      configuracoes.structuredConfigDraft && typeof configuracoes.structuredConfigDraft === "object" && !Array.isArray(configuracoes.structuredConfigDraft)
+        ? normalizeAgentStructuredConfig(configuracoes.structuredConfigDraft)
+        : null,
     active: row.ativo !== false,
     projectId: row.projeto_id ?? null,
     modelId: row.modelo_id ?? null,
@@ -88,6 +97,10 @@ function mapAgentVersion(row) {
     runtimeConfig:
       configuracoes.runtimeConfig && typeof configuracoes.runtimeConfig === "object" && !Array.isArray(configuracoes.runtimeConfig)
         ? normalizeAgentRuntimeConfig(configuracoes.runtimeConfig)
+        : null,
+    structuredConfig:
+      configuracoes.structuredConfig && typeof configuracoes.structuredConfig === "object" && !Array.isArray(configuracoes.structuredConfig)
+        ? normalizeAgentStructuredConfig(configuracoes.structuredConfig)
         : null,
     active: row.ativo !== false,
     source: row.source || "manual_update",

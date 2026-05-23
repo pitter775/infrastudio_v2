@@ -42,6 +42,8 @@ function buildEditorState(agent) {
     description: agent?.description || "",
     prompt: agent?.prompt || "",
     runtimeConfig: agent?.runtimeConfig ? JSON.stringify(normalizeAgentRuntimeConfig(agent.runtimeConfig), null, 2) : "",
+    structuredConfigDraft: agent?.structuredConfigDraft || null,
+    structuredConfig: agent?.structuredConfig || null,
     active: agent?.active !== false,
   }
 }
@@ -58,10 +60,12 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
         description: agent?.description || "",
         prompt: agent?.prompt || "",
         runtimeConfig: agent?.runtimeConfig ?? null,
+        structuredConfig: agent?.structuredConfig ?? null,
+        structuredConfigDraft: agent?.structuredConfigDraft ?? null,
         active: agent?.active !== false,
         versions: agent?.versions || [],
       }),
-    [agent?.active, agent?.description, agent?.id, agent?.name, agent?.prompt, agent?.runtimeConfig, agent?.versions],
+    [agent?.active, agent?.description, agent?.id, agent?.name, agent?.prompt, agent?.runtimeConfig, agent?.structuredConfig, agent?.structuredConfigDraft, agent?.versions],
   )
   const initialEditorState = useMemo(() => buildEditorState(agent), [agent])
   const [name, setName] = useState(initialEditorState.name)
@@ -70,9 +74,12 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
   const [runtimeConfig, setRuntimeConfig] = useState(initialEditorState.runtimeConfig)
   const [active, setActive] = useState(initialEditorState.active)
   const [lastSavedState, setLastSavedState] = useState(initialEditorState)
+  const [structuredDraft, setStructuredDraft] = useState(initialEditorState.structuredConfigDraft)
   const [versions, setVersions] = useState(agent?.versions || [])
   const [status, setStatus] = useState({ type: "idle", message: "" })
   const [saving, setSaving] = useState(false)
+  const [structuring, setStructuring] = useState(false)
+  const [applyingStructure, setApplyingStructure] = useState(false)
   const [restoringId, setRestoringId] = useState("")
   const [testOpen, setTestOpen] = useState(false)
   const [setupBusinessContext, setSetupBusinessContext] = useState("")
@@ -94,6 +101,7 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
     setRuntimeConfig(initialEditorState.runtimeConfig)
     setActive(initialEditorState.active)
     setLastSavedState(initialEditorState)
+    setStructuredDraft(initialEditorState.structuredConfigDraft)
     setVersions(agent?.versions || [])
   }, [agent?.versions, agentSourceSnapshot, initialEditorState])
 
@@ -103,14 +111,128 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
       description: nextAgent?.descricao || nextAgent?.description || "",
       prompt: nextAgent?.promptBase || nextAgent?.prompt || "",
       runtimeConfig: nextAgent?.runtimeConfig ? JSON.stringify(normalizeAgentRuntimeConfig(nextAgent.runtimeConfig), null, 2) : "",
+      structuredConfigDraft: nextAgent?.structuredConfigDraft || null,
+      structuredConfig: nextAgent?.structuredConfig || null,
       active: nextAgent?.ativo !== false && nextAgent?.active !== false,
     }
     setName(nextState.name)
     setDescription(nextState.description)
     setPrompt(nextState.prompt)
     setRuntimeConfig(nextState.runtimeConfig)
+    setStructuredDraft(nextState.structuredConfigDraft)
     setActive(nextState.active)
     setLastSavedState(nextState)
+  }
+
+  async function handleStructureAgent(mode = "analyze") {
+    if (!agent?.id || structuring) {
+      return
+    }
+
+    setStructuring(true)
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "structure_agent_text",
+          mode,
+          sourceText: prompt,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível organizar o agente.")
+      }
+
+      setStructuredDraft(data.draft?.structuredConfig || data.agent?.structuredConfigDraft || null)
+      if (Array.isArray(data.versions)) {
+        setVersions(data.versions)
+      }
+      setStatus({ type: "success", message: "Rascunho estruturado criado. Revise e aplique quando estiver correto." })
+      router.refresh()
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setStructuring(false)
+    }
+  }
+
+  async function handleApplyStructuredConfig() {
+    if (!agent?.id || !structuredDraft || applyingStructure) {
+      return
+    }
+
+    setApplyingStructure(true)
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "apply_structured_config",
+          structuredConfig: structuredDraft,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível aplicar a estrutura.")
+      }
+
+      applyAgentState(data.agent)
+      setStructuredDraft(null)
+      setVersions(Array.isArray(data.versions) ? data.versions : [])
+      setStatus({ type: "success", message: "Estrutura aplicada ao agente." })
+      router.refresh()
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setApplyingStructure(false)
+    }
+  }
+
+  async function handleDiscardStructuredDraft() {
+    if (!agent?.id || !structuredDraft || applyingStructure) {
+      return
+    }
+
+    setApplyingStructure(true)
+    setStatus({ type: "idle", message: "" })
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          action: "discard_structured_config_draft",
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || "Não foi possível descartar o rascunho.")
+      }
+
+      setStructuredDraft(null)
+      setVersions(Array.isArray(data.versions) ? data.versions : [])
+      setStatus({ type: "success", message: "Rascunho descartado." })
+      router.refresh()
+    } catch (error) {
+      setStatus({ type: "error", message: error.message })
+    } finally {
+      setApplyingStructure(false)
+    }
   }
 
   async function handleSubmit(event) {
@@ -405,6 +527,72 @@ export function AgentEditor({ project, onAgentSummaryChange }) {
             required
           />
         </label>
+
+        <div className="rounded-lg border border-sky-200 bg-sky-50 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-sky-950">Estrutura do agente</p>
+              <p className="text-xs text-sky-700">Organize o texto em campos estruturados antes de ativar no runtime.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-2 border-sky-300 bg-white text-sky-800 hover:bg-sky-100"
+                disabled={structuring || !prompt.trim()}
+                onClick={() => handleStructureAgent(agent?.structuredConfig ? "update" : "analyze")}
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                {structuring ? "Organizando..." : agent?.structuredConfig ? "Atualizar com IA" : "Organizar com IA"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-sky-300 bg-white text-sky-800 hover:bg-sky-100"
+                disabled={structuring || !prompt.trim()}
+                onClick={() => handleStructureAgent("reset")}
+              >
+                Resetar e importar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={applyingStructure || !structuredDraft}
+                onClick={handleApplyStructuredConfig}
+              >
+                {applyingStructure ? "Aplicando..." : "Aplicar estrutura"}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={applyingStructure || !structuredDraft}
+                onClick={handleDiscardStructuredDraft}
+              >
+                Descartar
+              </Button>
+            </div>
+          </div>
+
+          {structuredDraft ? (
+            <div className="mt-3 rounded-lg border border-sky-200 bg-white p-3">
+              <div className="grid gap-2 text-xs text-zinc-700 sm:grid-cols-4">
+                <span>Tipo: {structuredDraft.diagnostics?.detectedType || "detectado por IA"}</span>
+                <span>Planos: {structuredDraft.pricingCatalog?.items?.length || 0}</span>
+                <span>Conhecimento: {structuredDraft.knowledgeBase?.length || 0}</span>
+                <span>Módulos: {structuredDraft.diagnostics?.modules?.length || 0}</span>
+              </div>
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-sky-800">Ver JSON do rascunho</summary>
+                <pre className="mt-2 max-h-64 overflow-auto rounded-lg bg-zinc-950 p-3 text-xs text-zinc-100">
+                  {JSON.stringify(structuredDraft, null, 2)}
+                </pre>
+              </details>
+            </div>
+          ) : null}
+        </div>
 
         <label className="block">
           <span className="text-sm font-medium text-zinc-700">Descrição</span>

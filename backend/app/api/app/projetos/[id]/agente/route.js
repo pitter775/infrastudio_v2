@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server"
 
+import {
+  buildAgentRuntimeConfigFromStructuredConfig,
+  buildAgentStructuredConfigDraft,
+  normalizeAgentStructuredConfig,
+} from "@/lib/agent-structured-config"
 import { createDefaultAgenteForUser, listAgentVersionsForUser, restoreAgentVersionForUser, updateAgenteForUser } from "@/lib/agentes"
 import { ensureDefaultChatWidgetForAgent } from "@/lib/chat-widgets"
 import { validateJsonObjectConfig } from "@/lib/json-validation"
@@ -141,6 +146,116 @@ export async function POST(request, context) {
 
   if (!project?.agent?.id) {
     return NextResponse.json({ error: "Agente não encontrado." }, { status: 404 })
+  }
+
+  if (body.action === "structure_agent_text") {
+    const sourceText = String(body.sourceText || project.agent.prompt || "").trim()
+    if (!sourceText) {
+      return NextResponse.json({ error: "Informe um texto para organizar." }, { status: 400 })
+    }
+
+    const draft = await buildAgentStructuredConfigDraft({
+      sourceText,
+      mode: body.mode === "update" ? "update" : body.mode === "reset" ? "reset" : "analyze",
+      currentStructuredConfig: project.agent.structuredConfig,
+      openAiKey: process.env.OPENAI_API_KEY?.trim(),
+      model: process.env.OPENAI_CHAT_MODEL?.trim() || "gpt-4o-mini",
+    })
+
+    if (!draft?.structuredConfig) {
+      return NextResponse.json({ error: "NÃ£o foi possÃ­vel organizar o texto do agente." }, { status: 500 })
+    }
+
+    const nextConfiguracoes = {
+      ...(project.agent.configuracoes || {}),
+      structuredConfigDraft: draft.structuredConfig,
+      structuredConfigDraftRuntimeConfig: draft.runtimeConfig,
+    }
+
+    const agent = await updateAgenteForUser(
+      {
+        agenteId: project.agent.id,
+        projetoId: project.id,
+        name: project.agent.name,
+        description: project.agent.description,
+        prompt: project.agent.prompt,
+        active: project.agent.active,
+        runtimeConfig: project.agent.runtimeConfig,
+        configuracoes: nextConfiguracoes,
+      },
+      user,
+    )
+
+    if (!agent) {
+      return NextResponse.json({ error: "NÃ£o foi possÃ­vel salvar o rascunho estruturado." }, { status: 500 })
+    }
+
+    const versions = await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user)
+    return NextResponse.json({ agent: { ...agent, versions }, draft, versions }, { status: 200 })
+  }
+
+  if (body.action === "apply_structured_config") {
+    const structuredConfig = normalizeAgentStructuredConfig(body.structuredConfig || project.agent.structuredConfigDraft)
+    if (!structuredConfig) {
+      return NextResponse.json({ error: "Rascunho estruturado invÃ¡lido." }, { status: 400 })
+    }
+
+    const runtimeConfig = buildAgentRuntimeConfigFromStructuredConfig(structuredConfig)
+    const nextConfiguracoes = {
+      ...(project.agent.configuracoes || {}),
+      structuredConfig,
+      runtimeConfig,
+    }
+    delete nextConfiguracoes.structuredConfigDraft
+    delete nextConfiguracoes.structuredConfigDraftRuntimeConfig
+
+    const agent = await updateAgenteForUser(
+      {
+        agenteId: project.agent.id,
+        projetoId: project.id,
+        name: project.agent.name,
+        description: project.agent.description,
+        prompt: project.agent.prompt,
+        active: project.agent.active,
+        runtimeConfig,
+        configuracoes: nextConfiguracoes,
+      },
+      user,
+    )
+
+    if (!agent) {
+      return NextResponse.json({ error: "NÃ£o foi possÃ­vel aplicar a estrutura do agente." }, { status: 500 })
+    }
+
+    const versions = await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user)
+    return NextResponse.json({ agent: { ...agent, versions }, versions }, { status: 200 })
+  }
+
+  if (body.action === "discard_structured_config_draft") {
+    const nextConfiguracoes = { ...(project.agent.configuracoes || {}) }
+    delete nextConfiguracoes.structuredConfigDraft
+    delete nextConfiguracoes.structuredConfigDraftRuntimeConfig
+
+    const agent = await updateAgenteForUser(
+      {
+        agenteId: project.agent.id,
+        projetoId: project.id,
+        name: project.agent.name,
+        description: project.agent.description,
+        prompt: project.agent.prompt,
+        active: project.agent.active,
+        runtimeConfig: project.agent.runtimeConfig,
+        configuracoes: nextConfiguracoes,
+      },
+      user,
+    )
+
+    if (!agent) {
+      return NextResponse.json({ error: "NÃ£o foi possÃ­vel descartar o rascunho." }, { status: 500 })
+    }
+
+    const versions = await listAgentVersionsForUser({ agenteId: agent.id, projetoId: project.id }, user)
+    return NextResponse.json({ agent: { ...agent, versions }, versions }, { status: 200 })
   }
 
   if (body.action !== "restore_version" || !body.versionId) {

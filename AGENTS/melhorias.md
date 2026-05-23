@@ -84,10 +84,13 @@ Regra:
   5. script de preparo da loja de teste real ja valida snapshot e rota publica
   6. chat/widget ja tratam listagem estruturada, contagem filtrada e continuidade de catalogo
   7. enriquecimento opcional por HTML/categoria nao derruba mais o carregamento quando origem externa falha
+  8. loja publica ja suporta dominio proprio do cliente com DNS/Vercel
+  9. dashboard analitico de vendas existe mediante ativacao explicita
   Pendente:
   1. validar fluxo em conta real ou sandbox
   2. confirmar permissoes reais de OAuth, pedidos e perguntas
   3. monitorar consistencia de sync de catalogo/snapshot em uso continuo
+  4. validar dominio proprio em ambiente real com DNS propagado
 
 - Billing por projeto / Mercado Pago: fechar operacao e limpeza final do fluxo de recarga.
   Estado atual:
@@ -110,6 +113,8 @@ Regra:
   3. reserva existe
   4. skill de agenda no chat existe
   5. auto-cadastro das APIs no agente existe
+  6. OAuth Google, selecao de calendario e configuracoes de disponibilidade existem
+  7. runtime ja tem funcoes de criar, remarcar, cancelar e checar disponibilidade no Google Agenda
   Pendente:
   1. validar reserva via chat em fluxo completo
   2. revisar comportamento real de coleta de contato antes da confirmacao
