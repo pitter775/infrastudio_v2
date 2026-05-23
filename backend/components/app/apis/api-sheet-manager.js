@@ -1220,7 +1220,7 @@ export function ApiSheetManager({
   }
 
   async function loadApiDetail(api) {
-    if (api?.config !== null) {
+    if (api?.config && typeof api.config === "object") {
       return api
     }
 
@@ -1237,6 +1237,7 @@ export function ApiSheetManager({
   }
 
   async function startEdit(api) {
+    setForm(buildFormFromApi(normalizeInitialApi(api || {})))
     setMode("editor")
     setEditorTab("body")
     setBodySubtab("fields")
