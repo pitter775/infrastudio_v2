@@ -342,6 +342,7 @@ function getApiAgentDescription(apiOrForm) {
     apiOrForm?.config?.runtime?.descriptionForIntent ||
       apiOrForm?.runtimeDescriptionForIntent ||
       apiOrForm?.description ||
+      apiOrForm?.descricao ||
       "",
   ).trim()
 }
@@ -797,14 +798,14 @@ function resolveRuntimeConfig(config) {
 }
 
 function normalizeInitialApi(api) {
-  const config = api.config ?? null
+  const config = api.config ?? api.configuracoes ?? null
   return {
     id: api.id,
-    name: api.name,
-    url: api.url,
+    name: api.name ?? api.nome ?? "",
+    url: api.url ?? "",
     description: getApiAgentDescription({ ...api, config }),
-    active: api.active !== false,
-    method: api.method || "GET",
+    active: api.active === false || api.ativo === false ? false : true,
+    method: api.method || api.metodo || "GET",
     config,
   }
 }
