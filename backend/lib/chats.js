@@ -7,6 +7,28 @@ function normalizeOptionalText(value) {
   return normalized ? normalized : null
 }
 
+function normalizeContactName(value) {
+  const normalized = normalizeOptionalText(value)?.replace(/\s+/g, " ") ?? null
+  if (!normalized) {
+    return null
+  }
+
+  const comparable = normalized
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
+  if (comparable === "cliente whatsapp" || comparable === "cliente do whatsapp" || comparable === "whatsapp") {
+    return null
+  }
+
+  if (/^\+?\d[\d\s().-]{7,}\d$/.test(normalized)) {
+    return null
+  }
+
+  return normalized
+}
+
 export function extractChatContactSnapshot(contexto, fallbackExternalIdentifier) {
   const lead =
     contexto && typeof contexto.lead === "object" && contexto.lead !== null && !Array.isArray(contexto.lead)
@@ -21,19 +43,47 @@ export function extractChatContactSnapshot(contexto, fallbackExternalIdentifier)
     whatsapp?.rawContact && typeof whatsapp.rawContact === "object" && !Array.isArray(whatsapp.rawContact)
       ? whatsapp.rawContact
       : null
+  const rawMessage =
+    whatsapp?.rawMessage && typeof whatsapp.rawMessage === "object" && !Array.isArray(whatsapp.rawMessage)
+      ? whatsapp.rawMessage
+      : null
+  const rawData = rawMessage?._data && typeof rawMessage._data === "object" && !Array.isArray(rawMessage._data)
+    ? rawMessage._data
+    : null
+  const rawSender = rawData?.sender && typeof rawData.sender === "object" && !Array.isArray(rawData.sender)
+    ? rawData.sender
+    : null
 
   return {
     contatoNome:
-      normalizeOptionalText(lead?.nome) ??
-      normalizeOptionalText(lead?.name) ??
-      normalizeOptionalText(whatsapp?.contactName) ??
-      normalizeOptionalText(whatsapp?.pushName) ??
-      normalizeOptionalText(whatsapp?.shortName) ??
-      normalizeOptionalText(whatsapp?.displayName) ??
-      normalizeOptionalText(rawContact?.name) ??
-      normalizeOptionalText(rawContact?.pushname) ??
-      normalizeOptionalText(rawContact?.shortName) ??
-      normalizeOptionalText(rawContact?.verifiedName),
+      normalizeContactName(lead?.nome) ??
+      normalizeContactName(lead?.name) ??
+      normalizeContactName(whatsapp?.contactName) ??
+      normalizeContactName(whatsapp?.pushName) ??
+      normalizeContactName(whatsapp?.pushname) ??
+      normalizeContactName(whatsapp?.shortName) ??
+      normalizeContactName(whatsapp?.displayName) ??
+      normalizeContactName(whatsapp?.name) ??
+      normalizeContactName(whatsapp?.notifyName) ??
+      normalizeContactName(whatsapp?.senderName) ??
+      normalizeContactName(whatsapp?.chatName) ??
+      normalizeContactName(whatsapp?.formattedName) ??
+      normalizeContactName(whatsapp?.verifiedName) ??
+      normalizeContactName(rawContact?.name) ??
+      normalizeContactName(rawContact?.pushname) ??
+      normalizeContactName(rawContact?.pushName) ??
+      normalizeContactName(rawContact?.shortName) ??
+      normalizeContactName(rawContact?.displayName) ??
+      normalizeContactName(rawContact?.notifyName) ??
+      normalizeContactName(rawContact?.formattedName) ??
+      normalizeContactName(rawContact?.verifiedName) ??
+      normalizeContactName(rawData?.notifyName) ??
+      normalizeContactName(rawData?.pushName) ??
+      normalizeContactName(rawData?.pushname) ??
+      normalizeContactName(rawSender?.name) ??
+      normalizeContactName(rawSender?.pushname) ??
+      normalizeContactName(rawSender?.pushName) ??
+      normalizeContactName(rawSender?.verifiedName),
     contatoTelefone:
       normalizeOptionalText(lead?.telefone) ??
       normalizeOptionalText(lead?.phone) ??

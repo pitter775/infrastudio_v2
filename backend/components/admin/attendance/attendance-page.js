@@ -389,6 +389,11 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
 
 function MessageBubble({ message, isAdmin = false }) {
   const isAgent = message.autor === "atendente"
+  const senderLabel = isAgent
+    ? message.senderType === "human"
+      ? message.senderName || "Atendimento humano"
+      : message.senderName || "Agente"
+    : "Cliente"
   const originLabel = message.origem === "whatsapp" || message.canal === "whatsapp" ? "WhatsApp" : "Site"
   const OriginIcon = originLabel === "WhatsApp" ? MessageSquareText : Globe
   const [showAiTrace, setShowAiTrace] = useState(false)
@@ -416,7 +421,7 @@ function MessageBubble({ message, isAdmin = false }) {
         )}
       >
         <div className={cn("text-[9px] font-semibold uppercase tracking-[0.22em]", labelClassName)}>
-          {isAgent ? "Administrador" : "Cliente"}
+          {senderLabel}
         </div>
         <div
           className={cn("mt-2 leading-6", contentClassName)}
@@ -638,6 +643,18 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
   const [attachments, setAttachments] = useState([])
   const [isSending, setIsSending] = useState(false)
   const [attachmentFeedback, setAttachmentFeedback] = useState("")
+  const [sendError, setSendError] = useState("")
+  const attendants = useMemo(() => (Array.isArray(conversation?.atendentes) ? conversation.atendentes : []), [conversation?.atendentes])
+  const attendantOptions = useMemo(
+    () =>
+      attendants.map((item) => ({
+        value: item.id,
+        label: item.papel ? `${item.nome} · ${item.papel}` : item.nome,
+      })),
+    [attendants],
+  )
+  const attendantSignature = useMemo(() => attendants.map((item) => item.id).join("|"), [attendants])
+  const [selectedAttendantId, setSelectedAttendantId] = useState(attendants.length === 1 ? attendants[0].id : "")
   const inputRef = useRef(null)
   const touchTimerRef = useRef(null)
   const claimInFlightRef = useRef(false)
@@ -660,6 +677,11 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
     },
     []
   )
+
+  useEffect(() => {
+    setSelectedAttendantId(attendants.length === 1 ? attendants[0].id : "")
+    setSendError("")
+  }, [conversation?.id, attendantSignature, attendants])
 
   async function signalHumanActivity(mode = "touch") {
     if (!conversation?.id) {
@@ -727,7 +749,13 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
       return
     }
 
+    if (attendantOptions.length > 1 && !selectedAttendantId) {
+      setSendError("Selecione quem está respondendo.")
+      return
+    }
+
     setIsSending(true)
+    setSendError("")
 
     try {
       const messageResponse = await fetch(
@@ -737,7 +765,7 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ texto: nextText, attachments }),
+          body: JSON.stringify({ texto: nextText, attachments, attendantId: selectedAttendantId || undefined }),
         }
       )
       const messageData = await messageResponse.json()
@@ -751,7 +779,11 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
         setTexto("")
         setAttachments([])
         setAttachmentFeedback("")
+      } else {
+        setSendError(messageData.error || "Não foi possível enviar a mensagem.")
       }
+    } catch {
+      setSendError("Não foi possível enviar a mensagem.")
     } finally {
       setIsSending(false)
     }
@@ -763,6 +795,20 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
         onSubmit={handleSubmit}
         className="rounded-[16px] border border-black/40 bg-[#07101d]/80 px-3 py-2 outline outline-2 outline-transparent transition-colors hover:border-white/20 hover:outline-black/20 focus-within:border-sky-400/30 focus-within:outline-black/20"
       >
+        {attendantOptions.length > 1 ? (
+          <div className="mb-2 max-w-xs">
+            <AppSelect
+              instanceId={`attendant-${conversation.id}`}
+              options={attendantOptions}
+              value={selectedAttendantId}
+              onChangeValue={setSelectedAttendantId}
+              placeholder="Quem está respondendo?"
+              minHeight={34}
+              menuPlacement="top"
+              disablePortal
+            />
+          </div>
+        ) : null}
         <textarea
           ref={inputRef}
           value={texto}
@@ -799,6 +845,9 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
         />
         {attachmentFeedback ? (
           <div className="mb-2 text-[11px] text-amber-200">{attachmentFeedback}</div>
+        ) : null}
+        {sendError ? (
+          <div className="mb-2 text-[11px] text-rose-200">{sendError}</div>
         ) : null}
         {attachments.length ? (
           <div className="mb-2 flex flex-wrap gap-2 text-[11px] text-slate-400">
@@ -864,7 +913,7 @@ function Composer({ conversation, onMessageSent, onStatusChanged }) {
           </div>
           <Button
             type="submit"
-            disabled={(!texto.trim() && attachments.length === 0) || isSending}
+            disabled={(!texto.trim() && attachments.length === 0) || isSending || (attendantOptions.length > 1 && !selectedAttendantId)}
             className={cn(
               "h-10 w-10 rounded-xl bg-transparent p-0 text-sky-200 shadow-none hover:bg-sky-500/12 hover:text-white",
               (texto.trim() || attachments.length > 0) && "bg-sky-500 text-white hover:bg-sky-400"

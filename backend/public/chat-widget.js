@@ -649,6 +649,8 @@
       ".chat-rich li + li { margin-top: 6px; }",
       ".chat-rich strong { font-weight: 700; color: " + (theme === "light" ? "#0f172a" : "rgba(255,255,255,0.94)") + "; }",
       ".chat-bubble.user .chat-rich strong { color: inherit; }",
+      ".chat-rich a { color: " + accent + "; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; word-break: break-word; }",
+      ".chat-rich a:hover { filter: brightness(1.08); }",
       ".chat-ui { display: flex; flex-direction: column; gap: 10px; }",
       ".chat-ui-text.is-title { font-size: 13px; line-height: 1.35; font-weight: 700; letter-spacing: .01em; color: " + (theme === "light" ? "#0f172a" : "rgba(255,255,255,0.96)") + "; }",
       ".chat-ui-text.is-subtitle { font-size: 11px; line-height: 1.45; color: " + (theme === "light" ? "#475569" : "rgba(148,163,184,0.9)") + "; }",
@@ -1234,10 +1236,23 @@
       emojiTool.classList.toggle("is-active", emojiPickerOpen);
     }
 
+    function linkifyPlainUrls(value) {
+      return String(value || "").replace(/(^|[\s(])((?:https?:\/\/|www\.)[^\s<>"']+)/gi, function (_, prefix, rawUrl) {
+        var trailing = "";
+        var url = rawUrl;
+        while (/[),.!?:;]$/.test(url)) {
+          trailing = url.slice(-1) + trailing;
+          url = url.slice(0, -1);
+        }
+        var href = /^www\./i.test(url) ? "https://" + url : url;
+        return prefix + '<a href="' + href + '" target="_blank" rel="noreferrer noopener">' + url + "</a>" + trailing;
+      });
+    }
+
     function formatInline(value) {
-      return escapeHtml(value)
+      return linkifyPlainUrls(escapeHtml(value)
         .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-        .replace(/__(.+?)__/g, "<strong>$1</strong>");
+        .replace(/__(.+?)__/g, "<strong>$1</strong>"));
     }
 
     function buildLineTag(tag) {

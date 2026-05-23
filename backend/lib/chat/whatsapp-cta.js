@@ -56,6 +56,7 @@ function summarizeTextForWhatsApp(value, maxLength = 180) {
 }
 
 function buildWhatsAppPrefilledMessage(input = {}) {
+  const conversationSummary = summarizeTextForWhatsApp(input.conversationSummary, 420)
   const userSummary = summarizeTextForWhatsApp(input.userMessage, 180)
   const assistantSummary = summarizeTextForWhatsApp(
     sanitizeReplyForWhatsAppCta(`${input.reply || ""}\n${input.followUpReply || ""}`, "Continuar no WhatsApp"),
@@ -64,8 +65,13 @@ function buildWhatsAppPrefilledMessage(input = {}) {
 
   const lines = ["Oi! Vim do chat do site e quero continuar por aqui."]
 
+  if (conversationSummary) {
+    lines.push("", "Resumo rápido:", `- Contexto: ${conversationSummary}`)
+    return lines.join("\n").trim()
+  }
+
   if (userSummary || assistantSummary) {
-    lines.push("", "Resumo rapido:")
+    lines.push("", "Resumo rápido:")
   }
 
   if (userSummary) {
@@ -92,7 +98,7 @@ function buildWhatsAppActionPayload(input = {}) {
     label: "Continuar no WhatsApp",
     icon: "whatsapp",
     url: `https://wa.me/${destination}${prefilledMessage ? `?text=${encodeURIComponent(prefilledMessage)}` : ""}`,
-    summary: "Leva um resumo rapido desta conversa.",
+    summary: "Leva um resumo rápido desta conversa.",
   }
 }
 

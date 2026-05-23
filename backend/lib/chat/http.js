@@ -26,6 +26,53 @@ export function emptyChatOptionsResponse(origin) {
   })
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value)
+}
+
+function mergeInboundWhatsAppContext(body) {
+  const baseContext = isPlainObject(body.context) ? body.context : {}
+  const baseWhatsApp = isPlainObject(baseContext.whatsapp) ? baseContext.whatsapp : {}
+  const topLevelWhatsApp = isPlainObject(body.whatsapp) ? body.whatsapp : {}
+  const rawContact = isPlainObject(topLevelWhatsApp.rawContact)
+    ? topLevelWhatsApp.rawContact
+    : isPlainObject(body.rawContact)
+      ? body.rawContact
+      : null
+  const rawMessage = isPlainObject(topLevelWhatsApp.rawMessage)
+    ? topLevelWhatsApp.rawMessage
+    : isPlainObject(body.rawMessage)
+      ? body.rawMessage
+      : null
+  const topLevelCandidates = {
+    contactName: body.contactName,
+    pushName: body.pushName ?? body.pushname,
+    shortName: body.shortName,
+    displayName: body.displayName,
+    name: body.name,
+    notifyName: body.notifyName,
+    senderName: body.senderName,
+    chatName: body.chatName,
+    formattedName: body.formattedName,
+    verifiedName: body.verifiedName,
+    remotePhone: body.remotePhone ?? body.phone ?? body.from,
+    remoteJid: body.remoteJid ?? body.from,
+    profilePicUrl: body.profilePicUrl,
+  }
+  const whatsapp = {
+    ...topLevelCandidates,
+    ...topLevelWhatsApp,
+    ...baseWhatsApp,
+    ...(rawContact ? { rawContact: { ...rawContact, ...(isPlainObject(baseWhatsApp.rawContact) ? baseWhatsApp.rawContact : {}) } } : {}),
+    ...(rawMessage ? { rawMessage: { ...rawMessage, ...(isPlainObject(baseWhatsApp.rawMessage) ? baseWhatsApp.rawMessage : {}) } } : {}),
+  }
+
+  return {
+    ...baseContext,
+    whatsapp,
+  }
+}
+
 export function normalizePublicChatBody(body) {
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return {}
@@ -34,12 +81,15 @@ export function normalizePublicChatBody(body) {
   const message = String(body.message ?? body.mensagem ?? body.texto ?? "").trim()
   const conversationId = String(body.conversationId ?? "").trim()
   const chatId = String(body.chatId ?? "").trim()
+  const canal = body.canal ?? body.context?.channel?.kind ?? (body.widgetId || body.widgetSlug ? "external_widget" : "web")
+  const context = canal === "whatsapp" ? mergeInboundWhatsAppContext(body) : body.context
 
   return {
     ...body,
     message,
     chatId: chatId || undefined,
-    canal: body.canal ?? body.context?.channel?.kind ?? (body.widgetId || body.widgetSlug ? "external_widget" : "web"),
+    canal,
+    context,
     identificadorExterno:
       typeof body.identificadorExterno === "string" && body.identificadorExterno.trim()
         ? body.identificadorExterno.trim()

@@ -108,6 +108,38 @@ export async function listActiveHandoffRecipientsByProjectId(projectId, options 
   }
 }
 
+export async function listActiveWhatsAppHandoffContactsByProjectId(projectId, options = {}, deps = {}) {
+  if (!projectId) {
+    return []
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    let query = supabase
+      .from("whatsapp_handoff_contatos")
+      .select(contactFields)
+      .eq("projeto_id", projectId)
+      .eq("ativo", true)
+      .order("nome", { ascending: true })
+
+    if (options.canalWhatsappId) {
+      query = query.or(`canal_whatsapp_id.eq.${options.canalWhatsappId},canal_whatsapp_id.is.null`)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      console.error("[whatsapp-handoff] failed to list active contacts", error)
+      return []
+    }
+
+    return (data ?? []).map(mapContact)
+  } catch (error) {
+    console.error("[whatsapp-handoff] failed to list active contacts", error)
+    return []
+  }
+}
+
 export async function listWhatsAppHandoffContactsForUser(project, user) {
   if (!project?.id || !userCanAccessProject(user, project.id)) {
     return []

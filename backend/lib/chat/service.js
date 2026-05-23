@@ -45,7 +45,7 @@ import {
   splitCatalogReplyForWhatsApp,
   stripAssistantMetaReply,
 } from "@/lib/chat/reply-formatting"
-import { shouldRefreshSummary, summarizeConversation } from "@/lib/chat/summary-stage"
+import { generateWhatsAppTransferSummary, shouldRefreshSummary, summarizeConversation } from "@/lib/chat/summary-stage"
 import { classifySemanticApiConfirmationStage } from "@/lib/chat/semantic-intent-stage"
 import {
   requestAutoPauseHandoff,
@@ -710,6 +710,44 @@ export function normalizeInboundAttachments(body) {
 export function normalizeInboundMessage(body) {
   return String(body?.message ?? body?.mensagem ?? body?.texto ?? "")
     .trim()
+}
+
+function normalizeTransferMarkerText(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+}
+
+function extractWhatsAppTransferSummary(message) {
+  const raw = String(message || "").trim()
+  const normalized = normalizeTransferMarkerText(raw)
+  if (!normalized.startsWith("oi! vim do chat do site") && !normalized.startsWith("oi vim do chat do site")) {
+    return null
+  }
+
+  const bulletLines = raw
+    .split(/\r?\n/)
+    .map((line) => line.replace(/^\s*[-•]\s*/, "").trim())
+    .filter(Boolean)
+
+  const contextLine = bulletLines.find((line) => /^contexto\s*:/i.test(line))
+  const atendimentoLine = bulletLines.find((line) => /^contexto do atendimento\s*:/i.test(line))
+  const interestLine = bulletLines.find((line) => /^meu interesse\s*:/i.test(line))
+  const summary = [contextLine, atendimentoLine, interestLine]
+    .filter(Boolean)
+    .map((line) => line.replace(/^[^:]+:\s*/, "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  return {
+    summary,
+    message: summary
+      ? `Cheguei pelo chat do site para continuar o atendimento. Contexto resumido: ${summary}`
+      : "Cheguei pelo chat do site para continuar o atendimento.",
+  }
 }
 
 function shouldForceNewConversation(body) {
@@ -1503,6 +1541,7 @@ export function prepareAiReplyPayload(input) {
     reply: primaryReply,
     followUpReply,
     userMessage: input.userMessage,
+    conversationSummary: input.whatsappConversationSummary,
     assets: catalogAwareAssets,
   })
   let actions = suppressWhatsAppCta ? rawActions.filter((action) => action?.type !== "whatsapp_link") : rawActions
@@ -1522,6 +1561,7 @@ export function prepareAiReplyPayload(input) {
       reply: primaryReply,
       followUpReply,
       userMessage: input.userMessage,
+      conversationSummary: input.whatsappConversationSummary,
     })
   const normalizedPrimaryReply = whatsappCta
     ? sanitizeReplyForWhatsAppCta(primaryReply, whatsappCta.label)
@@ -1564,15 +1604,37 @@ export function prepareAiReplyPayload(input) {
 }
 
 export function prepareChatPrelude(body) {
-  const message = normalizeInboundMessage(body)
+  const channelKind = normalizeChannelKind(body)
+  const rawMessage = normalizeInboundMessage(body)
+  const whatsappTransfer = channelKind === "whatsapp" ? extractWhatsAppTransferSummary(rawMessage) : null
+  const message = whatsappTransfer?.message ?? rawMessage
   const inboundAttachments = normalizeInboundAttachments(body)
 
   if (!message && !inboundAttachments.length) {
     throw new Error("Mensagem obrigatoria.")
   }
 
-  const channelKind = normalizeChannelKind(body)
-  const effectiveBody = applyAdminTestContextOverrides(body, channelKind)
+  const contextualBody = whatsappTransfer
+    ? {
+        ...body,
+        message,
+        mensagem: message,
+        context: {
+          ...(isPlainObject(body?.context) ? body.context : {}),
+          ui: {
+            ...(isPlainObject(body?.context?.ui) ? body.context.ui : {}),
+            webToWhatsappTransfer: true,
+            webToWhatsappSummary: whatsappTransfer.summary || null,
+          },
+          whatsapp: {
+            ...(isPlainObject(body?.context?.whatsapp) ? body.context.whatsapp : {}),
+            transferFromWebChat: true,
+            transferSummary: whatsappTransfer.summary || null,
+          },
+        },
+      }
+    : body
+  const effectiveBody = applyAdminTestContextOverrides(contextualBody, channelKind)
   const normalizedExternalIdentifier = normalizeExternalIdentifier(effectiveBody, channelKind)
 
   if (!hasSupabaseServerEnv()) {
@@ -2252,12 +2314,29 @@ export async function finalizeV2AiTurn(runtimeState, aiResult, options = {}) {
       mensagem_count: messageCount,
     }
   }
+  const whatsappConversationSummary =
+    runtimeState.prelude.channelKind !== "whatsapp" &&
+    updatedContext?.whatsapp?.ctaEnabled === true &&
+    hasConfiguredWhatsAppDestination(updatedContext)
+      ? await generateWhatsAppTransferSummary({
+          history: runtimeState.history.map((item) => ({
+            role: item.role,
+            content: item.conteudo,
+          })),
+          currentUserMessage: runtimeState.prelude.message,
+          assistantReply: String(aiResult?.reply ?? ""),
+          openAiKey: options.openAiKey ?? process.env.OPENAI_API_KEY?.trim(),
+          model: options.model ?? process.env.OPENAI_CHAT_MODEL?.trim() ?? "gpt-4o-mini",
+          fetchImpl: options.fetchImpl,
+        })
+      : ""
   const replyPayload = prepareAiReplyPayload({
     channelKind: runtimeState.prelude.channelKind,
     ai: aiResult,
     nextContext: updatedContext,
     normalizedExternalIdentifier: runtimeState.prelude.normalizedExternalIdentifier,
     userMessage: runtimeState.prelude.message,
+    whatsappConversationSummary,
   })
   const usagePayload = buildUsagePersistencePayload({
     projetoId: runtimeState.session.chat.projetoId ?? runtimeState.resolved?.projeto?.id ?? null,

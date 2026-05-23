@@ -48,6 +48,7 @@ import {
   buildPublicChatRequestDiagnostics,
   buildSystemPrompt,
   buildWhatsAppMessageSequence,
+  generateWhatsAppTransferSummary,
   getChatAttachmentsMetadata,
   classifyHumanEscalationNeed,
   resolveCatalogLoadMoreDecision,
@@ -10055,6 +10056,61 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "whatsapp normaliza nome do contato vindo no topo do payload",
+    run: async () => {
+      const normalized = normalizePublicChatBody({
+        message: "Oi",
+        canal: "whatsapp",
+        identificadorExterno: "5511978510655",
+        whatsappChannelId: "wa-1",
+        notifyName: "Ana Julia Sala",
+        rawMessage: {
+          _data: {
+            sender: {
+              pushname: "Ana Julia Sala",
+            },
+          },
+        },
+      })
+      let statsPayload: any = null
+      const runtime = await executeV2RuntimePrelude(normalized, {
+        resolveChatChannel: async () => ({
+          projeto: { id: "proj-15", nome: "Projeto 15", slug: "proj-15" },
+          agente: { id: "agent-15", nome: "Agente 15" },
+          whatsappChannel: { id: "wa-1" },
+          lockedToAgent: true,
+          channel: { kind: "whatsapp" },
+        }),
+        ensureActiveChatSession: async () => ({
+          chat: {
+            id: "chat-whatsapp-15",
+            projetoId: "proj-15",
+            agenteId: "agent-15",
+            canal: "whatsapp",
+            titulo: "Cliente WhatsApp",
+            contatoNome: null,
+            contexto: { canal: "whatsapp" },
+          },
+          created: false,
+          initialContext: null,
+        }),
+        updateChatStats: async (payload: any) => {
+          statsPayload = payload
+        },
+        uploadChatAttachmentPayloads: async () => [],
+        persistUserTurn: async () => ({ id: "msg-user-15" }),
+        applyHandoffGuardrail: async () => ({ paused: false, handoff: null, result: null }),
+        loadChatHistory: async () => [],
+        applyBillingGuardrail: async () => ({ blocked: false, billingAccess: null, result: null }),
+      })
+
+      assert.equal(runtime.stage, "ready_for_ai")
+      assert.equal(normalized.context.whatsapp.notifyName, "Ana Julia Sala")
+      assert.equal(statsPayload.titulo, "Ana Julia Sala")
+      assert.equal(statsPayload.contatoNome, "Ana Julia Sala")
+    },
+  },
+  {
     name: "service resolve canal local com projeto explicito e sem fallback padrao de widget",
     run: async () => {
       const explicit = await resolveChatChannel(
@@ -10308,19 +10364,73 @@ const tests: TestCase[] = [
         },
         normalizedExternalIdentifier: "lead-2",
         userMessage: "Quero entender valores e prazo do projeto",
+        whatsappConversationSummary:
+          "Cliente quer entender valores e prazo do projeto, com interesse em seguir o atendimento pelo WhatsApp.",
       })
 
       assert.equal(payload.whatsappCta?.label, "Continuar no WhatsApp")
-      assert.equal(payload.whatsappCta?.summary, "Leva um resumo rapido desta conversa.")
+      assert.equal(payload.whatsappCta?.summary, "Leva um resumo rápido desta conversa.")
       assert.match(String(payload.whatsappCta?.url || ""), /^https:\/\/wa\.me\/5511999999999\?text=/i)
       assert.equal(Array.isArray(payload.actions), true)
       assert.equal(payload.actions.length, 1)
       assert.equal(payload.actions[0]?.type, "whatsapp_link")
       assert.match(
         decodeURIComponent(String(payload.whatsappCta?.url || "").split("?text=")[1] || ""),
-        /Resumo rapido:\n- Meu interesse: Quero entender valores e prazo do projeto/i
+        /Resumo rápido:\n- Contexto: Cliente quer entender valores e prazo do projeto/i
       )
       assert.doesNotMatch(payload.followUpReply, /continuar no WhatsApp/i)
+    },
+  },
+  {
+    name: "resumo de transferencia para WhatsApp usa LLM sobre a conversa completa",
+    run: async () => {
+      let requestBody: any = null
+      const summary = await generateWhatsAppTransferSummary({
+        openAiKey: "test-key",
+        model: "gpt-4o-mini",
+        history: [
+          { role: "user", content: "Procuro uma fruteira em cristal murano branco." },
+          { role: "assistant", content: "Temos uma fruteira em cristal murano com base prateada." },
+          { role: "user", content: "Qual o tamanho e o link?" },
+        ],
+        currentUserMessage: "Quero continuar pelo WhatsApp.",
+        assistantReply: "Posso continuar por lá com o contexto.",
+        fetchImpl: async (_url: string, init: any) => {
+          requestBody = JSON.parse(init.body)
+          return {
+            ok: true,
+            async json() {
+              return {
+                output_text:
+                  "Cliente quer continuar no WhatsApp sobre uma fruteira em cristal murano branco com base prateada, mantendo dúvidas de tamanho e link.",
+              }
+            },
+          }
+        },
+      })
+
+      assert.match(summary, /fruteira em cristal murano branco/i)
+      assert.match(summary, /tamanho e link/i)
+      assert.match(String(requestBody?.input?.[1]?.content || ""), /Procuro uma fruteira/i)
+      assert.match(String(requestBody?.input?.[1]?.content || ""), /Quero continuar pelo WhatsApp/i)
+    },
+  },
+  {
+    name: "entrada do WhatsApp vinda do widget vira contexto de continuidade sem perguntar WhatsApp de novo",
+    run: () => {
+      const prelude = prepareChatPrelude({
+        canal: "whatsapp",
+        mensagem:
+          "Oi! Vim do chat do site e quero continuar por aqui.\n\nResumo rápido:\n- Contexto: Cliente quer a fruteira em cristal murano branco e precisa confirmar tamanho e link.",
+        identificadorExterno: "5511999999999",
+      })
+
+      assert.equal(prelude.channelKind, "whatsapp")
+      assert.match(prelude.message, /Cheguei pelo chat do site para continuar o atendimento/i)
+      assert.match(prelude.message, /fruteira em cristal murano branco/i)
+      assert.doesNotMatch(prelude.message, /quer continuar no WhatsApp/i)
+      assert.equal(prelude.effectiveBody.context?.ui?.webToWhatsappTransfer, true)
+      assert.equal(prelude.effectiveBody.context?.whatsapp?.transferFromWebChat, true)
     },
   },
   {

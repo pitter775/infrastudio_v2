@@ -214,3 +214,7 @@ export {
   shouldThrottleSessionSync,
   updateWhatsAppChannelSession,
 } from "@/lib/whatsapp-channels";
+
+export {
+  generateWhatsAppTransferSummary,
+} from "@/lib/chat/summary-stage";

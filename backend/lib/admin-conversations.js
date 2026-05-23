@@ -2,8 +2,9 @@ import "server-only"
 
 import { listChatHandoffsByChatIds } from "@/lib/chat-handoffs"
 import { getChatAttachmentsMetadata, uploadChatAttachmentPayloads } from "@/lib/chat-attachments"
-import { appendMessage, deleteChatsByIds, getChatById, listChatMessages, listLatestChatMessagePreviews } from "@/lib/chats"
+import { appendMessage, deleteChatsByIds, extractChatContactSnapshot, getChatById, listChatMessages, listLatestChatMessagePreviews } from "@/lib/chats"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
+import { listActiveWhatsAppHandoffContactsByProjectId } from "@/lib/whatsapp-handoff-contatos"
 
 function formatTime(value) {
   return new Date(value || Date.now()).toLocaleTimeString("pt-BR", {
@@ -75,9 +76,19 @@ export function buildAiObservability(metadata = {}, message = {}) {
 export function mapAdminConversationMessage(message) {
   const observability = message.role === "assistant" ? buildAiObservability(message.metadata, message) : null
   const canal = typeof message.canal === "string" && message.canal.trim() ? message.canal.trim() : "web"
+  const isManual = message.metadata?.manual === true
+  const senderName = isManual
+    ? typeof message.metadata?.attendantName === "string" && message.metadata.attendantName.trim()
+      ? message.metadata.attendantName.trim()
+      : "Atendimento humano"
+    : typeof message.metadata?.agenteNome === "string" && message.metadata.agenteNome.trim()
+      ? message.metadata.agenteNome.trim()
+      : "Agente"
   return {
     id: message.id,
     autor: mapRoleToAutor(message.role),
+    senderName,
+    senderType: message.role === "assistant" ? (isManual ? "human" : "agent") : message.role === "system" ? "system" : "customer",
     texto: message.conteudo,
     canal,
     origem: canal === "whatsapp" ? "whatsapp" : "site",
@@ -221,7 +232,8 @@ function normalizeConversationPhone(value) {
 }
 
 function resolveConversationCustomerName(chat, fallback = {}) {
-  const contactName = String(chat?.contatoNome || "").trim()
+  const contactSnapshot = extractChatContactSnapshot(chat?.contexto, chat?.identificadorExterno || fallback?.identificador_externo)
+  const contactName = String(chat?.contatoNome || contactSnapshot.contatoNome || "").trim()
   const channel = String(chat?.canal || fallback?.canal || "").trim()
   if (channel === "whatsapp") {
     return contactName && contactName !== String(chat?.titulo || "").trim() ? contactName : "Cliente WhatsApp"
@@ -260,7 +272,7 @@ export async function listAdminConversations(user, options = {}) {
     let query = supabase
       .from("chats")
       .select(
-        "id, titulo, contato_nome, contato_telefone, contato_avatar_url, updated_at, projeto_id, canal, identificador_externo, projeto:projetos(id, nome, slug)",
+        "id, titulo, contato_nome, contato_telefone, contato_avatar_url, updated_at, projeto_id, canal, identificador_externo, contexto, projeto:projetos(id, nome, slug)",
       )
       .neq("canal", "admin_agent_test")
       .order("updated_at", { ascending: false, nullsFirst: false })
@@ -308,6 +320,8 @@ export async function listAdminConversations(user, options = {}) {
           contatoAvatarUrl: row.contato_avatar_url,
           updatedAt: row.updated_at,
           canal: row.canal || "web",
+          contexto: row.contexto ?? {},
+          identificadorExterno: row.identificador_externo ?? null,
         }
         const mensagens = (latestMessagesByChatId.get(chat.id) ?? []).map(mapAdminConversationMessagePreview)
         const handoff = loadHandoffFromMap(chat.id, handoffsByChatId)
@@ -461,16 +475,22 @@ export async function getAdminConversationDetail(input, user) {
     .flatMap((item) => item.mensagens)
     .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime())
   const pagedMessages = mergedMessages.slice(-limit)
+  const whatsappChannelId = primaryChat.chat.contexto?.whatsapp?.channelId ?? null
+  const atendentes =
+    effectiveOrigin === "whatsapp" && primaryChat.chat.projetoId
+      ? await listActiveWhatsAppHandoffContactsByProjectId(primaryChat.chat.projetoId, {
+          canalWhatsappId: whatsappChannelId,
+        })
+      : []
 
   return {
     id: primaryChat.chat.id,
     chatIds: chats.map((item) => item.chat.id),
     cliente: {
-      nome:
-        (primaryChat.chat.contatoNome && primaryChat.chat.contatoNome !== primaryChat.chat.titulo
-          ? primaryChat.chat.contatoNome
-          : null) ||
-        (effectiveOrigin === "whatsapp" ? "Cliente WhatsApp" : resolveConversationCustomerName(primaryChat.chat)),
+      nome: resolveConversationCustomerName(primaryChat.chat, {
+        canal: effectiveOrigin,
+        identificador_externo: primaryChat.chat.identificadorExterno,
+      }),
       telefone: primaryChat.chat.contatoTelefone || primaryChat.chat.identificadorExterno || "",
       avatarUrl: primaryChat.chat.contatoAvatarUrl || null,
     },
@@ -478,6 +498,11 @@ export async function getAdminConversationDetail(input, user) {
     origem: effectiveOrigin,
     status: primaryChat.handoff.status,
     handoff: primaryChat.handoff.handoff,
+    atendentes: atendentes.map((item) => ({
+      id: item.id,
+      nome: item.nome,
+      papel: item.papel,
+    })),
     totalMensagens: chats.reduce((sum, item) => sum + Number(item.totalMensagens || 0), 0),
     mensagens: pagedMessages,
     hasMore: chats.some((item) => item.mensagens.length >= limit),
@@ -561,6 +586,9 @@ export async function appendAdminConversationMessage(chatId, texto, attachments 
     metadata: {
       source: "admin_attendance",
       manual: true,
+      attendantId: options.attendant?.id ?? null,
+      attendantName: options.attendant?.nome ?? user?.name ?? user?.email ?? "Atendimento humano",
+      attendantRole: options.attendant?.papel ?? null,
       attachments: getChatAttachmentsMetadata(uploadedAttachments),
     },
   })

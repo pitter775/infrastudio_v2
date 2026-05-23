@@ -20,6 +20,7 @@ function buildRuntimeConfigInstructions(context = {}) {
   }
 
   const lines = []
+  const channelKind = String(context?.channel?.kind ?? context?.canal ?? "").trim().toLowerCase()
   if (runtimeConfig?.business?.summary) {
     lines.push(`Contexto comercial: ${runtimeConfig.business.summary}`)
   }
@@ -34,7 +35,7 @@ function buildRuntimeConfigInstructions(context = {}) {
     lines.push(...runtimeConfig.sales.priorityRules.map((rule) => `- ${rule}`))
   }
 
-  if (runtimeConfig?.sales?.cta && hasWhatsAppDestination) {
+  if (runtimeConfig?.sales?.cta && hasWhatsAppDestination && channelKind !== "whatsapp") {
     lines.push(`CTA preferido: ${runtimeConfig.sales.cta}`)
   }
 
@@ -347,7 +348,7 @@ export function buildAnalyticalReplyInstruction() {
 
 export function buildChannelReplyInstruction(channelKind) {
   return channelKind === "whatsapp"
-    ? "Use mensagens curtas e naturais para WhatsApp. Uma ideia por bloco. Evite resposta longa e robotica."
+    ? "Use mensagens curtas e naturais para WhatsApp. Uma ideia por bloco. Evite resposta longa e robotica. O cliente ja esta no WhatsApp: nao pergunte se ele quer continuar no WhatsApp e nao ofereca migracao para WhatsApp."
     : "Responda de forma clara. Priorize leitura rapida, resposta direta e poucos paragrafos."
 }
 

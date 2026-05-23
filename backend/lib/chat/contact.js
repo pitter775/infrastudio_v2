@@ -2,6 +2,28 @@ function isPlainObject(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value)
 }
 
+function normalizeContactName(value) {
+  const normalized = typeof value === "string" ? value.replace(/\s+/g, " ").trim() : ""
+  if (!normalized) {
+    return null
+  }
+
+  const comparable = normalized
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+
+  if (comparable === "cliente whatsapp" || comparable === "cliente do whatsapp" || comparable === "whatsapp") {
+    return null
+  }
+
+  if (/^\+?\d[\d\s().-]{7,}\d$/.test(normalized)) {
+    return null
+  }
+
+  return normalized
+}
+
 export function sanitizePhone(phone) {
   return String(phone || "").replace(/\D/g, "")
 }
@@ -60,19 +82,40 @@ export function getWhatsAppContactNameFromContext(context) {
   }
 
   const rawContact = isPlainObject(context.whatsapp.rawContact) ? context.whatsapp.rawContact : null
+  const rawMessage = isPlainObject(context.whatsapp.rawMessage) ? context.whatsapp.rawMessage : null
+  const rawData = isPlainObject(rawMessage?._data) ? rawMessage._data : null
+  const rawSender = isPlainObject(rawData?.sender) ? rawData.sender : null
   const candidates = [
     context.whatsapp.contactName,
     context.whatsapp.pushName,
+    context.whatsapp.pushname,
     context.whatsapp.shortName,
     context.whatsapp.displayName,
+    context.whatsapp.name,
+    context.whatsapp.notifyName,
+    context.whatsapp.senderName,
+    context.whatsapp.chatName,
+    context.whatsapp.formattedName,
+    context.whatsapp.verifiedName,
     rawContact?.name,
     rawContact?.pushname,
+    rawContact?.pushName,
     rawContact?.shortName,
+    rawContact?.displayName,
+    rawContact?.notifyName,
+    rawContact?.formattedName,
     rawContact?.verifiedName,
+    rawData?.notifyName,
+    rawData?.pushName,
+    rawData?.pushname,
+    rawSender?.name,
+    rawSender?.pushname,
+    rawSender?.pushName,
+    rawSender?.verifiedName,
   ]
 
   for (const candidate of candidates) {
-    const value = typeof candidate === "string" ? candidate.trim() : ""
+    const value = normalizeContactName(candidate)
     if (value) {
       return value
     }

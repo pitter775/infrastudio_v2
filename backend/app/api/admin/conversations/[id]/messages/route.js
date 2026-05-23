@@ -10,6 +10,7 @@ import { claimHumanHandoff, touchHumanHandoff } from "@/lib/chat-handoffs"
 import { getChatById } from "@/lib/chats"
 import { getSessionUser } from "@/lib/session"
 import { sendWhatsAppTextMessage } from "@/lib/whatsapp-channels"
+import { listActiveWhatsAppHandoffContactsByProjectId } from "@/lib/whatsapp-handoff-contatos"
 
 function getWhatsAppReplyTarget(chat) {
   const whatsapp = chat?.contexto?.whatsapp
@@ -146,7 +147,39 @@ export async function POST(request, { params }) {
   await touchHumanHandoff({ chatId: chat.id })
 
   const replyChannel = await resolveAdminReplyChannel(chat)
-  const message = await appendAdminConversationMessage(id, texto, body.attachments, user, { canal: replyChannel })
+  const attendants =
+    replyChannel === "whatsapp" && chat.projetoId
+      ? await listActiveWhatsAppHandoffContactsByProjectId(chat.projetoId, {
+          canalWhatsappId: chat.contexto?.whatsapp?.channelId ?? null,
+        })
+      : []
+  const requestedAttendantId = String(body.attendantId || "").trim()
+  const selectedAttendant =
+    attendants.length === 1
+      ? attendants[0]
+      : requestedAttendantId
+        ? attendants.find((item) => item.id === requestedAttendantId) ?? null
+        : null
+
+  if (replyChannel === "whatsapp" && attendants.length > 1 && !selectedAttendant) {
+    const payload = { success: false, error: "Selecione quem está respondendo." }
+    recordJsonApiUsage({
+      route: "/api/admin/conversations/[id]/messages",
+      method: "POST",
+      status: 400,
+      elapsedMs: Date.now() - startedAt,
+      userId: user.id,
+      projectId: chat.projetoId,
+      source: "admin_attendance_send",
+      payload,
+    })
+    return Response.json(payload, { status: 400 })
+  }
+
+  const message = await appendAdminConversationMessage(id, texto, body.attachments, user, {
+    canal: replyChannel,
+    attendant: selectedAttendant,
+  })
 
   if (message === false) {
     const payload = { success: false, error: "Acesso negado" }
