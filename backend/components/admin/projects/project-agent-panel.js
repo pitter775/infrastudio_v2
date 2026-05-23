@@ -1134,7 +1134,7 @@ export function ProjectPanel({
           <div className="space-y-4 px-6 py-5">
             {activeStructuredConfig ? (
               <>
-                <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                <div className="rounded-2xl bg-[#0a1020] p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -1170,7 +1170,7 @@ export function ProjectPanel({
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                  <div className="rounded-2xl bg-[#0a1020] p-4">
                     <div className="text-sm font-semibold text-white">Identidade</div>
                     <div className="mt-4 grid gap-3">
                       <input
@@ -1194,7 +1194,7 @@ export function ProjectPanel({
                     </div>
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                  <div className="rounded-2xl bg-[#0a1020] p-4">
                     <div className="text-sm font-semibold text-white">Comportamento</div>
                     <div className="mt-4 grid gap-3">
                       <input
@@ -1219,7 +1219,7 @@ export function ProjectPanel({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                <div className="rounded-2xl bg-[#0a1020] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-white">Planos e preços</div>
@@ -1231,7 +1231,7 @@ export function ProjectPanel({
                   </div>
                   <div className="mt-4 space-y-3">
                     {(activeStructuredConfig.pricingCatalog?.items || []).map((item, index) => (
-                      <div key={`${item.slug || item.name}-${index}`} className="rounded-xl border border-white/10 bg-[#080e1d] p-3">
+                      <div key={`${item.slug || item.name}-${index}`} className="rounded-xl bg-[#080e1d] p-3">
                         <div className="grid gap-2 lg:grid-cols-3">
                           <input value={item.name || ''} onChange={(event) => updatePricingItem(index, { name: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Nome" />
                           <input value={item.priceLabel || ''} onChange={(event) => updatePricingItem(index, { priceLabel: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Preço, faixa ou condição" />
@@ -1265,13 +1265,13 @@ export function ProjectPanel({
                       </div>
                     ))}
                     {!(activeStructuredConfig.pricingCatalog?.items || []).length ? (
-                      <div className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-sm text-slate-500">Nenhum plano estruturado.</div>
+                      <div className="rounded-xl bg-[#080e1d] px-3 py-4 text-sm text-slate-500">Nenhum plano estruturado.</div>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="grid gap-4 xl:grid-cols-2">
-                  <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                  <div className="rounded-2xl bg-[#0a1020] p-4">
                     <div className="text-sm font-semibold text-white">Integrações previstas</div>
                     <div className="mt-4 space-y-3 text-sm text-slate-300">
                       {[
@@ -1279,7 +1279,7 @@ export function ProjectPanel({
                         ['googleAgenda', 'Google Agenda'],
                         ['apis', 'APIs externas'],
                       ].map(([key, label]) => (
-                        <label key={key} className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2">
+                        <label key={key} className="flex items-center justify-between gap-3 rounded-xl bg-[#080e1d] px-3 py-2">
                           <span>{label}</span>
                           <input
                             type="checkbox"
@@ -1314,10 +1314,10 @@ export function ProjectPanel({
                     />
                   </div>
 
-                  <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                  <div className="rounded-2xl bg-[#0a1020] p-4">
                     <div className="text-sm font-semibold text-white">Atendimento humano</div>
                     <div className="mt-4 space-y-3">
-                      <label className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-[#080e1d] px-3 py-2 text-sm text-slate-300">
+                      <label className="flex items-center justify-between gap-3 rounded-xl bg-[#080e1d] px-3 py-2 text-sm text-slate-300">
                         <span>Handoff ativo</span>
                         <input
                           type="checkbox"
@@ -1335,7 +1335,7 @@ export function ProjectPanel({
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-[#0a1020] p-4">
+                <div className="rounded-2xl bg-[#0a1020] p-4">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <div className="text-sm font-semibold text-white">Base de conhecimento</div>
@@ -1358,7 +1358,7 @@ export function ProjectPanel({
                       </div>
                     ))}
                     {!(activeStructuredConfig.knowledgeBase || []).length ? (
-                      <div className="rounded-xl border border-dashed border-white/10 px-3 py-4 text-sm text-slate-500">Nenhum bloco de conhecimento.</div>
+                      <div className="rounded-xl bg-[#080e1d] px-3 py-4 text-sm text-slate-500">Nenhum bloco de conhecimento.</div>
                     ) : null}
                   </div>
                 </div>
