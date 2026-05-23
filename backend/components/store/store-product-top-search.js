@@ -5,6 +5,7 @@ import { Loader2, Search } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 import { buildStoreUrl, navigateStoreHref } from '@/components/store/store-utils'
+import { resetIosInputZoom } from '@/components/store/ios-viewport-zoom'
 
 function ProductSearchForm({
   accentColor,
@@ -20,8 +21,9 @@ function ProductSearchForm({
         <input
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
+          onBlur={resetIosInputZoom}
           placeholder="Buscar produto"
-          className="h-10 min-w-0 flex-1 bg-transparent text-[13px] text-slate-900 outline-none placeholder:text-slate-400 min-[390px]:text-sm"
+          className="h-10 min-w-0 flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 sm:text-sm"
         />
       </div>
       <button

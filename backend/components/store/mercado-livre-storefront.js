@@ -13,6 +13,7 @@ import { StoreSnapshotRefresh } from '@/components/store/store-snapshot-refresh'
 import { AppSelect } from '@/components/ui/app-select'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { buildStoreAccentPalette, buildStoreUrl, buildStoreWhatsAppUrl, navigateStoreHref } from '@/components/store/store-utils'
+import { resetIosInputZoom } from '@/components/store/ios-viewport-zoom'
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
@@ -147,8 +148,9 @@ function StoreSearchFilters({
         <input
           value={searchTerm}
           onChange={(event) => setSearchTerm(event.target.value)}
+          onBlur={resetIosInputZoom}
           placeholder="Buscar produto"
-          className="h-10 min-w-0 flex-1 bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400"
+          className="h-10 min-w-0 flex-1 bg-transparent text-base text-slate-900 outline-none placeholder:text-slate-400 sm:text-sm"
         />
       </div>
       <button
