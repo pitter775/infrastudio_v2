@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
+  Bot,
   ChevronRight,
   Files,
   History,
@@ -126,7 +127,18 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
     () => integrationPanels.filter((panel) => panel.isAvailable),
     [integrationPanels],
   )
-  const topMenuItems = useMemo(() => buildTopMenuItems(integrationPanels), [integrationPanels])
+  const topMenuItems = useMemo(
+    () => [
+      {
+        id: DEFAULT_PANEL,
+        label: 'Agente',
+        icon: Bot,
+        colorClassName: 'sky',
+      },
+      ...buildTopMenuItems(integrationPanels),
+    ],
+    [integrationPanels],
+  )
   const agentHintStorageKey = `admin-project-agent-hint-opened:${projectIdentifier}`
 
   useEffect(() => {
@@ -559,8 +571,8 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                       </span>
                       <motion.span
                         className="pointer-events-none absolute left-1/2 top-[calc(100%+2px)] z-10 w-max -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-center text-[10px] font-semibold tracking-[0.04em] text-slate-100 shadow-[0_10px_24px_rgba(2,6,23,0.48)]"
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: [0, 1, 1, 0], y: [4, 0, 0, 4] }}
+                        initial={{ opacity: 0, x: '-50%', y: 4 }}
+                        animate={{ opacity: [0, 1, 1, 0], x: '-50%', y: [4, 0, 0, 4] }}
                         transition={{ delay: revealDelay, duration: 0.62, times: [0, 0.24, 0.72, 1], ease: 'easeOut' }}
                       >
                         {item.label}

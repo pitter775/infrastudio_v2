@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { CalendarDays, Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2, X } from 'lucide-react'
+import { Bot, CalendarDays, Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -50,7 +50,7 @@ function buildAgentLlmGuidePrompt({ project, agent, draftAgentJson, connectionIt
     '- Conexões: mostra integrações disponíveis para abrir e configurar APIs, WhatsApp, Chat widget e Mercado Livre.',
     '- Histórico: mostra versões anteriores do agente e permite restaurar versão quando necessário.',
     '- Ver JSON: mostra o rascunho técnico atual do agente, incluindo configuracoes/runtimeConfig.',
-    '- Copiar para LLM (GPT): copia este contrato e o estado atual para tirar dúvidas fora do InfraStudio. Não abre nova aba.',
+    '- Botão Copiar para LLM: copia este contrato e o estado atual para tirar dúvidas fora do InfraStudio. Não abre nova aba.',
     '',
     'Políticas de preenchimento do agente:',
     '- Nome: deve identificar claramente o assistente do projeto.',
@@ -172,10 +172,9 @@ export function ProjectPanel({
   const [activeAgentTab, setActiveAgentTab] = useState(resolveAgentTab(initialAgentTab) || 'edit')
   const agentTabs = [
     { id: 'edit', label: 'Editar agente', icon: Wand2 },
-    { id: 'connections', label: 'Conexoes', icon: PlugZap },
+    { id: 'connections', label: 'Conexões', icon: PlugZap },
     { id: 'history', label: 'Histórico', icon: History },
     { id: 'json', label: 'Ver JSON', icon: Files },
-    { id: 'copy-llm', label: 'Copiar para LLM (GPT)', icon: ClipboardCopy, actionOnly: true },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
   const draftAgentConfig = useMemo(
@@ -281,11 +280,6 @@ export function ProjectPanel({
   }
 
   function handleAgentTabChange(tabId) {
-    if (tabId === 'copy-llm') {
-      copyAgentGuidePromptForLlm()
-      return
-    }
-
     setActiveAgentTab(tabId)
     onAgentTabChange?.(tabId)
   }
@@ -590,6 +584,7 @@ export function ProjectPanel({
     <>
       <SheetPanelHeader
         eyebrow="Agente"
+        eyebrowIcon={Bot}
         description="Edite seu agente com suas políticas e regras."
         statusTone="sky"
         onCancel={onCloseSheet}
@@ -597,7 +592,7 @@ export function ProjectPanel({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:overflow-visible md:flex-row">
         <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={handleAgentTabChange} activeGlow={false} />
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="relative z-10 min-h-0 flex-1 overflow-y-auto bg-[#080e1d]">
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={`agent-tab:${activeAgentTab}`}
@@ -695,15 +690,26 @@ export function ProjectPanel({
                   <label className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                     Escreva suas políticas e regras do seu negócio.
                   </label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    className="h-8 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-xs text-emerald-200"
-                    onClick={handleResetAgentDraft}
-                  >
-                    <Wand2 className="mr-1.5 h-3.5 w-3.5" />
-                    Voltar
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 rounded-xl border border-sky-500/20 bg-sky-500/10 px-3 text-xs text-sky-100 hover:bg-sky-500/15"
+                      onClick={copyAgentGuidePromptForLlm}
+                    >
+                      <ClipboardCopy className="mr-1.5 h-3.5 w-3.5" />
+                      Copiar para LLM
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      className="h-8 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 text-xs text-emerald-200"
+                      onClick={handleResetAgentDraft}
+                    >
+                      <Wand2 className="mr-1.5 h-3.5 w-3.5" />
+                      Voltar
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="mt-3">

@@ -51,7 +51,7 @@ import {
   requestAutoPauseHandoff,
   requestHumanHandoff,
 } from "@/lib/chat-handoffs"
-import { createChat, findActiveChatByChannel, findActiveChatByContactPhone, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier } from "@/lib/chats"
+import { createChat, findActiveChatByChannel, findActiveChatByContactPhone, findActiveWhatsAppChatByPhone, getChatById, listChatMessages, listRecentMessagesByExternalIdentifier, updateChatStats } from "@/lib/chats"
 import { getChatWidgetById, getChatWidgetByProjetoAgente, getChatWidgetBySlug } from "@/lib/chat-widgets"
 import { createLogEntry } from "@/lib/logs"
 import { getProjetoRuntimeById, getProjetoRuntimeByIdentifier, getProjetoRuntimeDirectConnections } from "@/lib/projetos"
@@ -1848,8 +1848,11 @@ export function buildInitialChatContext(input) {
 
 export function buildFallbackChatTitle(input) {
   const previewText = input.message || "Midia recebida"
+  const fallbackPhone = input.contactSnapshot?.contatoTelefone ?? input.normalizedExternalIdentifier
   const fallbackTitle =
-    input.contactSnapshot?.contatoNome ?? (previewText.length > 60 ? `${previewText.slice(0, 57)}...` : previewText)
+    input.contactSnapshot?.contatoNome ??
+    (input.channelKind === "whatsapp" && fallbackPhone ? fallbackPhone : null) ??
+    (previewText.length > 60 ? `${previewText.slice(0, 57)}...` : previewText)
 
   return String(fallbackTitle || "Nova conversa").trim() || "Nova conversa"
 }
@@ -1927,6 +1930,8 @@ export async function ensureActiveChatSession(input, deps = {}) {
     titulo: buildFallbackChatTitle({
       message: input.message,
       contactSnapshot: input.contactSnapshot,
+      channelKind: input.channelKind,
+      normalizedExternalIdentifier: input.normalizedExternalIdentifier,
     }),
     projetoId: input.resolved?.projeto?.id ?? null,
     agenteId: input.resolved?.agente?.id ?? null,
@@ -2486,6 +2491,21 @@ export async function executeV2RuntimePrelude(body, options = {}) {
 
   if (!session.chat?.id) {
     throw new Error("Nao foi possivel iniciar ou localizar a sessao ativa do chat.")
+  }
+
+  if (prelude.channelKind === "whatsapp" && contactSnapshot?.contatoNome) {
+    const saveChatStats = options.updateChatStats ?? updateChatStats
+    await saveChatStats({
+      chatId: session.chat.id,
+      totalTokensToAdd: 0,
+      totalCustoToAdd: 0,
+      titulo: contactSnapshot.contatoNome,
+      contexto: mergeContext(session.chat.contexto ?? session.initialContext ?? {}, extraContext),
+      identificadorExterno: prelude.normalizedExternalIdentifier,
+      contatoNome: contactSnapshot.contatoNome,
+      contatoTelefone: contactSnapshot.contatoTelefone ?? null,
+      contatoAvatarUrl: contactSnapshot.contatoAvatarUrl ?? null,
+    })
   }
 
   const uploadedInboundAttachments =

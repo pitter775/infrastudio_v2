@@ -630,8 +630,8 @@ export function AdminShell({ user, children, buildLabel = '' }) {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-[#080e1d] font-sans text-slate-400 antialiased lg:h-screen lg:overflow-hidden">
-        <div className="flex min-h-screen w-full bg-[#080e1d] lg:h-full">
+      <div className="min-h-screen bg-[#0b1426] font-sans text-slate-400 antialiased lg:h-screen lg:overflow-hidden">
+        <div className="flex min-h-screen w-full bg-[#0b1426] lg:h-full">
           <motion.aside
             animate={{ width: collapsed ? 80 : 192 }}
             transition={{ duration: 0.22, ease: 'easeInOut' }}
@@ -663,7 +663,7 @@ export function AdminShell({ user, children, buildLabel = '' }) {
           </motion.aside>
 
           <main className="flex min-h-screen min-w-0 flex-1 flex-col pt-16 lg:min-h-0 lg:pt-0">
-            <header className="fixed inset-x-0 top-0 z-[70] h-16 shrink-0 bg-[#080e1d] px-4 sm:px-8 lg:sticky lg:z-[220] lg:h-12">
+            <header className="fixed inset-x-0 top-0 z-[70] h-16 shrink-0 bg-[#0b1426] px-4 sm:px-8 lg:sticky lg:z-[220] lg:h-12">
               <div className="flex h-full items-center justify-end">
                 <div className="mr-auto lg:hidden">
                   <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -839,7 +839,7 @@ export function AdminShell({ user, children, buildLabel = '' }) {
 
             <div className="flex min-w-0 flex-1 flex-col px-4 pb-4 pt-1 lg:min-h-0">
               <div
-                className="flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-visible rounded-none border-0 lg:min-h-0 lg:overflow-hidden lg:rounded-xl lg:border lg:border-white/5"
+                className="flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-visible rounded-none border-0 bg-[#080e1d] lg:min-h-0 lg:overflow-hidden lg:rounded-xl lg:border lg:border-white/5"
                 style={contentBackgroundStyle}
               >
                 <div className={cn('min-w-0 overflow-x-hidden lg:flex-1', attendanceRoute ? 'lg:overflow-hidden' : 'lg:overflow-y-auto')}>

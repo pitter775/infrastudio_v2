@@ -17,12 +17,29 @@ export function extractChatContactSnapshot(contexto, fallbackExternalIdentifier)
       ? contexto.whatsapp
       : null
 
+  const rawContact =
+    whatsapp?.rawContact && typeof whatsapp.rawContact === "object" && !Array.isArray(whatsapp.rawContact)
+      ? whatsapp.rawContact
+      : null
+
   return {
-    contatoNome: normalizeOptionalText(lead?.nome) ?? normalizeOptionalText(whatsapp?.contactName),
+    contatoNome:
+      normalizeOptionalText(lead?.nome) ??
+      normalizeOptionalText(lead?.name) ??
+      normalizeOptionalText(whatsapp?.contactName) ??
+      normalizeOptionalText(whatsapp?.pushName) ??
+      normalizeOptionalText(whatsapp?.shortName) ??
+      normalizeOptionalText(whatsapp?.displayName) ??
+      normalizeOptionalText(rawContact?.name) ??
+      normalizeOptionalText(rawContact?.pushname) ??
+      normalizeOptionalText(rawContact?.shortName) ??
+      normalizeOptionalText(rawContact?.verifiedName),
     contatoTelefone:
       normalizeOptionalText(lead?.telefone) ??
+      normalizeOptionalText(lead?.phone) ??
       normalizeOptionalText(whatsapp?.remotePhone) ??
       normalizeOptionalText(whatsapp?.remetente) ??
+      normalizeOptionalText(rawContact?.number) ??
       normalizeOptionalText(fallbackExternalIdentifier),
     contatoAvatarUrl:
       normalizeOptionalText(whatsapp?.profilePicUrl) ??

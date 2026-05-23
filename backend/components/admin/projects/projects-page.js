@@ -368,8 +368,8 @@ export function AdminProjectsPage({ projects: initialProjects, user, users = [],
       ) : null}
 
       {orderedProjects.length > 0 ? (
-        <div className={cn('flex flex-col gap-8 xl:items-start', shouldShowOnboardingPanel && 'xl:flex-row')}>
-          <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fit,minmax(340px,1fr))] items-start gap-5">
+        <div className={cn('flex flex-col gap-8', shouldShowOnboardingPanel && 'xl:flex-row xl:items-start')}>
+          <div className="grid w-full min-w-0 flex-1 grid-cols-1 items-start gap-5 md:grid-cols-2 2xl:grid-cols-3">
             {orderedProjects.map((project, index) => (
               <div key={project.id} className="min-w-0">
                 {isAdmin ? (

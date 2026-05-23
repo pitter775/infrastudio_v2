@@ -220,6 +220,20 @@ function normalizeConversationPhone(value) {
   return digits.length > 11 ? digits.slice(-11) : digits
 }
 
+function resolveConversationCustomerName(chat, fallback = {}) {
+  const contactName = String(chat?.contatoNome || "").trim()
+  const channel = String(chat?.canal || fallback?.canal || "").trim()
+  if (channel === "whatsapp") {
+    return contactName && contactName !== String(chat?.titulo || "").trim() ? contactName : "Cliente WhatsApp"
+  }
+
+  if (contactName) {
+    return contactName
+  }
+
+  return String(chat?.titulo || fallback?.titulo || "Cliente").trim() || "Cliente"
+}
+
 function buildConversationGroupKey(row) {
   const phoneKey = normalizeConversationPhone(row.contato_telefone || row.identificador_externo)
   if (phoneKey) {
@@ -312,7 +326,7 @@ export async function listAdminConversations(user, options = {}) {
         grouped.set(key, {
           primaryChatId: item.chat.id,
           cliente: {
-            nome: item.chat.contatoNome || item.chat.titulo || "Cliente",
+            nome: resolveConversationCustomerName(item.chat, item.row),
             telefone: item.chat.contatoTelefone || item.row.identificador_externo || "",
             avatarUrl: item.chat.contatoAvatarUrl || null,
           },
@@ -341,7 +355,10 @@ export async function listAdminConversations(user, options = {}) {
         currentGroup.primaryChatId = item.chat.id
         currentGroup.updatedAt = item.chat.updatedAt
         currentGroup.cliente = {
-          nome: item.chat.contatoNome || item.chat.titulo || currentGroup.cliente.nome,
+          nome: resolveConversationCustomerName(item.chat, {
+            ...item.row,
+            titulo: currentGroup.cliente.nome,
+          }),
           telefone: item.chat.contatoTelefone || item.row.identificador_externo || currentGroup.cliente.telefone,
           avatarUrl: item.chat.contatoAvatarUrl || currentGroup.cliente.avatarUrl,
         }
@@ -360,6 +377,7 @@ export async function listAdminConversations(user, options = {}) {
 
       if (item.chat.canal === "whatsapp") {
         currentGroup.origem = "whatsapp"
+        currentGroup.cliente.nome = resolveConversationCustomerName(item.chat, item.row)
       }
 
       if (item.handoff.status === "humano") {
@@ -435,6 +453,10 @@ export async function getAdminConversationDetail(input, user) {
   }
 
   const primaryChat = chats.find((item) => item.chat.id === primaryChatId) ?? chats[0]
+  const latestMessage = chats
+    .flatMap((item) => item.mensagens)
+    .sort((left, right) => new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime())[0]
+  const effectiveOrigin = latestMessage?.origem === "whatsapp" || primaryChat.chat.canal === "whatsapp" ? "whatsapp" : "site"
   const mergedMessages = chats
     .flatMap((item) => item.mensagens)
     .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime())
@@ -444,12 +466,16 @@ export async function getAdminConversationDetail(input, user) {
     id: primaryChat.chat.id,
     chatIds: chats.map((item) => item.chat.id),
     cliente: {
-      nome: primaryChat.chat.contatoNome || primaryChat.chat.titulo || "Cliente",
+      nome:
+        (primaryChat.chat.contatoNome && primaryChat.chat.contatoNome !== primaryChat.chat.titulo
+          ? primaryChat.chat.contatoNome
+          : null) ||
+        (effectiveOrigin === "whatsapp" ? "Cliente WhatsApp" : resolveConversationCustomerName(primaryChat.chat)),
       telefone: primaryChat.chat.contatoTelefone || primaryChat.chat.identificadorExterno || "",
       avatarUrl: primaryChat.chat.contatoAvatarUrl || null,
     },
     projeto: null,
-    origem: primaryChat.chat.canal === "whatsapp" ? "whatsapp" : "site",
+    origem: effectiveOrigin,
     status: primaryChat.handoff.status,
     handoff: primaryChat.handoff.handoff,
     totalMensagens: chats.reduce((sum, item) => sum + Number(item.totalMensagens || 0), 0),

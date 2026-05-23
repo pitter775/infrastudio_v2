@@ -1798,12 +1798,17 @@ export default function AttendancePage() {
       return undefined
     }
 
+    setMobileChatReady(false)
+    const readyTimer = window.setTimeout(() => {
+      setMobileChatReady(true)
+    }, 1300)
     const previousBodyOverflow = document.body.style.overflow
     const previousHtmlOverflow = document.documentElement.style.overflow
     document.body.style.overflow = "hidden"
     document.documentElement.style.overflow = "hidden"
 
     return () => {
+      window.clearTimeout(readyTimer)
       document.body.style.overflow = previousBodyOverflow
       document.documentElement.style.overflow = previousHtmlOverflow
     }
@@ -2286,11 +2291,6 @@ export default function AttendancePage() {
                 animate={{ x: 0 }}
                 exit={{ x: "100%" }}
                 transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-                onAnimationComplete={(definition) => {
-                  if (definition?.x === 0) {
-                    setMobileChatReady(true)
-                  }
-                }}
                 className="fixed inset-0 z-[70] flex min-h-0 flex-col overflow-hidden bg-[#0c1322] lg:hidden"
               >
                 {activeConversation && mobileChatReady ? (

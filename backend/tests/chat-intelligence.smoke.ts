@@ -9351,6 +9351,18 @@ const tests: TestCase[] = [
       assert.equal(snapshot.contatoNome, "Julia Rodrigues")
       assert.equal(snapshot.contatoTelefone, "5511999999999")
 
+      const pushedNameSnapshot = extractChatContactSnapshot(
+        {
+          whatsapp: {
+            pushName: "Marina Souza",
+            remotePhone: "5511988887777",
+          },
+        },
+        "5511988887777"
+      )
+      assert.equal(pushedNameSnapshot.contatoNome, "Marina Souza")
+      assert.equal(pushedNameSnapshot.contatoTelefone, "5511988887777")
+
       const nextContext = buildNextContext({
         currentContext: {
           catalogo: {
@@ -9985,6 +9997,64 @@ const tests: TestCase[] = [
     },
   },
   {
+    name: "service atualiza nome quando conversa do site continua no WhatsApp",
+    run: async () => {
+      let statsPayload: any = null
+      const runtime = await executeV2RuntimePrelude(
+        {
+          message: "isso",
+          identificadorExterno: "5511953441040",
+          canal: "whatsapp",
+          whatsappChannelId: "wa-1",
+          context: {
+            whatsapp: {
+              channelId: "wa-1",
+              remotePhone: "5511953441040",
+              pushName: "Marina Souza",
+            },
+          },
+        },
+        {
+          resolveChatChannel: async () => ({
+            projeto: { id: "proj-14", nome: "Projeto 14", slug: "proj-14" },
+            agente: { id: "agent-14", nome: "Agente 14" },
+            whatsappChannel: { id: "wa-1" },
+            lockedToAgent: true,
+            channel: { kind: "whatsapp" },
+          }),
+          ensureActiveChatSession: async () => ({
+            chat: {
+              id: "chat-site-14",
+              projetoId: "proj-14",
+              agenteId: "agent-14",
+              canal: "web",
+              titulo: "Isso",
+              contatoNome: null,
+              contexto: { canal: "web" },
+            },
+            created: false,
+            initialContext: null,
+          }),
+          updateChatStats: async (payload: any) => {
+            statsPayload = payload
+          },
+          uploadChatAttachmentPayloads: async () => [],
+          persistUserTurn: async () => ({ id: "msg-user-14" }),
+          applyHandoffGuardrail: async () => ({ paused: false, handoff: null, result: null }),
+          loadChatHistory: async () => [],
+          applyBillingGuardrail: async () => ({ blocked: false, billingAccess: null, result: null }),
+        }
+      )
+
+      assert.equal(runtime.stage, "ready_for_ai")
+      assert.equal(statsPayload.chatId, "chat-site-14")
+      assert.equal(statsPayload.titulo, "Marina Souza")
+      assert.equal(statsPayload.contatoNome, "Marina Souza")
+      assert.equal(statsPayload.contatoTelefone, "5511953441040")
+      assert.equal(statsPayload.contexto.whatsapp.pushName, "Marina Souza")
+    },
+  },
+  {
     name: "service resolve canal local com projeto explicito e sem fallback padrao de widget",
     run: async () => {
       const explicit = await resolveChatChannel(
@@ -10440,6 +10510,12 @@ const tests: TestCase[] = [
         message: "quero saber mais sobre o produto",
         contactSnapshot,
       })
+      const whatsappPhoneTitle = buildFallbackChatTitle({
+        message: "isso",
+        contactSnapshot: { contatoNome: null, contatoTelefone: "5511988887777", contatoAvatarUrl: null },
+        channelKind: "whatsapp",
+        normalizedExternalIdentifier: "5511988887777",
+      })
 
       const reused = await ensureActiveChatSession(
         {
@@ -10486,6 +10562,7 @@ const tests: TestCase[] = [
       assert.equal(initialContext.whatsapp.ctaEnabled, true)
       assert.equal(initialContext.whatsapp.channelId, "wa-20")
       assert.equal(fallbackTitle, "Julia Rodrigues")
+      assert.equal(whatsappPhoneTitle, "5511988887777")
       assert.equal(reused.chat.id, "chat-existing")
       assert.equal(reused.created, false)
       assert.equal(created.chat.id, "chat-created")
