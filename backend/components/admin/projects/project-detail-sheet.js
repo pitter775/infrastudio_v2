@@ -121,7 +121,7 @@ function getSheetTabToneClasses(tone) {
         active: 'bg-emerald-400/14 text-emerald-50',
         inactive: 'bg-transparent text-emerald-100/45 hover:bg-emerald-400/10 hover:text-emerald-50',
         glow: 'shadow-[0_0_24px_rgba(52,211,153,0.36),0_0_52px_rgba(52,211,153,0.16)]',
-        iconGlow: 'drop-shadow-[0_0_10px_rgba(52,211,153,0.9)]',
+        iconGlow: 'drop-shadow-[0_0_14px_rgba(52,211,153,1)] drop-shadow-[0_0_24px_rgba(52,211,153,0.55)]',
       }
     case 'amber':
       return {
@@ -130,7 +130,7 @@ function getSheetTabToneClasses(tone) {
         active: 'bg-amber-400/14 text-amber-50',
         inactive: 'bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50',
         glow: 'shadow-[0_0_24px_rgba(251,191,36,0.38),0_0_52px_rgba(251,191,36,0.18)]',
-        iconGlow: 'drop-shadow-[0_0_10px_rgba(251,191,36,0.9)]',
+        iconGlow: 'drop-shadow-[0_0_14px_rgba(251,191,36,1)] drop-shadow-[0_0_24px_rgba(251,191,36,0.55)]',
       }
     case 'violet':
       return {
@@ -139,7 +139,7 @@ function getSheetTabToneClasses(tone) {
         active: 'bg-fuchsia-400/14 text-fuchsia-50',
         inactive: 'bg-transparent text-fuchsia-100/45 hover:bg-fuchsia-400/10 hover:text-fuchsia-50',
         glow: 'shadow-[0_0_24px_rgba(217,70,239,0.36),0_0_52px_rgba(217,70,239,0.16)]',
-        iconGlow: 'drop-shadow-[0_0_10px_rgba(217,70,239,0.9)]',
+        iconGlow: 'drop-shadow-[0_0_14px_rgba(217,70,239,1)] drop-shadow-[0_0_24px_rgba(217,70,239,0.55)]',
       }
     case 'sky':
     default:
@@ -149,7 +149,7 @@ function getSheetTabToneClasses(tone) {
         active: 'bg-sky-500/14 text-sky-50',
         inactive: 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
         glow: 'shadow-[0_0_24px_rgba(56,189,248,0.38),0_0_52px_rgba(56,189,248,0.18)]',
-        iconGlow: 'drop-shadow-[0_0_10px_rgba(56,189,248,0.9)]',
+        iconGlow: 'drop-shadow-[0_0_14px_rgba(56,189,248,1)] drop-shadow-[0_0_24px_rgba(56,189,248,0.55)]',
       }
   }
 }
