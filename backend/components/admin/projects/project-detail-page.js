@@ -91,7 +91,6 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
   const [isCardDragging, setIsCardDragging] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [pendingPanelId, setPendingPanelId] = useState(null)
-  const [topMenuRevealIndex, setTopMenuRevealIndex] = useState(null)
   const [agentCardActive, setAgentCardActive] = useState(project.agent?.active !== false)
   const [savingAgentCardActive, setSavingAgentCardActive] = useState(false)
   const [showAgentHint, setShowAgentHint] = useState(false)
@@ -177,33 +176,6 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
   useEffect(() => {
     setDragResetSignal((value) => value + 1)
   }, [isPanelOpen])
-
-  useEffect(() => {
-    if (isMobile || !topMenuItems.length) {
-      setTopMenuRevealIndex(null)
-      return undefined
-    }
-
-    let currentIndex = 0
-    setTopMenuRevealIndex(currentIndex)
-
-    const interval = window.setInterval(() => {
-      currentIndex += 1
-
-      if (currentIndex >= topMenuItems.length) {
-        setTopMenuRevealIndex(null)
-        window.clearInterval(interval)
-        return
-      }
-
-      setTopMenuRevealIndex(currentIndex)
-    }, 720)
-
-    return () => {
-      window.clearInterval(interval)
-      setTopMenuRevealIndex(null)
-    }
-  }, [isMobile, topMenuItems.length])
 
   useEffect(() => {
     function handleSidebarStateChange(event) {
@@ -521,8 +493,8 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
             {topMenuItems.map((item, index) => {
               const Icon = item.icon
               const active = activePanel === item.id && isPanelOpen
-              const revealLabel = topMenuRevealIndex === index
               const loading = pendingPanelId === item.id
+              const revealDelay = 1.35 + index * 0.58
               const toneClasses = getToneClasses(item.colorClassName)
               const glowClassName =
                 item.colorClassName === 'emerald'
@@ -540,6 +512,14 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                     : item.colorClassName === 'violet'
                       ? 'hover:shadow-[0_0_20px_rgba(217,70,239,0.18)]'
                       : 'hover:shadow-[0_0_20px_rgba(56,189,248,0.18)]'
+              const revealShadow =
+                item.colorClassName === 'emerald'
+                  ? '0 0 20px rgba(52,211,153,0.22)'
+                  : item.colorClassName === 'amber'
+                    ? '0 0 20px rgba(251,191,36,0.24)'
+                    : item.colorClassName === 'violet'
+                      ? '0 0 20px rgba(217,70,239,0.24)'
+                      : '0 0 20px rgba(56,189,248,0.22)'
 
               return (
                 <button
@@ -561,19 +541,31 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                   )}
                   title={item.label}
                 >
+                  {!isMobile ? (
+                    <motion.span
+                      className="pointer-events-none absolute inset-0 rounded-xl bg-white/[0.04]"
+                      initial={{ opacity: 0, scale: 0.96 }}
+                      animate={{ opacity: [0, 1, 1, 0], scale: [0.96, 1.02, 1.02, 1] }}
+                      transition={{ delay: revealDelay, duration: 0.62, times: [0, 0.22, 0.72, 1], ease: 'easeOut' }}
+                      style={{ boxShadow: revealShadow }}
+                    />
+                  ) : null}
                   {loading ? <LoaderCircle className="h-4 w-4 animate-spin" /> : Icon ? <Icon className={cn(isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4')} /> : null}
                   {isMobile ? item.label : null}
                   {!isMobile ? (
-                    <span
-                      className={cn(
-                        'pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-100 shadow-[0_10px_24px_rgba(2,6,23,0.48)] transition-[opacity,transform] duration-150',
-                        revealLabel
-                          ? 'translate-y-0 opacity-100'
-                          : 'translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100',
-                      )}
-                    >
-                      {item.label}
-                    </span>
+                    <>
+                      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-100 opacity-0 shadow-[0_10px_24px_rgba(2,6,23,0.48)] transition-[opacity,transform] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+                        {item.label}
+                      </span>
+                      <motion.span
+                        className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-100 shadow-[0_10px_24px_rgba(2,6,23,0.48)]"
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: [0, 1, 1, 0], y: [4, 0, 0, 4] }}
+                        transition={{ delay: revealDelay, duration: 0.62, times: [0, 0.24, 0.72, 1], ease: 'easeOut' }}
+                      >
+                        {item.label}
+                      </motion.span>
+                    </>
                   ) : null}
                 </button>
               )
