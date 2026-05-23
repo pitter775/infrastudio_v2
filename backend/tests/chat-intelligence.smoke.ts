@@ -1578,6 +1578,105 @@ Cada projeto tem seu próprio plano.
     },
   },
   {
+    name: "orquestrador nao derruba vitrine quando stage semantico de catalogo falha",
+    run: async () => {
+      let capturedSearchTerm = "";
+      const previousWarn = console.warn;
+      console.warn = () => {};
+
+      try {
+        const result = await executeSalesOrchestrator(
+          [{ role: "user", content: "Eu preciso de um produto vintage para dar de presente" }] as never,
+          {
+            agente: {
+              id: "agent-ml-1",
+              nome: "Reliquias de Familia",
+              promptBase: "Atenda compradores da loja com objetividade.",
+            },
+            projeto: {
+              id: "proj-ml-1",
+              nome: "Reliquias de Familia",
+              directConnections: {
+                mercadoLivre: 1,
+              },
+            },
+            channel: {
+              kind: "web",
+            },
+            conversation: {
+              mode: "listing",
+            },
+            storefront: {
+              kind: "mercado_livre",
+              pageKind: "storefront",
+            },
+            ui: {
+              catalogPreferred: true,
+            },
+            catalogo: {
+              produtoAtual: {
+                id: "MLB-OLD",
+                nome: "Porta Joias Vintage Floral Pintado A Mao",
+                preco: 120,
+              },
+              ultimosProdutos: [],
+            },
+          } as never,
+          {
+            classifySemanticApiIntentStage: async () => null,
+            classifySemanticIntentStage: async () => {
+              throw new Error("semantic stage indisponivel");
+            },
+            resolveMercadoLivreSearch: async (_project: unknown, options: any) => {
+              capturedSearchTerm = options?.searchTerm ?? "";
+              return {
+                items: [
+                  {
+                    id: "MLB1",
+                    title: "Bau de madeira vintage",
+                    price: 149.9,
+                    currencyId: "BRL",
+                    permalink: "https://produto.mercadolivre.com.br/MLB1",
+                    thumbnail: "https://example.com/bau.jpg",
+                    sellerName: "Reliquias de Familia",
+                    availableQuantity: 1,
+                  },
+                  {
+                    id: "MLB2",
+                    title: "Servico completo em inox vintage",
+                    price: 299.9,
+                    currencyId: "BRL",
+                    permalink: "https://produto.mercadolivre.com.br/MLB2",
+                    thumbnail: "https://example.com/inox.jpg",
+                    sellerName: "Reliquias de Familia",
+                    availableQuantity: 1,
+                  },
+                ],
+                connector: { id: "conn-1", nome: "Mercado Livre" },
+                paging: {
+                  total: 2,
+                  filteredTotal: 2,
+                  offset: 0,
+                  nextOffset: 24,
+                  poolLimit: 24,
+                  hasMore: false,
+                },
+                error: null,
+              };
+            },
+          } as never
+        );
+
+        assert.match(result.reply, /Encontrei 2 opcoes/i);
+        assert.equal(result.metadata?.provider, "mercado_livre_runtime");
+        assert.equal(result.metadata?.catalogoProdutoAtual, null);
+        assert.ok(/vintage/i.test(capturedSearchTerm));
+      } finally {
+        console.warn = previousWarn;
+      }
+    },
+  },
+  {
     name: "service propaga listingSession e productFocus no contexto e nos assets",
     run: () => {
       const updatedContext = updateContextFromAiResult({

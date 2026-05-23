@@ -720,6 +720,7 @@
       ".chat-catalog-loading .chat-typing-dots span { width: 6px; height: 6px; }",
       ".chat-asset { display: block; overflow: hidden; border-radius: 12px; border: 1px solid " + headerBorder + "; background: color-mix(in srgb, " + panelBackground + " 88%, transparent); color: inherit; text-decoration: none; }",
       ".chat-product-carousel .chat-asset { flex: 0 0 148px; width: 148px; scroll-snap-align: start; transition: box-shadow .18s ease, transform .18s ease, border-color .18s ease; }",
+      ".chat-product-carousel:not(.is-single) .chat-asset:first-child { margin-left: 6px; }",
       ".chat-product-carousel.is-single .chat-asset { width: 100%; max-width: none; }",
       ".chat-product-carousel .chat-asset:hover { transform: translateY(-1px); border-color: color-mix(in srgb, " + accent + " 26%, " + headerBorder + "); box-shadow: 0 10px 22px rgba(15,23,42,0.16); }",
       ".chat-asset.image, .chat-asset.video, .chat-asset.preview { padding: 0; }",

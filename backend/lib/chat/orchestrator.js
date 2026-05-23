@@ -598,6 +598,15 @@ function buildRuntimeApiDiagnosticItem(api) {
   }
 }
 
+async function runSemanticStageSafely(stageName, runner) {
+  try {
+    return await runner()
+  } catch (error) {
+    console.warn(`[chat-orchestrator] ${stageName} failed`, error)
+    return null
+  }
+}
+
 function buildApiRuntimeDiagnosticsPayload({ runtimeApis = [], semanticApiDecision = null, focusedApiContext = null, routingDecision = null } = {}) {
   const apiItems = (runtimeApis ?? []).map(buildRuntimeApiDiagnosticItem)
   const selectedApiId = semanticApiDecision?.apiId || focusedApiContext?.fields?.[0]?.apiId || null
@@ -1159,13 +1168,15 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
       : buildBaseRoutingDecision(latestUserMessage, history, effectiveContext, runtimeApis, initialFocusedApiContext, runtimeConfig)
   const semanticApiIntent =
     runtimeApis.length
-      ? await (options.classifySemanticApiIntentStage ?? classifySemanticApiIntentStage)({
-          latestUserMessage,
-          runtimeApis,
-          context: effectiveContext,
-          openAiKey,
-          model,
-        })
+      ? await runSemanticStageSafely("semantic_api_intent_stage", () =>
+          (options.classifySemanticApiIntentStage ?? classifySemanticApiIntentStage)({
+            latestUserMessage,
+            runtimeApis,
+            context: effectiveContext,
+            openAiKey,
+            model,
+          })
+        )
       : null
   const semanticApiDecision = enrichCatalogSearchDecisionWithFallbackParameter(
     latestUserMessage,
@@ -1201,15 +1212,17 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     (context?.catalogo?.produtoAtual || hasRecentCatalogSnapshot(context) || hasCatalogStorefrontSemanticContext(context))
   const semanticCatalogIntent =
     shouldEvaluateSemanticCatalog
-      ? await (options.classifySemanticIntentStage ?? classifySemanticIntentStage)({
-          latestUserMessage,
-          currentCatalogProduct: context?.catalogo?.produtoAtual,
-          recentProducts: context?.catalogo?.ultimosProdutos,
-          storefrontContext: hasCatalogStorefrontSemanticContext(context) ? context?.storefront ?? { kind: "mercado_livre" } : null,
-          context: effectiveContext,
-          openAiKey,
-          model,
-        })
+      ? await runSemanticStageSafely("semantic_catalog_intent_stage", () =>
+          (options.classifySemanticIntentStage ?? classifySemanticIntentStage)({
+            latestUserMessage,
+            currentCatalogProduct: context?.catalogo?.produtoAtual,
+            recentProducts: context?.catalogo?.ultimosProdutos,
+            storefrontContext: hasCatalogStorefrontSemanticContext(context) ? context?.storefront ?? { kind: "mercado_livre" } : null,
+            context: effectiveContext,
+            openAiKey,
+            model,
+          })
+        )
       : null
   const semanticCatalogDecision = buildCatalogDecisionFromSemanticIntent({
     semanticIntent: semanticCatalogIntent,
@@ -1218,13 +1231,15 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
   })
   const semanticBillingIntent =
     hasRuntimePricingCatalog(runtimeConfig) && !hasProductPricingPriority
-      ? await (options.classifySemanticBillingIntentStage ?? classifySemanticBillingIntentStage)({
-          latestUserMessage,
-          pricingItems: runtimeConfig.pricingCatalog.items,
-          context: effectiveContext,
-          openAiKey,
-          model,
-        })
+      ? await runSemanticStageSafely("semantic_billing_intent_stage", () =>
+          (options.classifySemanticBillingIntentStage ?? classifySemanticBillingIntentStage)({
+            latestUserMessage,
+            pricingItems: runtimeConfig.pricingCatalog.items,
+            context: effectiveContext,
+            openAiKey,
+            model,
+          })
+        )
       : null
   const semanticBillingDecision = buildBillingDecisionFromSemanticIntent({ semanticIntent: semanticBillingIntent })
   const apiRoutingDecision = buildApiRoutingOverride(baseRoutingDecision, latestUserMessage, semanticApiDecision)
@@ -1349,9 +1364,15 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
     mercadoLivreState?.catalogSearchState && typeof mercadoLivreState.catalogSearchState === "object"
       ? mercadoLivreState.catalogSearchState
       : null
+  const shouldClearPreviousCatalogFocusForMercadoLivreListing =
+    shouldUseMercadoLivre &&
+    (mercadoLivreFlowState.productSearchRequested ||
+      mercadoLivreFlowState.genericMercadoLivreListingRequested ||
+      mercadoLivreFlowState.forceNewSearch ||
+      mercadoLivreFlowState.loadMoreCatalogRequested)
   const mercadoLivreSelectedProduct =
     mercadoLivreState?.selectedCatalogProduct ??
-    mercadoLivreFlowState.currentCatalogProduct ??
+    (shouldClearPreviousCatalogFocusForMercadoLivreListing ? null : mercadoLivreFlowState.currentCatalogProduct) ??
     (Array.isArray(mercadoLivreState?.mercadoLivreProducts) && mercadoLivreState.mercadoLivreProducts.length === 1
       ? {
           id: mercadoLivreState.mercadoLivreProducts[0].id,
@@ -1365,12 +1386,6 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
           availableQuantity: mercadoLivreState.mercadoLivreProducts[0].availableQuantity,
         }
       : null)
-  const shouldClearPreviousCatalogFocusForMercadoLivreListing =
-    shouldUseMercadoLivre &&
-    (mercadoLivreFlowState.productSearchRequested ||
-      mercadoLivreFlowState.genericMercadoLivreListingRequested ||
-      mercadoLivreFlowState.forceNewSearch ||
-      mercadoLivreFlowState.loadMoreCatalogRequested)
   const leadNameReplyDetected = isLikelyLeadNameReply(latestUserMessage, history, { extractName })
   const extractedLeadName = leadNameReplyDetected ? extractName(latestUserMessage) : null
   const leadNameAcknowledgementReply =

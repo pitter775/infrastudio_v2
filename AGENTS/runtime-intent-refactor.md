@@ -779,3 +779,7 @@ Ainda errado / fragil:
 - billing/pricing estruturado agora suporta `marketplace_product_limit`
   - o catalogo extraido do texto do agente le a secao de limites de produtos do Mercado Livre por plano
   - perguntas como `quantos produtos no Mercado Livre cabem no Basic?` respondem pelo limite de produtos, sem cair em `attendance_limit`
+- stages semanticos do orquestrador agora falham fechado
+  - falha/indisponibilidade do classificador semantico de API, catalogo ou billing nao derruba mais o turno inteiro
+  - em vitrine Mercado Livre, uma busca/listagem nova tambem limpa foco de produto antigo antes de montar o estado final
+  - cobre o caso de pedido amplo de presente vintage nao ficar preso em produto antigo nem virar erro generico no widget
