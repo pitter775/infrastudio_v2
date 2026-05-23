@@ -616,6 +616,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
             compact={isMobile}
             usageBarPlacement="satellite"
             showAgentCornerIcon
+            agentCornerIcon={Bot}
             draggableHeader={!isMobile}
             resetDragSignal={dragResetSignal}
             onDragStateChange={setIsCardDragging}
