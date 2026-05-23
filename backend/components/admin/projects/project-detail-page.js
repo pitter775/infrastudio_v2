@@ -799,7 +799,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
           {!isMobile ? (
             <>
               <span className="pointer-events-none absolute inset-0 z-0 rounded-l-lg rounded-r-none bg-[#080e1d]" />
-              <span className="pointer-events-none absolute inset-0 z-30 rounded-l-lg rounded-r-none border border-white/10" />
+              <span className="pointer-events-none absolute inset-0 z-30 rounded-l-lg rounded-r-none border-y border-l border-y-white/5 border-l-white/10" />
             </>
           ) : null}
           {!isMobile ? (
