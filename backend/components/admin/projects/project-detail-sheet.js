@@ -286,8 +286,8 @@ export function SheetInternalTabs({ tabs, activeTab, onChange, tone = 'sky' }) {
       >
         <div
           className={cn(
-            'absolute right-0 top-8 z-0 w-12 overflow-visible rounded-l-xl rounded-r-none border-y border-l border-white/10 border-r-0 bg-[#080e1d] py-2 shadow-[-10px_16px_34px_rgba(2,6,23,0.42)] transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
-            railOpen && 'w-40 border-white/14 bg-[#0a1122] shadow-[-18px_22px_56px_rgba(2,6,23,0.66),0_0_0_1px_rgba(255,255,255,0.04)]',
+            'absolute right-0 top-8 z-0 w-12 overflow-visible rounded-l-xl rounded-r-none border-y border-l border-white/10 border-r-0 bg-[#080e1d] py-2 transition-[width,background-color,border-color] duration-200 ease-out',
+            railOpen && 'w-40 border-white/14 bg-[#0a1122]',
           )}
         >
           <div className="grid gap-1 px-2">
