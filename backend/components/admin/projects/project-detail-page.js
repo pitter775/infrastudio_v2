@@ -771,9 +771,6 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
           <SheetTitle className="sr-only">{sheetHeading}</SheetTitle>
           <SheetDescription className="sr-only">{sheetIntro}</SheetDescription>
           {!isMobile ? (
-            <span className="pointer-events-none absolute inset-y-0 left-0 z-50 w-px bg-white/10" />
-          ) : null}
-          {!isMobile ? (
             <SheetClose className="absolute left-0 top-[30px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
               <ChevronRight className="h-4 w-4" />
               <span className="sr-only">Fechar painel</span>

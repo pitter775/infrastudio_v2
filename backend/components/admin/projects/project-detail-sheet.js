@@ -273,12 +273,12 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
                     ? cn(
                         'bg-amber-400/14 text-amber-50',
                         railOpen && '-mr-2 rounded-r-none after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#0a1122]',
-                        activeGlow,
+                        railOpen && activeGlow,
                       )
                     : cn(
                         'bg-sky-500/14 text-sky-50',
                         railOpen && '-mr-2 rounded-r-none after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#0a1122]',
-                        activeGlow,
+                        railOpen && activeGlow,
                       )
                   : amber
                     ? 'bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50'
