@@ -338,6 +338,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
                 : panel.id === 'mercado-livre' && currentActiveTab === 'dashboard'
                   ? "overflow-x-hidden overflow-y-auto px-0 pb-24 pt-4 md:px-6 md:pb-6 md:pt-6"
                   : "overflow-x-hidden overflow-y-auto px-4 pb-24 pt-5 md:px-6 md:pb-6 md:pt-6",
+              panel.id === 'mercado-livre' && (currentActiveTab === 'connection' || currentActiveTab === 'store') && 'md:pb-24',
             )}
           >
             <AnimatePresence mode="wait" initial={false}>
