@@ -246,8 +246,8 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
       >
         <div
           className={cn(
-            'absolute right-0 top-8 z-0 w-14 overflow-visible rounded-l-2xl rounded-r-none border-y border-l border-white/10 border-r-0 bg-[#080e1d] py-2 shadow-[-14px_18px_46px_rgba(2,6,23,0.46)] transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
-            railOpen && 'w-48 border-white/14 bg-[#0a1122] shadow-[-22px_24px_72px_rgba(2,6,23,0.7),0_0_0_1px_rgba(255,255,255,0.04)]',
+            'absolute right-0 top-8 z-0 w-12 overflow-visible rounded-l-xl rounded-r-none border-y border-l border-white/10 border-r-0 bg-[#080e1d] py-2 shadow-[-10px_16px_34px_rgba(2,6,23,0.42)] transition-[width,box-shadow,background-color,border-color] duration-200 ease-out',
+            railOpen && 'w-40 border-white/14 bg-[#0a1122] shadow-[-18px_22px_56px_rgba(2,6,23,0.66),0_0_0_1px_rgba(255,255,255,0.04)]',
           )}
         >
           <div className="grid gap-1 px-2">
@@ -267,7 +267,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
               onClick={() => handleChange(tab.id)}
               title={tab.label}
               className={cn(
-                'infra-tab-motion relative flex h-10 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-xs font-semibold transition-[background-color,box-shadow,color]',
+                'infra-tab-motion relative flex h-9 w-full items-center gap-2 rounded-lg border border-transparent px-2.5 text-left text-xs font-semibold transition-[background-color,box-shadow,color]',
                 active
                   ? amber
                     ? cn(

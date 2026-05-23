@@ -319,7 +319,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
         {panel.id === 'apis' ? null : (
           <SheetInternalTabs tabs={tabs} activeTab={currentActiveTab} onChange={setActiveTab} />
         )}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div className="relative z-10 flex min-h-0 min-w-0 flex-1 flex-col bg-[#080e1d]">
           {panel.id === 'mercado-livre' && currentActiveTab === 'store' ? (
             <div className="shrink-0 border-b border-white/5 bg-[#080e1d] px-4 py-2 md:border-b-0">
               <StoreHeaderTabs

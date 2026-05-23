@@ -760,7 +760,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
           className={
             isMobile
               ? 'infra-sheet-mobile inset-0 h-[100svh] w-screen max-w-none overflow-hidden rounded-none border-0 bg-[#080e1d] p-0 text-slate-300 shadow-none'
-              : 'right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible rounded-l-lg border border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-none'
+              : 'right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible rounded-l-lg border-y border-l border-r border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-none'
           }
           style={
             isMobile
