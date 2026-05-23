@@ -241,7 +241,7 @@ function extractContactProfileFromPrompt(promptText) {
   return Object.keys(contactProfile).length ? contactProfile : null
 }
 
-export function buildAgentDraftConfig({ runtimeConfig, promptText, siteUrl, logoUrl, siteSummary }) {
+export function buildAgentDraftConfig({ runtimeConfig, structuredConfig, structuredConfigDraft, promptText, siteUrl, logoUrl, siteSummary }) {
   const config = {}
   const normalizedSiteUrl = String(siteUrl || '').trim()
   const normalizedLogoUrl = String(logoUrl || '').trim()
@@ -250,6 +250,18 @@ export function buildAgentDraftConfig({ runtimeConfig, promptText, siteUrl, logo
 
   if (contactProfile) {
     config.contactProfile = contactProfile
+  }
+
+  if (runtimeConfig && typeof runtimeConfig === 'object' && !Array.isArray(runtimeConfig)) {
+    config.runtimeConfig = runtimeConfig
+  }
+
+  if (structuredConfig && typeof structuredConfig === 'object' && !Array.isArray(structuredConfig)) {
+    config.structuredConfig = structuredConfig
+  }
+
+  if (structuredConfigDraft && typeof structuredConfigDraft === 'object' && !Array.isArray(structuredConfigDraft)) {
+    config.structuredConfigDraft = structuredConfigDraft
   }
 
   if (normalizedSiteSummary) {

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bot, CalendarDays, Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Store, Wand2, X } from 'lucide-react'
+import { Bot, CalendarDays, Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Sparkles, Store, Wand2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
@@ -156,6 +156,8 @@ export function ProjectPanel({
         id: agent?.id || '',
         name: agent?.name || '',
         prompt: agent?.prompt || agent?.description || '',
+        structuredConfig: agent?.structuredConfig ?? null,
+        structuredConfigDraft: agent?.structuredConfigDraft ?? null,
         logoUrl: agent?.logoUrl || '',
         siteUrl: agent?.siteUrl || '',
         active: agent?.active !== false,
@@ -180,12 +182,15 @@ export function ProjectPanel({
   const [restoreConfirmId, setRestoreConfirmId] = useState('')
   const [savingActive, setSavingActive] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
+  const [structuringAgent, setStructuringAgent] = useState(false)
+  const [applyingStructure, setApplyingStructure] = useState(false)
   const [creatingAgent, setCreatingAgent] = useState(false)
   const [generatingSiteSummary, setGeneratingSiteSummary] = useState(false)
   const [agentName, setAgentName] = useState(initialAgentName)
   const [siteUrl, setSiteUrl] = useState(initialSiteUrl)
   const [logoUrl, setLogoUrl] = useState(initialLogoUrl)
   const [promptValue, setPromptValue] = useState(() => plainTextToEditorHtml(initialPrompt))
+  const [structuredDraft, setStructuredDraft] = useState(agent?.structuredConfigDraft || null)
   const [promptAutofillPendingClear, setPromptAutofillPendingClear] = useState(false)
   const [promptEditedByUser, setPromptEditedByUser] = useState(false)
   const [rollbackStatus, setRollbackStatus] = useState({ type: 'idle', message: '' })
@@ -203,11 +208,13 @@ export function ProjectPanel({
     () =>
       buildAgentDraftConfig({
         runtimeConfig: agent?.runtimeConfig ?? null,
+        structuredConfig: agent?.structuredConfig ?? null,
+        structuredConfigDraft: structuredDraft,
         promptText: normalizedPrompt,
         siteUrl,
         logoUrl,
       }),
-    [agent?.runtimeConfig, logoUrl, normalizedPrompt, siteUrl],
+    [agent?.runtimeConfig, agent?.structuredConfig, logoUrl, normalizedPrompt, siteUrl, structuredDraft],
   )
   const draftAgentJson = useMemo(
     () => ({
@@ -257,12 +264,13 @@ export function ProjectPanel({
     setSiteUrl(initialSiteUrl)
     setLogoUrl(initialLogoUrl)
     setPromptValue(plainTextToEditorHtml(initialPrompt))
+    setStructuredDraft(agent?.structuredConfigDraft || null)
     setPromptAutofillPendingClear(false)
     setPromptEditedByUser(false)
     setAgentActive(agent?.active !== false)
     setVersions(agent?.versions || [])
     setEditorStatus({ type: 'idle', message: '' })
-  }, [agent?.active, agent?.versions, agentServerSnapshot, initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
+  }, [agent?.active, agent?.structuredConfigDraft, agent?.versions, agentServerSnapshot, initialAgentName, initialLogoUrl, initialPrompt, initialSiteUrl])
 
   useEffect(() => {
     const nextTab = resolveAgentTab(initialAgentTab)
@@ -548,11 +556,126 @@ export function ProjectPanel({
     }
   }
 
+  async function handleStructureAgent(mode = 'analyze') {
+    if (!agent?.id || structuringAgent || !normalizedPrompt.trim()) {
+      return
+    }
+
+    setStructuringAgent(true)
+    setEditorStatus({ type: 'idle', message: '' })
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'structure_agent_text',
+          mode,
+          sourceText: normalizedPrompt,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Não foi possível organizar o agente.')
+      }
+
+      setStructuredDraft(data.draft?.structuredConfig || data.agent?.structuredConfigDraft || null)
+      if (Array.isArray(data.versions)) {
+        setVersions(data.versions)
+      }
+      setEditorStatus({ type: 'success', message: 'Rascunho estruturado criado. Revise e aplique quando estiver correto.' })
+      router.refresh()
+    } catch (error) {
+      setEditorStatus({ type: 'error', message: error.message })
+    } finally {
+      setStructuringAgent(false)
+    }
+  }
+
+  async function handleApplyStructuredConfig() {
+    if (!agent?.id || !structuredDraft || applyingStructure) {
+      return
+    }
+
+    setApplyingStructure(true)
+    setEditorStatus({ type: 'idle', message: '' })
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'apply_structured_config',
+          structuredConfig: structuredDraft,
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Não foi possível aplicar a estrutura.')
+      }
+
+      setStructuredDraft(null)
+      if (Array.isArray(data.versions)) {
+        setVersions(data.versions)
+      }
+      setEditorStatus({ type: 'success', message: 'Estrutura aplicada ao agente.' })
+      router.refresh()
+    } catch (error) {
+      setEditorStatus({ type: 'error', message: error.message })
+    } finally {
+      setApplyingStructure(false)
+    }
+  }
+
+  async function handleDiscardStructuredDraft() {
+    if (!agent?.id || !structuredDraft || applyingStructure) {
+      return
+    }
+
+    setApplyingStructure(true)
+    setEditorStatus({ type: 'idle', message: '' })
+
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/agente`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          action: 'discard_structured_config_draft',
+        }),
+      })
+      const data = await response.json().catch(() => ({}))
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Não foi possível descartar o rascunho.')
+      }
+
+      setStructuredDraft(null)
+      if (Array.isArray(data.versions)) {
+        setVersions(data.versions)
+      }
+      setEditorStatus({ type: 'success', message: 'Rascunho estruturado descartado.' })
+      router.refresh()
+    } catch (error) {
+      setEditorStatus({ type: 'error', message: error.message })
+    } finally {
+      setApplyingStructure(false)
+    }
+  }
+
   function handleResetAgentDraft() {
     setAgentName(initialAgentName)
     setSiteUrl(initialSiteUrl)
     setLogoUrl(initialLogoUrl)
     setPromptValue(plainTextToEditorHtml(initialPrompt))
+    setStructuredDraft(agent?.structuredConfigDraft || null)
     setPromptAutofillPendingClear(false)
     setPromptEditedByUser(false)
     setEditorStatus({ type: 'idle', message: '' })
@@ -750,6 +873,74 @@ export function ProjectPanel({
                       setPromptEditedByUser(true)
                     }}
                   />
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-sky-400/20 bg-sky-500/10 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-sky-100">Estrutura do agente</div>
+                      <div className="mt-1 text-xs leading-5 text-sky-200/80">
+                        Organize o texto em dados estruturados para reduzir prompt gigante e melhorar respostas factuais.
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 rounded-xl border border-sky-400/25 bg-white/5 px-3 text-xs text-sky-100 hover:bg-sky-500/15"
+                        disabled={structuringAgent || !normalizedPrompt.trim()}
+                        onClick={() => handleStructureAgent(agent?.structuredConfig ? 'update' : 'analyze')}
+                      >
+                        <Sparkles className="mr-1.5 h-3.5 w-3.5" />
+                        {structuringAgent ? 'Organizando...' : agent?.structuredConfig ? 'Atualizar com IA' : 'Organizar com IA'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 rounded-xl border border-sky-400/25 bg-white/5 px-3 text-xs text-sky-100 hover:bg-sky-500/15"
+                        disabled={structuringAgent || !normalizedPrompt.trim()}
+                        onClick={() => handleStructureAgent('reset')}
+                      >
+                        Resetar e importar
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 rounded-xl border border-emerald-400/25 bg-emerald-500/10 px-3 text-xs text-emerald-100 hover:bg-emerald-500/15"
+                        disabled={applyingStructure || !structuredDraft}
+                        onClick={handleApplyStructuredConfig}
+                      >
+                        <Check className="mr-1.5 h-3.5 w-3.5" />
+                        {applyingStructure ? 'Aplicando...' : 'Aplicar estrutura'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-8 rounded-xl border border-white/10 bg-white/[0.03] px-3 text-xs text-slate-300 hover:bg-white/[0.06]"
+                        disabled={applyingStructure || !structuredDraft}
+                        onClick={handleDiscardStructuredDraft}
+                      >
+                        Descartar
+                      </Button>
+                    </div>
+                  </div>
+
+                  {structuredDraft ? (
+                    <div className="mt-3 rounded-xl border border-white/10 bg-[#08111f] p-3">
+                      <div className="grid gap-2 text-xs text-slate-300 sm:grid-cols-4">
+                        <span>Tipo: {structuredDraft.diagnostics?.detectedType || 'detectado por IA'}</span>
+                        <span>Planos: {structuredDraft.pricingCatalog?.items?.length || 0}</span>
+                        <span>Conhecimento: {structuredDraft.knowledgeBase?.length || 0}</span>
+                        <span>Módulos: {structuredDraft.diagnostics?.modules?.length || 0}</span>
+                      </div>
+                      <details className="mt-3">
+                        <summary className="cursor-pointer text-xs font-medium text-sky-200">Ver JSON do rascunho</summary>
+                        <pre className="mt-2 max-h-64 overflow-auto rounded-xl bg-black/40 p-3 text-xs text-slate-100">
+                          {JSON.stringify(structuredDraft, null, 2)}
+                        </pre>
+                      </details>
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </div>
