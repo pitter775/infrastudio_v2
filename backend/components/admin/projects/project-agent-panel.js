@@ -3,11 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bot, CalendarDays, Check, ChevronRight, ClipboardCopy, Files, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Sparkles, Store, Wand2, X } from 'lucide-react'
+import { Bot, CalendarDays, Check, ChevronRight, ClipboardCopy, History, MessageCircle, MessageSquare, PackageSearch, PlugZap, RotateCcw, Sparkles, Store, Wand2, X } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
-import { JsonCodeBlock } from '@/components/ui/json-code-block'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { AgentRichEditor, plainTextToEditorHtml, richTextToPlainText } from './agent-rich-editor'
@@ -62,7 +61,6 @@ function buildAgentLlmGuidePrompt({ project, agent, draftAgentJson, connectionIt
     '- Editar agente: ajusta nome, site, logo e prompt/base de conhecimento do agente.',
     '- Conexões: mostra integrações disponíveis para abrir e configurar APIs, WhatsApp, Chat widget, Mercado Livre e Google Agenda.',
     '- Histórico: mostra versões anteriores do agente e permite restaurar versão quando necessário.',
-    '- Ver JSON: mostra o rascunho técnico atual do agente, incluindo configuracoes/runtimeConfig.',
     '- Botão Copiar para LLM: copia este contrato e o estado atual para tirar dúvidas fora do InfraStudio. Não abre nova aba.',
     '',
     'Políticas de preenchimento do agente:',
@@ -215,7 +213,6 @@ export function ProjectPanel({
     { id: 'structure', label: 'Estrutura', icon: Sparkles },
     { id: 'connections', label: 'Conexões', icon: PlugZap },
     { id: 'history', label: 'Histórico', icon: History },
-    { id: 'json', label: 'Ver JSON', icon: Files },
   ]
   const normalizedPrompt = useMemo(() => richTextToPlainText(promptValue), [promptValue])
   const [structuredEditor, setStructuredEditor] = useState(agent?.structuredConfig || agent?.structuredConfigDraft || null)
@@ -340,6 +337,38 @@ export function ProjectPanel({
 
   function formatLines(value) {
     return Array.isArray(value) ? value.filter(Boolean).join('\n') : ''
+  }
+
+  function formatPlanLimitValue(value, singular, plural = singular) {
+    if (value == null || value === '') {
+      return ''
+    }
+
+    if (String(value).trim().toLowerCase() === 'unlimited') {
+      return 'ilimitado'
+    }
+
+    const number = Number(value)
+    if (Number.isFinite(number)) {
+      return `${number.toLocaleString('pt-BR')} ${number === 1 ? singular : plural}`
+    }
+
+    return String(value).trim()
+  }
+
+  function buildPricingLimitLines(item = {}) {
+    const explicitLimits = Array.isArray(item.genericLimits) ? item.genericLimits.filter(Boolean) : []
+    if (explicitLimits.length) {
+      return explicitLimits
+    }
+
+    return [
+      item.creditLimit != null ? `Créditos: ${formatPlanLimitValue(item.creditLimit, 'crédito', 'créditos')}` : '',
+      item.attendanceLimit != null ? `Atendimentos: ${formatPlanLimitValue(item.attendanceLimit, 'atendimento', 'atendimentos')}` : '',
+      item.agentLimit != null ? `Agentes: ${formatPlanLimitValue(item.agentLimit, 'agente', 'agentes')}` : '',
+      item.marketplaceProductLimit != null ? `Produtos/cadastros: ${formatPlanLimitValue(item.marketplaceProductLimit, 'item', 'itens')}` : '',
+      item.whatsappIncluded != null ? `Canal externo incluído: ${item.whatsappIncluded ? 'sim' : 'não'}` : '',
+    ].filter(Boolean)
   }
 
   function patchStructuredConfig(updater) {
@@ -1203,13 +1232,10 @@ export function ProjectPanel({
                   <div className="mt-4 space-y-3">
                     {(activeStructuredConfig.pricingCatalog?.items || []).map((item, index) => (
                       <div key={`${item.slug || item.name}-${index}`} className="rounded-xl border border-white/10 bg-[#080e1d] p-3">
-                        <div className="grid gap-2 lg:grid-cols-4">
+                        <div className="grid gap-2 lg:grid-cols-3">
                           <input value={item.name || ''} onChange={(event) => updatePricingItem(index, { name: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Nome" />
                           <input value={item.priceLabel || ''} onChange={(event) => updatePricingItem(index, { priceLabel: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Preço, faixa ou condição" />
                           <input value={item.supportLevel || ''} onChange={(event) => updatePricingItem(index, { supportLevel: event.target.value })} className="h-9 rounded-lg border border-white/10 bg-black/20 px-2 text-xs text-white outline-none" placeholder="Suporte ou observação" />
-                          <div className="flex h-9 items-center rounded-lg border border-white/10 bg-black/10 px-2 text-xs text-slate-500" title={item.slug || 'gerado automaticamente'}>
-                            ID interno automático
-                          </div>
                         </div>
                         <div className="mt-2 grid gap-2 lg:grid-cols-3">
                           <textarea
@@ -1219,7 +1245,7 @@ export function ProjectPanel({
                             placeholder={"O que inclui\num item por linha"}
                           />
                           <textarea
-                            value={formatLines(item.genericLimits)}
+                            value={formatLines(buildPricingLimitLines(item))}
                             onChange={(event) => updatePricingItem(index, { genericLimits: parseLines(event.target.value) })}
                             className="min-h-20 rounded-lg border border-white/10 bg-black/20 px-2 py-2 text-xs text-white outline-none"
                             placeholder={"Limites, regras ou condições\num item por linha"}
@@ -1343,12 +1369,6 @@ export function ProjectPanel({
                 description="Use Organizar com IA na aba Editar agente para gerar um rascunho estruturado a partir do texto atual."
               />
             )}
-          </div>
-        ) : null}
-
-        {activeAgentTab === 'json' ? (
-          <div className="px-6 py-5">
-            <JsonCodeBlock value={{ projectId: project.id, agent: draftAgentJson }} />
           </div>
         ) : null}
 
