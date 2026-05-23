@@ -895,7 +895,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   }
 
   return (
-    <form id="mercado-livre-store-form" className="grid gap-4" onSubmit={handleSave}>
+    <form id="mercado-livre-store-form" className="grid content-start gap-4" onSubmit={handleSave}>
       {showTabs ? (
       <div className="-mt-2 flex flex-nowrap items-center gap-1 overflow-hidden pb-1">
         {STORE_TABS.map((tab) => {

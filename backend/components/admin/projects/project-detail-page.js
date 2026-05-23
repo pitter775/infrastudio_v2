@@ -554,11 +554,11 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
                   {isMobile ? item.label : null}
                   {!isMobile ? (
                     <>
-                      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-100 opacity-0 shadow-[0_10px_24px_rgba(2,6,23,0.48)] transition-[opacity,transform] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
+                      <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-1 -translate-x-1/2 translate-y-1 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-center text-[10px] font-semibold tracking-[0.04em] text-slate-100 opacity-0 shadow-[0_10px_24px_rgba(2,6,23,0.48)] transition-[opacity,transform] duration-150 group-hover:translate-y-0 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100">
                         {item.label}
                       </span>
                       <motion.span
-                        className="pointer-events-none absolute left-1/2 top-full z-10 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-[10px] font-semibold tracking-[0.04em] text-slate-100 shadow-[0_10px_24px_rgba(2,6,23,0.48)]"
+                        className="pointer-events-none absolute left-1/2 top-[calc(100%+2px)] z-10 w-max -translate-x-1/2 whitespace-nowrap rounded-md bg-slate-950/92 px-2 py-1 text-center text-[10px] font-semibold tracking-[0.04em] text-slate-100 shadow-[0_10px_24px_rgba(2,6,23,0.48)]"
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: [0, 1, 1, 0], y: [4, 0, 0, 4] }}
                         transition={{ delay: revealDelay, duration: 0.62, times: [0, 0.24, 0.72, 1], ease: 'easeOut' }}

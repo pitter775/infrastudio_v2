@@ -348,7 +348,7 @@ function ConversationItem({ conversation, active, onClick, isMobile = false }) {
         active
           ? "bg-sky-500/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]"
           : "bg-transparent hover:bg-white/[0.04]",
-        isMobile && "px-0"
+        isMobile && "px-2"
       )}
     >
       <div className="flex items-start justify-between gap-2">
@@ -2223,7 +2223,7 @@ export default function AttendancePage() {
               </div>
             </div>
 
-            <div className={cn("min-h-0 flex-1 overflow-y-auto", isMobile ? "px-0 py-2" : "px-2 py-2")}>
+            <div className={cn("min-h-0 flex-1 overflow-y-auto", isMobile ? "px-1 py-2" : "px-2 py-2")}>
               <div className="space-y-2">
                 {filteredConversations.map((conversation) => (
                   <ConversationItem

@@ -610,23 +610,31 @@ export function StoreContactSection({ draft, setDraft }) {
 }
 
 export function StoreSocialSection({ draft, setDraft }) {
+  const socialFields = [
+    { key: 'instagram', label: 'Instagram', placeholder: 'https://www.instagram.com/sua-loja' },
+    { key: 'facebook', label: 'Facebook', placeholder: 'https://www.facebook.com/sua-loja' },
+    { key: 'tiktok', label: 'TikTok', placeholder: 'https://www.tiktok.com/@sua-loja' },
+    { key: 'youtube', label: 'YouTube', placeholder: 'https://www.youtube.com/@sua-loja' },
+    { key: 'x', label: 'X', placeholder: 'https://x.com/sua-loja' },
+  ]
+
   return (
-    <div className="grid gap-4 md:grid-cols-2 md:items-start">
-      {['instagram', 'facebook', 'tiktok', 'youtube', 'x'].map((key) => (
+    <div className="grid content-start gap-4 md:grid-cols-2">
+      {socialFields.map((field) => (
         <StorePanelInput
-          key={key}
-          label={key}
-          value={draft.socialLinks[key] || ''}
+          key={field.key}
+          label={field.label}
+          value={draft.socialLinks[field.key] || ''}
           onChange={(event) =>
             setDraft((current) => ({
               ...current,
               socialLinks: {
                 ...current.socialLinks,
-                [key]: event.target.value,
+                [field.key]: event.target.value,
               },
             }))
           }
-          placeholder={`https://${key}.com/...`}
+          placeholder={field.placeholder}
         />
       ))}
     </div>
@@ -635,9 +643,9 @@ export function StoreSocialSection({ draft, setDraft }) {
 
 export function StoreMenuSection({ draft, onUpdateMenuLink }) {
   return (
-    <div className="grid gap-3">
+    <div className="grid content-start gap-3">
       {draft.menuLinks.map((item, index) => (
-        <div key={`${index}-${item.label}`} className="grid gap-3 rounded-2xl border border-white/10 bg-white/[0.025] p-3 md:grid-cols-2 md:items-start">
+        <div key={`${index}-${item.label}`} className="grid gap-3 rounded-xl border border-white/10 bg-white/[0.025] p-3 md:grid-cols-2">
           <StorePanelInput label={`Label ${index + 1}`} value={item.label} onChange={(event) => onUpdateMenuLink(index, 'label', event.target.value)} placeholder="Produtos" />
           <StorePanelInput label={`Destino ${index + 1}`} value={item.href} onChange={(event) => onUpdateMenuLink(index, 'href', event.target.value)} placeholder="#produtos" />
         </div>

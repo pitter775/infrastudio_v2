@@ -595,7 +595,7 @@ export function ProjectPanel({
         onCancel={onCloseSheet}
       />
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden md:overflow-visible md:flex-row">
-        <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={handleAgentTabChange} />
+        <SheetInternalTabs tabs={agentTabs} activeTab={activeAgentTab} onChange={handleAgentTabChange} activeGlow={false} />
 
         <div className="min-h-0 flex-1 overflow-y-auto">
           <AnimatePresence mode="wait" initial={false}>

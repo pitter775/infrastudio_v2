@@ -119,6 +119,7 @@ function getSheetTabToneClasses(tone) {
         mobileActive: 'border-emerald-300/45 bg-emerald-400/14 text-emerald-100',
         mobileIcon: 'text-emerald-300',
         active: 'bg-emerald-400/14 text-emerald-50',
+        activeIcon: 'text-emerald-300',
         inactive: 'bg-transparent text-emerald-100/45 hover:bg-emerald-400/10 hover:text-emerald-50',
         glow: 'shadow-[0_0_24px_rgba(52,211,153,0.36),0_0_52px_rgba(52,211,153,0.16)]',
         iconGlow: 'drop-shadow-[0_0_14px_rgba(52,211,153,1)] drop-shadow-[0_0_24px_rgba(52,211,153,0.55)]',
@@ -128,6 +129,7 @@ function getSheetTabToneClasses(tone) {
         mobileActive: 'border-amber-300/45 bg-amber-400/14 text-amber-100',
         mobileIcon: 'text-amber-300',
         active: 'bg-amber-400/14 text-amber-50',
+        activeIcon: 'text-amber-300',
         inactive: 'bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50',
         glow: 'shadow-[0_0_24px_rgba(251,191,36,0.38),0_0_52px_rgba(251,191,36,0.18)]',
         iconGlow: 'drop-shadow-[0_0_14px_rgba(251,191,36,1)] drop-shadow-[0_0_24px_rgba(251,191,36,0.55)]',
@@ -137,6 +139,7 @@ function getSheetTabToneClasses(tone) {
         mobileActive: 'border-fuchsia-300/45 bg-fuchsia-400/14 text-fuchsia-100',
         mobileIcon: 'text-fuchsia-300',
         active: 'bg-fuchsia-400/14 text-fuchsia-50',
+        activeIcon: 'text-fuchsia-300',
         inactive: 'bg-transparent text-fuchsia-100/45 hover:bg-fuchsia-400/10 hover:text-fuchsia-50',
         glow: 'shadow-[0_0_24px_rgba(217,70,239,0.36),0_0_52px_rgba(217,70,239,0.16)]',
         iconGlow: 'drop-shadow-[0_0_14px_rgba(217,70,239,1)] drop-shadow-[0_0_24px_rgba(217,70,239,0.55)]',
@@ -147,6 +150,7 @@ function getSheetTabToneClasses(tone) {
         mobileActive: 'border-sky-400/40 bg-sky-500/16 text-sky-100',
         mobileIcon: 'text-sky-300',
         active: 'bg-sky-500/14 text-sky-50',
+        activeIcon: 'text-sky-300',
         inactive: 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
         glow: 'shadow-[0_0_24px_rgba(56,189,248,0.38),0_0_52px_rgba(56,189,248,0.18)]',
         iconGlow: 'drop-shadow-[0_0_14px_rgba(56,189,248,1)] drop-shadow-[0_0_24px_rgba(56,189,248,0.55)]',
@@ -154,7 +158,7 @@ function getSheetTabToneClasses(tone) {
   }
 }
 
-export function SheetInternalTabs({ tabs, activeTab, onChange, tone = 'sky' }) {
+export function SheetInternalTabs({ tabs, activeTab, onChange, tone = 'sky', activeGlow = true }) {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
   const [railLocked, setRailLocked] = useState(false)
@@ -308,7 +312,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange, tone = 'sky' }) {
                 active
                   ? cn(
                       toneClasses.active,
-                      railOpen && toneClasses.glow,
+                      railOpen && activeGlow && toneClasses.glow,
                     )
                   : toneClasses.inactive,
               )}
@@ -317,6 +321,7 @@ export function SheetInternalTabs({ tabs, activeTab, onChange, tone = 'sky' }) {
                 <Icon
                   className={cn(
                     'h-4 w-4 shrink-0 transition-[filter,opacity]',
+                    active && toneClasses.activeIcon,
                     active && toneClasses.iconGlow,
                     !active && 'opacity-70',
                   )}
