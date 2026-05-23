@@ -786,7 +786,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
           className={
             isMobile
               ? 'infra-sheet-mobile inset-0 h-[100svh] w-screen max-w-none overflow-hidden rounded-none border-0 bg-[#080e1d] p-0 text-slate-300 shadow-none'
-              : 'right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible rounded-l-lg rounded-r-none border-l border-white/10 bg-[#080e1d] p-0 text-slate-300 shadow-none'
+              : 'right-[19px] top-[54px] bottom-[18px] h-auto overflow-visible border-0 bg-transparent p-0 text-slate-300 shadow-none'
           }
           style={
             isMobile
@@ -797,7 +797,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
           <SheetTitle className="sr-only">{sheetHeading}</SheetTitle>
           <SheetDescription className="sr-only">{sheetIntro}</SheetDescription>
           {!isMobile ? (
-            <span className="pointer-events-none absolute bottom-0 left-0 h-4 w-4 rounded-bl-lg border-b border-l border-white/10" />
+            <span className="pointer-events-none absolute inset-0 rounded-l-lg rounded-r-none border-l border-white/10 bg-[#080e1d]" />
           ) : null}
           {!isMobile ? (
             <SheetClose className="absolute left-0 top-[30px] z-40 inline-flex -translate-x-[60%] items-center justify-center rounded-full border border-white/10 bg-[#0c1426] p-2 text-slate-400 shadow-[0_14px_30px_rgba(2,6,23,0.52)] transition-colors hover:bg-[#101b31] hover:text-white focus:outline-none">
@@ -805,7 +805,7 @@ export function AdminProjectDetailPage({ project, user = null, termsConsent = nu
               <span className="sr-only">Fechar painel</span>
             </SheetClose>
           ) : null}
-          <div className="flex h-full min-h-0 flex-col overflow-hidden md:overflow-visible">
+          <div className="relative z-10 flex h-full min-h-0 flex-col overflow-hidden md:overflow-visible">
             <AnimatePresence mode="wait" initial={false}>
               <motion.div
                 key={activePanel}
