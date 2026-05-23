@@ -270,8 +270,16 @@ export function SheetInternalTabs({ tabs, activeTab, onChange }) {
                 'infra-tab-motion relative flex h-10 w-full items-center gap-3 rounded-xl border border-transparent px-3 text-left text-xs font-semibold transition-[background-color,box-shadow,color]',
                 active
                   ? amber
-                    ? cn('-mr-2 rounded-r-none bg-amber-400/14 text-amber-50 after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#080e1d]', railOpen && 'after:bg-[#0a1122]', activeGlow)
-                    : cn('-mr-2 rounded-r-none bg-sky-500/14 text-sky-50 after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#080e1d]', railOpen && 'after:bg-[#0a1122]', activeGlow)
+                    ? cn(
+                        'bg-amber-400/14 text-amber-50',
+                        railOpen && '-mr-2 rounded-r-none after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#0a1122]',
+                        activeGlow,
+                      )
+                    : cn(
+                        'bg-sky-500/14 text-sky-50',
+                        railOpen && '-mr-2 rounded-r-none after:absolute after:-right-2 after:inset-y-0 after:w-2 after:bg-[#0a1122]',
+                        activeGlow,
+                      )
                   : amber
                     ? 'bg-transparent text-amber-100/45 hover:bg-amber-400/10 hover:text-amber-50'
                     : 'bg-transparent text-slate-500 hover:bg-[#10192b] hover:text-slate-200',
