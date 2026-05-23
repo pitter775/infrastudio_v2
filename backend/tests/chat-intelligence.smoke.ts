@@ -1578,6 +1578,46 @@ Cada projeto tem seu próprio plano.
     },
   },
   {
+    name: "catalogo explicito continua pela sessao atual quando botao carrega id antigo",
+    run: () => {
+      const decision = resolveCatalogDecisionState({
+        latestUserMessage: "Ver mais opÃ§Ãµes",
+        context: {
+          ui: {
+            catalogAction: "load_more",
+            listingSessionId: "sessao-antiga",
+          },
+          catalogo: {
+            ultimaBusca: "vintage",
+            ultimosProdutos: [
+              { id: "MLB1", nome: "Castical vintage" },
+              { id: "MLB2", nome: "Bomboniere vintage" },
+            ],
+            listingSession: {
+              id: "sessao-atual",
+              searchTerm: "vintage",
+              matchedProductIds: ["MLB1", "MLB2"],
+              offset: 0,
+              nextOffset: 10,
+              poolLimit: 24,
+              hasMore: true,
+              total: 21,
+              source: "storefront_snapshot",
+            },
+          },
+        },
+        semanticDecision: null,
+        shouldUseCatalog: true,
+        buildProductSearchCandidates: deps.buildProductSearchCandidates,
+        shouldSearchProducts: deps.shouldSearchProducts,
+      })
+
+      assert.equal(decision.catalogDecision?.kind, "catalog_load_more")
+      assert.equal(decision.catalogDecision?.reason, "explicit_catalog_load_more_action_current_session")
+      assert.equal(decision.catalogReferenceReply, null)
+    },
+  },
+  {
     name: "orquestrador nao derruba vitrine quando stage semantico de catalogo falha",
     run: async () => {
       let capturedSearchTerm = "";

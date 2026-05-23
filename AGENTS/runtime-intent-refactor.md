@@ -783,3 +783,6 @@ Ainda errado / fragil:
   - falha/indisponibilidade do classificador semantico de API, catalogo ou billing nao derruba mais o turno inteiro
   - em vitrine Mercado Livre, uma busca/listagem nova tambem limpa foco de produto antigo antes de montar o estado final
   - cobre o caso de pedido amplo de presente vintage nao ficar preso em produto antigo nem virar erro generico no widget
+- continuidade explicita de catalogo ficou mais tolerante a id antigo do widget
+  - clique `Ver mais opções` agora continua pela `listingSession` atual quando ela existe, mesmo se o botão carregou um `listingSessionId` antigo
+  - sem sessão/lista válida o fluxo continua falhando fechado, pedindo nova busca

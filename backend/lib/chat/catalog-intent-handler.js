@@ -268,16 +268,16 @@ function resolveExplicitCatalogContinuationDecision(message, context = {}, recen
   const explicitProductId = sanitizeString(context?.ui?.catalogProductId || context?.catalogProductId)
   const explicitListingSessionId = sanitizeString(context?.ui?.listingSessionId || context?.listingSessionId)
   const listingSession = getCatalogListingSession(context)
-  const matchesListingSession =
-    !explicitListingSessionId ||
-    !sanitizeString(listingSession?.id) ||
-    sanitizeString(listingSession?.id) === explicitListingSessionId
-
-  if (explicitAction === "load_more" && hasCatalogContinuationAnchor(context, recentCatalogProducts) && matchesListingSession) {
+  if (explicitAction === "load_more" && hasCatalogContinuationAnchor(context, recentCatalogProducts)) {
     return {
       kind: "catalog_load_more",
       confidence: 1,
-      reason: "explicit_catalog_load_more_action",
+      reason:
+        explicitListingSessionId &&
+        sanitizeString(listingSession?.id) &&
+        sanitizeString(listingSession?.id) !== explicitListingSessionId
+          ? "explicit_catalog_load_more_action_current_session"
+          : "explicit_catalog_load_more_action",
       matchedProducts: [],
       usedLlm: false,
       shouldBlockNewSearch: false,
