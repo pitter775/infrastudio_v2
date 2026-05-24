@@ -168,7 +168,7 @@ export function MercadoLivrePanel({
 }) {
   const activeCount = project.directConnections?.mercadoLivre ?? 0
   const projectIdentifier = project.routeKey || project.slug || project.id
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState('connection')
   const currentTab = controlledActiveTab || activeTab
   const [step, setStep] = useState(activeCount ? 2 : 1)
   const [productUrl, setProductUrl] = useState('')
@@ -217,10 +217,10 @@ export function MercadoLivrePanel({
         : null,
   )
   const tabs = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'connection', label: 'Conexão', icon: Store },
-    { id: 'test', label: 'Teste', icon: PackageSearch },
+    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'store', label: 'Loja', icon: Store, tone: 'amber' },
+    { id: 'test', label: 'Teste', icon: PackageSearch },
     { id: 'orders', label: 'Pedidos', icon: Files },
     { id: 'questions', label: 'Perguntas', icon: MessageSquare },
     { id: 'tutorial', label: 'Ajuda', icon: BookOpen },

@@ -635,7 +635,7 @@ export function AdminShell({ user, children, buildLabel = '' }) {
           <motion.aside
             animate={{ width: collapsed ? 80 : 192 }}
             transition={{ duration: 0.22, ease: 'easeInOut' }}
-            className="hidden shrink-0 py-6 lg:block"
+            className="relative z-[60] hidden shrink-0 py-6 lg:block"
             onMouseEnter={() => {
               if (compactSidebarRoute) {
                 setSidebarHoverOpen(true)

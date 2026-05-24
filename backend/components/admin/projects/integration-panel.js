@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, BarChart3, BookOpen, CalendarDays, Check, ExternalLink, Files, History, LoaderCircle, MessageSquare, PackageSearch, PlugZap, Store, Users, Wand2 } from 'lucide-react'
 
@@ -157,7 +157,6 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
   const [widgetFooter, setWidgetFooter] = useState({})
   const [mercadoFooter, setMercadoFooter] = useState({})
   const [integrationStats, setIntegrationStats] = useState({})
-  const mercadoDashboardAutoOpenRef = useRef(false)
   const hasMercadoLivreConnection =
     panel.id === 'mercado-livre' &&
     (mercadoFooter.hasSavedConnector === true || Number(project.directConnections?.mercadoLivre || 0) > 0)
@@ -193,13 +192,13 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
 
       if (panel.id === 'mercado-livre') {
         const mercadoTabs = [
-          { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
           { id: 'connection', label: 'Conexão', icon: Store },
-          { id: 'tutorial', label: 'Ajuda', icon: BookOpen },
+          { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
           { id: 'store', label: 'Loja', icon: Wand2, tone: 'amber' },
           { id: 'test', label: 'Teste', icon: PackageSearch },
           { id: 'orders', label: 'Pedidos', icon: Files },
           { id: 'questions', label: 'Perguntas', icon: MessageSquare },
+          { id: 'tutorial', label: 'Ajuda', icon: BookOpen },
         ]
 
         return hasMercadoLivreConnection ? mercadoTabs : mercadoTabs.filter((tab) => tab.id === 'connection')
@@ -217,17 +216,7 @@ export function IntegrationPanel({ panel, sheetItems, project, deepLink, onClose
       ...current,
       ...(nextFooter || {}),
     }))
-    if (
-      nextFooter?.hasSavedConnector &&
-      nextFooter?.activeTab === 'connection' &&
-      activeTab === 'connection' &&
-      !deepLink?.tab &&
-      !mercadoDashboardAutoOpenRef.current
-    ) {
-      mercadoDashboardAutoOpenRef.current = true
-      setActiveTab('dashboard')
-    }
-  }, [activeTab, deepLink?.tab])
+  }, [])
 
   const realPanel =
     panel.id === 'apis' ? (
