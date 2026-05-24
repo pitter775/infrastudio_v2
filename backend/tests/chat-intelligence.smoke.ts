@@ -10564,7 +10564,7 @@ Cada projeto tem seu próprio plano.
     },
   },
   {
-    name: "service injeta CTA discreto de WhatsApp no widget quando houver canal ativo",
+    name: "service injeta CTA discreto de WhatsApp no widget quando o cliente pede WhatsApp",
     run: () => {
       const payload = prepareAiReplyPayload({
         channelKind: "web",
@@ -10579,7 +10579,7 @@ Cada projeto tem seu próprio plano.
           },
         },
         normalizedExternalIdentifier: "lead-2",
-        userMessage: "Quero entender valores e prazo do projeto",
+        userMessage: "Quero continuar pelo WhatsApp para entender valores e prazo do projeto",
         whatsappConversationSummary:
           "Cliente quer entender valores e prazo do projeto, com interesse em seguir o atendimento pelo WhatsApp.",
       })
@@ -10595,6 +10595,29 @@ Cada projeto tem seu próprio plano.
         /Resumo rápido:\n- Contexto: Cliente quer entender valores e prazo do projeto/i
       )
       assert.doesNotMatch(payload.followUpReply, /continuar no WhatsApp/i)
+    },
+  },
+  {
+    name: "service nao injeta CTA de WhatsApp cedo demais so por haver canal ativo",
+    run: () => {
+      const payload = prepareAiReplyPayload({
+        channelKind: "web",
+        ai: {
+          reply: "Sim. Temos loja Mercado Livre integrada com vitrine publica, produtos e chat com IA.",
+          assets: [],
+        },
+        nextContext: {
+          whatsapp: {
+            numero: "5511999999999",
+            ctaEnabled: true,
+          },
+        },
+        normalizedExternalIdentifier: "lead-2b",
+        userMessage: "oi vcs tem loja mercado livre ne",
+      })
+
+      assert.equal(payload.whatsappCta, null)
+      assert.equal(payload.actions.some((action) => action?.type === "whatsapp_link"), false)
     },
   },
   {

@@ -1525,6 +1525,10 @@ export function prepareAiReplyPayload(input) {
       : stripMercadoLivreUrlsFromReply(normalizedFollowUpReplyBase)
   const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(input.nextContext)
   const userAskedForWhatsApp = hasWhatsAppIntentSignal(input.userMessage || "")
+  const shouldOfferWhatsAppCta =
+    userAskedForWhatsApp ||
+    input.ai?.handoff?.requested === true ||
+    input.nextContext?.qualificacao?.pronto_para_whatsapp === true
   const shouldMentionWhatsAppInText =
     userAskedForWhatsApp ||
     input.ai?.handoff?.requested === true
@@ -1543,6 +1547,7 @@ export function prepareAiReplyPayload(input) {
     userMessage: input.userMessage,
     conversationSummary: input.whatsappConversationSummary,
     assets: catalogAwareAssets,
+    allowWhatsAppCta: shouldOfferWhatsAppCta,
   })
   let actions = suppressWhatsAppCta ? rawActions.filter((action) => action?.type !== "whatsapp_link") : rawActions
   if (shouldSuppressCatalogActionsForMicroReply({
@@ -1562,6 +1567,7 @@ export function prepareAiReplyPayload(input) {
       followUpReply,
       userMessage: input.userMessage,
       conversationSummary: input.whatsappConversationSummary,
+      allowWhatsAppCta: shouldOfferWhatsAppCta,
     })
   const normalizedPrimaryReply = whatsappCta
     ? sanitizeReplyForWhatsAppCta(primaryReply, whatsappCta.label)

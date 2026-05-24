@@ -81,7 +81,7 @@ function buildRuntimeConfigInstructions(context = {}) {
       lines.push("WhatsApp cadastrado para continuidade do atendimento.")
       lines.push("Nunca use placeholder de WhatsApp. Use somente o numero configurado quando isso for necessario em contexto interno.")
       lines.push("Se sugerir continuar no WhatsApp, não escreva número, link ou contato em texto.")
-      lines.push("Apenas convide de forma curta para continuar no WhatsApp quando fizer sentido.")
+      lines.push("Apenas convide de forma curta para continuar no WhatsApp quando o cliente pedir WhatsApp, pedir atendimento humano ou ja estiver qualificado para transferencia.")
     }
   }
 
@@ -179,6 +179,7 @@ function buildResponseGuardrailInstructions() {
     "- Para perguntas comerciais simples, responda em ate 4 frases curtas.",
     "- Não liste várias opções ou muito contexto sem o cliente pedir isso.",
     "- Quando o cliente pedir valores, precos ou planos em geral, liste os planos estruturados disponiveis.",
+    "- Quando o cliente pedir exemplo, demonstracao, caso real, portfolio ou link de referencia, responda esse pedido antes de falar de valores.",
     "- Quando houver um melhor encaixe inicial, indique primeiro essa opcao e so depois cite alternativa.",
     "- Nunca despeje campo cru, JSON, rotulo tecnico ou lista de atributos sem interpretar.",
     "- Quando a pergunta for factual, responda com o fato mais relevante primeiro e complemente so com contexto util.",

@@ -762,13 +762,21 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   }
 
   const wantsStructured = context?.channel?.kind !== "whatsapp"
-  const hasWhatsAppDestination = hasConfiguredWhatsAppDestination(context)
-  const multiCta = hasWhatsAppDestination
-    ? runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opções e sigo com você no WhatsApp."
-    : runtimeConfig?.pricingCatalog?.ctaMultiple || "Se quiser, eu comparo as opções e sigo com você por aqui."
-  const singleCta = hasWhatsAppDestination
-    ? runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com você por aqui ou no WhatsApp."
-    : runtimeConfig?.pricingCatalog?.ctaSingle || "Se quiser, eu sigo com você por aqui."
+  const shouldOfferWhatsApp = hasConfiguredWhatsAppDestination(context) && context?.whatsapp?.offerCtaNow === true
+  const configuredMultiCta = sanitizeString(runtimeConfig?.pricingCatalog?.ctaMultiple)
+  const configuredSingleCta = sanitizeString(runtimeConfig?.pricingCatalog?.ctaSingle)
+  const defaultMultiHere = "Se quiser, eu comparo as opções e sigo com você por aqui."
+  const defaultSingleHere = "Se quiser, eu sigo com você por aqui."
+  const multiCta = shouldOfferWhatsApp
+    ? configuredMultiCta || "Se quiser, eu comparo as opções e sigo com você no WhatsApp."
+    : configuredMultiCta && !normalizeBillingText(configuredMultiCta).includes("whatsapp")
+      ? configuredMultiCta
+      : defaultMultiHere
+  const singleCta = shouldOfferWhatsApp
+    ? configuredSingleCta || "Se quiser, eu sigo com você por aqui ou no WhatsApp."
+    : configuredSingleCta && !normalizeBillingText(configuredSingleCta).includes("whatsapp")
+      ? configuredSingleCta
+      : defaultSingleHere
 
   const requestedPlans = resolveRequestedPlans(decision, items, context)
   const selectedPlan = requestedPlans[0] ?? null

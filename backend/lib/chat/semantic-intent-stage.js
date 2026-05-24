@@ -1005,6 +1005,7 @@ export async function classifySemanticBillingIntentStage(input = {}) {
             "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes, créditos ou produtos de Mercado Livre de um plano.",
             "Use plan_feature_question quando pedir se o plano inclui WhatsApp, suporte ou algum recurso estruturado do catalogo.",
             "Use plan_recommendation quando ele pedir indicacao do melhor plano, mesmo sem explicitar o criterio. Quando o criterio nao estiver claro, deixe targetField vazio e targetFields vazio.",
+            "Pedido de exemplo, demonstracao, caso real, portfolio, referencia, print, link de loja ou loja funcionando deve ser other, a menos que a mensagem tambem peca explicitamente preco, plano, limite ou valor.",
             "Quando existir billing.planFocus no contexto e o cliente falar esse plano, nele ou equivalente, use esse foco sem inventar novo nome.",
             "Quando existir billing.comparisonFocus no contexto e o cliente fizer follow-up comparativo, mantenha a comparacao mesmo sem repetir os nomes dos planos.",
             "Preencha targetField com attendance_limit, agent_limit, credit_limit, marketplace_product_limit, whatsapp_included, support_level ou price quando houver um slot factual claro.",
@@ -1016,6 +1017,12 @@ export async function classifySemanticBillingIntentStage(input = {}) {
           role: "user",
           content: JSON.stringify({
             message: latestUserMessage,
+            recentHistory: Array.isArray(input?.history)
+              ? input.history.slice(-4).map((item) => ({
+                  role: sanitizeString(item?.role),
+                  content: sanitizeString(item?.content).slice(0, 220),
+                }))
+              : [],
             billingContext: {
               planFocus: sanitizeString(input?.context?.billing?.planFocus?.name),
               comparisonPlans: Array.isArray(input?.context?.billing?.comparisonFocus?.plans)

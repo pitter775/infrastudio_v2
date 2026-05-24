@@ -1236,6 +1236,7 @@ export async function executeSalesOrchestrator(history, context, options = {}) {
             latestUserMessage,
             pricingItems: runtimeConfig.pricingCatalog.items,
             context: effectiveContext,
+            history,
             openAiKey,
             model,
           })

@@ -86,6 +86,10 @@ function buildWhatsAppPrefilledMessage(input = {}) {
 }
 
 function buildWhatsAppActionPayload(input = {}) {
+  if (input.allowWhatsAppCta !== true) {
+    return null
+  }
+
   const destination = normalizeWhatsAppDestination(getConfiguredWhatsAppDestination(input.nextContext))
   if (!destination) {
     return null

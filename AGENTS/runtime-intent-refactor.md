@@ -648,6 +648,11 @@ Ainda errado / fragil:
 
 ## Registro curto
 
+- CTA de WhatsApp no widget ficou menos ansioso
+  - canal ativo por si so nao injeta mais `Continuar no WhatsApp`
+  - o CTA entra quando o cliente pede WhatsApp, ha handoff solicitado ou a qualificacao marca `pronto_para_whatsapp`
+  - billing tambem deixou de trocar CTA textual para WhatsApp apenas por haver numero configurado
+  - o stage semantico de billing foi orientado a tratar pedido de exemplo/demonstracao/caso real/link como `other`, evitando cair em tabela de valores quando o cliente pediu referencia
 - API runtime passou a resolver busca de catalogo com parametro dinamico vindo do stage semantico
   - `classifySemanticApiIntentStage` agora pode devolver `api_catalog_search` e `parameterValues`
   - o orquestrador recarrega as APIs do agente com esses parametros estruturados antes de responder
