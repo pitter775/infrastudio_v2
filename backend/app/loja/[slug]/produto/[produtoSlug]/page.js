@@ -364,6 +364,7 @@ function ProductPurchasePanel({
         chatDescription="O chat da loja pode ser aberto daqui para continuar o atendimento a partir desta pagina com mais contexto do produto."
         permalink={result.product.permalink}
         product={result.product}
+        store={result.store}
         storeSlug={result.store.slug}
         widgetId={result.store.widget?.id}
         widgetSlug={result.store.widget?.slug}

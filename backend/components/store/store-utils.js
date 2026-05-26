@@ -299,6 +299,19 @@ export function buildStoreProductHref(storeOrSlug, product) {
   return `${baseHref}/produto/${productRef}`
 }
 
+export function buildStoreCheckoutHref(storeOrSlug, product) {
+  const baseHref = buildStoreBaseHref(storeOrSlug)
+  const productHref = buildStoreProductHref(storeOrSlug, product)
+  const productRef = productHref.split('/produto/')[1] || String(product?.slug || product?.id || '').trim()
+  const params = new URLSearchParams()
+  if (productRef) {
+    params.set('produto', productRef)
+  }
+
+  const serialized = params.toString()
+  return serialized ? `${baseHref}/checkout?${serialized}` : `${baseHref}/checkout`
+}
+
 export function navigateStoreHref(router, href, options = {}) {
   const targetHref = String(href || '').trim()
   if (!targetHref) {

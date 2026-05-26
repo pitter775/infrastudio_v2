@@ -69,6 +69,10 @@ function sanitizePositiveNumber(value) {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export function isMercadoLivreSellableItem(item) {
   const status = sanitizeString(item?.status).toLowerCase()
   const availableQuantity = sanitizeNumber(item?.availableQuantity, 0)
@@ -1779,5 +1783,144 @@ export async function getMercadoLivreLiveProductByProjectId(projectId, itemId, d
   } catch (error) {
     console.error("[mercado-livre] failed to load live product for public store", error)
     return null
+  }
+}
+
+async function updateMercadoLivreItemStock(itemId, accessToken, availableQuantity, deps = {}) {
+  const variations = Array.isArray(deps.variations) ? deps.variations : []
+  const body = variations.length
+    ? {
+        variations,
+      }
+    : {
+        available_quantity: availableQuantity,
+      }
+
+  const fetchImpl = deps.fetchImpl ?? fetch
+  const response = await fetchImpl(`${MERCADO_LIVRE_API_BASE}/items/${encodeURIComponent(itemId)}`, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+    cache: "no-store",
+  })
+  const payload = await response.json().catch(() => ({}))
+
+  return {
+    ok: response.ok,
+    status: response.status,
+    payload,
+    error: response.ok ? null : payload?.message || payload?.error || response.statusText,
+  }
+}
+
+export async function reduceMercadoLivreStockForStoreSale(projectId, itemId, quantity, variationId = "", deps = {}) {
+  const normalizedProjectId = sanitizeString(projectId)
+  const normalizedItemId = sanitizeString(itemId)
+  const normalizedVariationId = sanitizeString(variationId)
+  const saleQuantity = Math.max(Number(quantity) || 1, 1)
+
+  if (!normalizedProjectId || !normalizedItemId) {
+    return { ok: false, skipped: true, error: "Projeto ou item do Mercado Livre não informado." }
+  }
+
+  try {
+    const supabase = deps.supabase ?? getSupabaseAdminClient()
+    const connector = await getMercadoLivreConnectorByProjectId(normalizedProjectId, { supabase })
+    if (!connector?.id) {
+      return { ok: false, skipped: true, error: "Conector do Mercado Livre não encontrado." }
+    }
+
+    return withMercadoLivreAuthorizedOperation(connector, deps, async ({ accessToken }) => {
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const liveProduct = await loadMercadoLivreItemById(normalizedItemId, accessToken, deps)
+        if (!liveProduct?.id) {
+          return { ok: false, skipped: false, error: "Produto não encontrado no Mercado Livre." }
+        }
+
+        if (Array.isArray(liveProduct.variations) && liveProduct.variations.length > 0) {
+          const selectedVariation = liveProduct.variations.find((variation) => sanitizeString(variation?.id) === normalizedVariationId)
+          if (!selectedVariation?.id) {
+            return { ok: false, skipped: true, error: "Produto com variação exige baixa de estoque por variação." }
+          }
+
+          const currentVariationQuantity = sanitizeNumber(selectedVariation.availableQuantity, 0)
+          const nextVariationQuantity = Math.max(currentVariationQuantity - saleQuantity, 0)
+          const variationsPayload = liveProduct.variations.map((variation) => ({
+            id: Number(variation.id) || variation.id,
+            ...(sanitizeString(variation.id) === normalizedVariationId ? { available_quantity: nextVariationQuantity } : {}),
+          }))
+          const result = await updateMercadoLivreItemStock(normalizedItemId, accessToken, nextVariationQuantity, {
+            ...deps,
+            variations: variationsPayload,
+          })
+
+          if (result.ok) {
+            return {
+              ok: true,
+              skipped: false,
+              itemId: normalizedItemId,
+              variationId: normalizedVariationId,
+              previousQuantity: currentVariationQuantity,
+              nextQuantity: nextVariationQuantity,
+              error: null,
+            }
+          }
+
+          if (result.status === 409 && attempt === 0) {
+            await sleep(900)
+            continue
+          }
+
+          return {
+            ok: false,
+            skipped: false,
+            itemId: normalizedItemId,
+            variationId: normalizedVariationId,
+            error: result.error || "Não foi possível atualizar o estoque da variação no Mercado Livre.",
+          }
+        }
+
+        const currentQuantity = sanitizeNumber(liveProduct.availableQuantity, 0)
+        const nextQuantity = Math.max(currentQuantity - saleQuantity, 0)
+        const result = await updateMercadoLivreItemStock(normalizedItemId, accessToken, nextQuantity, deps)
+
+        if (result.ok) {
+          return {
+            ok: true,
+            skipped: false,
+            itemId: normalizedItemId,
+            previousQuantity: currentQuantity,
+            nextQuantity,
+            error: null,
+          }
+        }
+
+        if (result.status === 409 && attempt === 0) {
+          await sleep(900)
+          continue
+        }
+
+        return {
+          ok: false,
+          skipped: false,
+          itemId: normalizedItemId,
+          error: result.error || "Não foi possível atualizar o estoque no Mercado Livre.",
+        }
+      }
+
+      return { ok: false, skipped: false, itemId: normalizedItemId, error: "Não foi possível atualizar o estoque no Mercado Livre." }
+    })
+  } catch (error) {
+    console.error("[mercado-livre] failed to reduce stock for store sale", error)
+    return {
+      ok: false,
+      skipped: false,
+      itemId: normalizedItemId,
+      error: error instanceof Error ? error.message : "Não foi possível atualizar o estoque no Mercado Livre.",
+    }
   }
 }

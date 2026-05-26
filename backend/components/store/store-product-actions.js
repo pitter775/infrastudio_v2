@@ -1,25 +1,48 @@
 'use client'
 
-import { MessageCircle } from 'lucide-react'
+import Link from 'next/link'
+import { MessageCircle, ShoppingBag } from 'lucide-react'
 import Image from 'next/image'
 
-import { buildStoreProductExternalUrl, openStoreChat, trackStoreEvent } from '@/components/store/store-utils'
+import { buildStoreCheckoutHref, buildStoreProductExternalUrl, openStoreChat, trackStoreEvent } from '@/components/store/store-utils'
 
 export function StoreProductActions({
   accentColor,
   chatDescription = null,
   permalink,
   product = null,
+  store = null,
   storeSlug = null,
   widgetId = null,
   widgetSlug,
 }) {
   const hasWidget = Boolean(widgetId || widgetSlug)
+  const checkoutEnabled = store?.checkout?.enabled === true
   const externalUrl = buildStoreProductExternalUrl(product || { permalink })
+  const checkoutHref = checkoutEnabled ? buildStoreCheckoutHref(store || storeSlug, product || { permalink }) : ''
 
   return (
     <>
       <div className="mt-6 grid gap-3 sm:grid-cols-2">
+        {checkoutEnabled ? (
+          <Link
+            href={checkoutHref}
+            onClick={() =>
+              trackStoreEvent({
+                storeSlug,
+                type: 'product_buy_click',
+                source: 'product_detail_store_checkout',
+                product,
+                dedupeKey: `${storeSlug}:product_store_checkout_click:${product?.slug || 'unknown'}`,
+              })
+            }
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-[var(--store-accent)] bg-[var(--store-accent)] px-5 text-sm font-semibold text-white transition hover:opacity-90"
+            style={{ '--store-accent': accentColor }}
+          >
+            <ShoppingBag className="h-4 w-4" />
+            Comprar na loja
+          </Link>
+        ) : null}
         <a
           href={externalUrl}
           target="_blank"
@@ -51,7 +74,7 @@ export function StoreProductActions({
             openStoreChat({ widgetId, widgetSlug })
           }}
           disabled={!hasWidget}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-[var(--store-accent)] bg-[var(--store-accent)] px-5 text-sm font-semibold text-white transition hover:opacity-90 disabled:opacity-60"
+          className="inline-flex h-12 items-center justify-center gap-2 rounded-[6px] border border-slate-200 bg-white px-5 text-sm font-semibold text-slate-900 transition hover:border-slate-300 disabled:opacity-60"
           style={{ '--store-accent': accentColor }}
         >
           <MessageCircle className="h-4 w-4" />

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Check, CreditCard, ExternalLink, Globe, ImageIcon, LayoutTemplate, Save, Share2, Store, Truck } from 'lucide-react'
+import { Check, CreditCard, ExternalLink, Globe, ImageIcon, LayoutTemplate, Link2, ListOrdered, Loader2, Save, Share2, Store, Truck } from 'lucide-react'
 
 import { AccessRequestSheet, buildAccessRequestMessage } from '@/components/admin/access-request-sheet'
 import {
@@ -20,10 +20,11 @@ const STORE_TABS = [
   { id: 'general', label: 'Geral', icon: Store },
   { id: 'appearance', label: 'Visual', icon: ImageIcon },
   { id: 'domain', label: 'Dominio', icon: ExternalLink },
+  { id: 'orders', label: 'Pedidos', icon: ListOrdered },
   { id: 'featured', label: 'Destaques', icon: LayoutTemplate },
   { id: 'social', label: 'Redes', icon: Share2 },
   { id: 'menu', label: 'Menu', icon: Globe },
-  { id: 'payment', label: 'Pagamento', icon: CreditCard, accessRequest: true },
+  { id: 'payment', label: 'Pagamento', icon: CreditCard },
   { id: 'freight', label: 'Frete', icon: Truck, accessRequest: true },
 ]
 
@@ -229,6 +230,239 @@ function buildDeveloperUploadError(stage, message, fallbackText) {
   }
 }
 
+function StorePaymentSection({ payment, paymentLoading, paymentConnecting, paymentDisconnecting, onConnect, onDisconnect }) {
+  const connected = payment?.status === 'conectado'
+  const envTest = payment?.status === 'env_test'
+  const statusLabel = connected ? 'Conectado' : envTest ? 'Teste por ambiente' : 'Desconectado'
+
+  return (
+    <section className="grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-white">Mercado Pago da loja</div>
+          <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+            Esta conexão recebe os pagamentos dos compradores da loja pública. Ela é separada do pagamento de planos e créditos da InfraStudio.
+          </p>
+        </div>
+        <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-slate-200">
+          {paymentLoading ? 'Carregando' : statusLabel}
+        </span>
+      </div>
+
+      <div className="grid gap-3 rounded-xl border border-white/10 bg-black/10 p-3 text-sm text-slate-300 sm:grid-cols-2">
+        <div>
+          <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Conta</div>
+          <div className="mt-1 font-medium text-slate-100">{payment?.accountEmail || payment?.accountId || (envTest ? 'Token de teste do ambiente' : 'Nenhuma conta conectada')}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Modo</div>
+          <div className="mt-1 font-medium text-slate-100">{payment?.mode || '-'}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Conectado em</div>
+          <div className="mt-1 font-medium text-slate-100">{payment?.connectedAt ? new Date(payment.connectedAt).toLocaleString('pt-BR') : '-'}</div>
+        </div>
+        <div>
+          <div className="text-xs uppercase tracking-[0.14em] text-slate-500">Token expira em</div>
+          <div className="mt-1 font-medium text-slate-100">{payment?.tokenExpiresAt ? new Date(payment.tokenExpiresAt).toLocaleDateString('pt-BR') : '-'}</div>
+        </div>
+      </div>
+
+      {payment?.lastErrorMessage ? (
+        <div className="rounded-xl border border-rose-400/20 bg-rose-500/10 px-3 py-2 text-sm text-rose-100">
+          {payment.lastErrorMessage}
+        </div>
+      ) : null}
+
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" onClick={onConnect} disabled={paymentConnecting} variant="ghost" className="h-10 rounded-xl border border-sky-500/20 bg-sky-500/10 px-4 text-sm text-sky-100">
+          {paymentConnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Link2 className="mr-2 h-4 w-4" />}
+          {connected ? 'Reconectar Mercado Pago' : 'Conectar Mercado Pago'}
+        </Button>
+        {connected ? (
+          <Button type="button" onClick={onDisconnect} disabled={paymentDisconnecting} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200">
+            {paymentDisconnecting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Desconectar
+          </Button>
+        ) : null}
+      </div>
+    </section>
+  )
+}
+
+function formatCurrency(value, currencyId = 'BRL') {
+  return Number(value || 0).toLocaleString('pt-BR', { style: 'currency', currency: currencyId || 'BRL' })
+}
+
+function formatDateTime(value) {
+  if (!value) {
+    return '-'
+  }
+
+  return new Date(value).toLocaleString('pt-BR')
+}
+
+const FULFILLMENT_STATUS_OPTIONS = [
+  { value: 'pendente', label: 'Pendente' },
+  { value: 'preparando', label: 'Preparando' },
+  { value: 'enviado', label: 'Enviado' },
+  { value: 'entregue', label: 'Entregue' },
+  { value: 'cancelado', label: 'Cancelado' },
+]
+
+const ORDER_STATUS_OPTIONS = [
+  { value: '', label: 'Todos os pedidos' },
+  { value: 'aguardando_pagamento', label: 'Aguardando pagamento' },
+  { value: 'pago', label: 'Pago' },
+  { value: 'cancelado', label: 'Cancelado' },
+]
+
+const PAYMENT_STATUS_OPTIONS = [
+  { value: '', label: 'Todos os pagamentos' },
+  { value: 'pendente', label: 'Pendente' },
+  { value: 'em_analise', label: 'Em análise' },
+  { value: 'aprovado', label: 'Aprovado' },
+  { value: 'recusado', label: 'Recusado' },
+]
+
+function StoreOrdersSection({
+  orders,
+  ordersLoading,
+  updatingOrderId,
+  filters,
+  expandedOrderId,
+  onFilterChange,
+  onRefreshOrders,
+  onToggleOrder,
+  onUpdateFulfillmentStatus,
+}) {
+  return (
+    <section className="grid gap-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-white">Pedidos da loja</div>
+          <p className="mt-1 text-sm leading-6 text-slate-400">Pedidos gerados pelo checkout próprio da vitrine pública.</p>
+        </div>
+        <Button type="button" onClick={onRefreshOrders} disabled={ordersLoading} variant="ghost" className="h-10 rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm text-slate-200">
+          {ordersLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+          Atualizar
+        </Button>
+      </div>
+
+      <div className="grid gap-2 md:grid-cols-3">
+        <select
+          value={filters.status}
+          onChange={(event) => onFilterChange('status', event.target.value)}
+          className="h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-slate-100 outline-none"
+        >
+          {ORDER_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value} className="bg-slate-950 text-slate-100">{option.label}</option>
+          ))}
+        </select>
+        <select
+          value={filters.paymentStatus}
+          onChange={(event) => onFilterChange('paymentStatus', event.target.value)}
+          className="h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-slate-100 outline-none"
+        >
+          {PAYMENT_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value} className="bg-slate-950 text-slate-100">{option.label}</option>
+          ))}
+        </select>
+        <select
+          value={filters.fulfillmentStatus}
+          onChange={(event) => onFilterChange('fulfillmentStatus', event.target.value)}
+          className="h-10 rounded-lg border border-white/10 bg-black/20 px-3 text-sm text-slate-100 outline-none"
+        >
+          <option value="" className="bg-slate-950 text-slate-100">Todas as entregas</option>
+          {FULFILLMENT_STATUS_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value} className="bg-slate-950 text-slate-100">{option.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {ordersLoading ? (
+        <div className="rounded-xl border border-white/10 bg-black/10 px-3 py-4 text-sm text-slate-400">Carregando pedidos...</div>
+      ) : null}
+
+      {!ordersLoading && !orders.length ? (
+        <div className="rounded-xl border border-dashed border-white/10 bg-black/10 px-3 py-8 text-center text-sm text-slate-400">
+          Nenhum pedido da loja foi criado ainda.
+        </div>
+      ) : null}
+
+      <div className="grid gap-3">
+        {orders.map((order) => (
+          <div key={order.id} className="rounded-xl border border-white/10 bg-black/10 p-3">
+            <button type="button" onClick={() => onToggleOrder(order.id)} className="flex w-full flex-wrap items-start justify-between gap-3 text-left">
+              <div>
+                <div className="text-sm font-semibold text-slate-100">{order.publicId}</div>
+                <div className="mt-1 text-xs text-slate-500">{formatDateTime(order.createdAt)}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-sm font-semibold text-slate-100">{formatCurrency(order.totalAmount, order.currencyId)}</div>
+                <div className="mt-1 text-xs text-slate-500">{order.paymentStatus}</div>
+              </div>
+            </button>
+            <div className="mt-3 grid gap-1 text-sm text-slate-300">
+              <div>{order.buyerName || 'Comprador'}{order.buyerEmail ? ` - ${order.buyerEmail}` : ''}</div>
+              {order.items.slice(0, 2).map((item) => (
+                <div key={item.id} className="flex justify-between gap-3 text-xs text-slate-400">
+                  <span className="truncate">{item.quantity}x {item.title}</span>
+                  <span className="shrink-0">{formatCurrency(item.totalPrice, item.currencyId)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-slate-300">{order.status}</span>
+              <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-2 py-1 text-slate-300">
+                <span>Entrega</span>
+                <select
+                  value={order.fulfillmentStatus || 'pendente'}
+                  disabled={updatingOrderId === order.id}
+                  onChange={(event) => onUpdateFulfillmentStatus(order.id, event.target.value)}
+                  className="bg-transparent text-xs text-slate-100 outline-none disabled:opacity-60"
+                >
+                  {FULFILLMENT_STATUS_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value} className="bg-slate-950 text-slate-100">
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                {updatingOrderId === order.id ? <Loader2 className="h-3 w-3 animate-spin" /> : null}
+              </label>
+              {order.mercadoPagoPaymentId ? (
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-1 text-emerald-100">MP {order.mercadoPagoPaymentId}</span>
+              ) : null}
+            </div>
+            {expandedOrderId === order.id ? (
+              <div className="mt-4 grid gap-3 border-t border-white/10 pt-3 text-xs text-slate-400 md:grid-cols-2">
+                <div className="grid gap-1">
+                  <span className="font-semibold text-slate-200">Entrega</span>
+                  <span>CEP {order.shippingZipCode || '-'}</span>
+                  <span>
+                    {[order.shippingAddress?.street, order.shippingAddress?.number, order.shippingAddress?.neighborhood]
+                      .filter(Boolean)
+                      .join(', ') || '-'}
+                  </span>
+                  <span>{[order.shippingAddress?.city, order.shippingAddress?.state].filter(Boolean).join(' - ') || '-'}</span>
+                  {order.shippingAddress?.complement ? <span>{order.shippingAddress.complement}</span> : null}
+                </div>
+                <div className="grid gap-1">
+                  <span className="font-semibold text-slate-200">Frete e pagamento</span>
+                  <span>{order.shippingOption?.name || 'Frete a combinar'}</span>
+                  <span>{formatCurrency(order.shippingAmount, order.currencyId)}</span>
+                  <span>Mercado Pago: {order.mercadoPagoStatus || order.paymentStatus || '-'}</span>
+                  {order.paidAt ? <span>Pago em {formatDateTime(order.paidAt)}</span> : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 export function MercadoLivreStorePanel({ project, active = false, onFooterStateChange, showTabs = true }) {
   const projectIdentifier = project.routeKey || project.slug || project.id
   const [activeSubTab, setActiveSubTab] = useState('general')
@@ -251,6 +485,15 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
   const [accessError, setAccessError] = useState(null)
   const [domainAutomation, setDomainAutomation] = useState(null)
   const [domainChecking, setDomainChecking] = useState(false)
+  const [payment, setPayment] = useState(null)
+  const [paymentLoading, setPaymentLoading] = useState(false)
+  const [paymentConnecting, setPaymentConnecting] = useState(false)
+  const [paymentDisconnecting, setPaymentDisconnecting] = useState(false)
+  const [orders, setOrders] = useState([])
+  const [ordersLoading, setOrdersLoading] = useState(false)
+  const [updatingOrderId, setUpdatingOrderId] = useState(null)
+  const [expandedOrderId, setExpandedOrderId] = useState(null)
+  const [orderFilters, setOrderFilters] = useState({ status: '', paymentStatus: '', fulfillmentStatus: '' })
   const [accessRequest, setAccessRequest] = useState({
     featureKey: '',
     label: '',
@@ -450,6 +693,126 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       }
     }
   }, [activeSubTab, draft.customDomain, draft.customDomainStatus, projectIdentifier])
+
+  useEffect(() => {
+    if (activeSubTab !== 'payment') {
+      return undefined
+    }
+
+    let activeRequest = true
+    async function loadPayment() {
+      setPaymentLoading(true)
+      try {
+        const response = await fetch(`/api/app/projetos/${projectIdentifier}/loja/mercado-pago`, { cache: 'no-store' })
+        const data = await response.json().catch(() => ({}))
+        if (activeRequest && response.ok) {
+          setPayment(data.payment || null)
+        }
+      } finally {
+        if (activeRequest) {
+          setPaymentLoading(false)
+        }
+      }
+    }
+
+    loadPayment()
+    return () => {
+      activeRequest = false
+    }
+  }, [activeSubTab, projectIdentifier])
+
+  async function handleConnectMercadoPago() {
+    setPaymentConnecting(true)
+    setFeedback(null)
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/loja/mercado-pago/oauth/start`, { cache: 'no-store' })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.authorizationUrl) {
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível iniciar a conexão Mercado Pago.' })
+        return
+      }
+
+      window.location.href = data.authorizationUrl
+    } catch {
+      setFeedback({ tone: 'error', text: 'Não foi possível iniciar a conexão Mercado Pago.' })
+    } finally {
+      setPaymentConnecting(false)
+    }
+  }
+
+  async function handleDisconnectMercadoPago() {
+    setPaymentDisconnecting(true)
+    setFeedback(null)
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/loja/mercado-pago`, { method: 'DELETE' })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok) {
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível desconectar o Mercado Pago.' })
+        return
+      }
+
+      setPayment((current) => ({ ...(current || {}), status: 'desconectado', accountEmail: '', accountId: '', tokenExpiresAt: null }))
+      setFeedback({ tone: 'success', text: 'Mercado Pago desconectado da loja.' })
+    } catch {
+      setFeedback({ tone: 'error', text: 'Não foi possível desconectar o Mercado Pago.' })
+    } finally {
+      setPaymentDisconnecting(false)
+    }
+  }
+
+  const loadStoreOrders = useCallback(async () => {
+    setOrdersLoading(true)
+    try {
+      const params = new URLSearchParams({ limit: '20' })
+      if (orderFilters.status) params.set('status', orderFilters.status)
+      if (orderFilters.paymentStatus) params.set('paymentStatus', orderFilters.paymentStatus)
+      if (orderFilters.fulfillmentStatus) params.set('fulfillmentStatus', orderFilters.fulfillmentStatus)
+
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/loja/pedidos?${params.toString()}`, { cache: 'no-store' })
+      const data = await response.json().catch(() => ({}))
+      if (response.ok) {
+        setOrders(Array.isArray(data.orders) ? data.orders : [])
+      }
+    } finally {
+      setOrdersLoading(false)
+    }
+  }, [orderFilters.fulfillmentStatus, orderFilters.paymentStatus, orderFilters.status, projectIdentifier])
+
+  function handleOrderFilterChange(key, value) {
+    setOrderFilters((current) => ({ ...current, [key]: value }))
+  }
+
+  async function handleUpdateFulfillmentStatus(orderId, fulfillmentStatus) {
+    setUpdatingOrderId(orderId)
+    setFeedback(null)
+    try {
+      const response = await fetch(`/api/app/projetos/${projectIdentifier}/loja/pedidos`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderId, fulfillmentStatus }),
+      })
+      const data = await response.json().catch(() => ({}))
+      if (!response.ok || !data.order) {
+        setFeedback({ tone: 'error', text: data.error || 'Não foi possível atualizar o pedido.' })
+        return
+      }
+
+      setOrders((current) => current.map((order) => (order.id === orderId ? { ...order, ...data.order, items: order.items } : order)))
+      setFeedback({ tone: 'success', text: 'Status de entrega atualizado.' })
+    } catch {
+      setFeedback({ tone: 'error', text: 'Não foi possível atualizar o pedido.' })
+    } finally {
+      setUpdatingOrderId(null)
+    }
+  }
+
+  useEffect(() => {
+    if (activeSubTab === 'orders') {
+      loadStoreOrders()
+    }
+  }, [activeSubTab, loadStoreOrders])
 
   async function handleDomainVerifyNow() {
     if (!String(draft.customDomain || '').trim()) {
@@ -881,7 +1244,7 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
       setDraft(buildInitialDraft(project, data.store))
       setFeedback({
         tone: 'success',
-        text: 'Padroes restaurados. Loja e slug principal foram reativados.',
+        text: 'Padrões restaurados. Loja e slug principal foram reativados.',
       })
     } catch {
       setFeedback({ tone: 'error', text: 'Não foi possível restaurar os padrões da loja.' })
@@ -995,6 +1358,31 @@ export function MercadoLivreStorePanel({ project, active = false, onFooterStateC
           domainAutomation={domainAutomation}
           domainChecking={domainChecking}
           onVerifyNow={handleDomainVerifyNow}
+        />
+      ) : null}
+
+      {activeSubTab === 'orders' ? (
+        <StoreOrdersSection
+          orders={orders}
+          ordersLoading={ordersLoading}
+          updatingOrderId={updatingOrderId}
+          filters={orderFilters}
+          expandedOrderId={expandedOrderId}
+          onFilterChange={handleOrderFilterChange}
+          onRefreshOrders={loadStoreOrders}
+          onToggleOrder={(orderId) => setExpandedOrderId((current) => (current === orderId ? null : orderId))}
+          onUpdateFulfillmentStatus={handleUpdateFulfillmentStatus}
+        />
+      ) : null}
+
+      {activeSubTab === 'payment' ? (
+        <StorePaymentSection
+          payment={payment}
+          paymentLoading={paymentLoading}
+          paymentConnecting={paymentConnecting}
+          paymentDisconnecting={paymentDisconnecting}
+          onConnect={handleConnectMercadoPago}
+          onDisconnect={handleDisconnectMercadoPago}
         />
       ) : null}
 

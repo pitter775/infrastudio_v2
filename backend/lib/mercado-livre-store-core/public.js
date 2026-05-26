@@ -80,6 +80,7 @@ function mergeMercadoLivreProductDetails(snapshotProduct, liveProduct) {
         : Array.isArray(snapshotProduct.attributes)
           ? snapshotProduct.attributes
           : []),
+    variations: Array.isArray(liveProduct.variations) ? liveProduct.variations : [],
   }
 }
 
@@ -289,6 +290,31 @@ async function resolvePublicWidget(supabase, projectId, store) {
   }
 }
 
+async function resolveStoreCheckoutSettings(supabase, projectId) {
+  const envEnabled = Boolean(process.env.MERCADO_PAGO_STORE_ACCESS_TOKEN?.trim())
+  const { data, error } = await supabase
+    .from("loja_pagamento_config")
+    .select("status, mode, account_email, account_id, updated_at")
+    .eq("projeto_id", projectId)
+    .eq("provider", "mercado_pago")
+    .maybeSingle()
+
+  if (error && error.code !== "42P01" && error.code !== "PGRST116") {
+    console.error("[mercado-livre-store] failed to load store checkout settings", error)
+  }
+
+  const connected = data?.status === "conectado"
+  return {
+    enabled: envEnabled || connected,
+    provider: "mercado_pago",
+    mode: data?.mode || (envEnabled ? "test" : "unconfigured"),
+    status: connected ? "conectado" : envEnabled ? "env_test" : "desconectado",
+    accountEmail: data?.account_email || "",
+    accountId: data?.account_id || "",
+    updatedAt: data?.updated_at || null,
+  }
+}
+
 async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
   const normalizedSlug = sanitizeText(slug, 80)
   if (!normalizedSlug) {
@@ -400,7 +426,10 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
   }
 
   const normalizedStore = normalizeStore(data, projectRow)
-  const widget = await resolvePublicWidget(supabase, projectRow.id, normalizedStore)
+  const [widget, checkout] = await Promise.all([
+    resolvePublicWidget(supabase, projectRow.id, normalizedStore),
+    resolveStoreCheckoutSettings(supabase, projectRow.id),
+  ])
 
   const searchTerm = sanitizeText(options.searchTerm, 120)
   const page = Math.max(Number(options.page ?? 1) || 1, 1)
@@ -437,6 +466,7 @@ async function getPublicMercadoLivreStoreBySlug(slug, options = {}) {
       ...normalizedStore,
       projectName: sanitizeText(projectRow.nome, 120),
       productLimit,
+      checkout,
       widget: widget
         ? {
             id: widget.id,
@@ -482,7 +512,7 @@ async function getPublicMercadoLivreProductPage(storeSlug, productSlug, options 
   const snapshotProduct = await getSnapshotProductBySlug(storeResult.store.projectId, productSlug, { supabase })
   const hiddenSnapshotProduct = snapshotProduct && isHiddenStoreProduct(snapshotProduct, hiddenProductIds) ? snapshotProduct : null
   let product =
-    snapshotProduct && !hiddenSnapshotProduct && productNeedsLiveDetails(snapshotProduct)
+    snapshotProduct && !hiddenSnapshotProduct && (options.forceLiveDetails === true || productNeedsLiveDetails(snapshotProduct))
       ? mergeMercadoLivreProductDetails(
           snapshotProduct,
           await getMercadoLivreLiveProductByProjectId(storeResult.store.projectId, snapshotProduct.itemId || snapshotProduct.id, { supabase })
