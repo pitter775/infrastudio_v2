@@ -29,7 +29,7 @@ import { LogoCubo3D } from '@/components/ui/LogoCubo3D'
 import { UserAvatar } from '@/components/ui/user-avatar'
 import { conthrax } from '@/lib/fonts'
 import {
-  BENEFIT_ITEMS,
+  CLIENT_ITEMS,
   DEMO_FEATURES,
   FOOTER_COMPANY_LINKS,
   FOOTER_SOLUTION_LINKS,
@@ -1073,16 +1073,62 @@ export function LandingPage({ currentUser = null, plans = [] }) {
 
       <section className="border-y border-slate-200/80 py-24 dark:border-white/5">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 gap-12 lg:grid-cols-4">
-            {BENEFIT_ITEMS.map((item) => (
-              <div key={item.title} className="group text-center">
-                <div className="mb-6 flex justify-center text-blue-500 transition-transform group-hover:scale-110">
-                  <item.icon size={40} strokeWidth={1.5} />
+          <div className="mb-12 flex flex-col gap-3 text-center">
+            <span className="text-xs font-bold uppercase tracking-[0.24em] text-blue-500 dark:text-cyan-300">
+              Empresas usando InfraStudio
+            </span>
+            <h2 className="text-3xl font-semibold tracking-[-0.03em] text-slate-900 dark:text-slate-50 md:text-[2.25rem]">
+              Soluções e agentes rodando dentro de sistemas existentes
+            </h2>
+            <p className="mx-auto max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+              Clientes usando agentes específicos e integrações sob medida sem trocar toda a operação: conectamos atendimento, automação, Mercado Livre e sistemas legados.
+            </p>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {CLIENT_ITEMS.map((client) => {
+              const content = (
+                <>
+                  <div
+                    className={cn(
+                      'mb-5 flex h-14 w-14 items-center justify-center rounded-[14px] border text-sm font-black tracking-[0.12em]',
+                      client.featured
+                        ? 'border-emerald-400/40 bg-emerald-400/10 text-emerald-200'
+                        : 'border-blue-400/25 bg-blue-500/10 text-blue-200'
+                    )}
+                  >
+                    {client.mark}
+                  </div>
+                  <div className="text-base font-semibold text-slate-900 dark:text-white">{client.name}</div>
+                  <div className="mt-2 text-sm leading-6 text-slate-500 dark:text-slate-400">{client.category}</div>
+                  {client.featured ? (
+                    <div className="mt-5 inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1 text-xs font-semibold text-emerald-200">
+                      Cliente mais recente
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </div>
+                  ) : null}
+                </>
+              )
+
+              return client.href ? (
+                <a
+                  key={client.name}
+                  href={client.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group rounded-[1rem] border border-emerald-400/25 bg-emerald-400/[0.04] p-5 text-left transition-all hover:-translate-y-1 hover:border-emerald-300/50 hover:bg-emerald-400/[0.07]"
+                >
+                  {content}
+                </a>
+              ) : (
+                <div
+                  key={client.name}
+                  className="rounded-[1rem] border border-white/10 bg-white/[0.03] p-5 text-left transition-all hover:-translate-y-1 hover:border-blue-400/30 hover:bg-blue-500/[0.05]"
+                >
+                  {content}
                 </div>
-                <h3 className="mb-2 text-lg font-semibold text-slate-800 dark:text-slate-100">{item.title}</h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">{item.desc}</p>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>

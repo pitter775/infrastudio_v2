@@ -1,13 +1,10 @@
 ﻿import {
   Building2,
-  Clock,
   Code2,
   Globe,
   Hammer,
-  Headphones,
   Home,
   MessageSquare,
-  Puzzle,
   Share2,
   ShoppingBag,
   Smartphone,
@@ -97,11 +94,29 @@ export const DEMO_FEATURES = [
   { title: 'Projeto padrão ativo', desc: 'Carregado com projeto e agente padrão da InfraStudio.' },
 ]
 
-export const BENEFIT_ITEMS = [
-  { icon: Zap, title: 'Produtividade', desc: 'Foque no que importa e tire peso da rotina.' },
-  { icon: Clock, title: 'Menos manual', desc: 'Menos retrabalho e menos erro operacional.' },
-  { icon: Puzzle, title: 'Integrado', desc: 'Sua stack conversando em tempo real.' },
-  { icon: Headphones, title: 'Suporte veloz', desc: 'Time técnico direto para destravar.' },
+export const CLIENT_ITEMS = [
+  {
+    name: 'Gio Dermocosméticos',
+    category: 'Agente comercial integrado ao atendimento legado',
+    mark: 'GD',
+  },
+  {
+    name: 'Adriana Lima Imóveis',
+    category: 'Agente de captação conectado ao processo interno',
+    mark: 'AL',
+  },
+  {
+    name: 'Vitoria Rocha',
+    category: 'Solução Mercado Livre integrada à operação existente',
+    mark: 'VR',
+  },
+  {
+    name: 'Relíquias de Família',
+    category: 'Loja Mercado Livre completa conectada ao sistema legado',
+    mark: 'RF',
+    href: 'https://reliquiasdefamilia.com.br/',
+    featured: true,
+  },
 ]
 
 export const NICHE_ITEMS = [
