@@ -2,7 +2,7 @@ import "server-only"
 
 import { randomUUID } from "node:crypto"
 
-import { getBillingCycleWindow } from "@/lib/billing"
+import { FREE_PLAN_INITIAL_TOKENS } from "@/lib/billing"
 import { getOrCreateDefaultModelId } from "@/lib/modelos"
 import { getSupabaseAdminClient } from "@/lib/supabase-admin"
 import { deleteUsuario, getUsuarioById } from "@/lib/usuarios"
@@ -39,7 +39,6 @@ async function getFreeBillingPlan(supabase) {
 
 export async function applyInitialFreePlan({ supabase, projetoId, now }) {
   const freePlan = await getFreeBillingPlan(supabase)
-  const { endIso } = getBillingCycleWindow(new Date(now || Date.now()))
 
   if (!freePlan?.id) {
     return
@@ -51,7 +50,7 @@ export async function applyInitialFreePlan({ supabase, projetoId, now }) {
     modelo_referencia: "gpt-4o-mini",
     limite_tokens_input_mensal: freePlan.limite_tokens_input_mensal ?? null,
     limite_tokens_output_mensal: freePlan.limite_tokens_output_mensal ?? null,
-    limite_tokens_total_mensal: freePlan.limite_tokens_total_mensal ?? null,
+    limite_tokens_total_mensal: FREE_PLAN_INITIAL_TOKENS,
     limite_custo_mensal: freePlan.limite_custo_mensal ?? null,
     auto_bloquear: true,
     bloqueado: false,
@@ -104,8 +103,8 @@ export async function applyInitialFreePlan({ supabase, projetoId, now }) {
     plano_id: freePlan.id,
     status: "ativo",
     data_inicio: now,
-    data_fim: endIso,
-    renovar_automatico: false,
+    data_fim: null,
+    renovar_automatico: true,
     updated_at: now,
   }
 

@@ -50,13 +50,12 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
   const resolvedStoreSlug = storeSlug || store?.slug
   const href = buildStoreProductHref(store || resolvedStoreSlug, product)
   const images = getStoreProductImages(product)
-  const largeImages = getStoreProductImages(product, { variant: 'F' })
   const videos = getStoreProductVideos(product)
   const [imageIndex, setImageIndex] = useState(0)
   const [isOpening, setIsOpening] = useState(false)
   const [activeVideo, setActiveVideo] = useState(null)
   const palette = buildStoreAccentPalette(accentColor)
-  const image = largeImages[imageIndex] || images[imageIndex] || largeImages[0] || images[0] || ''
+  const image = images[imageIndex] || images[0] || ''
   const hasGallery = images.length > 1
   const hasVideo = videos.length > 0
   const statusLabel = String(product.status || '').trim()

@@ -8,6 +8,8 @@ import { getPrimaryWhatsAppChannelByProjectId } from "@/lib/whatsapp-channels"
 
 const INFRASTUDIO_BILLING_ALERT_PROJECT_ID =
   process.env.INFRASTUDIO_HOME_PROJECT_ID?.trim() || "7d965fd5-2487-4efc-b3df-1d28fa3d5377"
+export const FREE_PLAN_INITIAL_TOKENS = 40_000
+export const FREE_PLAN_MONTHLY_RENEWAL_TOKENS = 30_000
 const billingPlansCache = {
   expiresAt: 0,
   plans: null,
@@ -221,16 +223,24 @@ function isExpiredSubscription(row) {
   return !Number.isNaN(endDate.getTime()) && endDate.getTime() <= Date.now()
 }
 
+function isFreeBillingPlan(plan) {
+  return Boolean(plan?.isFree) || String(plan?.name || "").trim().toLowerCase() === "free"
+}
+
 function applySubscriptionExpirationToConfig(config, subscription, plan) {
-  if (!config || !plan?.isFree || !isExpiredSubscription(subscription)) {
+  if (!config || isFreeBillingPlan(plan) || !isExpiredSubscription(subscription)) {
     return config
   }
 
-  return {
-    ...config,
-    blocked: true,
-    blockedReason: "O plano Free deste projeto expirou. Escolha um plano mensal para continuar usando.",
+  return config
+}
+
+function getCycleTokenLimitForRuntime(runtime, hasPreviousCycle = false) {
+  if (isFreeBillingPlan(runtime?.plan)) {
+    return hasPreviousCycle ? FREE_PLAN_MONTHLY_RENEWAL_TOKENS : FREE_PLAN_INITIAL_TOKENS
   }
+
+  return runtime?.config?.limits?.totalTokens ?? null
 }
 
 function mapTopUps(rows) {
@@ -639,6 +649,7 @@ async function ensureOpenBillingCycle(projectId, deps = {}) {
   const runtime = await loadProjectBillingRuntime(projectId, deps)
   const now = new Date()
   const { startIso, endIso } = getBillingCycleWindow(now)
+  const hasPreviousCycle = Boolean(runtime.cycleRow?.id)
 
   if (runtime.cycleRow?.id) {
     const cycleEnd = runtime.cycleRow.data_fim ? new Date(runtime.cycleRow.data_fim) : null
@@ -661,6 +672,7 @@ async function ensureOpenBillingCycle(projectId, deps = {}) {
     }
   }
 
+  const totalTokenLimit = getCycleTokenLimitForRuntime(runtime, hasPreviousCycle)
   const payload = {
     projeto_id: projectId,
     data_inicio: startIso,
@@ -671,7 +683,7 @@ async function ensureOpenBillingCycle(projectId, deps = {}) {
     fechado: false,
     limite_tokens_input: runtime.config?.limits?.inputTokens ?? null,
     limite_tokens_output: runtime.config?.limits?.outputTokens ?? null,
-    limite_tokens_total: runtime.config?.limits?.totalTokens ?? null,
+    limite_tokens_total: totalTokenLimit,
     limite_custo: runtime.config?.limits?.monthlyCost ?? null,
     custo_token_excedente: runtime.config?.overageTokenCost ?? 0,
     permitir_excedente: runtime.config?.allowOverage === true,

@@ -142,6 +142,14 @@ function buildStoreRewritePath(pathname, storeSlug) {
     return `/loja/${storeSlug}/opengraph-image`
   }
 
+  if (pathname === "/sitemap.xml") {
+    return `/loja/${storeSlug}/sitemap.xml`
+  }
+
+  if (pathname === "/robots.txt") {
+    return `/loja/${storeSlug}/robots.txt`
+  }
+
   return null
 }
 

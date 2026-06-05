@@ -8,11 +8,10 @@ import { getStoreProductMedia } from '@/components/store/store-utils'
 
 export function StoreProductHeroGallery({ accentColor = '#0f172a', product, title = '' }) {
   const media = useMemo(() => getStoreProductMedia(product), [product])
-  const largeMedia = useMemo(() => getStoreProductMedia(product, { variant: 'F' }), [product])
   const [activeIndex, setActiveIndex] = useState(0)
   const swipeRef = useRef({ active: false, startX: 0, startY: 0 })
   const safeActiveIndex = activeIndex >= media.length ? 0 : activeIndex
-  const activeMedia = largeMedia[safeActiveIndex] || media[safeActiveIndex] || null
+  const activeMedia = media[safeActiveIndex] || null
 
   function goToPreviousMedia() {
     if (!media.length) return
