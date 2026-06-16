@@ -9,6 +9,8 @@ import { ChevronLeft, ChevronRight, Loader2, Play, X } from 'lucide-react'
 import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, formatStoreInstallmentText, getStoreProductImages, getStoreProductVideos, trackStoreEvent } from '@/components/store/store-utils'
 
 const MAX_IMAGE_RETRIES = 8
+const liveImagesByProductRef = new Map()
+const pendingLiveImageRequests = new Map()
 
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
@@ -22,6 +24,12 @@ function buildRetriedImageSrc(src, retryCount = 0) {
 
   const separator = value.includes('?') ? '&' : '?'
   return `${value}${separator}_ml_retry=${retryCount}`
+}
+
+function buildProductRef(product) {
+  const itemId = String(product?.itemId || product?.id || '').trim()
+  const slug = String(product?.slug || product?.title || '').trim()
+  return itemId ? `${itemId}${slug ? `-${slug}` : ''}` : slug
 }
 
 function ProductVideoDialog({ onClose, product, video }) {
@@ -61,7 +69,8 @@ function ProductVideoDialog({ onClose, product, video }) {
 export function StoreProductCard({ store, storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card', variant = 'default' }) {
   const resolvedStoreSlug = storeSlug || store?.slug
   const href = buildStoreProductHref(store || resolvedStoreSlug, product)
-  const rawImages = getStoreProductImages(product)
+  const [recoveredImages, setRecoveredImages] = useState([])
+  const rawImages = recoveredImages.length ? recoveredImages : getStoreProductImages(product)
   const videos = getStoreProductVideos(product)
   const [imageIndex, setImageIndex] = useState(0)
   const [imageRetries, setImageRetries] = useState({})
@@ -94,6 +103,7 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
     retryTimersRef.current.clear()
     setImageIndex(0)
     setImageRetries({})
+    setRecoveredImages([])
   }, [product?.id])
 
   useEffect(() => {
@@ -132,6 +142,56 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
       }))
     }, retryDelay)
     retryTimersRef.current.set(src, timer)
+    refreshLiveImages()
+  }
+
+  async function refreshLiveImages() {
+    const productRef = buildProductRef(product)
+    const cacheKey = `${resolvedStoreSlug}:${productRef}`
+    if (!resolvedStoreSlug || !productRef) {
+      return
+    }
+
+    const cachedImages = liveImagesByProductRef.get(cacheKey)
+    if (cachedImages?.length) {
+      setRecoveredImages(cachedImages)
+      setImageRetries({})
+      setImageIndex(0)
+      return
+    }
+
+    if (pendingLiveImageRequests.has(cacheKey)) {
+      const pendingImages = await pendingLiveImageRequests.get(cacheKey).catch(() => [])
+      if (pendingImages.length) {
+        setRecoveredImages(pendingImages)
+        setImageRetries({})
+        setImageIndex(0)
+      }
+      return
+    }
+
+    const request = fetch(`/api/loja/${encodeURIComponent(resolvedStoreSlug)}/produto/${encodeURIComponent(productRef)}?forceLiveDetails=1`, {
+      cache: 'no-store',
+    })
+      .then((response) => response.json().then((payload) => ({ response, payload })).catch(() => ({ response, payload: {} })))
+      .then(({ response, payload }) => {
+        const nextImages = response.ok ? getStoreProductImages(payload?.product) : []
+        if (nextImages.length) {
+          liveImagesByProductRef.set(cacheKey, nextImages)
+        }
+        return nextImages
+      })
+      .finally(() => {
+        pendingLiveImageRequests.delete(cacheKey)
+      })
+
+    pendingLiveImageRequests.set(cacheKey, request)
+    const nextImages = await request.catch(() => [])
+    if (nextImages.length) {
+      setRecoveredImages(nextImages)
+      setImageRetries({})
+      setImageIndex(0)
+    }
   }
 
   function openVideo(event) {
