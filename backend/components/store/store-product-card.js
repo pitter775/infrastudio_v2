@@ -2,14 +2,26 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, Loader2, Play, X } from 'lucide-react'
 
 import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, formatStoreInstallmentText, getStoreProductImages, getStoreProductVideos, trackStoreEvent } from '@/components/store/store-utils'
 
+const MAX_IMAGE_RETRIES = 8
+
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
+}
+
+function buildRetriedImageSrc(src, retryCount = 0) {
+  const value = String(src || '').trim()
+  if (!value || retryCount <= 0) {
+    return value
+  }
+
+  const separator = value.includes('?') ? '&' : '?'
+  return `${value}${separator}_ml_retry=${retryCount}`
 }
 
 function ProductVideoDialog({ onClose, product, video }) {
@@ -49,13 +61,19 @@ function ProductVideoDialog({ onClose, product, video }) {
 export function StoreProductCard({ store, storeSlug, product, accentColor, compact = false, analyticsSource = 'grid_card', variant = 'default' }) {
   const resolvedStoreSlug = storeSlug || store?.slug
   const href = buildStoreProductHref(store || resolvedStoreSlug, product)
-  const images = getStoreProductImages(product)
+  const rawImages = getStoreProductImages(product)
   const videos = getStoreProductVideos(product)
   const [imageIndex, setImageIndex] = useState(0)
+  const [imageRetries, setImageRetries] = useState({})
+  const retryTimersRef = useRef(new Map())
   const [isOpening, setIsOpening] = useState(false)
   const [activeVideo, setActiveVideo] = useState(null)
+  const images = rawImages
   const palette = buildStoreAccentPalette(accentColor)
-  const image = images[imageIndex] || images[0] || ''
+  const safeImageIndex = imageIndex >= images.length ? 0 : imageIndex
+  const image = images[safeImageIndex] || images[0] || ''
+  const imageRetryCount = imageRetries[image] || 0
+  const imageSrc = buildRetriedImageSrc(image, imageRetryCount)
   const hasGallery = images.length > 1
   const hasVideo = videos.length > 0
   const statusLabel = String(product.status || '').trim()
@@ -70,6 +88,51 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
       ? `Produto publicado na categoria ${visibleCategoryLabel.toLowerCase()} com checkout final no Mercado Livre.`
       : 'Produto publicado com checkout final no Mercado Livre e atendimento direto pela loja.')
   const marketplaceInstallment = formatStoreInstallmentText(product)
+
+  useEffect(() => {
+    retryTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+    retryTimersRef.current.clear()
+    setImageIndex(0)
+    setImageRetries({})
+  }, [product?.id])
+
+  useEffect(() => {
+    return () => {
+      retryTimersRef.current.forEach((timer) => window.clearTimeout(timer))
+      retryTimersRef.current.clear()
+    }
+  }, [])
+
+  function clearImageRetry(src) {
+    const value = String(src || '').trim()
+    if (!value || !retryTimersRef.current.has(value)) {
+      return
+    }
+
+    window.clearTimeout(retryTimersRef.current.get(value))
+    retryTimersRef.current.delete(value)
+  }
+
+  function retryImage(src) {
+    if (!src) {
+      return
+    }
+
+    const currentCount = imageRetries[src] || 0
+    if (currentCount >= MAX_IMAGE_RETRIES || retryTimersRef.current.has(src)) {
+      return
+    }
+
+    const retryDelay = Math.min(800 * 2 ** currentCount, 30000)
+    const timer = window.setTimeout(() => {
+      retryTimersRef.current.delete(src)
+      setImageRetries((current) => ({
+        ...current,
+        [src]: (current[src] || 0) + 1,
+      }))
+    }, retryDelay)
+    retryTimersRef.current.set(src, timer)
+  }
 
   function openVideo(event) {
     event.preventDefault()
@@ -118,12 +181,15 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
           <div className="relative h-[224px] shrink-0 overflow-hidden bg-white p-[5px]">
             {image ? (
               <Image
-                src={image}
+                key={imageSrc}
+                src={imageSrc}
                 alt={product.title}
                 fill
                 sizes="(min-width: 1024px) 280px, 50vw"
                 unoptimized
                 className="h-full w-full rounded-[4px] bg-white object-contain transition duration-300 group-hover:scale-[1.02]"
+                onError={() => retryImage(image)}
+                onLoad={() => clearImageRetry(image)}
               />
             ) : null}
 
@@ -167,10 +233,20 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
                       className="relative aspect-square min-w-0 overflow-hidden rounded-[3px] bg-white"
                       aria-label={`Ver imagem ${index + 1}`}
                     >
-                      <Image src={thumbnail} alt={`${product.title} ${index + 1}`} fill sizes="48px" unoptimized className="h-full w-full object-cover" />
+                      <Image
+                        key={buildRetriedImageSrc(thumbnail, imageRetries[thumbnail] || 0)}
+                        src={buildRetriedImageSrc(thumbnail, imageRetries[thumbnail] || 0)}
+                        alt={`${product.title} ${index + 1}`}
+                        fill
+                        sizes="48px"
+                        unoptimized
+                        className="h-full w-full object-cover"
+                        onError={() => retryImage(thumbnail)}
+                        onLoad={() => clearImageRetry(thumbnail)}
+                      />
                       <span
                         className="pointer-events-none absolute inset-0 rounded-[3px] border-2"
-                        style={{ borderColor: index === imageIndex ? palette.accentDark : 'transparent' }}
+                        style={{ borderColor: index === safeImageIndex ? palette.accentDark : 'transparent' }}
                       />
                     </button>
                   ))}
@@ -262,12 +338,15 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
         <div className={compact ? 'relative aspect-[1.12/1] overflow-hidden bg-[#eef2f7]' : 'relative aspect-[1.1/1] overflow-hidden bg-[#eef2f7]'}>
           {image ? (
             <Image
-              src={image}
+              key={imageSrc}
+              src={imageSrc}
               alt={product.title}
               fill
               sizes={compact ? "(min-width: 1024px) 260px, 50vw" : "(min-width: 1024px) 360px, 100vw"}
               unoptimized
               className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.06]"
+              onError={() => retryImage(image)}
+              onLoad={() => clearImageRetry(image)}
             />
           ) : null}
 
@@ -311,10 +390,20 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
                     className="relative aspect-square min-w-0 overflow-hidden rounded-[4px] bg-white"
                     aria-label={`Ver imagem ${index + 1}`}
                   >
-                    <Image src={thumbnail} alt={`${product.title} ${index + 1}`} fill sizes="72px" unoptimized className="h-full w-full object-cover" />
+                    <Image
+                      key={buildRetriedImageSrc(thumbnail, imageRetries[thumbnail] || 0)}
+                      src={buildRetriedImageSrc(thumbnail, imageRetries[thumbnail] || 0)}
+                      alt={`${product.title} ${index + 1}`}
+                      fill
+                      sizes="72px"
+                      unoptimized
+                      className="h-full w-full object-cover"
+                      onError={() => retryImage(thumbnail)}
+                      onLoad={() => clearImageRetry(thumbnail)}
+                    />
                     <span
                       className="pointer-events-none absolute inset-0 rounded-[4px] border-2"
-                      style={{ borderColor: index === imageIndex ? palette.accentDark : 'transparent' }}
+                      style={{ borderColor: index === safeImageIndex ? palette.accentDark : 'transparent' }}
                     />
                   </button>
                 ))}
