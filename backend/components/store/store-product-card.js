@@ -11,6 +11,8 @@ import { buildStoreAccentPalette, buildStoreProductHref, formatStoreCurrency, fo
 const MAX_IMAGE_RETRIES = 8
 const liveImagesByProductRef = new Map()
 const pendingLiveImageRequests = new Map()
+const imageProbeBySrc = new Map()
+const pendingImageProbeBySrc = new Map()
 
 function isImageDebugEnabled() {
   if (typeof window === 'undefined') {
@@ -158,6 +160,68 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
     }
   }
 
+  function moveToNextImage(src) {
+    if (images.length <= 1) {
+      return
+    }
+
+    const currentIndex = images.findIndex((item) => item === src)
+    const nextIndex = currentIndex >= 0 ? (currentIndex + 1) % images.length : 0
+    setImageIndex(nextIndex)
+  }
+
+  async function probeMercadoLivreImage(src, slot) {
+    const value = String(src || '').trim()
+    if (!value || !/mlstatic\.com/i.test(value)) {
+      return null
+    }
+
+    if (imageProbeBySrc.has(value)) {
+      return imageProbeBySrc.get(value)
+    }
+
+    if (pendingImageProbeBySrc.has(value)) {
+      return pendingImageProbeBySrc.get(value)
+    }
+
+    const request = fetch(`/api/public/mercado-livre/image-probe?url=${encodeURIComponent(value)}`, {
+      cache: 'force-cache',
+    })
+      .then((response) => response.json().catch(() => ({})))
+      .then((payload) => {
+        imageProbeBySrc.set(value, payload)
+        return payload
+      })
+      .finally(() => {
+        pendingImageProbeBySrc.delete(value)
+      })
+
+    pendingImageProbeBySrc.set(value, request)
+    logStoreImageDebug('probe_started', buildImageDebugPayload(value, { slot }))
+    return request
+  }
+
+  async function handleLoadedImageProbe(src, slot) {
+    const probe = await probeMercadoLivreImage(src, slot).catch(() => null)
+    if (!probe) {
+      return
+    }
+
+    logStoreImageDebug('probe_response', buildImageDebugPayload(src, {
+      slot,
+      probe,
+    }))
+
+    if (probe.placeholder === true) {
+      logStoreImageDebug('placeholder_detected', buildImageDebugPayload(src, {
+        slot,
+        probe,
+      }))
+      moveToNextImage(src)
+      refreshLiveImages()
+    }
+  }
+
   function handleImageLoad(src, event, slot) {
     clearImageRetry(src)
     const target = event?.currentTarget
@@ -167,6 +231,9 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
       naturalWidth: target?.naturalWidth || 0,
       naturalHeight: target?.naturalHeight || 0,
     }))
+    if (slot === 'cover') {
+      handleLoadedImageProbe(src, slot)
+    }
   }
 
   function retryImage(src, slot) {
