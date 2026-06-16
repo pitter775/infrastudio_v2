@@ -12,6 +12,27 @@ const MAX_IMAGE_RETRIES = 8
 const liveImagesByProductRef = new Map()
 const pendingLiveImageRequests = new Map()
 
+function isImageDebugEnabled() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    const params = new URLSearchParams(window.location.search)
+    return params.get('debugImages') === '1' || window.localStorage.getItem('infrastudio-store-image-debug') === '1'
+  } catch {
+    return false
+  }
+}
+
+function logStoreImageDebug(event, details = {}) {
+  if (!isImageDebugEnabled()) {
+    return
+  }
+
+  console.info('[store-image-debug]', event, details)
+}
+
 function shouldHideCategoryCode(label) {
   return /^MLB\d+$/i.test(String(label || '').trim())
 }
@@ -123,17 +144,51 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
     retryTimersRef.current.delete(value)
   }
 
-  function retryImage(src) {
+  function buildImageDebugPayload(src, extra = {}) {
+    return {
+      productId: product?.itemId || product?.id || null,
+      productSlug: product?.slug || null,
+      productTitle: product?.title || null,
+      storeSlug: resolvedStoreSlug || null,
+      src,
+      retryCount: imageRetries[src] || 0,
+      snapshotImages: getStoreProductImages(product),
+      recoveredImages,
+      ...extra,
+    }
+  }
+
+  function handleImageLoad(src, event, slot) {
+    clearImageRetry(src)
+    const target = event?.currentTarget
+    logStoreImageDebug('load', buildImageDebugPayload(src, {
+      slot,
+      renderedSrc: target?.currentSrc || target?.src || '',
+      naturalWidth: target?.naturalWidth || 0,
+      naturalHeight: target?.naturalHeight || 0,
+    }))
+  }
+
+  function retryImage(src, slot) {
     if (!src) {
       return
     }
 
     const currentCount = imageRetries[src] || 0
     if (currentCount >= MAX_IMAGE_RETRIES || retryTimersRef.current.has(src)) {
+      logStoreImageDebug('retry_skipped', buildImageDebugPayload(src, {
+        slot,
+        reason: currentCount >= MAX_IMAGE_RETRIES ? 'max_retries' : 'pending_timer',
+      }))
       return
     }
 
     const retryDelay = Math.min(800 * 2 ** currentCount, 30000)
+    logStoreImageDebug('error_retry_scheduled', buildImageDebugPayload(src, {
+      slot,
+      nextRetryCount: currentCount + 1,
+      retryDelay,
+    }))
     const timer = window.setTimeout(() => {
       retryTimersRef.current.delete(src)
       setImageRetries((current) => ({
@@ -154,6 +209,10 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
 
     const cachedImages = liveImagesByProductRef.get(cacheKey)
     if (cachedImages?.length) {
+      logStoreImageDebug('live_images_cache_hit', buildImageDebugPayload(image, {
+        productRef,
+        liveImages: cachedImages,
+      }))
       setRecoveredImages(cachedImages)
       setImageRetries({})
       setImageIndex(0)
@@ -161,6 +220,7 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
     }
 
     if (pendingLiveImageRequests.has(cacheKey)) {
+      logStoreImageDebug('live_images_request_joined', buildImageDebugPayload(image, { productRef }))
       const pendingImages = await pendingLiveImageRequests.get(cacheKey).catch(() => [])
       if (pendingImages.length) {
         setRecoveredImages(pendingImages)
@@ -170,12 +230,20 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
       return
     }
 
+    logStoreImageDebug('live_images_request_started', buildImageDebugPayload(image, { productRef }))
     const request = fetch(`/api/loja/${encodeURIComponent(resolvedStoreSlug)}/produto/${encodeURIComponent(productRef)}?forceLiveDetails=1`, {
       cache: 'no-store',
     })
       .then((response) => response.json().then((payload) => ({ response, payload })).catch(() => ({ response, payload: {} })))
       .then(({ response, payload }) => {
         const nextImages = response.ok ? getStoreProductImages(payload?.product) : []
+        logStoreImageDebug('live_images_response', buildImageDebugPayload(image, {
+          productRef,
+          ok: response.ok,
+          status: response.status,
+          liveProductId: payload?.product?.itemId || payload?.product?.id || null,
+          liveImages: nextImages,
+        }))
         if (nextImages.length) {
           liveImagesByProductRef.set(cacheKey, nextImages)
         }
@@ -248,8 +316,8 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
                 sizes="(min-width: 1024px) 280px, 50vw"
                 unoptimized
                 className="h-full w-full rounded-[4px] bg-white object-contain transition duration-300 group-hover:scale-[1.02]"
-                onError={() => retryImage(image)}
-                onLoad={() => clearImageRetry(image)}
+                onError={() => retryImage(image, 'cover')}
+                onLoad={(event) => handleImageLoad(image, event, 'cover')}
               />
             ) : null}
 
@@ -301,8 +369,8 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
                         sizes="48px"
                         unoptimized
                         className="h-full w-full object-cover"
-                        onError={() => retryImage(thumbnail)}
-                        onLoad={() => clearImageRetry(thumbnail)}
+                        onError={() => retryImage(thumbnail, `thumbnail_${index}`)}
+                        onLoad={(event) => handleImageLoad(thumbnail, event, `thumbnail_${index}`)}
                       />
                       <span
                         className="pointer-events-none absolute inset-0 rounded-[3px] border-2"
@@ -405,8 +473,8 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
               sizes={compact ? "(min-width: 1024px) 260px, 50vw" : "(min-width: 1024px) 360px, 100vw"}
               unoptimized
               className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.06]"
-              onError={() => retryImage(image)}
-              onLoad={() => clearImageRetry(image)}
+              onError={() => retryImage(image, 'cover')}
+              onLoad={(event) => handleImageLoad(image, event, 'cover')}
             />
           ) : null}
 
@@ -458,8 +526,8 @@ export function StoreProductCard({ store, storeSlug, product, accentColor, compa
                       sizes="72px"
                       unoptimized
                       className="h-full w-full object-cover"
-                      onError={() => retryImage(thumbnail)}
-                      onLoad={() => clearImageRetry(thumbnail)}
+                      onError={() => retryImage(thumbnail, `thumbnail_${index}`)}
+                      onLoad={(event) => handleImageLoad(thumbnail, event, `thumbnail_${index}`)}
                     />
                     <span
                       className="pointer-events-none absolute inset-0 rounded-[4px] border-2"
