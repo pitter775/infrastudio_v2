@@ -614,6 +614,62 @@ Cada projeto tem seu próprio plano.
     },
   },
   {
+    name: "billing semantico responde proximo passo sem herdar campo factual anterior",
+    run: () => {
+      const runtimeConfig = {
+        pricingCatalog: {
+          enabled: true,
+          items: [
+            {
+              slug: "free",
+              name: "Free",
+              matchAny: ["free"],
+              priceLabel: "R$ 0/mes",
+              creditLimit: 40000,
+              marketplaceProductLimit: 10,
+              whatsappIncluded: false,
+              supportLevel: "Basico",
+              channels: ["site"],
+            },
+          ],
+        },
+      }
+
+      const decision = buildBillingDecisionFromSemanticIntent({
+        semanticIntent: {
+          intent: "plan_next_step_question",
+          confidence: 0.94,
+          reason: "cliente perguntou como seguir apos consultar o plano",
+          requestedPlanNames: [],
+          targetField: "",
+          targetFields: [],
+          usedLlm: true,
+        },
+      })
+
+      const reply = buildBillingReplyResult(
+        runtimeConfig,
+        {
+          channel: { kind: "web" },
+          billing: {
+            planFocus: {
+              slug: "free",
+              name: "Free",
+            },
+            lastField: "attendance_limit",
+          },
+        },
+        decision
+      )
+
+      assert.equal(decision?.kind, "plan_next_step_question")
+      assert.equal(reply?.metadata?.replyStrategy, "structured_plan_next_step")
+      assert.doesNotMatch(reply?.reply ?? "", /atendimentos/i)
+      assert.doesNotMatch(reply?.reply ?? "", /Não encontrei/i)
+      assert.match(reply?.reply ?? "", /Para seguir com o Free/i)
+    },
+  },
+  {
     name: "service propaga billingContextUpdate para o contexto da conversa",
     run: () => {
       const updatedContext = updateContextFromAiResult({

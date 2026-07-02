@@ -469,6 +469,18 @@ function buildClarifyingRecommendationReply(plans = []) {
   return `Para te recomendar com segurança, preciso que você priorize um critério: preço, atendimentos, agentes, WhatsApp ou suporte.${buildAvailableFieldsHint(plans)}`
 }
 
+function buildPlanNextStepReply(plan, singleCta) {
+  if (!plan) {
+    return "Preciso que você me diga qual plano você quer seguir."
+  }
+
+  const nextStep = plan.amount === 0
+    ? "não precisa de pagamento; o próximo passo é iniciar o cadastro ou a ativação pelo fluxo disponível"
+    : "o próximo passo é iniciar a contratação ou o checkout pelo canal disponível"
+
+  return `Para seguir com o ${plan.name}, ${nextStep}. ${singleCta}`
+}
+
 function deriveRecommendationFieldsFromPlans(plans = []) {
   if (plans.length < 2) {
     return []
@@ -783,6 +795,19 @@ export function buildBillingReplyResult(runtimeConfig = {}, context = {}, decisi
   const targetField = sanitizeString(decision?.targetField)
   const targetFields = resolveDecisionTargetFields(decision)
 
+  if (decision.kind === "plan_next_step_question") {
+    return {
+      reply: buildPlanNextStepReply(selectedPlan, singleCta),
+      metadata: {
+        targetPlan: selectedPlan?.slug ?? null,
+        targetField: null,
+        targetFields: [],
+        fieldFound: Boolean(selectedPlan),
+        replyStrategy: selectedPlan ? "structured_plan_next_step" : "missing_plan_focus",
+      },
+    }
+  }
+
   if (decision.kind === "plan_limit_question" || decision.kind === "plan_feature_question") {
     if (!selectedPlan) {
       return {
@@ -975,6 +1000,7 @@ export function buildBillingContextUpdate(decision = null, runtimeConfig = {}, c
       "specific_plan_question",
       "plan_limit_question",
       "plan_feature_question",
+      "plan_next_step_question",
       "plan_recommendation",
       "highest_priced_plan",
       "lowest_priced_plan",

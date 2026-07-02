@@ -408,6 +408,7 @@ export function buildBillingDecisionFromSemanticIntent(input) {
       "specific_plan_question",
       "plan_limit_question",
       "plan_feature_question",
+      "plan_next_step_question",
       "plan_recommendation",
     ].includes(semanticIntent.intent)
   ) {
@@ -997,11 +998,12 @@ export async function classifySemanticBillingIntentStage(input = {}) {
           content: [
             "Classifique a mensagem do cliente no contexto de catalogo estruturado de planos/precos.",
             "Retorne somente JSON valido.",
-            'Schema: {"intent":"pricing_overview|highest_priced_plan|lowest_priced_plan|plan_comparison|specific_plan_question|plan_limit_question|plan_feature_question|plan_recommendation|other","confidence":0..1,"reason":"string","requestedPlanNames":["string"],"targetField":"attendance_limit|agent_limit|credit_limit|marketplace_product_limit|whatsapp_included|support_level|price|","targetFields":["attendance_limit","agent_limit","credit_limit","marketplace_product_limit","whatsapp_included","support_level","price"]}',
+            'Schema: {"intent":"pricing_overview|highest_priced_plan|lowest_priced_plan|plan_comparison|specific_plan_question|plan_limit_question|plan_feature_question|plan_next_step_question|plan_recommendation|other","confidence":0..1,"reason":"string","requestedPlanNames":["string"],"targetField":"attendance_limit|agent_limit|credit_limit|marketplace_product_limit|whatsapp_included|support_level|price|","targetFields":["attendance_limit","agent_limit","credit_limit","marketplace_product_limit","whatsapp_included","support_level","price"]}',
             "Use pricing_overview quando o cliente pedir tabela, lista, valores, planos ou precos em geral.",
             "Use highest_priced_plan ou lowest_priced_plan quando ele pedir mais caro ou mais barato.",
             "Use plan_comparison quando ele pedir comparacao entre mais de um plano.",
             "Use specific_plan_question quando citar explicitamente um plano do catalogo e pedir uma visao geral dele.",
+            "Use plan_next_step_question quando, depois de falar de um plano ou preco, o cliente perguntar como comecar, ativar, contratar, fazer, aderir, usar o plano escolhido ou qual e o proximo passo. Nao herde targetField/lastField nesse caso.",
             "Use plan_limit_question quando pedir capacidade, quantidade, limite, quantos atendimentos, quantos agentes, créditos ou produtos de Mercado Livre de um plano.",
             "Use plan_feature_question quando pedir se o plano inclui WhatsApp, suporte ou algum recurso estruturado do catalogo.",
             "Use plan_recommendation quando ele pedir indicacao do melhor plano, mesmo sem explicitar o criterio. Quando o criterio nao estiver claro, deixe targetField vazio e targetFields vazio.",
@@ -1062,6 +1064,7 @@ export async function classifySemanticBillingIntentStage(input = {}) {
                   "specific_plan_question",
                   "plan_limit_question",
                   "plan_feature_question",
+                  "plan_next_step_question",
                   "plan_recommendation",
                   "other",
                 ],

@@ -648,6 +648,10 @@ Ainda errado / fragil:
 
 ## Registro curto
 
+- billing ganhou intenção semântica de próximo passo do plano
+  - `plan_next_step_question` cobre follow-up como pergunta de ativação/contratação depois de um plano em foco, sem herdar `lastField`
+  - o handler responde por `billing.planFocus` e evita cair no fail-closed de campo factual ausente, como limite de atendimentos
+  - isso mantém o ajuste no contrato semântico + handler determinístico, sem ampliar regex ou matcher textual
 - CTA de WhatsApp no widget ficou menos ansioso
   - canal ativo por si so nao injeta mais `Continuar no WhatsApp`
   - o CTA entra quando o cliente pede WhatsApp, ha handoff solicitado ou a qualificacao marca `pronto_para_whatsapp`
