@@ -4266,6 +4266,53 @@ Cada projeto tem seu próprio plano.
     },
   },
   {
+    name: "api runtime de item atual responde como consultor sem expor api",
+    run: () => {
+      const reply = buildApiFallbackReply(
+        "qual a situacao desse imovel?",
+        [
+          {
+            apiId: "api-consultar-imovel",
+            nome: "Consultar imovel",
+            config: {
+              runtime: {
+                intentType: "lookup_by_identifier",
+                presentation: "text",
+                responseShape: "single_item",
+                requiredFields: [{ name: "id", label: "id" }],
+              },
+            },
+            missingParams: [],
+            ok: true,
+            campos: [
+              { nome: "status", valor: "Leilao Judicial" },
+              { nome: "riscos", valor: "Existencia de indisponibilidades judiciais e debitos tributarios." },
+              { nome: "titulo", valor: "Casa Jardim das Americas" },
+              { nome: "matricula", valor: "156.001" },
+              { nome: "cartorio", valor: "1 CRI de Sao Bernardo do Campo" },
+            ],
+          },
+        ],
+        {
+          normalizeText: normalizeFixtureText,
+          buildSearchTokens: (value: string) => normalizeFixtureText(value).split(/\s+/).filter((item) => item.length >= 2),
+          singularizeToken: (value: string) => value,
+          intentType: "lookup_by_identifier",
+          apiId: "api-consultar-imovel",
+          parameterValues: {
+            id: "imovel-1",
+          },
+        }
+      );
+
+      assert.match(reply ?? "", /Sobre este imovel|Sobre este imóvel/i);
+      assert.match(reply ?? "", /Situa[cç][aã]o: Leilao Judicial|Situa[cç][aã]o: Leilão Judicial/i);
+      assert.match(reply ?? "", /Ponto de aten[cç][aã]o/i);
+      assert.doesNotMatch(reply ?? "", /\bAPI\b/i);
+      assert.doesNotMatch(reply ?? "", /consultad[ao]|retornou dados/i);
+    },
+  },
+  {
     name: "api runtime gera card fora de catalogo quando presentation e card",
     run: () => {
       const assets = buildApiCatalogAssets([
@@ -4341,7 +4388,7 @@ Cada projeto tem seu próprio plano.
         }
       );
 
-      assert.match(reply ?? "", /2 registros/i);
+      assert.match(reply ?? "", /2 op[cç][oõ]es compat[ií]veis/i);
       assert.match(reply ?? "", /EDIFICIO VILLA/i);
       assert.match(reply ?? "", /CONDOMINIO TIRADENTES/i);
     },

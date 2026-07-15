@@ -206,19 +206,15 @@ function buildGenericApiResultReply(apis = [], deps, customDeps = {}) {
     }).filter(Boolean)
 
     if (rows.length) {
-      const apiName = sanitizeString(api.nome) || "consultada"
-      return [`A API ${apiName} retornou ${runtimeItems.length} registros:`, ...rows].join("\n")
+      return [`Encontrei ${runtimeItems.length} opções compatíveis:`, ...rows].join("\n")
     }
   }
 
   const fields = Array.isArray(api.campos) ? api.campos.filter((field) => field?.valor != null && String(field.valor).trim()).slice(0, 6) : []
   if (fields.length) {
-    const lines = fields
-      .map((field) => `- ${formatApiFieldLabel(field.nome)}: ${formatApiFieldValue(field.nome, field.valor, deps)}`)
-      .filter(Boolean)
-
-    if (lines.length) {
-      return [`Encontrei dados na API ${sanitizeString(api.nome) || "consultada"}:`, ...lines].join("\n")
+    const customerReply = buildCustomerFacingApiFieldsReply(fields, deps)
+    if (customerReply) {
+      return customerReply
     }
   }
 
@@ -227,25 +223,22 @@ function buildGenericApiResultReply(apis = [], deps, customDeps = {}) {
       ? runtimeItems[0].filter((field) => field?.valor != null && String(field.valor).trim()).slice(0, 6)
       : []
   if (singleRuntimeItemFields.length) {
-    const lines = singleRuntimeItemFields
-      .map((field) => `- ${formatApiFieldLabel(field.nome)}: ${formatApiFieldValue(field.nome, field.valor, deps)}`)
-      .filter(Boolean)
-
-    if (lines.length) {
-      return [`Encontrei dados na API ${sanitizeString(api.nome) || "consultada"}:`, ...lines].join("\n")
+    const customerReply = buildCustomerFacingApiFieldsReply(singleRuntimeItemFields, deps)
+    if (customerReply) {
+      return customerReply
     }
   }
 
   const preview = sanitizeString(api.preview)
   if (presentation === "summary" && preview && !/^parametros ausentes|^preencha os parametros/i.test(preview)) {
-    return `Resumo da API ${sanitizeString(api.nome) || "consultada"}:\n${preview.slice(0, 700)}`
+    return `Encontrei um resumo para sua solicitação:\n${preview.slice(0, 700)}`
   }
 
   if (!preview || /^parametros ausentes|^preencha os parametros/i.test(preview)) {
     return null
   }
 
-  return `A API ${sanitizeString(api.nome) || "consultada"} retornou dados para essa busca:\n${preview.slice(0, 700)}`
+  return `Encontrei informações para sua solicitação:\n${preview.slice(0, 700)}`
 }
 
 const ANALYTICAL_QUERY_SIGNALS = [
@@ -1211,6 +1204,29 @@ function formatApiFieldLabel(path) {
     .trim()
 }
 
+function formatCustomerFacingApiFieldLabel(fieldName, deps) {
+  const normalizedField = deps.normalizeText(fieldName)
+
+  if (normalizedField.endsWith("status")) return "Situação"
+  if (normalizedField.endsWith("ocupacao")) return "Ocupação"
+  if (normalizedField.endsWith("riscos") || normalizedField.endsWith("risco")) return "Ponto de atenção"
+  if (normalizedField.endsWith("analise")) return "Leitura inicial"
+  if (normalizedField.endsWith("estrategia")) return "Estratégia sugerida"
+  if (normalizedField.endsWith("titulo")) return "Imóvel"
+  if (normalizedField.endsWith("descricao")) return "Descrição"
+  if (normalizedField.endsWith("matricula")) return "Matrícula"
+  if (normalizedField.endsWith("cartorio")) return "Cartório"
+  if (normalizedField.endsWith("valor_publico")) return "Valor de referência"
+  if (normalizedField.endsWith("valor_minimo")) return "Valor mínimo"
+  if (normalizedField.endsWith("valor_avaliacao")) return "Valor de avaliação"
+  if (normalizedField.endsWith("valor_mercado")) return "Valor de mercado"
+  if (normalizedField.endsWith("lance_recomendado")) return "Lance recomendado"
+  if (normalizedField.endsWith("lucro_estimado")) return "Lucro estimado"
+  if (normalizedField.endsWith("roi_estimado")) return "ROI estimado"
+
+  return formatApiFieldLabel(fieldName)
+}
+
 function formatApiFieldValue(fieldName, value, deps) {
   const normalizedField = deps.normalizeText(fieldName)
   const formattedDate = formatApiDateValue(value)
@@ -1225,6 +1241,49 @@ function formatApiFieldValue(fieldName, value, deps) {
   }
 
   return String(value ?? "").trim()
+}
+
+function isRealEstateApiField(fieldName, deps) {
+  const normalizedField = deps.normalizeText(fieldName)
+  return /(imovel|matricula|cartorio|ocupacao|lance|roi|leilao|avaliacao|area|quartos|banheiros)/.test(normalizedField)
+}
+
+function buildCustomerFacingApiFieldsReply(fields = [], deps) {
+  const usableFields = fields
+    .filter((field) => field?.valor != null && String(field.valor).trim())
+    .slice(0, 6)
+
+  if (!usableFields.length) {
+    return null
+  }
+
+  const isRealEstate = usableFields.some((field) => isRealEstateApiField(field.nome, deps))
+  const subject = isRealEstate ? "imóvel" : "item"
+  const hasRisk = usableFields.some((field) => {
+    const normalizedField = deps.normalizeText(field.nome)
+    return normalizedField.endsWith("riscos") || normalizedField.endsWith("risco")
+  })
+
+  const lines = usableFields
+    .map((field) => {
+      const label = formatCustomerFacingApiFieldLabel(field.nome, deps)
+      const value = formatApiFieldValue(field.nome, field.valor, deps)
+      return value ? `- ${label}: ${value}` : ""
+    })
+    .filter(Boolean)
+
+  if (!lines.length) {
+    return null
+  }
+
+  const opening = hasRisk
+    ? `Sobre este ${subject}, a situação exige atenção em alguns pontos:`
+    : `Sobre este ${subject}, encontrei estes pontos principais:`
+  const closing = hasRisk
+    ? "Minha leitura: pode ser uma oportunidade, mas eu avançaria com cautela e validaria esses pontos antes de qualquer decisão de lance."
+    : "Minha leitura: vale avançar para a próxima análise se esses pontos fizerem sentido para você."
+
+  return [opening, ...lines, "", closing].join("\n")
 }
 
 function formatDirectFieldReply(fieldName, value, deps) {
