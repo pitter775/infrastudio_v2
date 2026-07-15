@@ -200,7 +200,7 @@
       return "(" + digits.slice(0, 2) + ") " + digits.slice(2, 7) + "-" + digits.slice(7);
     }
 
-    var widgetContext = parseContext(rawContext);
+    var widgetContext = mergeInferredWidgetContext(parseContext(rawContext));
     var navigationResetTimer = null;
     var locationSignature = getLocationSignature();
     var chatContextResetKey = getChatContextResetKey(widgetContext, locationSignature);
@@ -235,7 +235,7 @@
       }
 
       rawContext = currentScript.getAttribute("data-context") || "";
-      widgetContext = parseContext(rawContext);
+      widgetContext = mergeInferredWidgetContext(parseContext(rawContext));
       canal = (currentScript.getAttribute("data-canal") || canal || "").trim();
       requestSource = (currentScript.getAttribute("data-source") || requestSource || "").trim();
       return true;
@@ -257,13 +257,64 @@
       return String(window.location.pathname || "") + String(window.location.search || "");
     }
 
+    function inferPropertyContextFromLocation() {
+      var match = String(window.location.pathname || "").match(/^\/imoveis\/([0-9a-f]{8}-[0-9a-f-]{27,})\/?$/i);
+      if (!match || !match[1]) {
+        return null;
+      }
+
+      var propertyId = match[1];
+      return {
+        id: propertyId,
+        propertyId: propertyId,
+        resource: {
+          id: propertyId,
+          type: "imovel",
+        },
+        imovel: {
+          id: propertyId,
+        },
+        ui: {
+          chatSessionScope: "navigation",
+          pageKind: "property_detail",
+          productDetailPreferred: true,
+        },
+      };
+    }
+
+    function mergeInferredWidgetContext(context) {
+      var inferred = inferPropertyContextFromLocation();
+      var safeContext = context && typeof context === "object" && !Array.isArray(context) ? context : {};
+      if (!inferred) {
+        return safeContext;
+      }
+
+      return {
+        ...inferred,
+        ...safeContext,
+        resource: {
+          ...(inferred.resource && typeof inferred.resource === "object" ? inferred.resource : {}),
+          ...(safeContext.resource && typeof safeContext.resource === "object" ? safeContext.resource : {}),
+        },
+        imovel: {
+          ...(inferred.imovel && typeof inferred.imovel === "object" ? inferred.imovel : {}),
+          ...(safeContext.imovel && typeof safeContext.imovel === "object" ? safeContext.imovel : {}),
+        },
+        ui: {
+          ...(inferred.ui && typeof inferred.ui === "object" ? inferred.ui : {}),
+          ...(safeContext.ui && typeof safeContext.ui === "object" ? safeContext.ui : {}),
+        },
+      };
+    }
+
     function getChatContextResetKey(context, fallbackLocationSignature) {
       var safeContext = context && typeof context === "object" ? context : {};
       var pageKind = String(safeContext?.storefront?.pageKind || "").trim().toLowerCase();
       var productSlug = String(safeContext?.storefront?.productSlug || "").trim().toLowerCase();
       var storeSlugContext = String(safeContext?.storefront?.storeSlug || storeSlug || "").trim().toLowerCase();
+      var propertyId = String(safeContext?.propertyId || safeContext?.imovel?.id || safeContext?.resource?.id || "").trim().toLowerCase();
       var pathnameSignature = String(fallbackLocationSignature || getLocationSignature() || "");
-      return [storeSlugContext, pageKind, productSlug, pathnameSignature].join("|");
+      return [storeSlugContext, pageKind, productSlug, propertyId, pathnameSignature].join("|");
     }
 
     function resolveChatSessionScope(context) {

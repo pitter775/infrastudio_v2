@@ -211,11 +211,6 @@ function buildGenericApiResultReply(apis = [], deps, customDeps = {}) {
     }
   }
 
-  const preview = sanitizeString(api.preview)
-  if (presentation === "summary" && preview && !/^parametros ausentes|^preencha os parametros/i.test(preview)) {
-    return `Resumo da API ${sanitizeString(api.nome) || "consultada"}:\n${preview.slice(0, 700)}`
-  }
-
   const fields = Array.isArray(api.campos) ? api.campos.filter((field) => field?.valor != null && String(field.valor).trim()).slice(0, 6) : []
   if (fields.length) {
     const lines = fields
@@ -225,6 +220,25 @@ function buildGenericApiResultReply(apis = [], deps, customDeps = {}) {
     if (lines.length) {
       return [`Encontrei dados na API ${sanitizeString(api.nome) || "consultada"}:`, ...lines].join("\n")
     }
+  }
+
+  const singleRuntimeItemFields =
+    runtimeItems.length === 1
+      ? runtimeItems[0].filter((field) => field?.valor != null && String(field.valor).trim()).slice(0, 6)
+      : []
+  if (singleRuntimeItemFields.length) {
+    const lines = singleRuntimeItemFields
+      .map((field) => `- ${formatApiFieldLabel(field.nome)}: ${formatApiFieldValue(field.nome, field.valor, deps)}`)
+      .filter(Boolean)
+
+    if (lines.length) {
+      return [`Encontrei dados na API ${sanitizeString(api.nome) || "consultada"}:`, ...lines].join("\n")
+    }
+  }
+
+  const preview = sanitizeString(api.preview)
+  if (presentation === "summary" && preview && !/^parametros ausentes|^preencha os parametros/i.test(preview)) {
+    return `Resumo da API ${sanitizeString(api.nome) || "consultada"}:\n${preview.slice(0, 700)}`
   }
 
   if (!preview || /^parametros ausentes|^preencha os parametros/i.test(preview)) {
