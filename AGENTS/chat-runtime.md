@@ -79,6 +79,12 @@ Saida comum:
   - `runtime.responsePath`
   - `runtime.previewPath`
   - `runtime.fields[].path`
+- API runtime deve ser tratado como recurso SaaS por projeto/agente, nao como regra exclusiva de um cliente:
+  - busca aberta usa API com `runtime.intentType = "catalog_search"` e `runtime.availabilityScope = "open_search"`
+  - item/pagina atual usa API com `runtime.intentType = "lookup_by_identifier"` e `runtime.availabilityScope = "context_item"`
+  - o contexto padrao para item atual pode vir do embed em `data-context` ou ser inferido pelo widget quando a URL seguir a convencao `/imoveis/{uuid}`
+  - para novos clientes, usar o mesmo contrato conceitual (`id`, `propertyId`, `resource.id`, `imovel.id`) ou passar contexto equivalente explicitamente no embed
+  - a configuracao especifica de dominio, campos, URLs e apresentacao fica em `apis.configuracoes.runtime`, nunca hardcoded no agente
 - Mercado Livre participa do runtime como catalogo estruturado quando existe conector ativo e snapshot disponivel
 - chat/widget da loja Mercado Livre usa contexto de storefront/produto e deve priorizar a vitrine da loja para intencoes catalogais
 - loja publica do Mercado Livre ja existe em `/loja/{slug}` e `/loja/{slug}/produto/{produtoSlug}`

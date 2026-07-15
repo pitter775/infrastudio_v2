@@ -48,6 +48,7 @@ Arquivos:
 - [ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md](C:\Projetos\infrastudio_v2\ARQUITETURA-ALVO-CHAT-CANAIS-E-CATALOGO.md): visao arquitetural alvo do universo chat, widget, WhatsApp, Mercado Livre, billing e catalogo
 - [EGRESS-BANCO-PLANO-CONTINUIDADE.md](C:\Projetos\infrastudio_v2\EGRESS-BANCO-PLANO-CONTINUIDADE.md): plano de continuidade para reduzir egress, payload e consultas desnecessarias
 - [API-RUNTIME-PRESENTATION-PLANO.md](C:\Projetos\infrastudio_v2\API-RUNTIME-PRESENTATION-PLANO.md): plano de continuidade para separar `intentType`, `presentation`, `responseShape`, extracao de dados e renderizacao de respostas de API
+- [API-RUNTIME-CONTEXTO-SAAS.md](C:\Projetos\infrastudio_v2\API-RUNTIME-CONTEXTO-SAAS.md): padrao SaaS para separar busca aberta e item atual por contexto do widget/API runtime
 
 ## Arquivos PLANO
 
